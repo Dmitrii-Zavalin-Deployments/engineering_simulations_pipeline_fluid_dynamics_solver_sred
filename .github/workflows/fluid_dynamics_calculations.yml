@@ -1,0 +1,48 @@
+name: Fluid Dynamics Calculations Pipeline
+
+on:
+  push:
+    branches:
+      - "**"  # Triggers on any branch
+    paths:
+      - "testing-input-output/boundary_conditions.json"
+  workflow_dispatch:
+
+jobs:
+  fluid_dynamics_calculations:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
+
+    - name: Install Dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Read Input Data
+      run: cat testing-input-output/boundary_conditions.json
+
+    - name: Run Fluid Dynamics Calculations
+      run: |
+        python scripts/process_fluid_dynamics.py testing-input-output/boundary_conditions.json
+
+    - name: Generate Output for Blender
+      run: |
+        python scripts/generate_blender_format.py testing-input-output/fluid_flow_parameters.json
+
+    - name: Verify Output File Exists
+      run: |
+        if [ -f testing-input-output/fluid_flow_parameters.json ]; then
+          echo "Output file successfully created."
+        else
+          echo "Error: Output file not found!" && exit 1
+        fi
+
+
+
