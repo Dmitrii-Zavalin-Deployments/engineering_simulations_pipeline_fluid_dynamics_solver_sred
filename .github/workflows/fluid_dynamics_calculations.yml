@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - "**"  # Triggers on any branch
-    paths:
-      - "testing-input-output/boundary_conditions.json"
   workflow_dispatch:
 
 jobs:
