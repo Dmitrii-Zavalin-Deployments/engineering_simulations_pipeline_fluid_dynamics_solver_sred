@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - "**"  # Triggers on any branch
+    paths:
+      - "testing-input-output/boundary_conditions.json"
   workflow_dispatch:
 
 jobs:
@@ -28,11 +30,11 @@ jobs:
 
     - name: Run Fluid Dynamics Calculations
       run: |
-        python scripts/process_fluid_dynamics.py testing-input-output/boundary_conditions.json
+        python process_fluid_dynamics.py testing-input-output/boundary_conditions.json
 
     - name: Generate Output for Blender
       run: |
-        python scripts/generate_blender_format.py testing-input-output/fluid_flow_parameters.json
+        python generate_blender_format.py testing-input-output/fluid_flow_parameters.json
 
     - name: Verify Output File Exists
       run: |
