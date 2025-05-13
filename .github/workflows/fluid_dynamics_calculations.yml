@@ -32,13 +32,13 @@ jobs:
 
     - name: Verify Output File Exists
       run: |
-        if [ -f testing-input-output/blender_fluid_parameters.json ]; then
-          echo "✅ Output file successfully created."
+        if [ -f testing-input-output/fluid_dynamics_result.json ]; then
+          echo "✅ Fluid dynamics output successfully created."
         else
-          echo "❌ Error: Output file not found!" && exit 1
+          echo "❌ Error: Fluid dynamics output file not found!" && exit 1
         fi
 
-    - name: Commit and Push `.blend` File to Repository
+    - name: Commit and Push Fluid Dynamics Result to Repository
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
@@ -49,17 +49,17 @@ jobs:
         # Ensure we are in the correct repo directory
         cd $GITHUB_WORKSPACE
 
-        # Add new `.blend` files if they exist
-        if ls testing-input-output/*.blend 1> /dev/null 2>&1; then
-          git add testing-input-output/*.blend
+        # Add fluid dynamics result files if they exist
+        if ls testing-input-output/fluid_dynamics_result.json 1> /dev/null 2>&1; then
+          git add testing-input-output/fluid_dynamics_result.json
           git status
           
           if git diff --cached --quiet; then
             echo "✅ No changes to commit!"
           else
-            git commit -m "Auto-update: Added latest fluid simulation .blend file"
+            git commit -m "Auto-update: Added latest fluid dynamics calculation result"
             git push origin HEAD
           fi
         else
-          echo "❌ No `.blend` file detected, skipping commit."
+          echo "❌ No fluid dynamics result file detected, skipping commit."
         fi
