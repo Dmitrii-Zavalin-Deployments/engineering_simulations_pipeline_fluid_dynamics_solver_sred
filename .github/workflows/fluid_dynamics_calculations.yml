@@ -30,10 +30,6 @@ jobs:
       run: |
         python process_fluid_dynamics.py testing-input-output/boundary_conditions.json
 
-    - name: Generate Output for Blender
-      run: |
-        python generate_blender_format.py testing-input-output/fluid_flow_parameters.json
-
     - name: Verify Output File Exists
       run: |
         if [ -f testing-input-output/blender_fluid_parameters.json ]; then
