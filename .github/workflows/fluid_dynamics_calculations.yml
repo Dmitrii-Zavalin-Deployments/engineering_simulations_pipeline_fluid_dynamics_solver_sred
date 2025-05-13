@@ -46,7 +46,6 @@ jobs:
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
@@ -58,10 +57,13 @@ jobs:
         if ls testing-input-output/*.blend 1> /dev/null 2>&1; then
           git add testing-input-output/*.blend
           git status
-          git diff --cached --quiet && echo "✅ No changes to commit!" || git commit -m "Auto-update: Added latest fluid simulation .blend file"
-          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD
+          
+          if git diff --cached --quiet; then
+            echo "✅ No changes to commit!"
+          else
+            git commit -m "Auto-update: Added latest fluid simulation .blend file"
+            git push origin HEAD
+          fi
         else
           echo "❌ No `.blend` file detected, skipping commit."
-
-
-
+        fi
