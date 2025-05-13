@@ -37,24 +37,31 @@ jobs:
     - name: Verify Output File Exists
       run: |
         if [ -f testing-input-output/blender_fluid_parameters.json ]; then
-          echo "Output file successfully created."
+          echo "✅ Output file successfully created."
         else
-          echo "Error: Output file not found!" && exit 1
+          echo "❌ Error: Output file not found!" && exit 1
         fi
 
     - name: Commit and Push `.blend` File to Repository
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        git config --global user.name "$GIT_USER_NAME"
-        git config --global user.email "$GIT_USER_EMAIL"
+        git config --global user.name "${GIT_USER_NAME}"
+        git config --global user.email "${GIT_USER_EMAIL}"
+
+        # Ensure we are in the correct repo directory
+        cd $GITHUB_WORKSPACE
 
         # Add new `.blend` files if they exist
         if ls testing-input-output/*.blend 1> /dev/null 2>&1; then
           git add testing-input-output/*.blend
           git status
           git diff --cached --quiet && echo "✅ No changes to commit!" || git commit -m "Auto-update: Added latest fluid simulation .blend file"
-          git push origin HEAD
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD
         else
           echo "❌ No `.blend` file detected, skipping commit."
+
+
+
