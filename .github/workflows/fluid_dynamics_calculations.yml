@@ -32,7 +32,7 @@ jobs:
 
     - name: Verify Output File Exists
       run: |
-        if [ -f testing-input-output/fluid_dynamics_result.json ]; then
+        if [ -f testing-input-output/fluid_flow_parameters.json ]; then
           echo "✅ Fluid dynamics output successfully created."
         else
           echo "❌ Error: Fluid dynamics output file not found!" && exit 1
@@ -50,8 +50,8 @@ jobs:
         cd $GITHUB_WORKSPACE
 
         # Add fluid dynamics result files if they exist
-        if ls testing-input-output/fluid_dynamics_result.json 1> /dev/null 2>&1; then
-          git add testing-input-output/fluid_dynamics_result.json
+        if ls testing-input-output/fluid_flow_parameters.json 1> /dev/null 2>&1; then
+          git add testing-input-output/fluid_flow_parameters.json
           git status
           
           if git diff --cached --quiet; then
