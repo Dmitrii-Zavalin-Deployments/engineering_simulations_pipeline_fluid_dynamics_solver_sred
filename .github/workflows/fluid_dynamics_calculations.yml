@@ -40,7 +40,7 @@ jobs:
 
     - name: Run Unit and Integration Tests
       run: |
-        python -m unittest discover -s tests
+        PYTHONPATH=$PYTHONPATH:$(pwd)/src python -m unittest discover -s tests
       continue-on-error: false  # Fails the workflow if tests fail
 
     - name: Commit and Push Fluid Dynamics Result to Repository
@@ -68,6 +68,3 @@ jobs:
         else
           echo "❌ No fluid dynamics result file detected, skipping commit."
         fi
-
-
-
