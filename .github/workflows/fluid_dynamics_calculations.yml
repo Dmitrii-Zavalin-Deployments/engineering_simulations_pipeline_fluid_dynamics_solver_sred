@@ -38,6 +38,11 @@ jobs:
           echo "❌ Error: Fluid dynamics output file not found!" && exit 1
         fi
 
+    - name: Run Unit and Integration Tests
+      run: |
+        python -m unittest discover -s tests
+      continue-on-error: false  # Fails the workflow if tests fail
+
     - name: Commit and Push Fluid Dynamics Result to Repository
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
