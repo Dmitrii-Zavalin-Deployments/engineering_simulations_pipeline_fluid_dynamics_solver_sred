@@ -24,15 +24,15 @@ jobs:
         pip install -r requirements.txt
 
     - name: Read Input Data
-      run: cat testing-input-output/boundary_conditions.json
+      run: cat data/testing-input-output/boundary_conditions.json
 
     - name: Run Fluid Dynamics Calculations
       run: |
-        python process_fluid_dynamics.py testing-input-output/boundary_conditions.json
+        python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
 
     - name: Verify Output File Exists
       run: |
-        if [ -f testing-input-output/fluid_flow_parameters.json ]; then
+        if [ -f data/testing-input-output/fluid_flow_parameters.json ]; then
           echo "✅ Fluid dynamics output successfully created."
         else
           echo "❌ Error: Fluid dynamics output file not found!" && exit 1
@@ -55,8 +55,8 @@ jobs:
         cd $GITHUB_WORKSPACE
 
         # Add fluid dynamics result files if they exist
-        if ls testing-input-output/fluid_flow_parameters.json 1> /dev/null 2>&1; then
-          git add testing-input-output/fluid_flow_parameters.json
+        if ls data/testing-input-output/fluid_flow_parameters.json 1> /dev/null 2>&1; then
+          git add data/testing-input-output/fluid_flow_parameters.json
           git status
           
           if git diff --cached --quiet; then
@@ -68,3 +68,6 @@ jobs:
         else
           echo "❌ No fluid dynamics result file detected, skipping commit."
         fi
+
+
+
