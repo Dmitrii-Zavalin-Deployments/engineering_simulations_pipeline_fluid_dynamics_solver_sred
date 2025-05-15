@@ -1,15 +1,15 @@
 import unittest
 import json
 import os
-from process_fluid_dynamics import load_boundary_conditions, process_fluid_dynamics, save_output
+from src.process_fluid_dynamics import load_boundary_conditions, process_fluid_dynamics, save_output  # ✅ Updated import path
 
 class TestFluidDynamicsCalculations(unittest.TestCase):
 
     def setUp(self):
         """Prepare sample input data for testing"""
-        self.test_input_file = "testing-input-output/test_boundary_conditions.json"
-        self.test_output_file = "testing-input-output/test_fluid_flow_parameters.json"
-        
+        self.test_input_file = "data/testing-input-output/test_boundary_conditions.json"  # ✅ Updated path
+        self.test_output_file = "data/testing-input-output/test_fluid_flow_parameters.json"  # ✅ Updated path
+
         # Sample boundary conditions
         self.sample_conditions = {
             "velocity_x": 1.5,
@@ -17,7 +17,10 @@ class TestFluidDynamicsCalculations(unittest.TestCase):
             "velocity_z": 2.0,
             "pressure": 101325  # Atmospheric pressure in Pascals
         }
-        
+
+        # Ensure testing-input-output directory exists
+        os.makedirs("data/testing-input-output", exist_ok=True)
+
         # Write sample JSON input
         with open(self.test_input_file, 'w') as f:
             json.dump(self.sample_conditions, f, indent=4)
@@ -45,13 +48,13 @@ class TestFluidDynamicsCalculations(unittest.TestCase):
         """Test that output is saved correctly"""
         processed_data = process_fluid_dynamics(self.sample_conditions)
         save_output(self.test_output_file, processed_data)
-        
+
         self.assertTrue(os.path.exists(self.test_output_file))
 
         # Load saved JSON and verify structure
         with open(self.test_output_file, 'r') as f:
             saved_data = json.load(f)
-        
+
         self.assertIn("adjusted_velocity_x", saved_data)
         self.assertEqual(saved_data["adjusted_velocity_x"], processed_data["adjusted_velocity_x"])
 
