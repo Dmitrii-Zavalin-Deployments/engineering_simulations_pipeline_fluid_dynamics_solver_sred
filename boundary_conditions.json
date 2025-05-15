@@ -1,0 +1,32 @@
+{
+    "inlet_faces": [308, 310, 311, 312, 313, 314, 315],
+    "inlet_boundary": {
+        "type": "velocity_inlet",
+        "velocity": [2.5, 0.0, 0.0],
+        "direction": [1.0, 0.0, 0.0],
+        "pressure": 101325,
+        "fluid_properties": {
+            "temperature": 298,
+            "density": 1000,
+            "viscosity": 0.001002
+        }
+    },
+    "outlet_faces": [97, 100, 101, 102, 103, 104, 105, 106, 107],
+    "outlet_boundary": {
+        "type": "pressure_outlet",
+        "velocity": null,
+        "pressure": null
+    },
+    "wall_faces": [0, 1, 2, ..., 20],
+    "wall_boundary": {
+        "no_slip": true,
+        "wall_properties": {
+            "roughness": 0.002,
+            "heat_transfer": false
+        }
+    },
+    "simulation_settings": {
+        "suggested_time_step": 0.001,
+        "CFL_condition": "adaptive"
+    }
+}
