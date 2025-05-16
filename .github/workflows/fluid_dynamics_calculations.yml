@@ -38,10 +38,18 @@ jobs:
           echo "❌ Error: Fluid dynamics output file not found!" && exit 1
         fi
 
-    - name: Run Unit and Integration Tests
-      run: |
-        PYTHONPATH=$PYTHONPATH:$(pwd)/src python -m unittest discover -s tests
-      continue-on-error: false  # Fails the workflow if tests fail
+    # ✅ Run Unit & Integration Tests Separately
+    - name: Run unit tests  
+      run: pytest tests/test_unit_validation.py --verbose  
+
+    - name: Run output validation tests  
+      run: pytest tests/test_output_validation.py --verbose
+
+    - name: Run integration tests  
+      run: pytest tests/test_integration_validation.py --verbose
+
+    - name: Run performance tests  
+      run: pytest tests/test_performance_testing.py --verbose
 
     - name: Commit and Push Fluid Dynamics Result to Repository
       env:
@@ -68,3 +76,6 @@ jobs:
         else
           echo "❌ No fluid dynamics result file detected, skipping commit."
         fi
+
+
+
