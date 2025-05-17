@@ -26,6 +26,16 @@ jobs:
     - name: Read Input Data
       run: cat data/testing-input-output/boundary_conditions.json
 
+    # ✅ Step: Delete Previous Fluid Dynamics Output If Exists
+    - name: Delete Previous Fluid Flow Parameters
+      run: |
+        if [ -f data/testing-input-output/fluid_flow_parameters.json ]; then
+          rm data/testing-input-output/fluid_flow_parameters.json
+          echo "🗑️ Deleted previous fluid_flow_parameters.json file."
+        else
+          echo "ℹ️ No previous fluid_flow_parameters.json found—proceeding with new calculations."
+        fi
+
     - name: Run Fluid Dynamics Calculations
       run: |
         python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
@@ -76,6 +86,3 @@ jobs:
         else
           echo "❌ No fluid dynamics result file detected, skipping commit."
         fi
-
-
-
