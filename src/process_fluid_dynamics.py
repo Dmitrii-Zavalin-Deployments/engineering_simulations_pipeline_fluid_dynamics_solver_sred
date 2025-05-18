@@ -43,7 +43,7 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
 # Solve Navier-Stokes Equations
 def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
     """Numerically solves Navier-Stokes using Finite Volume Method."""
-    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float)
+    velocity = np.full(grid_size, input_data["fluid_velocity"], dtype=float)
     pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float)
     density = input_data["density"].magnitude
     viscosity = input_data["viscosity"].magnitude
@@ -52,7 +52,11 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
     for _ in range(500):
         advection_term = -velocity * np.gradient(velocity, axis=(0, 1))
         diffusion_term = viscosity * np.array([np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1)) for i in range(3)], dtype=float).T
-        pressure_gradient = -np.gradient(pressure, axis=(0, 1))[:, :, np.newaxis] / density
+        
+        # Fix pressure gradient computation
+        grad_x, grad_y = np.gradient(pressure, axis=(0, 1))  # Compute separate gradients
+        pressure_gradient = -np.stack([grad_x, grad_y], axis=-1) / density  # Correct vector formatting
+        
         velocity += dt * (advection_term + diffusion_term + pressure_gradient)
 
     return {"velocity": velocity.tolist(), "pressure": pressure.tolist()}
