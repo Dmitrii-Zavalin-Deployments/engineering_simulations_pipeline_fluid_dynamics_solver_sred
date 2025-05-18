@@ -93,9 +93,6 @@ def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ure
 
 # Example execution
 if __name__ == "__main__":
-    input_file_path = "boundary_conditions.json"
+    input_file_path = "data/testing-input-output/boundary_conditions.json"
     output_file_path = "fluid_simulation_output.json"
     main(input_file_path, output_file_path)
-
-
-
