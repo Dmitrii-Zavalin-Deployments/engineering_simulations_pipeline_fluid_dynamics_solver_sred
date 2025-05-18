@@ -11,11 +11,15 @@ def load_input_file(file_path):
     with open(file_path, "r") as file:
         input_data = json.load(file)
 
+    # Extract fluid properties from the inlet boundary
+    fluid_properties = input_data["inlet_boundary"]["fluid_properties"]
+
     # Convert units correctly
-    input_data["fluid_velocity"] *= ureg.meter / ureg.second
-    input_data["pressure"] *= ureg.pascal
-    input_data["density"] *= ureg.kilogram / ureg.meter**3
-    input_data["viscosity"] *= ureg.pascal * ureg.second
+    input_data["fluid_velocity"] = np.array(input_data["inlet_boundary"]["velocity"]) * ureg.meter / ureg.second
+    input_data["pressure"] = input_data["inlet_boundary"]["pressure"] * ureg.pascal if input_data["inlet_boundary"]["pressure"] is not None else 0 * ureg.pascal
+    input_data["density"] = fluid_properties["density"] * ureg.kilogram / ureg.meter**3
+    input_data["viscosity"] = fluid_properties["viscosity"] * ureg.pascal * ureg.second
+
     return input_data
 
 # Apply boundary conditions
@@ -23,7 +27,7 @@ def apply_boundary_conditions(mesh, input_data):
     """Assigns inlet, outlet, and wall boundary conditions."""
     mesh["boundary"]["inlet"]["velocity"] = input_data["fluid_velocity"]
     mesh["boundary"]["outlet"]["pressure"] = input_data["pressure"]
-    mesh["boundary"]["walls"]["velocity"] = 0 * ureg.meter / ureg.second  # No-slip condition
+    mesh["boundary"]["walls"]["velocity"] = np.array([0.0, 0.0, 0.0]) * ureg.meter / ureg.second  # No-slip condition
     return mesh
 
 # CFL condition enforcement
@@ -37,7 +41,8 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
 # Solve Navier-Stokes Equations
 def solve_navier_stokes(input_data, grid_size=(100, 100), dt=0.001):
     """Numerically solves Navier-Stokes using Finite Volume Method."""
-    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude)
+    velocity_magnitude = np.linalg.norm(input_data["fluid_velocity"])
+    velocity = np.full(grid_size, velocity_magnitude)
     pressure = np.full(grid_size, input_data["pressure"].magnitude)
     density = input_data["density"].magnitude
     viscosity = input_data["viscosity"].magnitude
