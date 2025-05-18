@@ -14,8 +14,10 @@ def load_input_file(file_path):
     # Extract fluid properties from the inlet boundary
     fluid_properties = input_data["inlet_boundary"]["fluid_properties"]
 
-    # Convert units correctly
+    # Convert velocity into a NumPy array representing a vector
     input_data["fluid_velocity"] = np.array(input_data["inlet_boundary"]["velocity"], dtype=float) * ureg.meter / ureg.second
+
+    # Convert units correctly
     input_data["pressure"] = input_data["inlet_boundary"]["pressure"] * ureg.pascal if input_data["inlet_boundary"]["pressure"] is not None else 0 * ureg.pascal
     input_data["density"] = fluid_properties["density"] * ureg.kilogram / ureg.meter**3
     input_data["viscosity"] = fluid_properties["viscosity"] * ureg.pascal * ureg.second
@@ -27,31 +29,30 @@ def apply_boundary_conditions(mesh, input_data):
     """Assigns inlet, outlet, and wall boundary conditions."""
     mesh["boundary"]["inlet"]["velocity"] = input_data["fluid_velocity"]
     mesh["boundary"]["outlet"]["pressure"] = input_data["pressure"]
-    mesh["boundary"]["walls"]["velocity"] = np.array([0.0, 0.0, 0.0], dtype=float) * ureg.meter / ureg.second  # No-slip condition
+    mesh["boundary"]["walls"]["velocity"] = np.zeros(3, dtype=float) * ureg.meter / ureg.second  # No-slip condition
     return mesh
 
 # CFL condition enforcement
 def enforce_cfl_condition(velocity_field, dx_field, dt):
     """Ensures CFL condition across computational domain."""
-    max_velocity = np.max(velocity_field)
+    max_velocity = np.max(np.linalg.norm(velocity_field, axis=-1))
     min_dx = np.min(dx_field)
     cfl_value = max_velocity * dt / min_dx
     assert cfl_value <= 1, "CFL condition violated! Adjust time-step or grid spacing."
 
 # Solve Navier-Stokes Equations
-def solve_navier_stokes(input_data, grid_size=(100, 100), dt=0.001):
+def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
     """Numerically solves Navier-Stokes using Finite Volume Method."""
-    velocity_magnitude = np.linalg.norm(input_data["fluid_velocity"].magnitude)
-    velocity = np.full(grid_size, velocity_magnitude, dtype=float)
-    pressure = np.full(grid_size, input_data["pressure"].magnitude, dtype=float)
+    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float)
+    pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float)
     density = input_data["density"].magnitude
     viscosity = input_data["viscosity"].magnitude
 
-    # Compute advection, diffusion, and pressure gradient
+    # Compute advection, diffusion, and pressure gradient separately for vx, vy, vz
     for _ in range(500):
-        advection_term = -velocity * np.gradient(velocity)
-        diffusion_term = viscosity * np.gradient(np.gradient(velocity.astype(float)))
-        pressure_gradient = -np.gradient(pressure) / density
+        advection_term = -velocity * np.gradient(velocity, axis=(0, 1))
+        diffusion_term = viscosity * np.array([np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1)) for i in range(3)], dtype=float).T
+        pressure_gradient = -np.gradient(pressure, axis=(0, 1))[:, :, np.newaxis] / density
         velocity += dt * (advection_term + diffusion_term + pressure_gradient)
 
     return {"velocity": velocity.tolist(), "pressure": pressure.tolist()}
@@ -59,7 +60,8 @@ def solve_navier_stokes(input_data, grid_size=(100, 100), dt=0.001):
 # Compute Turbulence using RANS k-epsilon Model
 def compute_turbulence_rans(velocity_field, viscosity):
     """Computes turbulence dissipation rate using k-epsilon model."""
-    k = 0.5 * np.mean(np.array(velocity_field, dtype=float)**2)
+    velocity_magnitude = np.linalg.norm(velocity_field, axis=-1)
+    k = 0.5 * np.mean(velocity_magnitude**2)
     epsilon = viscosity * (k**2)
     return {"kinetic_energy": k, "dissipation_rate": epsilon}
 
@@ -81,7 +83,7 @@ def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ure
     fluid_results = solve_navier_stokes(input_data)
 
     # Enforce numerical stability
-    enforce_cfl_condition(fluid_results["velocity"], dx_field, dt)
+    enforce_cfl_condition(np.array(fluid_results["velocity"], dtype=float), dx_field, dt)
 
     # Compute turbulence model effects
     turbulence_results = compute_turbulence_rans(np.array(fluid_results["velocity"], dtype=float), input_data["viscosity"].magnitude)
