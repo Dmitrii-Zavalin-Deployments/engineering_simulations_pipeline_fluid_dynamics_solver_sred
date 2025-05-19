@@ -26,14 +26,14 @@ jobs:
     - name: Read Input Data
       run: cat data/testing-input-output/boundary_conditions.json
 
-    # ✅ Step: Delete Previous Fluid Dynamics Output If Exists
-    - name: Delete Previous Fluid Flow Parameters
+    # ✅ Step: Delete Previous Boundary Conditions Output If Exists
+    - name: Delete Previous Boundary Conditions Output
       run: |
-        if [ -f data/testing-input-output/fluid_flow_parameters.json ]; then
-          rm data/testing-input-output/fluid_flow_parameters.json
-          echo "🗑️ Deleted previous fluid_flow_parameters.json file."
+        if [ -f data/testing-input-output/boundary_conditions.json ]; then
+          rm data/testing-input-output/boundary_conditions.json
+          echo "🗑️ Deleted previous boundary_conditions.json file."
         else
-          echo "ℹ️ No previous fluid_flow_parameters.json found—proceeding with new calculations."
+          echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
         fi
 
     - name: Run Fluid Dynamics Calculations
@@ -42,10 +42,10 @@ jobs:
 
     - name: Verify Output File Exists
       run: |
-        if [ -f data/testing-input-output/fluid_flow_parameters.json ]; then
-          echo "✅ Fluid dynamics output successfully created."
+        if [ -f data/testing-input-output/boundary_conditions.json ]; then
+          echo "✅ Boundary conditions output successfully created."
         else
-          echo "❌ Error: Fluid dynamics output file not found!" && exit 1
+          echo "❌ Error: Boundary conditions output file not found!" && exit 1
         fi
 
     # ✅ Run Unit & Integration Tests Separately
@@ -61,7 +61,8 @@ jobs:
     - name: Run performance tests  
       run: pytest tests/test_performance_testing.py --verbose
 
-    - name: Commit and Push Fluid Dynamics Result to Repository
+    # ✅ Commit and Push Updated Boundary Conditions Output (Only If Tests Passed)
+    - name: Commit and Push Boundary Conditions JSON
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
@@ -72,17 +73,17 @@ jobs:
         # Ensure we are in the correct repo directory
         cd $GITHUB_WORKSPACE
 
-        # Add fluid dynamics result files if they exist
-        if ls data/testing-input-output/fluid_flow_parameters.json 1> /dev/null 2>&1; then
-          git add data/testing-input-output/fluid_flow_parameters.json
+        # Add boundary conditions result files if they exist
+        if ls data/testing-input-output/boundary_conditions.json 1> /dev/null 2>&1; then
+          git add data/testing-input-output/boundary_conditions.json
           git status
           
           if git diff --cached --quiet; then
             echo "✅ No changes to commit!"
           else
-            git commit -m "Auto-update: Added latest fluid dynamics calculation result"
+            git commit -m "Auto-update: Added latest boundary conditions calculation result"
             git push origin HEAD
           fi
         else
-          echo "❌ No fluid dynamics result file detected, skipping commit."
+          echo "❌ No boundary conditions result file detected, skipping commit."
         fi
