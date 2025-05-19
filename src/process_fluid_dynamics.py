@@ -14,11 +14,11 @@ def load_input_file(file_path):
     # Extract fluid properties from the inlet boundary
     fluid_properties = input_data["inlet_boundary"]["fluid_properties"]
 
-    # Convert velocity into a NumPy array representing a vector
+    # Convert velocity into a NumPy array representing a vector with units
     input_data["fluid_velocity"] = np.array(input_data["inlet_boundary"]["velocity"], dtype=float) * ureg.meter / ureg.second
 
-    # Convert units correctly
-    input_data["pressure"] = input_data["inlet_boundary"]["pressure"] * ureg.pascal if input_data["inlet_boundary"]["pressure"] is not None else 0 * ureg.pascal
+    # Convert units correctly, handling potential None values
+    input_data["pressure"] = fluid_properties.get("pressure", 0) * ureg.pascal
     input_data["density"] = fluid_properties["density"] * ureg.kilogram / ureg.meter**3
     input_data["viscosity"] = fluid_properties["viscosity"] * ureg.pascal * ureg.second
 
@@ -37,16 +37,16 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
     """Ensures CFL condition across computational domain."""
     max_velocity = np.max(np.linalg.norm(velocity_field, axis=-1))
     min_dx = np.min(dx_field)
-    cfl_value = max_velocity * dt / min_dx
-    assert cfl_value <= 1, "CFL condition violated! Adjust time-step or grid spacing."
+    cfl_value = (max_velocity * dt / min_dx).to_base_units().magnitude # Ensure dimensional consistency and extract magnitude
+    assert cfl_value <= 1, f"CFL condition violated! CFL = {cfl_value:.4f}. Adjust time-step or grid spacing."
 
 # Solve Navier-Stokes Equations
-def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
+def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.second):
     """Numerically solves Navier-Stokes using Finite Volume Method."""
-    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float)
-    pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float)
+    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float) # Use magnitude for initialization
+    pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float) # Use magnitude for initialization
     density = input_data["density"].magnitude
-    viscosity = input_data["viscosity"].magnitude  # Convert to float
+    viscosity = input_data["viscosity"].magnitude  # Extract magnitude to ensure it's a float
 
     # Compute advection, diffusion, and pressure gradient separately for vx, vy, vz
     for _ in range(500):
@@ -58,14 +58,14 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
         for i in range(3):
             grad_vx, grad_vy = np.gradient(velocity[..., i], axis=(0, 1))  # Compute gradients separately
             advection_term[..., i] = -velocity[..., i] * (grad_vx + grad_vy)  # Fix broadcasting issue
-            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))  # Ensure viscosity is a float
+            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))
 
         # Compute pressure gradient per velocity component
         grad_x, grad_y = np.gradient(pressure, axis=(0, 1))
         pressure_gradient[..., 0] = -grad_x / density  # Assign x component
         pressure_gradient[..., 1] = -grad_y / density  # Assign y component
 
-        velocity += dt * (advection_term + diffusion_term + pressure_gradient)
+        velocity += (dt.magnitude * (advection_term + diffusion_term + pressure_gradient)) # Use dt.magnitude
 
     return {"velocity": velocity.tolist(), "pressure": pressure.tolist()}
 
@@ -74,7 +74,7 @@ def compute_turbulence_rans(velocity_field, viscosity):
     """Computes turbulence dissipation rate using k-epsilon model."""
     velocity_magnitude = np.linalg.norm(velocity_field, axis=-1)
     k = 0.5 * np.mean(velocity_magnitude**2)
-    epsilon = viscosity.magnitude * (k**2)  # Ensure viscosity is a float
+    epsilon = viscosity.magnitude * (k**2)  # Use viscosity.magnitude
     return {"kinetic_energy": k, "dissipation_rate": epsilon}
 
 # Generate output file
@@ -92,7 +92,7 @@ def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ure
     dx_field = np.full((100, 100), dx.magnitude, dtype=float)
 
     # Solve Navier-Stokes equations
-    fluid_results = solve_navier_stokes(input_data)
+    fluid_results = solve_navier_stokes(input_data, dt=dt) # Pass dt with units to the solver
 
     # Enforce numerical stability
     enforce_cfl_condition(np.array(fluid_results["velocity"], dtype=float), dx_field, dt)
@@ -115,3 +115,6 @@ if __name__ == "__main__":
     input_file_path = "data/testing-input-output/boundary_conditions.json"
     output_file_path = "fluid_simulation_output.json"
     main(input_file_path, output_file_path)
+
+
+
