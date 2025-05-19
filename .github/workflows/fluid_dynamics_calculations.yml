@@ -20,12 +20,11 @@ jobs:
         python-version: "3.x"
 
     - name: Install Dependencies
-      run: |
-        pip install -r requirements.txt
+      run: pip install -r requirements.txt
 
     - name: Read Input Data
       run: cat data/testing-input-output/boundary_conditions.json
-      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE
+      working-directory: ${{ github.workspace }}
 
     # ✅ Step: Delete Previous Boundary Conditions Output If Exists
     - name: Delete Previous Boundary Conditions Output
@@ -36,11 +35,11 @@ jobs:
         else
           echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
         fi
-      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE (Good practice for file operations)
+      working-directory: ${{ github.workspace }}
 
     - name: Run Fluid Dynamics Calculations
       run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
-      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE - THIS IS THE FIX!
+      working-directory: ${{ github.workspace }} # ✅ THIS LINE FIXES THE FileNotFoundError
 
     - name: Verify Output File Exists
       run: |
@@ -49,20 +48,24 @@ jobs:
         else
           echo "❌ Error: Boundary conditions output file not found!" && exit 1
         fi
-      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE (Good practice for file operations)
+      working-directory: ${{ github.workspace }}
 
     # ✅ Run Unit & Integration Tests Separately
     - name: Run unit tests
       run: pytest tests/test_unit_validation.py --verbose
+      working-directory: ${{ github.workspace }} # Good practice
 
     - name: Run output validation tests
       run: pytest tests/test_output_validation.py --verbose
+      working-directory: ${{ github.workspace }} # Good practice
 
     - name: Run integration tests
       run: pytest tests/test_integration_validation.py --verbose
+      working-directory: ${{ github.workspace }} # Good practice
 
     - name: Run performance tests
       run: pytest tests/test_performance_testing.py --verbose
+      working-directory: ${{ github.workspace }} # Good practice
 
     # ✅ Commit and Push Updated Boundary Conditions Output (Only If Tests Passed)
     - name: Commit and Push Boundary Conditions JSON
@@ -90,3 +93,4 @@ jobs:
         else
           echo "❌ No boundary conditions result file detected, skipping commit."
         fi
+      working-directory: ${{ github.workspace }}
