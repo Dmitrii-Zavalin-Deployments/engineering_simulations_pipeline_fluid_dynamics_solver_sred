@@ -25,6 +25,7 @@ jobs:
 
     - name: Read Input Data
       run: cat data/testing-input-output/boundary_conditions.json
+      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE
 
     # ✅ Step: Delete Previous Boundary Conditions Output If Exists
     - name: Delete Previous Boundary Conditions Output
@@ -35,10 +36,11 @@ jobs:
         else
           echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
         fi
+      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE (Good practice for file operations)
 
     - name: Run Fluid Dynamics Calculations
-      run: |
-        python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
+      run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
+      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE - THIS IS THE FIX!
 
     - name: Verify Output File Exists
       run: |
@@ -47,18 +49,19 @@ jobs:
         else
           echo "❌ Error: Boundary conditions output file not found!" && exit 1
         fi
+      working-directory: ${{ github.workspace }} # 👈 ADD THIS LINE (Good practice for file operations)
 
     # ✅ Run Unit & Integration Tests Separately
-    - name: Run unit tests  
-      run: pytest tests/test_unit_validation.py --verbose  
+    - name: Run unit tests
+      run: pytest tests/test_unit_validation.py --verbose
 
-    - name: Run output validation tests  
+    - name: Run output validation tests
       run: pytest tests/test_output_validation.py --verbose
 
-    - name: Run integration tests  
+    - name: Run integration tests
       run: pytest tests/test_integration_validation.py --verbose
 
-    - name: Run performance tests  
+    - name: Run performance tests
       run: pytest tests/test_performance_testing.py --verbose
 
     # ✅ Commit and Push Updated Boundary Conditions Output (Only If Tests Passed)
@@ -77,7 +80,7 @@ jobs:
         if ls data/testing-input-output/boundary_conditions.json 1> /dev/null 2>&1; then
           git add data/testing-input-output/boundary_conditions.json
           git status
-          
+
           if git diff --cached --quiet; then
             echo "✅ No changes to commit!"
           else
