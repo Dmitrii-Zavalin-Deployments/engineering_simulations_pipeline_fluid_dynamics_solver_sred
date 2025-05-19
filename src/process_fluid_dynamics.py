@@ -64,7 +64,10 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.sec
             grad_vx, grad_vy = np.gradient(velocity[..., i], axis=(0, 1))  # Compute gradients separately
             advection_term[..., i] = -velocity[..., i] * (grad_vx + grad_vy)  # Fix broadcasting issue
             # Ensure viscosity used in the calculation is the float magnitude
-            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))
+            grad_x_diff = np.gradient(velocity[..., i], axis=0)
+            grad_y_diff = np.gradient(velocity[..., i], axis=1)
+            laplacian = np.gradient(grad_x_diff, axis=0) + np.gradient(grad_y_diff, axis=1)
+            diffusion_term[..., i] = viscosity * laplacian
 
         # Compute pressure gradient per velocity component
         grad_x, grad_y = np.gradient(pressure, axis=(0, 1))
