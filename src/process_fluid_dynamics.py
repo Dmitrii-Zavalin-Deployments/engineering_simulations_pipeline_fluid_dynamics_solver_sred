@@ -46,7 +46,7 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
     velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float)
     pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float)
     density = input_data["density"].magnitude
-    viscosity = input_data["viscosity"].magnitude
+    viscosity = input_data["viscosity"].magnitude  # Convert to float
 
     # Compute advection, diffusion, and pressure gradient separately for vx, vy, vz
     for _ in range(500):
@@ -58,7 +58,7 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
         for i in range(3):
             grad_vx, grad_vy = np.gradient(velocity[..., i], axis=(0, 1))  # Compute gradients separately
             advection_term[..., i] = -velocity[..., i] * (grad_vx + grad_vy)  # Fix broadcasting issue
-            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))
+            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))  # Ensure viscosity is a float
 
         # Compute pressure gradient per velocity component
         grad_x, grad_y = np.gradient(pressure, axis=(0, 1))
@@ -74,7 +74,7 @@ def compute_turbulence_rans(velocity_field, viscosity):
     """Computes turbulence dissipation rate using k-epsilon model."""
     velocity_magnitude = np.linalg.norm(velocity_field, axis=-1)
     k = 0.5 * np.mean(velocity_magnitude**2)
-    epsilon = viscosity * (k**2)
+    epsilon = viscosity.magnitude * (k**2)  # Ensure viscosity is a float
     return {"kinetic_energy": k, "dissipation_rate": epsilon}
 
 # Generate output file
@@ -98,7 +98,7 @@ def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ure
     enforce_cfl_condition(np.array(fluid_results["velocity"], dtype=float), dx_field, dt)
 
     # Compute turbulence model effects
-    turbulence_results = compute_turbulence_rans(np.array(fluid_results["velocity"], dtype=float), input_data["viscosity"].magnitude)
+    turbulence_results = compute_turbulence_rans(np.array(fluid_results["velocity"], dtype=float), input_data["viscosity"])
 
     # Combine results
     results = {
