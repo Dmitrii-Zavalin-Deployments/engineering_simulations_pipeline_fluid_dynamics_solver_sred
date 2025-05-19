@@ -57,7 +57,7 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
         # Compute advection and diffusion separately per velocity component
         for i in range(3):
             grad_vx, grad_vy = np.gradient(velocity[..., i], axis=(0, 1))  # Compute gradients separately
-            advection_term[..., i] = -velocity[..., i] * np.stack([grad_vx, grad_vy], axis=-1)  # Stack gradients correctly
+            advection_term[..., i] = -velocity[..., i] * (grad_vx + grad_vy)  # Fix broadcasting issue
             diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))
 
         # Compute pressure gradient per velocity component
@@ -65,7 +65,7 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001):
         pressure_gradient[..., 0] = -grad_x / density  # Assign x component
         pressure_gradient[..., 1] = -grad_y / density  # Assign y component
 
-        velocity += dt * (advection_term.sum(axis=-1) + diffusion_term.sum(axis=-1) + pressure_gradient.sum(axis=-1))
+        velocity += dt * (advection_term + diffusion_term + pressure_gradient)
 
     return {"velocity": velocity.tolist(), "pressure": pressure.tolist()}
 
