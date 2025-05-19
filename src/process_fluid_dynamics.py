@@ -37,7 +37,7 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
     """Ensures CFL condition across computational domain."""
     max_velocity = np.max(np.linalg.norm(velocity_field, axis=-1))
     min_dx = np.min(dx_field)
-    cfl_value = (max_velocity * dt / min_dx).to_base_units().magnitude # Ensure dimensional consistency and extract magnitude
+    cfl_value = (max_velocity * dt.magnitude / min_dx) # Extract dt magnitude for computation
     assert cfl_value <= 1, f"CFL condition violated! CFL = {cfl_value:.4f}. Adjust time-step or grid spacing."
 
 # Solve Navier-Stokes Equations
@@ -58,14 +58,14 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.sec
         for i in range(3):
             grad_vx, grad_vy = np.gradient(velocity[..., i], axis=(0, 1))  # Compute gradients separately
             advection_term[..., i] = -velocity[..., i] * (grad_vx + grad_vy)  # Fix broadcasting issue
-            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))
+            diffusion_term[..., i] = viscosity * np.gradient(np.gradient(velocity[..., i], axis=(0, 1)), axis=(0, 1))  # Use viscosity magnitude
 
         # Compute pressure gradient per velocity component
         grad_x, grad_y = np.gradient(pressure, axis=(0, 1))
         pressure_gradient[..., 0] = -grad_x / density  # Assign x component
         pressure_gradient[..., 1] = -grad_y / density  # Assign y component
 
-        velocity += (dt.magnitude * (advection_term + diffusion_term + pressure_gradient)) # Use dt.magnitude
+        velocity += dt.magnitude * (advection_term + diffusion_term + pressure_gradient) # Extract dt magnitude for computation
 
     return {"velocity": velocity.tolist(), "pressure": pressure.tolist()}
 
@@ -74,7 +74,7 @@ def compute_turbulence_rans(velocity_field, viscosity):
     """Computes turbulence dissipation rate using k-epsilon model."""
     velocity_magnitude = np.linalg.norm(velocity_field, axis=-1)
     k = 0.5 * np.mean(velocity_magnitude**2)
-    epsilon = viscosity.magnitude * (k**2)  # Use viscosity.magnitude
+    epsilon = viscosity.magnitude * (k**2)  # Use viscosity magnitude
     return {"kinetic_energy": k, "dissipation_rate": epsilon}
 
 # Generate output file
@@ -115,6 +115,3 @@ if __name__ == "__main__":
     input_file_path = "data/testing-input-output/boundary_conditions.json"
     output_file_path = "fluid_simulation_output.json"
     main(input_file_path, output_file_path)
-
-
-
