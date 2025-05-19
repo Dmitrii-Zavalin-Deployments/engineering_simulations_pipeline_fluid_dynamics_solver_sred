@@ -43,7 +43,12 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
 # Solve Navier-Stokes Equations
 def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.second):
     """Numerically solves Navier-Stokes using Finite Volume Method."""
-    velocity = np.full(grid_size, input_data["fluid_velocity"].magnitude, dtype=float) # Use magnitude for initialization
+    initial_velocity = input_data["fluid_velocity"].magnitude # Get the magnitude
+    if initial_velocity.ndim == 1 and initial_velocity.shape[0] == 3:
+        velocity = np.tile(initial_velocity, (grid_size[0], grid_size[1], 1)) # Tile the vector
+    else:
+        raise ValueError("Initial velocity must be a vector of 3 components.")
+
     pressure = np.full(grid_size[:2], input_data["pressure"].magnitude, dtype=float) # Use magnitude for initialization
     density = input_data["density"].magnitude
     viscosity = input_data["viscosity"].magnitude  # Extract magnitude to ensure it's a float
@@ -115,3 +120,6 @@ if __name__ == "__main__":
     input_file_path = "data/testing-input-output/boundary_conditions.json"
     output_file_path = "fluid_simulation_output.json"
     main(input_file_path, output_file_path)
+
+
+
