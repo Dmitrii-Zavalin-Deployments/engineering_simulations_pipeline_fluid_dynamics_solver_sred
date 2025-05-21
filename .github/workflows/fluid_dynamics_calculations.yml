@@ -20,7 +20,13 @@ jobs:
         python-version: "3.x"
 
     - name: Install Dependencies
-      run: pip install -r requirements.txt
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest  # Explicitly install pytest
+
+    - name: List installed packages (Debugging)
+      run: pip list
 
     # --- REMOVE OR COMMENT OUT THIS BLOCK ---
     # - name: Delete Previous Boundary Conditions Output
@@ -34,22 +40,17 @@ jobs:
     #   working-directory: ${{ github.workspace }}
     # ----------------------------------------
 
-    # Keep this, as it's useful for debugging and checking the input file
     - name: Read Input Data (Verify existence)
       run: cat data/testing-input-output/boundary_conditions.json
       working-directory: ${{ github.workspace }}
 
     - name: Run Fluid Dynamics Calculations
       run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json data/testing-input-output/simulation_results.json
-      # ^^^ You NEED an output file name here ^^^
-      # I've used 'simulation_results.json' as a logical placeholder for the output.
-      # You MUST decide what the output file should be called.
-      # Your script receives two arguments: input_file_path and output_file_path.
       working-directory: ${{ github.workspace }}
 
     - name: Verify Output File Exists
       run: |
-        if [ -f data/testing-input-output/simulation_results.json ]; then # <-- CHECK FOR THE NEW OUTPUT FILE
+        if [ -f data/testing-input-output/simulation_results.json ]; then
           echo "✅ Fluid dynamics simulation output successfully created."
         else
           echo "❌ Error: Fluid dynamics simulation output file not found!" && exit 1
@@ -82,20 +83,23 @@ jobs:
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
 
-        cd "$GITHUB_WORKSPACE" # Use quotes for best practice
+        cd "$GITHUB_WORKSPACE"
 
         # Add simulation result files if they exist
-        if ls data/testing-input-output/simulation_results.json 1> /dev/null 2>&1; then # <-- CHECK FOR THE NEW OUTPUT FILE
-          git add data/testing-input-output/simulation_results.json # <-- ADD THE NEW OUTPUT FILE
+        if ls data/testing-input-output/simulation_results.json 1> /dev/null 2>&1; then
+          git add data/testing-input-output/simulation_results.json
           git status
 
           if git diff --cached --quiet; then
             echo "✅ No changes to commit!"
           else
-            git commit -m "Auto-update: Added latest fluid dynamics simulation result" # <-- Update commit message
+            git commit -m "Auto-update: Added latest fluid dynamics simulation result"
             git push origin HEAD
           fi
         else
           echo "❌ No simulation result file detected, skipping commit."
         fi
       working-directory: ${{ github.workspace }}
+
+
+
