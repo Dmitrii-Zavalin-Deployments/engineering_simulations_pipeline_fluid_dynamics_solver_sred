@@ -3,7 +3,7 @@ name: Fluid Dynamics Calculations Pipeline
 on:
   push:
     branches:
-      - "**"  # Triggers on any branch
+      - "**" # Triggers on any branch
   workflow_dispatch:
 
 jobs:
@@ -22,53 +22,59 @@ jobs:
     - name: Install Dependencies
       run: pip install -r requirements.txt
 
-    - name: Read Input Data
+    # --- REMOVE OR COMMENT OUT THIS BLOCK ---
+    # - name: Delete Previous Boundary Conditions Output
+    #   run: |
+    #     if [ -f data/testing-input-output/boundary_conditions.json ]; then
+    #       rm data/testing-input-output/boundary_conditions.json
+    #       echo "🗑️ Deleted previous boundary_conditions.json file."
+    #     else
+    #       echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
+    #     fi
+    #   working-directory: ${{ github.workspace }}
+    # ----------------------------------------
+
+    # Keep this, as it's useful for debugging and checking the input file
+    - name: Read Input Data (Verify existence)
       run: cat data/testing-input-output/boundary_conditions.json
       working-directory: ${{ github.workspace }}
 
-    # ✅ Step: Delete Previous Boundary Conditions Output If Exists
-    - name: Delete Previous Boundary Conditions Output
-      run: |
-        if [ -f data/testing-input-output/boundary_conditions.json ]; then
-          rm data/testing-input-output/boundary_conditions.json
-          echo "🗑️ Deleted previous boundary_conditions.json file."
-        else
-          echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
-        fi
-      working-directory: ${{ github.workspace }}
-
     - name: Run Fluid Dynamics Calculations
-      run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json
-      working-directory: ${{ github.workspace }} # ✅ THIS LINE FIXES THE FileNotFoundError
+      run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json data/testing-input-output/simulation_results.json
+      # ^^^ You NEED an output file name here ^^^
+      # I've used 'simulation_results.json' as a logical placeholder for the output.
+      # You MUST decide what the output file should be called.
+      # Your script receives two arguments: input_file_path and output_file_path.
+      working-directory: ${{ github.workspace }}
 
     - name: Verify Output File Exists
       run: |
-        if [ -f data/testing-input-output/boundary_conditions.json ]; then
-          echo "✅ Boundary conditions output successfully created."
+        if [ -f data/testing-input-output/simulation_results.json ]; then # <-- CHECK FOR THE NEW OUTPUT FILE
+          echo "✅ Fluid dynamics simulation output successfully created."
         else
-          echo "❌ Error: Boundary conditions output file not found!" && exit 1
+          echo "❌ Error: Fluid dynamics simulation output file not found!" && exit 1
         fi
       working-directory: ${{ github.workspace }}
 
-    # ✅ Run Unit & Integration Tests Separately
+    # ✅ Run Unit & Integration Tests Separately (Paths are good with working-directory)
     - name: Run unit tests
       run: pytest tests/test_unit_validation.py --verbose
-      working-directory: ${{ github.workspace }} # Good practice
+      working-directory: ${{ github.workspace }}
 
     - name: Run output validation tests
       run: pytest tests/test_output_validation.py --verbose
-      working-directory: ${{ github.workspace }} # Good practice
+      working-directory: ${{ github.workspace }}
 
     - name: Run integration tests
       run: pytest tests/test_integration_validation.py --verbose
-      working-directory: ${{ github.workspace }} # Good practice
+      working-directory: ${{ github.workspace }}
 
     - name: Run performance tests
       run: pytest tests/test_performance_testing.py --verbose
-      working-directory: ${{ github.workspace }} # Good practice
+      working-directory: ${{ github.workspace }}
 
     # ✅ Commit and Push Updated Boundary Conditions Output (Only If Tests Passed)
-    - name: Commit and Push Boundary Conditions JSON
+    - name: Commit and Push Simulation Results JSON
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
@@ -76,21 +82,20 @@ jobs:
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
 
-        # Ensure we are in the correct repo directory
-        cd $GITHUB_WORKSPACE
+        cd "$GITHUB_WORKSPACE" # Use quotes for best practice
 
-        # Add boundary conditions result files if they exist
-        if ls data/testing-input-output/boundary_conditions.json 1> /dev/null 2>&1; then
-          git add data/testing-input-output/boundary_conditions.json
+        # Add simulation result files if they exist
+        if ls data/testing-input-output/simulation_results.json 1> /dev/null 2>&1; then # <-- CHECK FOR THE NEW OUTPUT FILE
+          git add data/testing-input-output/simulation_results.json # <-- ADD THE NEW OUTPUT FILE
           git status
 
           if git diff --cached --quiet; then
             echo "✅ No changes to commit!"
           else
-            git commit -m "Auto-update: Added latest boundary conditions calculation result"
+            git commit -m "Auto-update: Added latest fluid dynamics simulation result" # <-- Update commit message
             git push origin HEAD
           fi
         else
-          echo "❌ No boundary conditions result file detected, skipping commit."
+          echo "❌ No simulation result file detected, skipping commit."
         fi
       working-directory: ${{ github.workspace }}
