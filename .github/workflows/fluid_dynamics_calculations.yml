@@ -59,7 +59,7 @@ jobs:
         echo "✅ Output file simulation_results.json found at $OUTPUT_FILE."
       # No need for working-directory here if using absolute paths with GITHUB_WORKSPACE
 
-    - name: Debugging: Show Output File Contents
+    - name: Debugging - Show Output File Contents
       run: cat "${GITHUB_WORKSPACE}/data/testing-input-output/simulation_results.json"
       # No need for working-directory here if using absolute paths with GITHUB_WORKSPACE
 
