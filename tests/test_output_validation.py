@@ -24,18 +24,18 @@ class TestOutputValidation(unittest.TestCase):
             raise KeyError("Expected 'data_points' key not found in output_data")
 
         for point in self.output_data["data_points"]:
-            assert 0 <= point["velocity"]["components"][0] <= 50, "Velocity calculation incorrect!"
+            assert 0 <= point["velocity"][0] <= 50, "Velocity calculation incorrect!"  # ✅ Updated indexing for list format
             assert point["pressure"]["value"] >= 101325, "Pressure value below realistic threshold!"
             assert 0.0008 <= point["viscosity"]["value"] <= 0.0015, "Incorrect viscosity!"
 
     def test_l2_norm_error(self):
         """Validate simulation results against expected benchmarks using L2 norm"""
         benchmark_velocity = [1.5]  # Adjust based on actual expected values
-        
+
         if "data_points" not in self.output_data:
             raise KeyError("Expected 'data_points' key not found in output_data")
 
-        computed_velocity = [point["velocity"]["components"][0] for point in self.output_data["data_points"]]
+        computed_velocity = [point["velocity"][0] for point in self.output_data["data_points"]]  # ✅ Updated indexing
 
         if len(computed_velocity) > 0 and len(benchmark_velocity) != len(computed_velocity):
             if len(benchmark_velocity) == 1:
