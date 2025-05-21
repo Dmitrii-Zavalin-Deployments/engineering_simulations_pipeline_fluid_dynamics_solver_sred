@@ -17,7 +17,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.x"
+        python-version: "3.13"  # Ensure consistent Python version
 
     - name: Install Dependencies
       run: |
@@ -28,42 +28,43 @@ jobs:
     - name: List installed packages (Debugging)
       run: pip list
 
-    # --- REMOVE OR COMMENT OUT THIS BLOCK ---
-    # - name: Delete Previous Boundary Conditions Output
-    #   run: |
-    #     if [ -f data/testing-input-output/boundary_conditions.json ]; then
-    #       rm data/testing-input-output/boundary_conditions.json
-    #       echo "🗑️ Deleted previous boundary_conditions.json file."
-    #     else
-    #       echo "ℹ️ No previous boundary_conditions.json found—proceeding with new calculations."
-    #     fi
-    #   working-directory: ${{ github.workspace }}
-    # ----------------------------------------
-
-    - name: Read Input Data (Verify existence)
-      run: cat data/testing-input-output/boundary_conditions.json
+    - name: Verify Input File Exists
+      run: |
+        if [ ! -f data/testing-input-output/boundary_conditions.json ]; then
+          echo "❌ Error: Input file boundary_conditions.json is missing!" && exit 1
+        fi
+        echo "✅ Input file boundary_conditions.json found."
       working-directory: ${{ github.workspace }}
 
     - name: Run Fluid Dynamics Calculations
-      run: python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json data/testing-input-output/simulation_results.json
+      run: |
+        python src/process_fluid_dynamics.py data/testing-input-output/boundary_conditions.json data/testing-input-output/simulation_results.json
+        echo "✅ Fluid dynamics calculations executed successfully."
       working-directory: ${{ github.workspace }}
 
     - name: Verify Output File Exists
       run: |
-        if [ -f data/testing-input-output/simulation_results.json ]; then
-          echo "✅ Fluid dynamics simulation output successfully created."
-        else
+        if [ ! -f data/testing-input-output/simulation_results.json ]; then
           echo "❌ Error: Fluid dynamics simulation output file not found!" && exit 1
         fi
+        echo "✅ Output file simulation_results.json found."
       working-directory: ${{ github.workspace }}
 
-    # ✅ Run Unit & Integration Tests Separately (Paths are good with working-directory)
+    - name: Debugging: Show Output File Contents
+      run: cat data/testing-input-output/simulation_results.json
+      working-directory: ${{ github.workspace }}
+
+    # ✅ Run Unit & Integration Tests with Improved Checks
     - name: Run unit tests
       run: pytest tests/test_unit_validation.py --verbose
       working-directory: ${{ github.workspace }}
 
     - name: Run output validation tests
-      run: pytest tests/test_output_validation.py --verbose
+      run: |
+        if [ ! -s data/testing-input-output/simulation_results.json ]; then
+          echo "❌ Error: simulation_results.json is empty or malformed!" && exit 1
+        fi
+        pytest tests/test_output_validation.py --verbose
       working-directory: ${{ github.workspace }}
 
     - name: Run integration tests
@@ -74,7 +75,7 @@ jobs:
       run: pytest tests/test_performance_testing.py --verbose
       working-directory: ${{ github.workspace }}
 
-    # ✅ Commit and Push Updated Boundary Conditions Output (Only If Tests Passed)
+    # ✅ Commit and Push Updated Simulation Results (Only If Tests Passed)
     - name: Commit and Push Simulation Results JSON
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
@@ -86,7 +87,7 @@ jobs:
         cd "$GITHUB_WORKSPACE"
 
         # Add simulation result files if they exist
-        if ls data/testing-input-output/simulation_results.json 1> /dev/null 2>&1; then
+        if [ -s data/testing-input-output/simulation_results.json ]; then
           git add data/testing-input-output/simulation_results.json
           git status
 
@@ -100,6 +101,3 @@ jobs:
           echo "❌ No simulation result file detected, skipping commit."
         fi
       working-directory: ${{ github.workspace }}
-
-
-
