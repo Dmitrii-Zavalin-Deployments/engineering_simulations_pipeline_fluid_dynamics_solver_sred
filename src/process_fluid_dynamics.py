@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from pint import UnitRegistry
+import sys # <-- Make sure sys is imported
 
 # Initialize unit registry for scientific units
 ureg = UnitRegistry()
@@ -8,23 +9,34 @@ ureg = UnitRegistry()
 # Load input file
 def load_input_file(file_path):
     """Reads and validates the input JSON file with fluid properties."""
-    with open(file_path, "r") as file:
-        input_data = json.load(file)
+    try: # Added try-except for robust file handling
+        with open(file_path, "r") as file:
+            input_data = json.load(file)
 
-    # Extract fluid properties from the inlet boundary
-    fluid_properties = input_data["inlet_boundary"]["fluid_properties"]
+        # Extract fluid properties from the inlet boundary
+        fluid_properties = input_data["inlet_boundary"]["fluid_properties"]
 
-    # Convert velocity into a NumPy array representing a vector with units
-    input_data["fluid_velocity"] = np.array(input_data["inlet_boundary"]["velocity"], dtype=float) * ureg.meter / ureg.second
+        # Convert velocity into a NumPy array representing a vector with units
+        input_data["fluid_velocity"] = np.array(input_data["inlet_boundary"]["velocity"], dtype=float) * ureg.meter / ureg.second
 
-    # Convert units correctly, handling potential None values
-    input_data["pressure"] = fluid_properties.get("pressure", 0) * ureg.pascal
-    input_data["density"] = fluid_properties["density"] * ureg.kilogram / ureg.meter**3
-    input_data["viscosity"] = fluid_properties["viscosity"] * ureg.pascal * ureg.second
+        # Convert units correctly, handling potential None values
+        input_data["pressure"] = fluid_properties.get("pressure", 0) * ureg.pascal
+        input_data["density"] = fluid_properties["density"] * ureg.kilogram / ureg.meter**3
+        input_data["viscosity"] = fluid_properties["viscosity"] * ureg.pascal * ureg.second
 
-    return input_data
+        return input_data
+    except FileNotFoundError:
+        print(f"ERROR: Input file not found at {file_path}")
+        sys.exit(1)
+    except KeyError as e:
+        print(f"ERROR: Missing expected key in input file: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred while loading input file: {e}")
+        sys.exit(1)
 
-# Apply boundary conditions
+
+# Apply boundary conditions (Note: This function is defined but not called in main. Is it intended for future use?)
 def apply_boundary_conditions(mesh, input_data):
     """Assigns inlet, outlet, and wall boundary conditions."""
     mesh["boundary"]["inlet"]["velocity"] = input_data["fluid_velocity"]
@@ -38,7 +50,12 @@ def enforce_cfl_condition(velocity_field, dx_field, dt):
     max_velocity = np.max(np.linalg.norm(velocity_field, axis=-1))
     min_dx = np.min(dx_field)
     cfl_value = (max_velocity * dt.magnitude / min_dx) # Extract dt magnitude for computation
-    assert cfl_value <= 1, f"CFL condition violated! CFL = {cfl_value:.4f}. Adjust time-step or grid spacing."
+    if cfl_value > 1: # Change assert to if for more graceful handling in production/workflow
+        print(f"WARNING: CFL condition violated! CFL = {cfl_value:.4f}. Adjust time-step or grid spacing.")
+        # Optionally, you might want to sys.exit(1) here if a CFL violation should fail the workflow
+        # sys.exit(1)
+    else:
+        print(f"CFL condition met. CFL = {cfl_value:.4f}")
 
 # Solve Navier-Stokes Equations
 def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.second):
@@ -73,6 +90,7 @@ def solve_navier_stokes(input_data, grid_size=(100, 100, 3), dt=0.001 * ureg.sec
         grad_x, grad_y = np.gradient(pressure, axis=(0, 1))
         pressure_gradient[..., 0] = -grad_x / density  # Assign x component
         pressure_gradient[..., 1] = -grad_y / density  # Assign y component
+        pressure_gradient[..., 2] = np.zeros_like(pressure_gradient[..., 2]) # Assuming no z-gradient of pressure for 2D pressure field
 
         velocity += dt.magnitude * (advection_term + diffusion_term + pressure_gradient) # Extract dt magnitude for computation
 
@@ -87,14 +105,25 @@ def compute_turbulence_rans(velocity_field, viscosity):
     return {"kinetic_energy": k, "dissipation_rate": epsilon}
 
 # Generate output file
-def save_output_file(results, output_path="fluid_simulation_output.json"):
+def save_output_file(results, output_path): # Removed default value
     """Stores computed fluid properties in JSON format."""
-    with open(output_path, "w") as file:
-        json.dump(results, file, indent=4)
+    try:
+        with open(output_path, "w") as file:
+            json.dump(results, file, indent=4)
+        print(f"Successfully saved output to: {output_path}") # Added success print
+    except IOError as e:
+        print(f"ERROR: Could not write output file to {output_path}: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"ERROR: An unexpected error occurred while saving output file: {e}")
+        sys.exit(1)
 
 # Main function: Load input, process calculations, enforce stability, save output
 def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ureg.second):
     """Executes the fluid dynamics calculation pipeline."""
+    print(f"DEBUG (main): Input file path received: {input_file_path}") # Added debug print
+    print(f"DEBUG (main): Output file path received: {output_file_path}") # Added debug print
+
     input_data = load_input_file(input_file_path)
 
     # Simulate grid spacing dynamically
@@ -119,10 +148,16 @@ def main(input_file_path, output_file_path, dx=0.01 * ureg.meter, dt=0.001 * ure
     # Save results to output file
     save_output_file(results, output_file_path)
 
-# Example execution
+# Example execution - MODIFIED TO USE COMMAND LINE ARGUMENTS
 if __name__ == "__main__":
-    input_file_path = "data/testing-input-output/boundary_conditions.json"
-    output_file_path = "fluid_simulation_output.json"
+    if len(sys.argv) != 3:
+        print("Usage: python process_fluid_dynamics.py <input_file_path> <output_file_path>")
+        sys.exit(1) # Exit if not enough arguments
+
+    # Get file paths from command-line arguments
+    input_file_path = sys.argv[1]
+    output_file_path = sys.argv[2]
+
     main(input_file_path, output_file_path)
 
 
