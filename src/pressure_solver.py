@@ -11,12 +11,12 @@ def divergence(P, face):
     velocity = P.get(face["id"], [0.0, 0.0, 0.0])  # Retrieve velocity vector
     
     if isinstance(velocity, (list, np.ndarray)):  # ✅ Convert velocity vector to scalar magnitude
-        velocity = np.linalg.norm(np.array(velocity))  # Compute sqrt(vx² + vy² + vz²)
+        velocity = float(np.linalg.norm(np.array(velocity)))  # Compute sqrt(vx² + vy² + vz²)
     
     normal = np.array(face.get("normal", [0.0, 0.0, 0.0]))  # Convert normal to NumPy array
     
-    divergence_value = np.dot(velocity, normal)  # ✅ Ensure velocity is scalar before dot product
-    return float(divergence_value)  # ✅ Explicitly convert to float to prevent errors
+    divergence_value = float(np.dot(velocity, normal))  # ✅ Ensure dot product returns a scalar
+    return divergence_value  # ✅ Explicitly return a scalar value
 
 def construct_poisson_system(P, mesh):
     """ Constructs the Poisson system for pressure correction. """
