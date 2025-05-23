@@ -1,25 +1,29 @@
+import sys
 import os
-import json
-from src.mesh import Mesh
-from src.boundary_conditions import read_boundary_conditions, apply_boundary_conditions
-from src.initialization import initialize_simulation
-from src.momentum_solver import solve_momentum_equation
-from src.pressure_solver import solve_pressure_correction
-from src.velocity_correction import correct_velocity
-from src.turbulence_solver import solve_turbulence_equations
-from src.time_stepping import adjust_time_step
-from src.convergence_check import check_convergence
-from src.post_processing import export_results
+
+# Add `src/` directory to Python module search path
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
+from mesh import Mesh
+from boundary_conditions import read_boundary_conditions, apply_boundary_conditions
+from initialization import initialize_simulation
+from momentum_solver import solve_momentum_equation
+from pressure_solver import solve_pressure_correction
+from velocity_correction import correct_velocity
+from turbulence_solver import solve_turbulence_equations
+from time_stepping import adjust_time_step
+from convergence_check import check_convergence
+from post_processing import export_results
 
 # File paths
-INPUT_JSON = "data/testing-input-output/boundary_conditions.json"
-OUTPUT_JSON = "data/testing-input-output/fluid_dynamics_results.json"
+INPUT_JSON = os.path.join(os.path.dirname(__file__), "../data/testing-input-output/boundary_conditions.json")
+OUTPUT_JSON = os.path.join(os.path.dirname(__file__), "../data/testing-input-output/fluid_dynamics_results.json")
 
 # Step 1: Read boundary conditions
 boundary_data = read_boundary_conditions(INPUT_JSON)
 
 # Step 2: Load mesh
-mesh = Mesh(filename="data/mesh_file.msh")  # Ensure the correct mesh file is provided
+mesh = Mesh(filename=os.path.join(os.path.dirname(__file__), "../data/mesh_file.msh"))
 
 # Step 3: Apply boundary conditions
 apply_boundary_conditions(mesh, boundary_data)
