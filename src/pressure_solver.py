@@ -7,11 +7,16 @@ def compute_pressure_coefficient(face):
     return face.get("diffusion_coefficient", 0)  # Default to 0 if missing
 
 def divergence(P, face):
-    """ Computes the divergence term for the pressure equation. """
-    velocity = P.get(face["id"], 0.0)  # Ensure we retrieve a scalar value
+    """ Computes the divergence term for the pressure equation and ensures scalar output. """
+    velocity = P.get(face["id"], [0.0, 0.0, 0.0])  # Retrieve velocity (ensure valid format)
+    
+    if isinstance(velocity, (list, np.ndarray)):  # ✅ Fix: Convert vector velocity to scalar
+        velocity = np.linalg.norm(np.array(velocity))  # Use norm to get a single magnitude value
+    
     normal = np.array(face.get("normal", [0.0, 0.0, 0.0]))  # Convert normal to NumPy array
-    divergence_value = np.dot(np.array(velocity), normal).item()  # ✅ Ensure scalar output
-    return float(divergence_value)  # Explicitly convert to float
+    
+    divergence_value = np.dot(velocity, normal)  # ✅ Ensure velocity is scalar before dot product
+    return float(divergence_value)  # ✅ Explicitly convert to float to avoid errors
 
 def construct_poisson_system(P, mesh):
     """ Constructs the Poisson system for pressure correction. """
