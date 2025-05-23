@@ -6,33 +6,32 @@ def compute_pressure_coefficient(face):
     """ Computes the pressure coefficient for the given face. """
     return face.get("diffusion_coefficient", 0)  # Default to 0 if missing
 
-def divergence(P, face):
-    """ Computes the divergence term for the pressure equation using velocity magnitude. """
-    velocity = P.get(face["id"], [0.0, 0.0, 0.0])  # Retrieve velocity vector
-    
-    if isinstance(velocity, (list, np.ndarray)):  # ✅ Convert velocity vector to scalar magnitude
-        velocity = float(np.linalg.norm(np.array(velocity)))  # Compute sqrt(vx² + vy² + vz²)
-    
-    normal = np.array(face.get("normal", [0.0, 0.0, 0.0]))  # Convert normal to NumPy array
-    
-    divergence_value = float(np.dot(velocity, normal))  # ✅ Ensure dot product returns a scalar
-    return divergence_value  # ✅ Explicitly return a scalar value
+def divergence_face_contribution(U_star_data, face):
+    """ Computes the correct divergence contribution from a single face. """
+    velocity_vector = np.array(U_star_data.get(face["id"], [0.0, 0.0, 0.0]))  # Ensure velocity is always an array
+    normal_vector = np.array(face.get("normal", [0.0, 0.0, 0.0]))  # Convert normal to NumPy array
+    face_area = face.get("area", 1.0)  # Retrieve face area
 
-def construct_poisson_system(P, mesh):
-    """ Constructs the Poisson system for pressure correction. """
+    # Correct divergence calculation: dot product of velocity and normal, scaled by face area
+    flux = np.dot(velocity_vector, normal_vector) * face_area
+
+    return flux  # Face-level contribution to divergence
+
+def construct_poisson_system(U_star, mesh):
+    """ Constructs the Poisson system for pressure correction using divergence of tentative velocity field. """
     A = lil_matrix((len(mesh.faces), len(mesh.faces)))
     b = np.zeros(len(mesh.faces))
 
     for face_id, face in mesh.faces.items():
         coeff = compute_pressure_coefficient(face)
         A[face_id, face_id] += coeff
-        b[face_id] -= divergence(P, face)  # ✅ Fix: Now always a scalar value
+        b[face_id] -= divergence_face_contribution(U_star, face)  # ✅ Fix: Now correctly uses velocity divergence
 
     return A.tocsr(), b
 
-def solve_pressure_correction(P, U, mesh):
+def solve_pressure_correction(U_star, mesh):
     """ Solves the pressure correction equation using GMRES. """
-    A, b = construct_poisson_system(P, mesh)
+    A, b = construct_poisson_system(U_star, mesh)
     P_prime, _ = gmres(A, b)  # Multi-grid preconditioning can be applied
     return P_prime
 
