@@ -29,7 +29,7 @@ def construct_poisson_system(U_star, mesh):
 
     return A.tocsr(), b
 
-def solve_pressure_correction(U_star, mesh):
+def solve_pressure_correction(P, U_star, mesh):
     """ Solves the pressure correction equation using GMRES. """
     A, b = construct_poisson_system(U_star, mesh)
     P_prime, _ = gmres(A, b)  # Multi-grid preconditioning can be applied
