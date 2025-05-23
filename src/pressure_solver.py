@@ -7,12 +7,11 @@ def compute_pressure_coefficient(face):
     return face.get("diffusion_coefficient", 0)  # Default to 0 if missing
 
 def divergence(P, face):
-    """ Computes the divergence term for the pressure equation and ensures scalar output. """
-    velocity = P.get(face["id"], [0.0, 0.0, 0.0])  # Retrieve velocity
+    """ Computes the divergence term for the pressure equation using velocity magnitude. """
+    velocity = P.get(face["id"], [0.0, 0.0, 0.0])  # Retrieve velocity vector
     
-    if isinstance(velocity, (list, np.ndarray)):  # ✅ Convert vector to a single scalar value
-        velocity = np.array(velocity)  # Convert to NumPy array
-        velocity = velocity.dot(np.ones_like(velocity))  # Sum components to get a scalar magnitude
+    if isinstance(velocity, (list, np.ndarray)):  # ✅ Convert velocity vector to scalar magnitude
+        velocity = np.linalg.norm(np.array(velocity))  # Compute sqrt(vx² + vy² + vz²)
     
     normal = np.array(face.get("normal", [0.0, 0.0, 0.0]))  # Convert normal to NumPy array
     
