@@ -2,23 +2,18 @@ import numpy as np
 from scipy.sparse import lil_matrix, csr_matrix
 from scipy.sparse.linalg import gmres
 
-def compute_pressure_coefficient(face):
-    """ Computes the pressure coefficient for a given face. """
-    return face.diffusion_coefficient  # Ensure face attribute exists
-
 def divergence(U, face):
     """ Computes divergence for pressure correction. """
-    return np.dot(U[face.owner], face.normal) * face.area  # Basic flux computation
+    return np.dot(U[face["owner"]], face["normal"]) * face["area"]  # ✅ Ensure correct dictionary access
 
 def construct_poisson_system(P, U, mesh):
-    """ Constructs the Poisson system for pressure correction using faces instead of cells. """
-    A = lil_matrix((len(mesh.faces), len(mesh.faces)))  # ✅ Fix: Updated to `faces`
-    b = np.zeros(len(mesh.faces))  # ✅ Fix: Updated to `faces`
+    """ Constructs the Poisson system for pressure correction. """
+    A = lil_matrix((len(mesh.faces), len(mesh.faces)))  # ✅ References `faces`
+    b = np.zeros(len(mesh.faces))  # ✅ References `faces`
 
-    for face in mesh.faces:
-        coeff = compute_pressure_coefficient(face)
-        A[face.owner, face.owner] += coeff
-        b[face.owner] -= divergence(U, face)
+    for face_id, face in mesh.faces.items():  # ✅ Correctly iterating through dictionary
+        A[face["owner"], face["owner"]] += 1.0  # ✅ Removed diffusion coefficient
+        b[face["owner"]] -= divergence(U, face)
 
     return A.tocsr(), b
 
