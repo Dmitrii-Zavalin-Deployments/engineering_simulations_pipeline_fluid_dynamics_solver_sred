@@ -7,18 +7,25 @@ def read_boundary_conditions(json_path):
 
 def apply_boundary_conditions(mesh, boundary_data):
     for face_id in boundary_data["inlet_faces"]:
-        face = mesh.faces[face_id]
-        face.set_pressure(boundary_data["inlet_boundary"]["pressure"])
-        face.set_fluid_properties(boundary_data["inlet_boundary"]["fluid_properties"])
+        if face_id not in mesh.faces:
+            print(f"❌ Warning: Face ID {face_id} not found in mesh. Skipping.")
+            continue
+        mesh.faces[face_id]["pressure"] = boundary_data["inlet_boundary"]["pressure"]
+        mesh.faces[face_id]["fluid_properties"] = boundary_data["inlet_boundary"]["fluid_properties"]
 
     for face_id in boundary_data["outlet_faces"]:
-        face = mesh.faces[face_id]
-        face.set_velocity(boundary_data["outlet_boundary"]["velocity"])
+        if face_id not in mesh.faces:
+            print(f"❌ Warning: Face ID {face_id} not found in mesh. Skipping.")
+            continue
+        mesh.faces[face_id]["velocity"] = boundary_data["outlet_boundary"].get("velocity", None)
 
     for face_id in boundary_data["wall_faces"]:
-        face = mesh.faces[face_id]
-        face.apply_no_slip()
-        face.set_wall_properties(boundary_data["wall_boundary"]["wall_properties"])
+        if face_id not in mesh.faces:
+            print(f"❌ Warning: Face ID {face_id} not found in mesh. Skipping.")
+            continue
+        mesh.faces[face_id]["no_slip"] = boundary_data["wall_boundary"]["no_slip"]
+        mesh.faces[face_id]["wall_properties"] = boundary_data["wall_boundary"]["wall_properties"]
+        mesh.faces[face_id]["wall_functions"] = boundary_data["wall_boundary"]["wall_functions"]
 
 
 
