@@ -4,7 +4,12 @@ from scipy.sparse.linalg import gmres
 
 def compute_face_flux(U, face):
     """ Computes convective and diffusive fluxes across a face. """
-    velocity = U.get(face["id"], [0.0, 0.0, 0.0])  # Default velocity if missing
+    face_id = face.get("id", None)  # Ensure face has an ID
+    if face_id is None:
+        print(f"❌ Warning: Face missing 'id' key. Skipping flux calculation.")
+        return {"ap": 0, "anb": 0}
+
+    velocity = U.get(face_id, [0.0, 0.0, 0.0])  # Default velocity if missing
     convective_flux = np.dot(velocity, face.get("normal", [0.0, 0.0, 0.0]))  # Dot product with face normal
     diffusive_flux = face.get("diffusion_coefficient", 0) * face.get("gradient", 0)
 
