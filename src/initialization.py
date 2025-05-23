@@ -1,12 +1,13 @@
 def initialize_simulation(mesh, boundary_data):
+    """ Initializes velocity, pressure, and turbulence variables for each face. """
     sim_settings = boundary_data["simulation_settings"]
-    U_ref, turbulence_intensity, length_scale = 1.0, 0.05, 0.1
 
-    for cell in mesh.cells:
-        cell.velocity = np.zeros(3)
-        cell.pressure = boundary_data["inlet_boundary"]["pressure"]
-        cell.k = 1.5 * (U_ref * turbulence_intensity) ** 2
-        cell.epsilon = (cell.k ** 1.5) / length_scale
+    # Initialize velocity, pressure, and turbulence properties for each face
+    for face_id, face in mesh.faces.items():
+        face["velocity"] = [0.0, 0.0, 0.0]  # Initialize velocity field
+        face["pressure"] = boundary_data["inlet_boundary"]["pressure"] if face["type"] == "inlet" else None
+        face["k"] = 0.0  # Initialize turbulent kinetic energy
+        face["epsilon"] = 0.0  # Initialize turbulence dissipation rate
 
     return sim_settings
 
