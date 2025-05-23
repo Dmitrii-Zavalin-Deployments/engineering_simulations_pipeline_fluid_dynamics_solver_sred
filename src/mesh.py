@@ -1,22 +1,32 @@
-import numpy as np
+import json  # Assuming the mesh file is JSON; adjust accordingly
 
 class Mesh:
     def __init__(self, filename):
         self.cells, self.faces, self.boundaries = self.load_mesh(filename)
-        self.generate_cell_connectivity()
 
     def load_mesh(self, filename):
-        # Placeholder for actual mesh loading logic
-        pass
+        try:
+            with open(filename, "r") as file:
+                mesh_data = json.load(file)
 
-    def generate_cell_connectivity(self):
-        for face in self.faces:
-            owner, neighbor = face.owner, face.neighbor
-            self.cells[owner].neighbors.append(neighbor)
-            self.cells[neighbor].neighbors.append(owner)
+            # Ensure mesh_data contains required elements
+            cells = mesh_data.get("cells", [])
+            faces = mesh_data.get("faces", [])
+            boundaries = mesh_data.get("boundaries", [])
 
-    def get_boundary_faces(self, boundary_type):
-        return [face for face in self.faces if face.boundary_type == boundary_type]
+            return cells, faces, boundaries
+
+        except FileNotFoundError:
+            print(f"❌ Error: Mesh file '{filename}' not found.")
+            return [], [], []
+
+        except json.JSONDecodeError:
+            print(f"❌ Error: Mesh file '{filename}' is not valid JSON.")
+            return [], [], []
+
+        except Exception as e:
+            print(f"❌ Unexpected error loading mesh file: {e}")
+            return [], [], []
 
 
 
