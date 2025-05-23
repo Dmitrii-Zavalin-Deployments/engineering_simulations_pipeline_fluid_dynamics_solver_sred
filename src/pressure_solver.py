@@ -11,9 +11,9 @@ def divergence(U, face):
     return np.dot(U[face.owner], face.normal) * face.area  # Basic flux computation
 
 def construct_poisson_system(P, U, mesh):
-    """ Constructs the Poisson system for pressure correction. """
-    A = lil_matrix((len(mesh.cells), len(mesh.cells)))
-    b = np.zeros(len(mesh.cells))
+    """ Constructs the Poisson system for pressure correction using faces instead of cells. """
+    A = lil_matrix((len(mesh.faces), len(mesh.faces)))  # ✅ Fix: Updated to `faces`
+    b = np.zeros(len(mesh.faces))  # ✅ Fix: Updated to `faces`
 
     for face in mesh.faces:
         coeff = compute_pressure_coefficient(face)
