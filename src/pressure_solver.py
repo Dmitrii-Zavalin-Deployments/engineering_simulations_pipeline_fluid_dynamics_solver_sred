@@ -1,3 +1,6 @@
+from scipy.sparse import lil_matrix, csr_matrix
+from scipy.sparse.linalg import splu, spsolve
+
 def construct_poisson_system(P, mesh):
     A = lil_matrix((len(mesh.cells), len(mesh.cells)))
     b = np.zeros(len(mesh.cells))
