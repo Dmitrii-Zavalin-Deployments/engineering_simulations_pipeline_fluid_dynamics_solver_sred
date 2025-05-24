@@ -22,14 +22,30 @@ class Mesh:
                          self.boundaries["outlet_faces"] +
                          self.boundaries["wall_faces"])
 
+            # Compute `face_to_cells` dynamically for structured meshes
+            face_to_cells = {}  # Initialize empty mapping
+            for face_id in all_faces:
+                connected_cells = []
+                
+                # Assume faces are shared between two neighboring cells in a structured grid
+                cell_left = face_id - 1 if face_id > 0 else None  # Left cell
+                cell_right = face_id + 1 if face_id < len(all_faces) - 1 else None  # Right cell
+                
+                if cell_left is not None:
+                    connected_cells.append(cell_left)
+                if cell_right is not None:
+                    connected_cells.append(cell_right)
+
+                face_to_cells[face_id] = connected_cells  # ✅ Assign dynamically
+
             # Assign properties dynamically for each face based on its boundary type
             for face_id in all_faces:
-                adjacent_cells = mesh_data["face_to_cells"].get(face_id, [])
-                owner_cell = adjacent_cells[0] if adjacent_cells else None  # ✅ Assigns based on connectivity
+                owner_cell = face_to_cells.get(face_id, [None])[0]  # ✅ Assign owner dynamically
 
                 self.faces[face_id] = {
                     "id": face_id,
                     "owner": owner_cell,  # ✅ Ensure valid owner assignment
+                    "connected_cells": face_to_cells[face_id],  # ✅ Store computed adjacency
                     "normal": mesh_data["face_normals"].get(face_id, [0.0, 0.0, 0.0]),  # Default if missing
                     "area": mesh_data["face_areas"].get(face_id, 1.0),  # Default if missing
                 }
@@ -56,7 +72,7 @@ class Mesh:
                         "wall_functions": mesh_data["wall_boundary"].get("wall_functions", None)
                     })
 
-            print(f"✅ Assigned structured properties to {len(self.faces)} faces, including owners.")
+            print(f"✅ Assigned structured properties to {len(self.faces)} faces, including computed `face_to_cells`.")
 
         except FileNotFoundError:
             print(f"❌ Error: Mesh JSON file '{json_filename}' not found.")
@@ -69,6 +85,3 @@ class Mesh:
         except Exception as e:
             print(f"❌ Unexpected error loading mesh file: {e}")
             raise
-
-
-
