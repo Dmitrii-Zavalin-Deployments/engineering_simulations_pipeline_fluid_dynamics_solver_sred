@@ -42,10 +42,10 @@ jobs:
     - name: Debugging - List All Files in Repository
       run: ls -R "${GITHUB_WORKSPACE}"
     
-    # Run the Simplified Navier-Stokes Simulation
+    # Run the Simplified Navier-Stokes Simulation with full path reference
     - name: Run Simplified Navier-Stokes Solver
       run: |
-        python "${GITHUB_WORKSPACE}/src/simplified_navier_stokes.py"
+        python "${GITHUB_WORKSPACE}/src/simplified_navier_stokes.py" "${GITHUB_WORKSPACE}/data/testing-input-output/fluid_simulation_input.json"
         echo "✅ Simplified Navier-Stokes simulation executed successfully."
 
     # Ensure output file exists after execution
@@ -59,7 +59,20 @@ jobs:
         echo "✅ Output file navier_stokes_results.json found at $OUTPUT_FILE."
 
     - name: Debugging - Show Output File Contents
-      run: cat "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
+      run: |
+        echo "🔍 Output File Content Preview:"
+        cat "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
+
+    # Validate JSON Format Before Committing
+    - name: Verify JSON Format Before Commit
+      run: |
+        OUTPUT_FILE="${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
+        if jq empty "$OUTPUT_FILE"; then
+          echo "✅ JSON output is valid."
+        else
+          echo "❌ Error: JSON output is malformed!"
+          exit 1
+        fi
 
     # --- Commit and Push Updated Simulation Results (If Tests Pass) ---
     - name: Commit and Push Simulation Results JSON
