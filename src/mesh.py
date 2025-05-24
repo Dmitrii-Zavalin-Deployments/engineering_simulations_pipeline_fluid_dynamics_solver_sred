@@ -26,11 +26,11 @@ class Mesh:
             face_to_cells = {}  # Initialize empty mapping
             for face_id in all_faces:
                 connected_cells = []
-                
+
                 # Assume faces are shared between two neighboring cells in a structured grid
                 cell_left = face_id - 1 if face_id > 0 else None  # Left cell
                 cell_right = face_id + 1 if face_id < len(all_faces) - 1 else None  # Right cell
-                
+
                 if cell_left is not None:
                     connected_cells.append(cell_left)
                 if cell_right is not None:
@@ -42,11 +42,21 @@ class Mesh:
             for face_id in all_faces:
                 owner_cell = face_to_cells.get(face_id, [None])[0]  # ✅ Assign owner dynamically
 
+                # Compute normal dynamically if missing in JSON
+                if "face_normals" in mesh_data:
+                    normal = mesh_data["face_normals"].get(face_id, [0.0, 0.0, 0.0])  # Use JSON data if available
+                else:
+                    # Estimate normal direction using connected cells
+                    if len(face_to_cells[face_id]) == 2:
+                        normal = [c2 - c1 for c1, c2 in zip(face_to_cells[face_id][0], face_to_cells[face_id][1])]
+                    else:
+                        normal = [0.0, 0.0, 1.0]  # Default normal for isolated faces
+
                 self.faces[face_id] = {
                     "id": face_id,
                     "owner": owner_cell,  # ✅ Ensure valid owner assignment
                     "connected_cells": face_to_cells[face_id],  # ✅ Store computed adjacency
-                    "normal": mesh_data["face_normals"].get(face_id, [0.0, 0.0, 0.0]),  # Default if missing
+                    "normal": normal,  # ✅ Assign computed or default normal
                     "area": mesh_data["face_areas"].get(face_id, 1.0),  # Default if missing
                 }
 
@@ -72,7 +82,7 @@ class Mesh:
                         "wall_functions": mesh_data["wall_boundary"].get("wall_functions", None)
                     })
 
-            print(f"✅ Assigned structured properties to {len(self.faces)} faces, including computed `face_to_cells`.")
+            print(f"✅ Assigned structured properties to {len(self.faces)} faces, including computed `face_to_cells` and normals.")
 
         except FileNotFoundError:
             print(f"❌ Error: Mesh JSON file '{json_filename}' not found.")
