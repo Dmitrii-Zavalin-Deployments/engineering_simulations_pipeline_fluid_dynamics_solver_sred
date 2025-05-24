@@ -23,31 +23,40 @@ class Mesh:
                          self.boundaries["wall_faces"])
 
             # Assign properties dynamically for each face based on its boundary type
-            for face_id in self.boundaries["inlet_faces"]:
+            for face_id in all_faces:
+                adjacent_cells = mesh_data["face_to_cells"].get(face_id, [])
+                owner_cell = adjacent_cells[0] if adjacent_cells else None  # ✅ Assigns based on connectivity
+
                 self.faces[face_id] = {
                     "id": face_id,
-                    "type": mesh_data["inlet_boundary"].get("type", None),
-                    "pressure": mesh_data["inlet_boundary"].get("pressure", None),
-                    "fluid_properties": mesh_data["inlet_boundary"].get("fluid_properties", None)
+                    "owner": owner_cell,  # ✅ Ensure valid owner assignment
+                    "normal": mesh_data["face_normals"].get(face_id, [0.0, 0.0, 0.0]),  # Default if missing
+                    "area": mesh_data["face_areas"].get(face_id, 1.0),  # Default if missing
                 }
 
-            for face_id in self.boundaries["outlet_faces"]:
-                self.faces[face_id] = {
-                    "id": face_id,
-                    "type": mesh_data["outlet_boundary"].get("type", None),
-                    "velocity": mesh_data["outlet_boundary"].get("velocity", None)
-                }
+                # Add additional properties based on boundary type
+                if face_id in self.boundaries["inlet_faces"]:
+                    self.faces[face_id].update({
+                        "type": mesh_data["inlet_boundary"].get("type", None),
+                        "pressure": mesh_data["inlet_boundary"].get("pressure", None),
+                        "fluid_properties": mesh_data["inlet_boundary"].get("fluid_properties", None)
+                    })
 
-            for face_id in self.boundaries["wall_faces"]:
-                self.faces[face_id] = {
-                    "id": face_id,
-                    "type": "wall",
-                    "no_slip": mesh_data["wall_boundary"].get("no_slip", None),
-                    "wall_properties": mesh_data["wall_boundary"].get("wall_properties", None),
-                    "wall_functions": mesh_data["wall_boundary"].get("wall_functions", None)
-                }
+                elif face_id in self.boundaries["outlet_faces"]:
+                    self.faces[face_id].update({
+                        "type": mesh_data["outlet_boundary"].get("type", None),
+                        "velocity": mesh_data["outlet_boundary"].get("velocity", None)
+                    })
 
-            print(f"✅ Assigned structured properties to {len(self.faces)} faces.")
+                elif face_id in self.boundaries["wall_faces"]:
+                    self.faces[face_id].update({
+                        "type": "wall",
+                        "no_slip": mesh_data["wall_boundary"].get("no_slip", None),
+                        "wall_properties": mesh_data["wall_boundary"].get("wall_properties", None),
+                        "wall_functions": mesh_data["wall_boundary"].get("wall_functions", None)
+                    })
+
+            print(f"✅ Assigned structured properties to {len(self.faces)} faces, including owners.")
 
         except FileNotFoundError:
             print(f"❌ Error: Mesh JSON file '{json_filename}' not found.")
