@@ -212,9 +212,6 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 dw_dx = (w_curr - velocity[idx_to_node[(i-1, j, k)], 2]) / dx
             elif nx == 1: # 1D in x, no spatial derivative
                 du_dx, dv_dx, dw_dx = 0.0, 0.0, 0.0
-            # Else, at x_min boundary with u_curr >= 0, assume du/dx = 0 or use boundary value
-            # For simplicity, if i=0 and u_curr>=0, we might effectively treat it as zero.
-            # A more robust solution might use ghost cells or specific boundary stencils.
         else: # u_curr < 0, use forward difference
             if i < nx - 1:
                 du_dx = (velocity[idx_to_node[(i+1, j, k)], 0] - u_curr) / dx
@@ -222,7 +219,6 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 dw_dx = (velocity[idx_to_node[(i+1, j, k)], 2] - w_curr) / dx
             elif nx == 1:
                 du_dx, dv_dx, dw_dx = 0.0, 0.0, 0.0
-            # Else, at x_max boundary with u_curr < 0, assume du/dx = 0
 
         # d/dy terms (for u, v, w components)
         # Upwind based on v_curr
@@ -301,12 +297,12 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
             elif k == 0 and nz > 1:
                 lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2) if nz > 2 else 0.0
-                lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j+1),1], 1] + v_curr) / (dz**2) if nz > 2 else 0.0
+                lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2) if nz > 2 else 0.0
                 lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2) if nz > 2 else 0.0
             elif k == nz - 1 and nz > 1:
                 lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2) if nz > 2 else 0.0
-                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2) if nz > 2 else 0.0
-                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2) if nz > 2 else 0.0
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dz**2) if nz > 2 else 0.0
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dz**2) if nz > 2 else 0.0
 
         diffusion_accel[node_1d_idx, 0] = viscosity * lap_u
         diffusion_accel[node_1d_idx, 1] = viscosity * lap_v
@@ -422,11 +418,11 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         # d/dz
         if nz > 1:
             if k > 0 and k < nz - 1:
-                dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[idx_to_node[(i, j, k-1)]) / (2 * dz)
+                dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[idx_to_node[(i, j, k-1)]]) / (2 * dz) # Corrected
             elif k == 0:
                 dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[node_1d_idx]) / dz
             elif k == nz - 1:
-                dphi_dz = (phi[node_1d_idx] - phi[idx_to_node[(i, j, k-1)]) / dz
+                dphi_dz = (phi[node_1d_idx] - phi[idx_to_node[(i, j, k-1)]]) / dz # Corrected
 
         # Apply correction to velocity (u_new = u_tentative - dt * (1/rho) * grad(phi))
         u_tentative[node_1d_idx, 0] -= dt * dphi_dx / density
@@ -462,7 +458,6 @@ def run_simulation(json_filename):
     num_nodes_from_json = mesh_data["nodes"]
     
     # Estimate domain size from boundary_faces if available, otherwise use default
-    # This is a basic estimation; a more robust solution would parse all nodes to find extents.
     domain_min = [float('inf'), float('inf'), float('inf')]
     domain_max = [float('-inf'), float('-inf'), float('-inf')]
     
@@ -512,7 +507,14 @@ def run_simulation(json_filename):
     # In a more advanced solver, this would be the maximum velocity in the domain.
     if max_inlet_velocity_magnitude > 1e-9: # Avoid division by zero
         min_dx_dy_dz = min(dx, dy, dz)
-        cfl_dt_limit = min_dx_dy_dz / max_inlet_velocity_magnitude # CFL number = 1
+        # Handle cases where dx, dy, dz might be 0 due to 1D/2D configuration.
+        # If a dimension is 1, its corresponding dx/dy/dz is essentially infinite for derivatives,
+        # so it doesn't limit the CFL condition. Filter out effectively infinite values.
+        finite_spacings = [s for s in [dx, dy, dz] if s > 1e-9]
+        if not finite_spacings: # All dimensions are effectively 1 (e.g., a single point)
+            cfl_dt_limit = float('inf')
+        else:
+            cfl_dt_limit = min(finite_spacings) / max_inlet_velocity_magnitude
         
         # A typical CFL number for explicit Euler is <= 1.0. For stability, let's target 0.5.
         target_cfl_num = 0.5 
@@ -568,4 +570,4 @@ def run_simulation(json_filename):
 
 # Run the solver
 # Ensure the input JSON file exists in data/testing-input-output/ relative to src/
-run_simulation("fluid_simulation_input.json") # Uncomment to run
+ run_simulation("fluid_simulation_input.json") # Uncomment to run
