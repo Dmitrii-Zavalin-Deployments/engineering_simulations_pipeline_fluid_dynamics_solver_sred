@@ -266,25 +266,17 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 lap_v += (velocity[idx_to_node[(i+1,j,k)], 1] - 2*v_curr + velocity[idx_to_node[(i-1,j,k)], 1]) / (dx**2)
                 lap_w += (velocity[idx_to_node[(i+1,j,k)], 2] - 2*w_curr + velocity[idx_to_node[(i-1,j,k)], 2]) / (dx**2)
             elif i == 0: # Forward difference for second derivative
-                # Use a first-order approximation or reflect for boundary.
-                # For simplicity, for now, handle based on if i+2 exists.
-                if nx > 1: # Always true for this block if nx > 1
-                    # A more robust approach for boundaries is to use one-sided differences or ghost cells.
-                    # For a simple implementation, for 2-node grids, the second derivative is undefined.
-                    # For 3-node grids at i=0, we can use (u_{i+2} - 2u_{i+1} + u_i) / dx^2
-                    if nx > 2:
-                        lap_u += (velocity[idx_to_node[(i+2,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
-                        lap_v += (velocity[idx_to_node[(i+2,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
-                        lap_w += (velocity[idx_to_node[(i+2,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
-                    else: # nx = 2, i = 0. No 2nd derivative possible with 3 points. Consider 0 or first-order if applicable.
-                        pass # Set to 0.0, as initialized
+                if nx > 2: # Need at least 3 points for a second order derivative
+                    lap_u += (velocity[idx_to_node[(i+2,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
+                    lap_v += (velocity[idx_to_node[(i+2,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
+                    lap_w += (velocity[idx_to_node[(i+2,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
+                # else: for nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif i == nx - 1: # Backward difference for second derivative
-                if nx > 2:
+                if nx > 2: # Need at least 3 points for a second order derivative
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i-1,j,k)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dx**2)
                     lap_v += (v_curr - 2*velocity[idx_to_node[(i-1,j,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dx**2)
                     lap_w += (w_curr - 2*velocity[idx_to_node[(i-1,j,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dx**2)
-                else: # nx = 2, i = nx-1. No 2nd derivative possible with 3 points.
-                    pass # Set to 0.0
+                # else: for nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
         # d^2/dy^2
         if ny > 1:
@@ -297,15 +289,13 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                     lap_u += (velocity[idx_to_node[(i,j+2,k)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dy**2)
                     lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dy**2)
                     lap_w += (velocity[idx_to_node[(i,j+2,k)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dy**2)
-                else:
-                    pass
+                # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif j == ny - 1:
                 if ny > 2:
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
                     lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
                     lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
-                else:
-                    pass
+                # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
         # d^2/dz^2
         if nz > 1: # Only calculate if 3D
@@ -318,15 +308,13 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                     lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
                     lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
                     lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
-                else:
-                    pass
+                # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif k == nz - 1:
                 if nz > 2:
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dz**2)
+                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
                     lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
-                else:
-                    pass
+                # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
 
         diffusion_accel[node_1d_idx, 0] = viscosity * lap_u
@@ -596,4 +584,4 @@ def run_simulation(json_filename):
 
 # Run the solver
 # Ensure the input JSON file exists in data/testing-input-output/ relative to src/
-run_simulation("fluid_simulation_input.json") # Uncomment to run
+run_simulation("fluid_simulation_input.json")
