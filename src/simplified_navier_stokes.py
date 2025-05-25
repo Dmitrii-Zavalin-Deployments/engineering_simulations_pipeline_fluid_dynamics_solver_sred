@@ -570,4 +570,4 @@ def run_simulation(json_filename):
 
 # Run the solver
 # Ensure the input JSON file exists in data/testing-input-output/ relative to src/
- run_simulation("fluid_simulation_input.json") # Uncomment to run
+run_simulation("fluid_simulation_input.json")
