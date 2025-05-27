@@ -27,6 +27,25 @@ jobs:
 
     - name: List installed packages (Debugging)
       run: pip list
+      
+    - name: Delete Previous Fluid Simulation Input JSON
+      run: |
+        if [ -f $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json ]; then
+          rm $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json
+          echo "🗑️ Deleted previous fluid_simulation_input.json file."
+        else
+          echo "ℹ️ No previous fluid_simulation_input.json found—proceeding with new generation."
+        fi
+    
+    - name: Make `download_from_dropbox.sh` Executable
+      run: chmod +x src/download_from_dropbox.sh
+
+    - name: Download Simulation Files from Dropbox
+      env:
+        APP_KEY: ${{ secrets.APP_KEY }}
+        APP_SECRET: ${{ secrets.APP_SECRET }}
+        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+      run: src/download_from_dropbox.sh
 
     # Ensure input file `fluid_simulation_input.json` exists before execution
     - name: Verify Input File Exists
@@ -75,27 +94,42 @@ jobs:
         fi
 
     # --- Commit and Push Updated Simulation Results (If Tests Pass) ---
-    - name: Commit and Push Simulation Results JSON
-      env:
-        GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
-        GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-      run: |
-        git config --global user.name "${GIT_USER_NAME}"
-        git config --global user.email "${GIT_USER_EMAIL}"
+    # - name: Commit and Push Simulation Results JSON
+    #  env:
+    #    GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+    #    GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+    #  run: |
+    #    git config --global user.name "${GIT_USER_NAME}"
+    #    git config --global user.email "${GIT_USER_EMAIL}"
 
-        cd "$GITHUB_WORKSPACE"
-        RESULTS_FILE="data/testing-input-output/navier_stokes_results.json"
+    #    cd "$GITHUB_WORKSPACE"
+    #    RESULTS_FILE="data/testing-input-output/navier_stokes_results.json"
 
-        if [ -s "$RESULTS_FILE" ]; then
-          git add "$RESULTS_FILE"
-          git status
+    #    if [ -s "$RESULTS_FILE" ]; then
+    #      git add "$RESULTS_FILE"
+    #      git status
           
-          if git diff --cached --quiet; then
-            echo "✅ No changes to commit in $RESULTS_FILE!"
-          else
-            git commit -m "Auto-update: Added latest Navier-Stokes simulation result"
-            git push origin HEAD
-          fi
-        else
-          echo "❌ No valid simulation result file detected ($RESULTS_FILE is empty or missing), skipping commit."
-        fi
+    #      if git diff --cached --quiet; then
+    #        echo "✅ No changes to commit in $RESULTS_FILE!"
+    #      else
+    #        git commit -m "Auto-update: Added latest Navier-Stokes simulation result"
+    #        git push origin HEAD
+    #      fi
+    #    else
+    #      echo "❌ No valid simulation result file detected ($RESULTS_FILE is empty or missing), skipping commit."
+    #    fi
+
+    - name: Make `upload_to_dropbox.sh` Executable
+      run: chmod +x src/upload_to_dropbox.sh
+
+    - name: Debug Before Dropbox Upload
+      run: |
+        echo "🔍 Checking directory structure before upload..."
+        ls -R $GITHUB_WORKSPACE
+
+    - name: Upload Fluid Simulation Input to Dropbox
+      env:
+        APP_KEY: ${{ secrets.APP_KEY }}
+        APP_SECRET: ${{ secrets.APP_SECRET }}
+        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+      run: src/upload_to_dropbox.sh
