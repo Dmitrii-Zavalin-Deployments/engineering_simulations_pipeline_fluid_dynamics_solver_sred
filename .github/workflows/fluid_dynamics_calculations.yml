@@ -27,6 +27,15 @@ jobs:
 
     - name: List installed packages (Debugging)
       run: pip list
+      
+    - name: Delete Previous Fluid Simulation Input JSON
+      run: |
+        if [ -f $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json ]; then
+          rm $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json
+          echo "🗑️ Deleted previous fluid_simulation_input.json file."
+        else
+          echo "ℹ️ No previous fluid_simulation_input.json found—proceeding with new generation."
+        fi
     
     - name: Make `download_from_dropbox.sh` Executable
       run: chmod +x src/download_from_dropbox.sh
