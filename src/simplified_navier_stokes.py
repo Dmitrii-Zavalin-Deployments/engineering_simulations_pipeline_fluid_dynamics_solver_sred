@@ -305,14 +305,14 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 lap_v += (velocity[idx_to_node[(i,j,k+1)], 1] - 2*v_curr + velocity[idx_to_node[(i,j,k-1)], 1]) / (dz**2)
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
             elif k == 0:
-                if nz > 2:
+                if nz > 2: # This is the block with the error
                     lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
-                    lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dz**2)
-                    lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dz**2)
+                    # Corrected lines: Changed j+1 to k+1 for the z-direction derivative
+                    lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
+                    lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
                 # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif k == nz - 1:
                 if nz > 2:
-                    # CORRECTED LINES FOR d^2/dz^2 (k == nz-1)
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
                     lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
                     lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
@@ -463,7 +463,7 @@ def run_simulation(json_filename):
     mesh_data = data["mesh"]
     fluid_properties = data["fluid_properties"]
     boundary_conditions = data["boundary_conditions"]
-    simulation_params = data["simulation_parameters"]
+    simulation_params = data["simulation"]["simulation_parameters"] # Corrected access
 
     time_step = simulation_params["time_step"]
     total_time = simulation_params["total_time"]
