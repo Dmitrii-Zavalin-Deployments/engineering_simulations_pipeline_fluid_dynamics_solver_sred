@@ -131,7 +131,7 @@ def initialize_fields(num_nodes, initial_velocity, initial_pressure):
     Assumes a uniform initial state based on inlet conditions.
     """
     velocity = np.full((num_nodes, 3), initial_velocity) # Initialize velocity to inlet velocity
-    pressure = np.full(num_nodes, initial_pressure)        # Initialize pressure to inlet pressure
+    pressure = np.full(num_nodes, initial_pressure)       # Initialize pressure to inlet pressure
     return velocity, pressure
 
 def apply_boundary_conditions(velocity, pressure, boundary_conditions, mesh_info):
@@ -291,50 +291,49 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         lap_u, lap_v, lap_w = 0.0, 0.0, 0.0
 
         # d^2/dx^2
-        if nx > 2: # Need at least 3 points for a central second order derivative
-            if i > 0 and i < nx - 1:
+        if nx > 1: # Calculate if dimension has more than one node
+            if i > 0 and i < nx - 1: # Central difference
                 lap_u += (velocity[idx_to_node[(i+1,j,k)], 0] - 2*u_curr + velocity[idx_to_node[(i-1,j,k)], 0]) / (dx**2)
                 lap_v += (velocity[idx_to_node[(i+1,j,k)], 1] - 2*v_curr + velocity[idx_to_node[(i-1,j,k)], 1]) / (dx**2)
                 lap_w += (velocity[idx_to_node[(i+1,j,k)], 2] - 2*w_curr + velocity[idx_to_node[(i-1,j,k)], 2]) / (dx**2)
-            elif i == 0: # Forward difference for second derivative
-                lap_u += (velocity[idx_to_node[(i+2,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
-                lap_v += (velocity[idx_to_node[(i+2,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
-                lap_w += (velocity[idx_to_node[(i+2,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
-            elif i == nx - 1: # Backward difference for second derivative
-                lap_u += (u_curr - 2*velocity[idx_to_node[(i-1,j,k)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dx**2)
-                lap_v += (v_curr - 2*velocity[idx_to_node[(i-1,j,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dx**2)
-                lap_w += (w_curr - 2*velocity[idx_to_node[(i-1,j,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dx**2)
-        # For nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+            elif i == 0 and nx > 1: # Forward difference for second derivative
+                lap_u += (velocity[idx_to_node[(i+2 if i+2 < nx else i+1,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
+                lap_v += (velocity[idx_to_node[(i+2 if i+2 < nx else i+1,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
+                lap_w += (velocity[idx_to_node[(i+2 if i+2 < nx else i+1,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
+            elif i == nx - 1 and nx > 1: # Backward difference for second derivative
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i-1,j,k)], 0] + velocity[idx_to_node[(i-2 if i-2 >= 0 else i-1,j,k)], 0]) / (dx**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i-1,j,k)], 1] + velocity[idx_to_node[(i-2 if i-2 >= 0 else i-1,j,k)], 1]) / (dx**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i-1,j,k)], 2] + velocity[idx_to_node[(i-2 if i-2 >= 0 else i-1,j,k)], 2]) / (dx**2)
 
         # d^2/dy^2
-        if ny > 2: # Need at least 3 points for a central second order derivative
-            if j > 0 and j < ny - 1:
+        if ny > 1: # Calculate if dimension has more than one node
+            if j > 0 and j < ny - 1: # Central difference
                 lap_u += (velocity[idx_to_node[(i,j+1,k)], 0] - 2*u_curr + velocity[idx_to_node[(i,j-1,k)], 0]) / (dy**2)
                 lap_v += (velocity[idx_to_node[(i,j+1,k)], 1] - 2*v_curr + velocity[idx_to_node[(i,j-1,k)], 1]) / (dy**2)
                 lap_w += (velocity[idx_to_node[(i,j+1,k)], 2] - 2*w_curr + velocity[idx_to_node[(i,j-1,k)], 2]) / (dy**2)
-            elif j == 0:
-                lap_u += (velocity[idx_to_node[(i,j+2,k)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dy**2)
-                lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dy**2)
-                lap_w += (velocity[idx_to_node[(i,j+2,k)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dy**2)
-            elif j == ny - 1:
-                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
-                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
-                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
+            elif j == 0 and ny > 1: # Forward difference
+                lap_u += (velocity[idx_to_node[(i,j+2 if j+2 < ny else j+1,k)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dy**2)
+                lap_v += (velocity[idx_to_node[(i,j+2 if j+2 < ny else j+1,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dy**2)
+                lap_w += (velocity[idx_to_node[(i,j+2 if j+2 < ny else j+1,k)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dy**2)
+            elif j == ny - 1 and ny > 1: # Backward difference
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2 if j-2 >= 0 else j-1,k)], 0]) / (dy**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2 if j-2 >= 0 else j-1,k)], 1]) / (dy**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2 if j-2 >= 0 else j-1,k)], 2]) / (dy**2)
 
         # d^2/dz^2
-        if nz > 2: # Only calculate if 3D AND has at least 3 points
-            if k > 0 and k < nz - 1:
+        if nz > 1: # Calculate if dimension has more than one node
+            if k > 0 and k < nz - 1: # Central difference
                 lap_u += (velocity[idx_to_node[(i,j,k+1)], 0] - 2*u_curr + velocity[idx_to_node[(i,j,k-1)], 0]) / (dz**2)
                 lap_v += (velocity[idx_to_node[(i,j,k+1)], 1] - 2*v_curr + velocity[idx_to_node[(i,j,k-1)], 1]) / (dz**2)
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
-            elif k == 0:
-                lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
-                lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
-                lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
-            elif k == nz - 1:
-                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
-                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
-                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
+            elif k == 0 and nz > 1: # Forward difference
+                lap_u += (velocity[idx_to_node[(i,j,k+2 if k+2 < nz else k+1)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
+                lap_v += (velocity[idx_to_node[(i,j,k+2 if k+2 < nz else k+1)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
+                lap_w += (velocity[idx_to_node[(i,j,k+2 if k+2 < nz else k+1)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
+            elif k == nz - 1 and nz > 1: # Backward difference
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2 if k-2 >= 0 else k-1)], 0]) / (dz**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2 if k-2 >= 0 else k-1), 1]) / (dz**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2 if k-2 >= 0 else k-1)], 2]) / (dz**2)
 
 
         diffusion_accel[node_1d_idx, 0] = viscosity * lap_u
@@ -457,7 +456,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
             elif k == 0:
                 dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[node_1d_idx]) / dz
             elif k == nz - 1:
-                dphi_dz = (phi[node_1d_idx] - phi[idx_to_node[(i, j, k-1)]]) / dz # Corrected
+                dphi_dz = (phi[node_1d_idx] - phi[idx_to_node[(i, j, k-1)], 2]) / dz # Corrected
 
         # Apply correction to velocity (u_new = u_tentative - dt * (1/rho) * grad(phi))
         u_tentative[node_1d_idx, 0] -= dt * dphi_dx / density
@@ -607,6 +606,5 @@ def run_simulation(json_filename):
 # Run the solver
 # Ensure the input JSON file exists in data/testing-input-output/ relative to src/
 run_simulation("fluid_simulation_input.json")
-
 
 
