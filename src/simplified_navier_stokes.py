@@ -26,11 +26,6 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(
     dy = domain_size[1] / (ny - 1) if ny > 1 else domain_size[1]
     dz = domain_size[2] / (nz - 1) if nz > 1 else domain_size[2]
     
-    # For 2D cases (nz=1), if dz is effectively 0 or based on (1-1) division, set it to a sensible value
-    # for calculations involving it, or simply ensure it's not used for 2D.
-    # The current use of dz is for coordinate generation, so if nz=1, k*dz will always be 0.
-    # The current logic handles nz=1 correctly for coordinate generation.
-
     nodes_coords = np.zeros((num_nodes, 3))
     node_to_idx = {}
     idx_to_node = {}
@@ -299,8 +294,8 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
             elif j == ny - 1:
                 if ny > 2:
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dy**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dy**2)
+                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
+                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
                 # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
         # d^2/dz^2
@@ -311,15 +306,16 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
             elif k == 0:
                 if nz > 2:
-                    lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dz**2)
-                    lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dz**2)
+                    lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
+                    lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dz**2)
                     lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dz**2)
                 # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif k == nz - 1:
                 if nz > 2:
-                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dz**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1),k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dz**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dz**2)
+                    # CORRECTED LINES FOR d^2/dz^2 (k == nz-1)
+                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
+                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
+                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
                 # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
 
@@ -493,13 +489,7 @@ def run_simulation(json_filename):
         # Ensure domain_size components are not zero if there's only one point in that dimension
         for i in range(3):
             if domain_size[i] < 1e-9: # If essentially zero, assume a unit size for that dimension if it's a 1-node dimension
-                # This logic is crucial. If a dimension has only one node, its extent might be 0,
-                # but we need a non-zero `dx` for division if it's used in calculations.
-                # However, for coordinate generation (i*dx), if nx=1, then i is always 0, so i*dx is 0.
-                # If we expect the validator to see the original coordinates from the input,
-                # we must preserve the 'origin' from the input coordinates.
-                # The 'domain_size' here defines the *extent*, not the starting point.
-                domain_size[i] = 1.0 # Or some sensible default if the extent is effectively zero.
+                domain_size[i] = 1.0 
         domain_size = tuple(domain_size)
     else:
         domain_size = (1.0, 1.0, 1.0) # Default if no coordinate data
