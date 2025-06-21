@@ -20,11 +20,14 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(
     nx, ny, nz = grid_dims
     num_nodes = nx * ny * nz
     
-    # Calculate grid spacing. Ensure dx, dy, dz are not zero for 1D/2D cases
-    # If a dimension has only one node, its 'spacing' covers the entire domain extent for that dimension.
-    dx = domain_size[0] / (nx - 1) if nx > 1 else domain_size[0]
-    dy = domain_size[1] / (ny - 1) if ny > 1 else domain_size[1]
-    dz = domain_size[2] / (nz - 1) if nz > 1 else domain_size[2]
+    # Calculate grid spacing.
+    # If a dimension has only one node, its 'spacing' doesn't contribute to spanning distance,
+    # and the coordinate for that dimension will just be the 'origin' coordinate.
+    # If nx > 1, spacing is based on (nx-1) intervals. If nx=1, dx is irrelevant for spacing,
+    # it is implicitly 0 because i is always 0.
+    dx = domain_size[0] / (nx - 1) if nx > 1 else 0.0 # If nx=1, dx is conceptually 0 for stepping
+    dy = domain_size[1] / (ny - 1) if ny > 1 else 0.0 # If ny=1, dy is conceptually 0 for stepping
+    dz = domain_size[2] / (nz - 1) if nz > 1 else 0.0 # If nz=1, dz is conceptually 0 for stepping
     
     nodes_coords = np.zeros((num_nodes, 3))
     node_to_idx = {}
@@ -42,12 +45,19 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(
                 idx_to_node[(i, j, k)] = count
                 count += 1
     
-    return num_nodes, nodes_coords, grid_dims, dx, dy, dz, node_to_idx, idx_to_node
+    # For reporting dx, dy, dz, we still need the actual spacing even if count is 0.
+    # Re-calculate dx, dy, dz to reflect the *actual* spacing used or domain size if only one node.
+    final_dx = domain_size[0] / (nx - 1) if nx > 1 else domain_size[0]
+    final_dy = domain_size[1] / (ny - 1) if ny > 1 else domain_size[1]
+    final_dz = domain_size[2] / (nz - 1) if nz > 1 else domain_size[2]
 
-def find_optimal_grid_dimensions(num_nodes):
+    return num_nodes, nodes_coords, grid_dims, final_dx, final_dy, final_dz, node_to_idx, idx_to_node
+
+
+def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
     """
     Finds three integer factors (nx, ny, nz) for num_nodes such that they are as close
-    to each other as possible, prioritizing nz >= 1.
+    to each other as possible, respecting dimensions with effectively zero or non-zero extent.
     """
     factors = []
     # Find all factors of num_nodes
@@ -58,31 +68,51 @@ def find_optimal_grid_dimensions(num_nodes):
                 factors.append(num_nodes // i)
     factors.sort()
 
-    best_dims = (1, 1, num_nodes) # Default to a 1D line if nothing better found
+    best_dims = (1, 1, num_nodes) # Default fallback
     min_diff = float('inf')
 
-    # Try to find three factors that are close to the cube root
-    cube_root = round(num_nodes**(1/3))
-    
-    # Iterate through possible combinations to find the "most cubic"
-    # This is a heuristic and might not be perfectly optimal for all numbers
+    # Heuristic for target dimension size, aiming for a cube-like shape
+    # The sum of absolute differences from this target is used for scoring
+    target_dim_size = num_nodes**(1/3)
+
     for nz_val in factors:
         if num_nodes % nz_val == 0:
             remaining_nodes = num_nodes // nz_val
             for nx_val in factors:
                 if remaining_nodes % nx_val == 0:
                     ny_val = remaining_nodes // nx_val
-                    if nx_val * ny_val * nz_val == num_nodes:
-                        # Calculate a "balance" metric, e.g., sum of absolute differences from cube_root
-                        diff = abs(nx_val - cube_root) + abs(ny_val - cube_root) + abs(nz_val - cube_root)
-                        if diff < min_diff:
-                            min_diff = diff
-                            best_dims = tuple(sorted((nx_val, ny_val, nz_val)))
+
+                    if nx_val * ny_val * nz_val != num_nodes: # Should not happen with current loop but good check
+                        continue
+
+                    current_dims = tuple(sorted((nx_val, ny_val, nz_val)))
+
+                    # Apply constraints based on domain_size
+                    is_valid_combination = True
+                    for dim_idx in range(3):
+                        # If domain has significant extent, grid dim must be > 1
+                        if domain_size[dim_idx] > tolerance and current_dims[dim_idx] == 1:
+                            is_valid_combination = False
+                            break
+                        # If domain has zero extent, grid dim must be 1
+                        if domain_size[dim_idx] < tolerance and current_dims[dim_idx] > 1:
+                            is_valid_combination = False
+                            break
+                    
+                    if not is_valid_combination:
+                        continue # Skip this combination, it violates spatial constraints
+
+                    # Calculate 'balance' metric - sum of absolute differences from target size
+                    diff_score = abs(nx_val - target_dim_size) + \
+                                 abs(ny_val - target_dim_size) + \
+                                 abs(nz_val - target_dim_size)
+
+                    if diff_score < min_diff:
+                        min_diff = diff_score
+                        best_dims = current_dims
     
-    # If num_nodes is prime or has few factors, this might still return elongated dimensions.
-    # For 624 nodes, (8, 13, 6) is a good factorization, which this logic should find.
-    # We ensure nx, ny, nz are at least 1.
-    return best_dims if best_dims[0] >= 1 and best_dims[1] >= 1 and best_dims[2] >= 1 else (1,1,num_nodes)
+    # Final check to ensure all dimensions are at least 1, if num_nodes is 0 or something weird
+    return best_dims if all(d >= 1 for d in best_dims) else (1,1,num_nodes)
 
 # --- Core Solver Functions ---
 
@@ -121,37 +151,43 @@ def apply_boundary_conditions(velocity, pressure, boundary_conditions, mesh_info
     if 1 in boundary_conditions["inlet"]["faces"]:
         for j in range(ny):
             for k in range(nz):
-                inlet_nodes_1d_indices.append(idx_to_node[(0, j, k)])
+                if (0, j, k) in idx_to_node:
+                    inlet_nodes_1d_indices.append(idx_to_node[(0, j, k)])
 
     # Face 232 in JSON -> x_max boundary (i=nx-1)
     if 232 in boundary_conditions["outlet"]["faces"]:
         for j in range(ny):
             for k in range(nz):
-                outlet_nodes_1d_indices.append(idx_to_node[(nx-1, j, k)])
+                if (nx-1, j, k) in idx_to_node:
+                    outlet_nodes_1d_indices.append(idx_to_node[(nx-1, j, k)])
 
     # Wall faces: Add all boundary nodes to a set for no-slip
     # Face 10 in JSON -> y_min boundary (j=0)
     if 10 in boundary_conditions["wall"]["faces"]:
         for i in range(nx):
             for k in range(nz):
-                wall_nodes_1d_indices.add(idx_to_node[(i, 0, k)])
+                if (i, 0, k) in idx_to_node:
+                    wall_nodes_1d_indices.add(idx_to_node[(i, 0, k)])
     # Face 11 in JSON -> y_max boundary (j=ny-1)
     if 11 in boundary_conditions["wall"]["faces"]:
         for i in range(nx):
             for k in range(nz):
-                wall_nodes_1d_indices.add(idx_to_node[(i, ny-1, k)])
+                if (i, ny-1, k) in idx_to_node:
+                    wall_nodes_1d_indices.add(idx_to_node[(i, ny-1, k)])
     
     if nz > 1: # Only if 3D (if nz is effectively > 1)
         # Face 12 in JSON -> z_min boundary (k=0)
         if 12 in boundary_conditions["wall"]["faces"]:
             for i in range(nx):
                 for j in range(ny):
-                    wall_nodes_1d_indices.add(idx_to_node[(i, j, 0)])
+                    if (i, j, 0) in idx_to_node:
+                        wall_nodes_1d_indices.add(idx_to_node[(i, j, 0)])
         # Face 13 in boundary_conditions["wall"]["faces"] -> z_max boundary (k=nz-1)
         if 13 in boundary_conditions["wall"]["faces"]:
             for i in range(nx):
                 for j in range(ny):
-                    wall_nodes_1d_indices.add(idx_to_node[(i, j, nz-1)])
+                    if (i, j, nz-1) in idx_to_node:
+                        wall_nodes_1d_indices.add(idx_to_node[(i, j, nz-1)])
 
     # Apply Inlet Velocity (Dirichlet BC) - Note: inlet overrides wall if same node
     inlet_vel = np.array(boundary_conditions["inlet"]["velocity"])
@@ -206,41 +242,35 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
 
         # d/dx terms (for u, v, w components)
         # Upwind based on u_curr
-        if u_curr >= 0: # Use backward difference
-            if i > 0:
-                du_dx = (u_curr - velocity[idx_to_node[(i-1, j, k)], 0]) / dx
-                dv_dx = (v_curr - velocity[idx_to_node[(i-1, j, k)], 1]) / dx
-                dw_dx = (w_curr - velocity[idx_to_node[(i-1, j, k)], 2]) / dx
-            elif nx == 1: # 1D in x, no spatial derivative
-                du_dx, dv_dx, dw_dx = 0.0, 0.0, 0.0
-        else: # u_curr < 0, use forward difference
-            if i < nx - 1:
-                du_dx = (velocity[idx_to_node[(i+1, j, k)], 0] - u_curr) / dx
-                dv_dx = (velocity[idx_to_node[(i+1, j, k)], 1] - v_curr) / dx
-                dw_dx = (velocity[idx_to_node[(i+1, j, k)], 2] - w_curr) / dx
-            elif nx == 1:
-                du_dx, dv_dx, dw_dx = 0.0, 0.0, 0.0
+        if nx > 1: # Only calculate if dimension has more than one node
+            if u_curr >= 0: # Use backward difference
+                if i > 0:
+                    du_dx = (u_curr - velocity[idx_to_node[(i-1, j, k)], 0]) / dx
+                    dv_dx = (v_curr - velocity[idx_to_node[(i-1, j, k)], 1]) / dx
+                    dw_dx = (w_curr - velocity[idx_to_node[(i-1, j, k)], 2]) / dx
+            else: # u_curr < 0, use forward difference
+                if i < nx - 1:
+                    du_dx = (velocity[idx_to_node[(i+1, j, k)], 0] - u_curr) / dx
+                    dv_dx = (velocity[idx_to_node[(i+1, j, k)], 1] - v_curr) / dx
+                    dw_dx = (velocity[idx_to_node[(i+1, j, k)], 2] - w_curr) / dx
 
         # d/dy terms (for u, v, w components)
         # Upwind based on v_curr
-        if v_curr >= 0: # Use backward difference
-            if j > 0:
-                du_dy = (u_curr - velocity[idx_to_node[(i, j-1, k)], 0]) / dy
-                dv_dy = (v_curr - velocity[idx_to_node[(i, j-1, k)], 1]) / dy
-                dw_dy = (w_curr - velocity[idx_to_node[(i, j-1, k)], 2]) / dy
-            elif ny == 1:
-                du_dy, dv_dy, dw_dy = 0.0, 0.0, 0.0
-        else: # v_curr < 0, use forward difference
-            if j < ny - 1:
-                du_dy = (velocity[idx_to_node[(i, j+1, k)], 0] - u_curr) / dy
-                dv_dy = (velocity[idx_to_node[(i, j+1, k)], 1] - v_curr) / dy
-                dw_dy = (velocity[idx_to_node[(i, j+1, k)], 2] - w_curr) / dy
-            elif ny == 1:
-                du_dy, dv_dy, dw_dy = 0.0, 0.0, 0.0
+        if ny > 1: # Only calculate if dimension has more than one node
+            if v_curr >= 0: # Use backward difference
+                if j > 0:
+                    du_dy = (u_curr - velocity[idx_to_node[(i, j-1, k)], 0]) / dy
+                    dv_dy = (v_curr - velocity[idx_to_node[(i, j-1, k)], 1]) / dy
+                    dw_dy = (w_curr - velocity[idx_to_node[(i, j-1, k)], 2]) / dy
+            else: # v_curr < 0, use forward difference
+                if j < ny - 1:
+                    du_dy = (velocity[idx_to_node[(i, j+1, k)], 0] - u_curr) / dy
+                    dv_dy = (velocity[idx_to_node[(i, j+1, k)], 1] - v_curr) / dy
+                    dw_dy = (velocity[idx_to_node[(i, j+1, k)], 2] - w_curr) / dy
 
         # d/dz terms (for u, v, w components)
         # Upwind based on w_curr (only if nz > 1)
-        if nz > 1:
+        if nz > 1: # Only calculate if dimension has more than one node
             if w_curr >= 0: # Use backward difference
                 if k > 0:
                     du_dz = (u_curr - velocity[idx_to_node[(i, j, k-1)], 0]) / dz
@@ -261,62 +291,50 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         lap_u, lap_v, lap_w = 0.0, 0.0, 0.0
 
         # d^2/dx^2
-        if nx > 1:
+        if nx > 2: # Need at least 3 points for a central second order derivative
             if i > 0 and i < nx - 1:
                 lap_u += (velocity[idx_to_node[(i+1,j,k)], 0] - 2*u_curr + velocity[idx_to_node[(i-1,j,k)], 0]) / (dx**2)
                 lap_v += (velocity[idx_to_node[(i+1,j,k)], 1] - 2*v_curr + velocity[idx_to_node[(i-1,j,k)], 1]) / (dx**2)
                 lap_w += (velocity[idx_to_node[(i+1,j,k)], 2] - 2*w_curr + velocity[idx_to_node[(i-1,j,k)], 2]) / (dx**2)
             elif i == 0: # Forward difference for second derivative
-                if nx > 2: # Need at least 3 points for a second order derivative
-                    lap_u += (velocity[idx_to_node[(i+2,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
-                    lap_v += (velocity[idx_to_node[(i+2,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
-                    lap_w += (velocity[idx_to_node[(i+2,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
-                # else: for nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (velocity[idx_to_node[(i+2,j,k)], 0] - 2*velocity[idx_to_node[(i+1,j,k)], 0] + u_curr) / (dx**2)
+                lap_v += (velocity[idx_to_node[(i+2,j,k)], 1] - 2*velocity[idx_to_node[(i+1,j,k)], 1] + v_curr) / (dx**2)
+                lap_w += (velocity[idx_to_node[(i+2,j,k)], 2] - 2*velocity[idx_to_node[(i+1,j,k)], 2] + w_curr) / (dx**2)
             elif i == nx - 1: # Backward difference for second derivative
-                if nx > 2: # Need at least 3 points for a second order derivative
-                    lap_u += (u_curr - 2*velocity[idx_to_node[(i-1,j,k)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dx**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i-1,j,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dx**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i-1,j,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dx**2)
-                # else: for nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i-1,j,k)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dx**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i-1,j,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dx**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i-1,j,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dx**2)
+        # For nx <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
         # d^2/dy^2
-        if ny > 1:
+        if ny > 2: # Need at least 3 points for a central second order derivative
             if j > 0 and j < ny - 1:
                 lap_u += (velocity[idx_to_node[(i,j+1,k)], 0] - 2*u_curr + velocity[idx_to_node[(i,j-1,k)], 0]) / (dy**2)
                 lap_v += (velocity[idx_to_node[(i,j+1,k)], 1] - 2*v_curr + velocity[idx_to_node[(i,j-1,k)], 1]) / (dy**2)
                 lap_w += (velocity[idx_to_node[(i,j+1,k)], 2] - 2*w_curr + velocity[idx_to_node[(i,j-1,k)], 2]) / (dy**2)
             elif j == 0:
-                if ny > 2:
-                    lap_u += (velocity[idx_to_node[(i,j+2,k)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dy**2)
-                    lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dy**2)
-                    lap_w += (velocity[idx_to_node[(i,j+2,k)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dy**2)
-                # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (velocity[idx_to_node[(i,j+2,k)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dy**2)
+                lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dy**2)
+                lap_w += (velocity[idx_to_node[(i,j+2,k)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dy**2)
             elif j == ny - 1:
-                if ny > 2:
-                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
-                # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
 
         # d^2/dz^2
-        if nz > 1: # Only calculate if 3D
+        if nz > 2: # Only calculate if 3D AND has at least 3 points
             if k > 0 and k < nz - 1:
                 lap_u += (velocity[idx_to_node[(i,j,k+1)], 0] - 2*u_curr + velocity[idx_to_node[(i,j,k-1)], 0]) / (dz**2)
                 lap_v += (velocity[idx_to_node[(i,j,k+1)], 1] - 2*v_curr + velocity[idx_to_node[(i,j,k-1)], 1]) / (dz**2)
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
             elif k == 0:
-                if nz > 2: # This is the block with the error
-                    lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
-                    # Corrected lines: Changed j+1 to k+1 for the z-direction derivative
-                    lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
-                    lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
-                # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
+                lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
+                lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
             elif k == nz - 1:
-                if nz > 2:
-                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
-                # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
+                lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
+                lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
+                lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
 
 
         diffusion_accel[node_1d_idx, 0] = viscosity * lap_u
@@ -336,7 +354,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         
         # d/dx (u_x)
         div_x = 0.0
-        if nx > 1:
+        if nx > 1: # Only calculate if dimension has more than one node
             if i > 0 and i < nx - 1:
                 div_x = (u_tentative[idx_to_node[(i+1, j, k)], 0] - u_tentative[idx_to_node[(i-1, j, k)], 0]) / (2 * dx)
             elif i == 0: # Forward difference
@@ -346,7 +364,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
 
         # d/dy (u_y)
         div_y = 0.0
-        if ny > 1:
+        if ny > 1: # Only calculate if dimension has more than one node
             if j > 0 and j < ny - 1:
                 div_y = (u_tentative[idx_to_node[(i, j+1, k)], 1] - u_tentative[idx_to_node[(i, j-1, k)], 1]) / (2 * dy)
             elif j == 0:
@@ -356,7 +374,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
 
         # d/dz (u_z)
         div_z = 0.0
-        if nz > 1:
+        if nz > 1: # Only calculate if dimension has more than one node
             if k > 0 and k < nz - 1:
                 div_z = (u_tentative[idx_to_node[(i, j, k+1)], 2] - u_tentative[idx_to_node[(i, j, k-1)], 2]) / (2 * dz)
             elif k == 0:
@@ -382,17 +400,19 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
             coeff_diag = 0.0
 
             # X-direction
-            if i > 0: phi_sum_neighbors += phi_new[idx_to_node[(i-1, j, k)]] / (dx**2) # Use new values if available (Gauss-Seidel like)
-            if i < nx - 1: phi_sum_neighbors += phi[idx_to_node[(i+1, j, k)]] / (dx**2) # Use old values
-            if nx > 1: coeff_diag += 2 / (dx**2) if i > 0 and i < nx - 1 else 1 / (dx**2)
+            if nx > 1: # Only calculate if dimension has more than one node
+                if i > 0: phi_sum_neighbors += phi_new[idx_to_node[(i-1, j, k)]] / (dx**2) # Use new values if available (Gauss-Seidel like)
+                if i < nx - 1: phi_sum_neighbors += phi[idx_to_node[(i+1, j, k)]] / (dx**2) # Use old values
+                coeff_diag += 2 / (dx**2) if i > 0 and i < nx - 1 else 1 / (dx**2)
 
             # Y-direction
-            if j > 0: phi_sum_neighbors += phi_new[idx_to_node[(i, j-1, k)]] / (dy**2)
-            if j < ny - 1: phi_sum_neighbors += phi[idx_to_node[(i, j+1, k)]] / (dy**2)
-            if ny > 1: coeff_diag += 2 / (dy**2) if j > 0 and j < ny - 1 else 1 / (dy**2)
+            if ny > 1: # Only calculate if dimension has more than one node
+                if j > 0: phi_sum_neighbors += phi_new[idx_to_node[(i, j-1, k)]] / (dy**2)
+                if j < ny - 1: phi_sum_neighbors += phi[idx_to_node[(i, j+1, k)]] / (dy**2)
+                coeff_diag += 2 / (dy**2) if j > 0 and j < ny - 1 else 1 / (dy**2)
 
             # Z-direction (if 3D)
-            if nz > 1:
+            if nz > 1: # Only calculate if dimension has more than one node
                 if k > 0: phi_sum_neighbors += phi_new[idx_to_node[(i, j, k-1)]] / (dz**2)
                 if k < nz - 1: phi_sum_neighbors += phi[idx_to_node[(i, j, k+1)]] / (dz**2)
                 coeff_diag += 2 / (dz**2) if k > 0 and k < nz - 1 else 1 / (dz**2)
@@ -413,7 +433,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         dphi_dx, dphi_dy, dphi_dz = 0.0, 0.0, 0.0
 
         # d/dx
-        if nx > 1:
+        if nx > 1: # Only calculate if dimension has more than one node
             if i > 0 and i < nx - 1:
                 dphi_dx = (phi[idx_to_node[(i+1, j, k)]] - phi[idx_to_node[(i-1, j, k)]]) / (2 * dx)
             elif i == 0:
@@ -422,7 +442,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 dphi_dx = (phi[node_1d_idx] - phi[idx_to_node[(i-1, j, k)]]) / dx
 
         # d/dy
-        if ny > 1:
+        if ny > 1: # Only calculate if dimension has more than one node
             if j > 0 and j < ny - 1:
                 dphi_dy = (phi[idx_to_node[(i, j+1, k)]] - phi[idx_to_node[(i, j-1, k)]]) / (2 * dy)
             elif j == 0:
@@ -431,7 +451,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 dphi_dy = (phi[node_1d_idx] - phi[idx_to_node[(i, j-1, k)]]) / dy
 
         # d/dz
-        if nz > 1:
+        if nz > 1: # Only calculate if dimension has more than one node
             if k > 0 and k < nz - 1:
                 dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[idx_to_node[(i, j, k-1)]]) / (2 * dz) # Corrected
             elif k == 0:
@@ -463,8 +483,7 @@ def run_simulation(json_filename):
     mesh_data = data["mesh"]
     fluid_properties = data["fluid_properties"]
     boundary_conditions = data["boundary_conditions"]
-    # Corrected line: Access simulation_parameters directly from the root 'data'
-    simulation_params = data["simulation_parameters"] 
+    simulation_params = data["simulation_parameters"] # Corrected access
 
     time_step = simulation_params["time_step"]
     total_time = simulation_params["total_time"]
@@ -487,16 +506,17 @@ def run_simulation(json_filename):
         
         # Calculate domain_size based on min/max coords
         domain_size = list(domain_max - domain_min)
-        # Ensure domain_size components are not zero if there's only one point in that dimension
+        # Ensure domain_size components are not zero if they truly represent an extent
+        # and not just a single point. If domain_min == domain_max for a dim, its extent is 0.
         for i in range(3):
-            if domain_size[i] < 1e-9: # If essentially zero, assume a unit size for that dimension if it's a 1-node dimension
-                domain_size[i] = 1.0 
+            if domain_size[i] < 1e-9: # If essentially zero, this dimension has no "span"
+                domain_size[i] = 0.0 # Explicitly set to 0 to indicate no extent for `find_optimal_grid_dimensions`
         domain_size = tuple(domain_size)
     else:
         domain_size = (1.0, 1.0, 1.0) # Default if no coordinate data
         domain_min = (0.0, 0.0, 0.0) # If no boundary_faces, assume origin at 0,0,0
 
-    desired_grid_dims = find_optimal_grid_dimensions(num_nodes_from_json)
+    desired_grid_dims = find_optimal_grid_dimensions(num_nodes_from_json, domain_size)
     print(f"Automatically determined grid dimensions: {desired_grid_dims}")
     
     # Pass the domain_min as the origin for the structured grid generation
@@ -525,10 +545,7 @@ def run_simulation(json_filename):
     # Estimate a characteristic velocity for CFL condition. Using inlet velocity is a simple start.
     # In a more advanced solver, this would be the maximum velocity in the domain.
     if max_inlet_velocity_magnitude > 1e-9: # Avoid division by zero
-        min_dx_dy_dz = min(dx, dy, dz)
-        # Handle cases where dx, dy, dz might be 0 due to 1D/2D configuration.
-        # If a dimension is 1, its corresponding dx/dy/dz is essentially infinite for derivatives,
-        # so it doesn't limit the CFL condition. Filter out effectively infinite values.
+        # Filter out zero spacings for CFL calculation
         finite_spacings = [s for s in [dx, dy, dz] if s > 1e-9]
         if not finite_spacings: # All dimensions are effectively 1 (e.g., a single point)
             cfl_dt_limit = float('inf')
@@ -552,7 +569,7 @@ def run_simulation(json_filename):
     all_pressures = []
     time_points = []
 
-    print(f"Simulation starting for {num_steps} steps (Total Time: {total_time}s, Time Step: {time_step}s)")
+    print(f"Simulation starting for {num_steps} steps (Total Time: {total_time}s, Time Step: 0.01s)")
     print(f"Derived 3D grid shape: {grid_shape} with dx={dx:.4f}, dy={dy:.4f}, dz={dz:.4f}")
     print(f"Total nodes: {mesh_info['nodes']}")
 
