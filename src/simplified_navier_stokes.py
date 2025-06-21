@@ -463,7 +463,8 @@ def run_simulation(json_filename):
     mesh_data = data["mesh"]
     fluid_properties = data["fluid_properties"]
     boundary_conditions = data["boundary_conditions"]
-    simulation_params = data["simulation"]["simulation_parameters"] # Corrected access
+    # Corrected line: Access simulation_parameters directly from the root 'data'
+    simulation_params = data["simulation_parameters"] 
 
     time_step = simulation_params["time_step"]
     total_time = simulation_params["total_time"]
