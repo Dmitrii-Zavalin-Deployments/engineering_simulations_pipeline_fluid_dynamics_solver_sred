@@ -24,6 +24,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest numpy # Explicitly install dependencies
+        # Install jq for JSON validation (if not already installed)
+        sudo apt-get update && sudo apt-get install -y jq
 
     - name: List installed packages (Debugging)
       run: pip list
@@ -61,11 +63,12 @@ jobs:
     - name: Debugging - List All Files in Repository
       run: ls -R "${GITHUB_WORKSPACE}"
     
-    # Run the Simplified Navier-Stokes Simulation with full path reference
-    - name: Run Simplified Navier-Stokes Solver
+    # Run the Main Navier-Stokes Simulation with full path reference
+    - name: Run Main Navier-Stokes Solver
+      # Updated to run the new main_solver.py script
       run: |
-        python "${GITHUB_WORKSPACE}/src/simplified_navier_stokes.py" "${GITHUB_WORKSPACE}/data/testing-input-output/fluid_simulation_input.json"
-        echo "✅ Simplified Navier-Stokes simulation executed successfully."
+        python "${GITHUB_WORKSPACE}/src/main_solver.py" "${GITHUB_WORKSPACE}/data/testing-input-output/fluid_simulation_input.json"
+        echo "✅ Main Navier-Stokes simulation executed successfully."
 
     # Ensure output file exists after execution
     - name: Verify Output File Exists
