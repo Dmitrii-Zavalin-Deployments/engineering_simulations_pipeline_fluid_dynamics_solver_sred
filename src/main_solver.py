@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import json
 
 # Import modules from our new structure
 from utils.grid import create_structured_grid_info, find_optimal_grid_dimensions
