@@ -5,9 +5,10 @@ import math
 
 # --- Helper functions for synthetic grid and operations ---
 
-def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0)):
+def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(0.0, 0.0, 0.0)):
     """
     Creates synthetic 3D structured grid information based on explicit grid dimensions.
+    The grid is offset by the specified origin.
     Returns:
         num_nodes (int): Total number of nodes (Nx * Ny * Nz).
         nodes_coords (np.array): (num_nodes, 3) array of node coordinates.
@@ -20,11 +21,15 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0)):
     num_nodes = nx * ny * nz
     
     # Calculate grid spacing. Ensure dx, dy, dz are not zero for 1D/2D cases
+    # If a dimension has only one node, its 'spacing' covers the entire domain extent for that dimension.
     dx = domain_size[0] / (nx - 1) if nx > 1 else domain_size[0]
     dy = domain_size[1] / (ny - 1) if ny > 1 else domain_size[1]
-    dz = domain_size[2] / (nz - 1) if nz > 1 else domain_size[2] # Use domain_size[2] even if nz=1
-    if nz == 1: # For 2D cases, if dz is 0, set it to dx or dy for calculations involving it
-        dz = dx # A pragmatic choice, though ideally dz is irrelevant if nz=1
+    dz = domain_size[2] / (nz - 1) if nz > 1 else domain_size[2]
+    
+    # For 2D cases (nz=1), if dz is effectively 0 or based on (1-1) division, set it to a sensible value
+    # for calculations involving it, or simply ensure it's not used for 2D.
+    # The current use of dz is for coordinate generation, so if nz=1, k*dz will always be 0.
+    # The current logic handles nz=1 correctly for coordinate generation.
 
     nodes_coords = np.zeros((num_nodes, 3))
     node_to_idx = {}
@@ -34,9 +39,10 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0)):
     for k in range(nz):
         for j in range(ny):
             for i in range(nx):
-                nodes_coords[count, 0] = i * dx
-                nodes_coords[count, 1] = j * dy
-                nodes_coords[count, 2] = k * dz
+                # Apply the origin offset to the generated coordinates
+                nodes_coords[count, 0] = origin[0] + i * dx
+                nodes_coords[count, 1] = origin[1] + j * dy
+                nodes_coords[count, 2] = origin[2] + k * dz
                 node_to_idx[count] = (i, j, k)
                 idx_to_node[(i, j, k)] = count
                 count += 1
@@ -100,7 +106,7 @@ def initialize_fields(num_nodes, initial_velocity, initial_pressure):
     Assumes a uniform initial state based on inlet conditions.
     """
     velocity = np.full((num_nodes, 3), initial_velocity) # Initialize velocity to inlet velocity
-    pressure = np.full(num_nodes, initial_pressure)       # Initialize pressure to inlet pressure
+    pressure = np.full(num_nodes, initial_pressure)        # Initialize pressure to inlet pressure
     return velocity, pressure
 
 def apply_boundary_conditions(velocity, pressure, boundary_conditions, mesh_info):
@@ -293,8 +299,8 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
             elif j == ny - 1:
                 if ny > 2:
                     lap_u += (u_curr - 2*velocity[idx_to_node[(i,j-1,k)], 0] + velocity[idx_to_node[(i,j-2,k)], 0]) / (dy**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i,j-2,k)], 1]) / (dy**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i,j-2,k)], 2]) / (dy**2)
+                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1,k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dy**2)
+                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dy**2)
                 # else: for ny <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
         # d^2/dz^2
@@ -305,15 +311,15 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                 lap_w += (velocity[idx_to_node[(i,j,k+1)], 2] - 2*w_curr + velocity[idx_to_node[(i,j,k-1)], 2]) / (dz**2)
             elif k == 0:
                 if nz > 2:
-                    lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j,k+1)], 0] + u_curr) / (dz**2)
-                    lap_v += (velocity[idx_to_node[(i,j,k+2)], 1] - 2*velocity[idx_to_node[(i,j,k+1)], 1] + v_curr) / (dz**2)
-                    lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j,k+1)], 2] + w_curr) / (dz**2)
+                    lap_u += (velocity[idx_to_node[(i,j,k+2)], 0] - 2*velocity[idx_to_node[(i,j+1,k)], 0] + u_curr) / (dz**2)
+                    lap_v += (velocity[idx_to_node[(i,j+2,k)], 1] - 2*velocity[idx_to_node[(i,j+1,k)], 1] + v_curr) / (dz**2)
+                    lap_w += (velocity[idx_to_node[(i,j,k+2)], 2] - 2*velocity[idx_to_node[(i,j+1,k)], 2] + w_curr) / (dz**2)
                 # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
             elif k == nz - 1:
                 if nz > 2:
-                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i,j,k-2)], 0]) / (dz**2)
-                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j,k-1)], 1] + velocity[idx_to_node[(i,j,k-2)], 1]) / (dz**2)
-                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j,k-1)], 2] + velocity[idx_to_node[(i,j,k-2)], 2]) / (dz**2)
+                    lap_u += (u_curr - 2*velocity[idx_to_node[(i,j,k-1)], 0] + velocity[idx_to_node[(i-2,j,k)], 0]) / (dz**2)
+                    lap_v += (v_curr - 2*velocity[idx_to_node[(i,j-1),k)], 1] + velocity[idx_to_node[(i-2,j,k)], 1]) / (dz**2)
+                    lap_w += (w_curr - 2*velocity[idx_to_node[(i,j-1,k)], 2] + velocity[idx_to_node[(i-2,j,k)], 2]) / (dz**2)
                 # else: for nz <= 2, lap_u, lap_v, lap_w remain 0.0 as initialized
 
 
@@ -401,7 +407,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
                                        omega * ((phi_sum_neighbors - poisson_rhs[node_1d_idx]) / coeff_diag)
             else:
                 phi_new[node_1d_idx] = 0.0
-        
+            
         phi = np.copy(phi_new) # Update for next iteration
 
     # --- Step 3: Correct Velocity and Update Pressure ---
@@ -443,7 +449,7 @@ def compute_next_step(velocity, pressure, mesh_info, fluid_properties, dt):
         u_tentative[node_1d_idx, 2] -= dt * dphi_dz / density
     
     # Update pressure (new_pressure = old_pressure + phi * density / dt)
-    new_pressure = pressure + phi * (density / dt) 
+    new_pressure = pressure + phi * (density / dt)    
 
     return u_tentative, new_pressure
 
@@ -487,19 +493,27 @@ def run_simulation(json_filename):
         # Ensure domain_size components are not zero if there's only one point in that dimension
         for i in range(3):
             if domain_size[i] < 1e-9: # If essentially zero, assume a unit size for that dimension if it's a 1-node dimension
-                domain_size[i] = 1.0 # Or some sensible default, assuming a 1x1x1 unit cube if no extent
+                # This logic is crucial. If a dimension has only one node, its extent might be 0,
+                # but we need a non-zero `dx` for division if it's used in calculations.
+                # However, for coordinate generation (i*dx), if nx=1, then i is always 0, so i*dx is 0.
+                # If we expect the validator to see the original coordinates from the input,
+                # we must preserve the 'origin' from the input coordinates.
+                # The 'domain_size' here defines the *extent*, not the starting point.
+                domain_size[i] = 1.0 # Or some sensible default if the extent is effectively zero.
         domain_size = tuple(domain_size)
     else:
         domain_size = (1.0, 1.0, 1.0) # Default if no coordinate data
+        domain_min = (0.0, 0.0, 0.0) # If no boundary_faces, assume origin at 0,0,0
 
     desired_grid_dims = find_optimal_grid_dimensions(num_nodes_from_json)
     print(f"Automatically determined grid dimensions: {desired_grid_dims}")
     
+    # Pass the domain_min as the origin for the structured grid generation
     num_nodes_actual, nodes_coords, grid_shape, dx, dy, dz, node_to_idx, idx_to_node = \
-        create_structured_grid_info(grid_dims=desired_grid_dims, domain_size=domain_size)
+        create_structured_grid_info(grid_dims=desired_grid_dims, domain_size=domain_size, origin=domain_min)
 
     # Overwrite the num_nodes from JSON with the actual count from the grid
-    mesh_data["nodes"] = num_nodes_actual 
+    mesh_data["nodes"] = num_nodes_actual    
 
     mesh_info = {
         "nodes": mesh_data["nodes"],
@@ -531,12 +545,12 @@ def run_simulation(json_filename):
             cfl_dt_limit = min(finite_spacings) / max_inlet_velocity_magnitude
         
         # A typical CFL number for explicit Euler is <= 1.0. For stability, let's target 0.5.
-        target_cfl_num = 0.5 
+        target_cfl_num = 0.5    
         recommended_dt = target_cfl_num * cfl_dt_limit
 
         if time_step > recommended_dt:
             print(f"⚠️ Warning: Time step ({time_step:.4f}s) exceeds recommended CFL limit ({recommended_dt:.4f}s).")
-            print(f"   This may lead to numerical instability. Consider reducing time_step.")
+            print(f"    This may lead to numerical instability. Consider reducing time_step.")
             # Optionally, you could force time_step = recommended_dt here.
             # For this simplified solver, we'll just warn.
     else:
@@ -585,3 +599,6 @@ def run_simulation(json_filename):
 # Run the solver
 # Ensure the input JSON file exists in data/testing-input-output/ relative to src/
 run_simulation("fluid_simulation_input.json")
+
+
+
