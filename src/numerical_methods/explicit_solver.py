@@ -5,7 +5,8 @@ import sys
 
 # Import the individual numerical methods you already have
 try:
-    from .advection import advect
+    # UPDATED: Changed 'advect' to 'compute_advection_term'
+    from .advection import compute_advection_term
     from .diffusion import diffuse
     from .pressure_divergence import calculate_divergence
     from .poisson_solver import solve_poisson
@@ -47,56 +48,53 @@ def solve_explicit(
         tuple[np.ndarray, np.ndarray]: Updated velocity_field and pressure_field after one time step.
 
     Notes on assumed function signatures for imported modules:
-    - advect(field, velocity_field, dx, dy, dz, dt): Should return advected field.
+    - compute_advection_term(field, velocity_field, mesh_info): Should return advection term.
+      (Note: The `advection.py` function takes `mesh_info` dictionary, not `dx, dy, dz, dt` directly.
+      You might need to construct `mesh_info` or pass `grid_shape`, `dx`, `dy`, `dz` as individual args.)
     - diffuse(field, viscosity, density, dx, dy, dz, dt): Should return diffused field.
     - calculate_divergence(velocity_field, dx, dy, dz): Should return divergence field.
     - solve_poisson(source_term, dx, dy, dz, tolerance, max_iter): Should return solved scalar field (e.g., pressure correction).
     - correct_pressure(velocity_field, pressure_correction, dx, dy, dz): Should return pressure-corrected velocity field.
     """
 
-    # --- Step 1: Calculate Advection Term ---
-    # Advect velocity components using current velocity field
-    # Assuming advect function handles 3D velocity components
-    # A common approach is to advect each velocity component by the full velocity field
-    # If your advect function is more generic, it might look like:
-    # U_advected = advect(velocity_field[..., 0], velocity_field, dx, dy, dz, dt)
-    # V_advected = advect(velocity_field[..., 1], velocity_field, dx, dy, dz, dt)
-    # W_advected = advect(velocity_field[..., 2], velocity_field, dx, dy, dz, dt)
-    # For a simplified example, we'll assume advect works on the full velocity field
-    # or is called for each component. Let's assume it works on the full field for now,
-    # or you'd call it 3 times.
+    # Get grid shape from velocity_field for mesh_info
+    grid_shape = velocity_field.shape[:-1] # (nx, ny, nz)
 
-    # Simplified approach: calculate a preliminary velocity field including advection
-    # and diffusion. Real implementations are more complex (e.g., splitting schemes).
-    
-    # Placeholder for advected velocity. You might need to call advect for each component.
-    # E.g., velocity_advected_u = advect(velocity_field[..., 0], velocity_field, dx, dy, dz, dt)
-    #       velocity_advected_v = advect(velocity_field[..., 1], velocity_field, dx, dy, dz, dt)
-    #       velocity_advected_w = advect(velocity_field[..., 2], velocity_field, dx, dy, dz, dt)
-    #       velocity_advected = np.stack([velocity_advected_u, velocity_advected_v, velocity_advected_w], axis=-1)
-    
-    # For this template, let's assume `advect` and `diffuse` can operate on the 3-component velocity field directly.
-    # If your functions are component-wise, you'll need to loop or apply numpy slicing.
-
-    # A more common explicit scheme for Navier-Stokes (Fractional Step Method):
-    # 1. Compute intermediate velocity (convection + diffusion)
-    # 2. Solve for pressure (projection step to enforce incompressibility)
-    # 3. Correct velocity based on pressure gradient
+    # Prepare mesh_info dictionary for advection function
+    # This is necessary because compute_advection_term expects a dictionary
+    mesh_info = {
+        'grid_shape': grid_shape,
+        'dx': dx,
+        'dy': dy,
+        'dz': dz
+    }
 
     # Start with a copy to avoid modifying the input field prematurely
     u_star = np.copy(velocity_field)
 
     # 1. Advection Step
-    # Assuming 'advect' calculates the advective change and applies it
-    # If 'advect' returns a new velocity field, assign it:
-    u_star = advect(u_star, velocity_field, dx, dy, dz, dt) 
-    # Otherwise, if it updates in-place, the line above should be removed.
+    # Calculate the advection term for each velocity component
+    # Advection term is - (u . grad)u. This needs to be applied as a change.
+    # The compute_advection_term function calculates the term, not the advected field directly.
+    # So, u_new = u_old + dt * (-advection_term)
+
+    # Calculate advection terms for each component (U, V, W) of the velocity field
+    advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, mesh_info)
+    advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, mesh_info)
+    advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, mesh_info)
+
+    # Apply advection to u_star
+    u_star[..., 0] = velocity_field[..., 0] + dt * (-advection_u)
+    u_star[..., 1] = velocity_field[..., 1] + dt * (-advection_v)
+    u_star[..., 2] = velocity_field[..., 2] + dt * (-advection_w)
 
     # 2. Diffusion Step
-    # Assuming 'diffuse' calculates the diffusive change and applies it
-    # If 'diffuse' returns a new velocity field, assign it:
+    # Assuming 'diffuse' returns the diffused field or updates in place.
+    # If `diffuse` calculates the diffusion term (like advection.py does for advection),
+    # then you'd apply it similarly: u_star += dt * diffusion_term
+    # For this example, assuming `diffuse` applies the update to the field.
     u_star = diffuse(u_star, viscosity, density, dx, dy, dz, dt)
-    # Otherwise, if it updates in-place, the line above should be removed.
+
 
     # 3. Add External Forces (if any, e.g., gravity - not in current schema, but common)
     # u_star[..., 2] -= 9.81 * dt # Example for gravity in -z direction
@@ -141,6 +139,6 @@ def solve_explicit(
 
     return updated_velocity_field, updated_pressure_field
 
-# Note: The actual implementation details within advect, diffuse, calculate_divergence,
+# Note: The actual implementation details within compute_advection_term, diffuse, calculate_divergence,
 # solve_poisson, and correct_pressure will dictate the exact mathematical operations.
 # You will need to ensure the arguments and return values match what is expected here.
