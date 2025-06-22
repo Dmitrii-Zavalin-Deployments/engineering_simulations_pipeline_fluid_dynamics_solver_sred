@@ -1,51 +1,75 @@
 import numpy as np
 
-def correct_velocity_and_pressure(u_tentative, pressure, phi, mesh_info, dt, density):
+def apply_pressure_correction(u_tentative, current_pressure, phi, mesh_info, time_step, rho):
     """
-    Corrects the tentative velocity field and updates the pressure using the pressure correction (phi).
+    Applies the pressure correction to the tentative velocity field and updates the pressure.
+    u^(n+1) = u* - dt * grad(phi)
+    p^(n+1) = p^n + rho * phi
+
+    Args:
+        u_tentative (np.ndarray): The tentative velocity field, shape (nx, ny, nz, 3).
+        current_pressure (np.ndarray): The pressure field from the previous time step, shape (nx, ny, nz).
+        phi (np.ndarray): The pressure correction field obtained from the Poisson solver, shape (nx, ny, nz).
+        mesh_info (dict): Dictionary containing grid information:
+                          - 'grid_shape': (nx, ny, nz) tuple.
+                          - 'dx', 'dy', 'dz': Grid spacing in each dimension.
+        time_step (float): The simulation time step (dt).
+        rho (float): The fluid density.
+
+    Returns:
+        tuple: (velocity_next (np.ndarray), pressure_next (np.ndarray))
+               The corrected velocity field and the updated pressure field.
     """
-    num_nodes = mesh_info["nodes"]
-    nx, ny, nz = mesh_info["grid_shape"]
-    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-    idx_to_node = mesh_info["idx_to_node"]
-    node_to_idx = mesh_info["node_to_idx"]
+    nx, ny, nz = mesh_info['grid_shape']
+    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    for node_1d_idx in range(num_nodes):
-        i, j, k = node_to_idx[node_1d_idx]
+    # Initialize corrected velocity and next pressure
+    velocity_next = np.copy(u_tentative) # Start with tentative velocity
+    pressure_next = np.copy(current_pressure) # Start with current pressure
 
-        dphi_dx, dphi_dy, dphi_dz = 0.0, 0.0, 0.0
+    # --- Compute grad(phi) = (dphi/dx, dphi/dy, dphi/dz) ---
+    # Using central differences for interior points, and forward/backward for boundaries.
 
-        # Gradient of phi (dphi/dx)
-        if nx > 1:
-            if i > 0 and i < nx - 1:
-                dphi_dx = (phi[idx_to_node[(i+1, j, k)]] - phi[idx_to_node[(i-1, j, k)]]) / (2 * dx)
-            elif i == 0:
-                dphi_dx = (phi[idx_to_node[(i+1, j, k)]] - phi[node_1d_idx]) / dx
-            elif i == nx - 1:
-                dphi_dx = (phi[node_1d_idx] - phi[idx_to_node[(i-1, j, k)]]) / dx
+    # dphi/dx
+    dphi_dx = np.zeros((nx, ny, nz), dtype=np.float64)
+    if nx > 1:
+        dphi_dx[1:-1, :, :] = (phi[2:, :, :] - phi[:-2, :, :]) / (2 * dx)
+        dphi_dx[0, :, :] = (phi[1, :, :] - phi[0, :, :]) / dx       # Forward difference at x=0
+        dphi_dx[nx-1, :, :] = (phi[nx-1, :, :] - phi[nx-2, :, :]) / dx # Backward difference at x=nx-1
+    elif nx == 1:
+        # If only one point in x, derivative is 0 or needs special BC handling
+        pass # dphi_dx remains zeros
 
-        # Gradient of phi (dphi/dy)
-        if ny > 1:
-            if j > 0 and j < ny - 1:
-                dphi_dy = (phi[idx_to_node[(i, j+1, k)]] - phi[idx_to_node[(i, j-1, k)]]) / (2 * dy)
-            elif j == 0:
-                dphi_dy = (phi[idx_to_node[(i, j+1, k)]] - phi[node_1d_idx]) / dy
-            elif j == ny - 1:
-                dphi_dy = (phi[node_1d_idx] - phi[idx_to_node[(i, j-1, k)]]) / dy
+    # dphi/dy
+    dphi_dy = np.zeros((nx, ny, nz), dtype=np.float64)
+    if ny > 1:
+        dphi_dy[:, 1:-1, :] = (phi[:, 2:, :] - phi[:, :-2, :]) / (2 * dy)
+        dphi_dy[:, 0, :] = (phi[:, 1, :] - phi[:, 0, :]) / dy       # Forward difference at y=0
+        dphi_dy[:, ny-1, :] = (phi[:, ny-1, :] - phi[:, ny-2, :]) / dy # Backward difference at y=ny-1
+    elif ny == 1:
+        pass # dphi_dy remains zeros
 
-        # Gradient of phi (dphi/dz)
-        if nz > 1:
-            if k > 0 and k < nz - 1:
-                dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[idx_to_node[(i, j, k-1)]]) / (2 * dz)
-            elif k == 0:
-                dphi_dz = (phi[idx_to_node[(i, j, k+1)]] - phi[node_1d_idx]) / dz
-            elif k == nz - 1:
-                dphi_dz = (phi[node_1d_idx] - phi[idx_to_node[(i, j, k-1)]]) / dz
+    # dphi/dz
+    dphi_dz = np.zeros((nx, ny, nz), dtype=np.float64)
+    if nz > 1:
+        dphi_dz[:, :, 1:-1] = (phi[:, :, 2:] - phi[:, :, :-2]) / (2 * dz)
+        dphi_dz[:, :, 0] = (phi[:, :, 1] - phi[:, :, 0]) / dz       # Forward difference at z=0
+        dphi_dz[:, :, nz-1] = (phi[:, :, nz-1] - phi[:, :, nz-2]) / dz # Backward difference at z=nz-1
+    elif nz == 1:
+        pass # dphi_dz remains zeros
 
-        u_tentative[node_1d_idx, 0] -= dt * dphi_dx / density
-        u_tentative[node_1d_idx, 1] -= dt * dphi_dy / density
-        u_tentative[node_1d_idx, 2] -= dt * dphi_dz / density
-    
-    new_pressure = pressure + phi * (density / dt)
+    # --- Apply velocity correction ---
+    # u^(n+1) = u* - dt * dphi/dx
+    # v^(n+1) = v* - dt * dphi/dy
+    # w^(n+1) = w* - dt * dphi/dz
 
-    return u_tentative, new_pressure
+    # Subtract the pressure gradient term from the respective velocity components
+    velocity_next[..., 0] -= time_step * dphi_dx  # X-component (Vx)
+    velocity_next[..., 1] -= time_step * dphi_dy  # Y-component (Vy)
+    velocity_next[..., 2] -= time_step * dphi_dz  # Z-component (Vz)
+
+    # --- Update pressure ---
+    # p^(n+1) = p^n + rho * phi
+    pressure_next = current_pressure + rho * phi
+
+    return velocity_next, pressure_next

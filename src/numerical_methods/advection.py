@@ -1,64 +1,130 @@
 import numpy as np
 
-def compute_advection_acceleration(velocity, mesh_info):
+def compute_advection_term(u_field, velocity_field, mesh_info):
     """
-    Computes the advection term (- (u . grad)u) for the Navier-Stokes equations.
-    Uses first-order upwind scheme.
+    Computes the advection term - (u . grad)u using a first-order upwind scheme.
+    This function operates on 3D reshaped NumPy arrays for efficiency.
+
+    Args:
+        u_field (np.ndarray): The scalar or vector field being advected (e.g., component of velocity).
+                              Expected shape (nx, ny, nz) for scalar, or (nx, ny, nz, 3) for vector.
+        velocity_field (np.ndarray): The velocity field (Ux, Uy, Uz) at each grid point.
+                                     Expected shape (nx, ny, nz, 3).
+        mesh_info (dict): Dictionary containing grid information:
+                          - 'grid_shape': (nx, ny, nz) tuple.
+                          - 'dx', 'dy', 'dz': Grid spacing in each dimension.
+
+    Returns:
+        np.ndarray: The computed advection term, same shape as u_field.
     """
-    num_nodes = mesh_info["nodes"]
-    nx, ny, nz = mesh_info["grid_shape"]
-    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-    idx_to_node = mesh_info["idx_to_node"]
-    node_to_idx = mesh_info["node_to_idx"]
+    nx, ny, nz = mesh_info['grid_shape']
+    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    advection_accel = np.zeros_like(velocity)
-    
-    for node_1d_idx in range(num_nodes):
-        i, j, k = node_to_idx[node_1d_idx]
-        u_curr, v_curr, w_curr = velocity[node_1d_idx]
+    advection_term = np.zeros_like(u_field)
 
-        du_dx, du_dy, du_dz = 0.0, 0.0, 0.0
-        dv_dx, dv_dy, dv_dz = 0.0, 0.0, 0.0
-        dw_dx, dw_dy, dw_dz = 0.0, 0.0, 0.0
+    # Determine if u_field is a scalar (e.g., pressure or a single velocity component)
+    # or a vector (e.g., the full velocity vector for the advection of momentum)
+    is_scalar_field = (u_field.ndim == 3)
 
-        if nx > 1:
-            if u_curr >= 0: # Backward difference
-                if i > 0:
-                    du_dx = (u_curr - velocity[idx_to_node[(i-1, j, k)], 0]) / dx
-                    dv_dx = (v_curr - velocity[idx_to_node[(i-1, j, k)], 1]) / dx
-                    dw_dx = (w_curr - velocity[idx_to_node[(i-1, j, k)], 2]) / dx
-            else: # Forward difference
-                if i < nx - 1:
-                    du_dx = (velocity[idx_to_node[(i+1, j, k)], 0] - u_curr) / dx
-                    dv_dx = (velocity[idx_to_node[(i+1, j, k)], 1] - v_curr) / dx
-                    dw_dx = (velocity[idx_to_node[(i+1, j, k)], 2] - w_curr) / dx
+    # Extract velocity components for easier access
+    # These are (nx, ny, nz) arrays
+    vel_x = velocity_field[..., 0]
+    vel_y = velocity_field[..., 1]
+    vel_z = velocity_field[..., 2]
 
-        if ny > 1:
-            if v_curr >= 0: # Backward difference
-                if j > 0:
-                    du_dy = (u_curr - velocity[idx_to_node[(i, j-1, k)], 0]) / dy
-                    dv_dy = (v_curr - velocity[idx_to_node[(i, j-1, k)], 1]) / dy
-                    dw_dy = (w_curr - velocity[idx_to_node[(i, j-1, k)], 2]) / dy
-            else: # Forward difference
-                if j < ny - 1:
-                    du_dy = (velocity[idx_to_node[(i, j+1, k)], 0] - u_curr) / dy
-                    dv_dy = (velocity[idx_to_node[(i, j+1, k)], 1] - v_curr) / dy
-                    dw_dy = (velocity[idx_to_node[(i, j+1, k)], 2] - w_curr) / dy
+    # --- Compute advection for X-component ---
+    # d(u*u)/dx, d(u*v)/dy, d(u*w)/dz for the u (x-component of velocity) equation
+    # or similar terms if u_field is a scalar
 
-        if nz > 1:
-            if w_curr >= 0: # Backward difference
-                if k > 0:
-                    du_dz = (u_curr - velocity[idx_to_node[(i, j, k-1)], 0]) / dz
-                    dv_dz = (v_curr - velocity[idx_to_node[(i, j, k-1)], 1]) / dz
-                    dw_dz = (w_curr - velocity[idx_to_node[(i, j, k-1)], 2]) / dz
-            else: # Forward difference
-                if k < nz - 1:
-                    du_dz = (velocity[idx_to_node[(i, j, k+1)], 0] - u_curr) / dz
-                    dv_dz = (velocity[idx_to_node[(i, j, k+1)], 1] - v_curr) / dz
-                    dw_dz = (velocity[idx_to_node[(i, j, k+1)], 2] - w_curr) / dz
+    # Iterate through each dimension (x, y, z) to compute contributions
+    # For each dimension, apply upwind differencing based on the sign of the velocity component
+    # This involves creating shifted versions of the field and applying masks.
 
-        advection_accel[node_1d_idx, 0] = u_curr * du_dx + v_curr * du_dy + w_curr * du_dz
-        advection_accel[node_1d_idx, 1] = u_curr * dv_dx + v_curr * dv_dy + w_curr * dv_dz
-        advection_accel[node_1d_idx, 2] = u_curr * dw_dx + v_curr * dw_dy + w_curr * dw_dz
-    
-    return advection_accel
+    # Advection in X-direction
+    # d(u_field * vel_x) / dx
+    # Upwind for u_field * vel_x term
+    # Flow from left (i-1 to i) if vel_x > 0
+    # Flow from right (i+1 to i) if vel_x < 0
+
+    # Terms for d(F_x)/dx where F_x = u_field * vel_x
+    F_x_at_faces_plus_half = np.zeros_like(u_field) # F_x(i+1/2, j, k)
+    F_x_at_faces_minus_half = np.zeros_like(u_field) # F_x(i-1/2, j, k)
+
+    # Positive velocity: use value from left cell (i)
+    # Need to handle dimensions for scalar vs vector u_field
+    if is_scalar_field:
+        F_x_pos = u_field * np.maximum(0, vel_x)
+        F_x_neg = u_field * np.minimum(0, vel_x)
+    else: # u_field is a vector (e.g., for momentum advection)
+        F_x_pos = u_field * np.maximum(0, vel_x[:, :, :, np.newaxis])
+        F_x_neg = u_field * np.minimum(0, vel_x[:, :, :, np.newaxis])
+
+
+    # For F_x(i+1/2, j, k): Use F_x_pos from current cell (i), F_x_neg from next cell (i+1)
+    # F_x(i+1/2) = u_i * max(0, vel_x_i+1/2) + u_i+1 * min(0, vel_x_i+1/2)
+    # For simplicity, assuming cell-centered velocities represent face velocities
+    # This is a common simplification for first-order upwind.
+    F_x_at_faces_plus_half[:-1, :, :] = F_x_pos[:-1, :, :] + F_x_neg[1:, :, :]
+    # Boundary at i=nx-1 (rightmost face) handled by not extending F_x_neg beyond
+    # The term F_x_at_faces_plus_half for the last cell means F_x(nx-1+1/2, j, k)
+    # which is the outflow face of the last cell, used to calculate its advection term.
+    # For the last slice, we just use the current cell's positive flux for outflow
+    # or previous cell's negative flux for inflow. This needs careful consideration for boundaries.
+    # For simplicity and robust first-order, we can assume F_x_at_faces_plus_half[-1,:,:]
+    # uses F_x_pos[-1,:,:]
+    F_x_at_faces_plus_half[-1, :, :] = F_x_pos[-1, :, :] # This is a simple outflow assumption
+
+
+    # For F_x(i-1/2, j, k): Use F_x_pos from previous cell (i-1), F_x_neg from current cell (i)
+    # F_x(i-1/2) = u_i-1 * max(0, vel_x_i-1/2) + u_i * min(0, vel_x_i-1/2)
+    F_x_at_faces_minus_half[1:, :, :] = F_x_pos[1:, :, :] + F_x_neg[:-1, :, :]
+    # Boundary at i=0 (leftmost face) handled by not extending F_x_pos beyond
+    F_x_at_faces_minus_half[0, :, :] = F_x_neg[0, :, :] # This is a simple inflow assumption
+
+
+    # Advection X-component contribution: (F_x(i+1/2) - F_x(i-1/2)) / dx
+    advection_term += (F_x_at_faces_plus_half - F_x_at_faces_minus_half) / dx
+
+
+    # Advection in Y-direction
+    # d(u_field * vel_y) / dy
+    F_y_at_faces_plus_half = np.zeros_like(u_field)
+    F_y_at_faces_minus_half = np.zeros_like(u_field)
+
+    if is_scalar_field:
+        F_y_pos = u_field * np.maximum(0, vel_y)
+        F_y_neg = u_field * np.minimum(0, vel_y)
+    else:
+        F_y_pos = u_field * np.maximum(0, vel_y[:, :, :, np.newaxis])
+        F_y_neg = u_field * np.minimum(0, vel_y[:, :, :, np.newaxis])
+
+
+    F_y_at_faces_plus_half[:, :-1, :] = F_y_pos[:, :-1, :] + F_y_neg[:, 1:, :]
+    F_y_at_faces_plus_half[:, -1, :] = F_y_pos[:, -1, :] # Outflow assumption
+
+    F_y_at_faces_minus_half[:, 1:, :] = F_y_pos[:, 1:, :] + F_y_neg[:, :-1, :]
+    F_y_at_faces_minus_half[:, 0, :] = F_y_neg[:, 0, :] # Inflow assumption
+
+    advection_term += (F_y_at_faces_plus_half - F_y_at_faces_minus_half) / dy
+
+    # Advection in Z-direction
+    # d(u_field * vel_z) / dz
+    F_z_at_faces_plus_half = np.zeros_like(u_field)
+    F_z_at_faces_minus_half = np.zeros_like(u_field)
+
+    if is_scalar_field:
+        F_z_pos = u_field * np.maximum(0, vel_z)
+        F_z_neg = u_field * np.minimum(0, vel_z)
+    else:
+        F_z_pos = u_field * np.maximum(0, vel_z[:, :, :, np.newaxis])
+        F_z_neg = u_field * np.minimum(0, vel_z[:, :, :, np.newaxis])
+
+    F_z_at_faces_plus_half[:, :, :-1] = F_z_pos[:, :, :-1] + F_z_neg[:, :, 1:]
+    F_z_at_faces_plus_half[:, :, -1] = F_z_pos[:, :, -1] # Outflow assumption
+
+    F_z_at_faces_minus_half[:, :, 1:] = F_z_pos[:, :, 1:] + F_z_neg[:, :, :-1]
+    F_z_at_faces_minus_half[:, :, 0] = F_z_neg[:, :, 0] # Inflow assumption
+
+    advection_term += (F_z_at_faces_plus_half - F_z_at_faces_minus_half) / dz
+
+    return advection_term

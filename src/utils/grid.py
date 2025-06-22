@@ -1,236 +1,81 @@
 import numpy as np
-import math
 
-def create_structured_grid_info(x_coords_grid_lines, y_coords_grid_lines, z_coords_grid_lines):
+def create_structured_grid_info(x_grid_lines_coords, y_grid_lines_coords, z_grid_lines_coords):
     """
-    Creates 3D structured grid information based on explicit lists of sorted unique
-    coordinates for each dimension. This directly constructs the grid points from
-    the inferred grid lines, ensuring perfect alignment with the input's spatial definition.
+    Creates detailed mesh information for a structured grid from ordered coordinate arrays.
+    This function processes the unique coordinates to define grid cells and spacing.
 
     Args:
-        x_coords_grid_lines (list): Sorted list of unique x-coordinates defining grid lines.
-        y_coords_grid_lines (list): Sorted list of unique y-coordinates defining grid lines.
-        z_coords_grid_lines (list): Sorted list of unique z-coordinates defining grid lines.
+        x_grid_lines_coords (list/np.ndarray): Sorted list/array of unique X coordinates defining cell faces.
+        y_grid_lines_coords (list/np.ndarray): Sorted list/array of unique Y coordinates defining cell faces.
+        z_grid_lines_coords (list/np.ndarray): Sorted list/array of unique Z coordinates defining cell faces.
 
     Returns:
-        num_nodes (int): Total number of nodes (Nx * Ny * Nz).
-        nodes_coords (np.array): (num_nodes, 3) array of node coordinates.
-        grid_shape (tuple): (Nx, Ny, Nz) dimensions of the grid.
-        dx, dy, dz (float): Grid spacing in each dimension.
-        node_to_idx (dict): Maps 1D node index to 3D (i,j,k) grid indices.
-        idx_to_node (dict): Maps 3D (i,j,k) grid indices to 1D node index.
+        tuple:
+            num_nodes (int): Total number of grid cells/nodes (nx * ny * nz).
+            nodes_coords (np.ndarray): A (num_nodes, 3) array of cell center coordinates.
+                                      (Kept for compatibility/debug, not used in core vectorized calcs)
+            grid_shape (tuple): (nx, ny, nz) representing the number of cells in each dimension.
+            dx (float): Grid spacing in X direction (assumed uniform for now, picks first).
+            dy (float): Grid spacing in Y direction (assumed uniform for now, picks first).
+            dz (float): Grid spacing in Z direction (assumed uniform for now, picks first).
+            node_to_idx (dict): Maps (i, j, k) tuple to linear index.
+                                (Kept for compatibility/debug, not used in core vectorized calcs)
+            idx_to_node (dict): Maps linear index to (i, j, k) tuple.
+                                (Kept for compatibility/debug, not used in core vectorized calcs)
     """
-    nx = len(x_coords_grid_lines)
-    ny = len(y_coords_grid_lines)
-    nz = len(z_coords_grid_lines)
-    
+    # Convert to NumPy arrays and ensure unique sorted values
+    x_coords = np.array(sorted(list(set(x_grid_lines_coords))))
+    y_coords = np.array(sorted(list(set(y_grid_lines_coords))))
+    z_coords = np.array(sorted(list(set(z_grid_lines_coords))))
+
+    # Calculate number of cells in each dimension
+    # Number of cells is (number of grid lines - 1)
+    nx = len(x_coords) - 1
+    ny = len(y_coords) - 1
+    nz = len(z_coords) - 1
+
+    if nx <= 0 or ny <= 0 or nz <= 0:
+        raise ValueError("Grid dimensions must be at least 1x1x1. Ensure at least two unique grid line coordinates per dimension.")
+
     grid_shape = (nx, ny, nz)
     num_nodes = nx * ny * nz
-    
-    # Calculate dx, dy, dz based on the spacing between the first two grid lines,
-    # or 0.0 if there's only one grid line in that dimension.
-    # Handle the case where there's only one node in a dimension (e.g., a 2D problem)
-    dx = x_coords_grid_lines[1] - x_coords_grid_lines[0] if nx > 1 else 0.0
-    dy = y_coords_grid_lines[1] - y_coords_grid_lines[0] if ny > 1 else 0.0
-    dz = z_coords_grid_lines[1] - z_coords_grid_lines[0] if nz > 1 else 0.0
 
-    nodes_coords = np.zeros((num_nodes, 3))
+    # Calculate cell center coordinates and grid spacing
+    # Assuming uniform spacing for now, taking the first interval.
+    # If non-uniform, dx, dy, dz would need to be arrays.
+    dx = x_coords[1] - x_coords[0]
+    dy = y_coords[1] - y_coords[0]
+    dz = z_coords[1] - z_coords[0]
+
+    if not np.allclose(np.diff(x_coords), dx) or \
+       not np.allclose(np.diff(y_coords), dy) or \
+       not np.allclose(np.diff(z_coords), dz):
+        print("Warning: Non-uniform grid spacing detected. Using first interval for dx, dy, dz.")
+        # For a truly non-uniform grid, dx, dy, dz would need to be arrays of cell sizes
+        # and numerical methods would need to adapt. For this project, we'll assume uniformity for simplicity.
+
+    # Generate cell center coordinates (for `nodes_coords` for compatibility/debug)
+    # Cell center is (x_i + x_{i+1})/2
+    cell_centers_x = (x_coords[:-1] + x_coords[1:]) / 2
+    cell_centers_y = (y_coords[:-1] + y_coords[1:]) / 2
+    cell_centers_z = (z_coords[:-1] + z_coords[1:]) / 2
+
+    # Create a meshgrid for cell center coordinates
+    X_centers, Y_centers, Z_centers = np.meshgrid(cell_centers_x, cell_centers_y, cell_centers_z, indexing='ij')
+
+    # Flatten and combine into a (num_nodes, 3) array
+    nodes_coords = np.vstack([X_centers.ravel(), Y_centers.ravel(), Z_centers.ravel()]).T
+
+    # Create node_to_idx and idx_to_node mappings (kept for compatibility/debug)
     node_to_idx = {}
     idx_to_node = {}
-    
-    count = 0
-    # Iterate in Z, then Y, then X for standard 1D indexing mapping (k, j, i)
-    for k_idx in range(nz):
-        for j_idx in range(ny):
-            for i_idx in range(nx):
-                # Populate coordinates directly from the provided grid line lists
-                nodes_coords[count, 0] = x_coords_grid_lines[i_idx]
-                nodes_coords[count, 1] = y_coords_grid_lines[j_idx]
-                nodes_coords[count, 2] = z_coords_grid_lines[k_idx]
-                
-                node_to_idx[count] = (i_idx, j_idx, k_idx)
-                idx_to_node[(i_idx, j_idx, k_idx)] = count
-                count += 1
-    
+    idx_counter = 0
+    for k in range(nz):
+        for j in range(ny):
+            for i in range(nx):
+                node_to_idx[(i, j, k)] = idx_counter
+                idx_to_node[idx_counter] = (i, j, k)
+                idx_counter += 1
+
     return num_nodes, nodes_coords, grid_shape, dx, dy, dz, node_to_idx, idx_to_node
-
-
-def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
-    """
-    Finds three integer factors (nx, ny, nz) for num_nodes such that they are as close
-    to the aspect ratio of the domain as possible.
-    Prioritizes dimensions with non-zero extent, ensuring single nodes for zero-extent dimensions.
-    """
-    
-    # Determine which dimensions have non-zero extent
-    has_x_extent = domain_size[0] > tolerance
-    has_y_extent = domain_size[1] > tolerance
-    has_z_extent = domain_size[2] > tolerance
-
-    # If any dimension has zero extent, it must have only 1 node in the grid_dims
-    # If all extents are zero, it's a single point, so (1,1,1)
-    if not has_x_extent and not has_y_extent and not has_z_extent:
-        return (1, 1, 1) if num_nodes == 1 else (num_nodes, 1, 1) # Or raise error if num_nodes > 1
-
-    # Get all factors of num_nodes
-    factors = []
-    for i in range(1, int(math.sqrt(num_nodes)) + 1):
-        if num_nodes % i == 0:
-            factors.append(i)
-            if i * i != num_nodes:
-                factors.append(num_nodes // i)
-    factors.sort()
-
-    best_dims = None
-    min_aspect_ratio_diff = float('inf')
-
-    # Iterate through all possible combinations of three factors
-    # This loop assumes a preference for (nx, ny, nz) order matching (x, y, z) domain_size
-    # We prioritize finding factors that align with the non-zero dimensions.
-    
-    # Start with a base case for 1D/2D scenarios
-    # These base cases should ideally be caught by the direct coordinate inference in main_solver.py,
-    # but kept here for robustness of this function.
-    if not has_y_extent and not has_z_extent: # 1D along X
-        return (num_nodes, 1, 1)
-    if not has_x_extent and not has_z_extent: # 1D along Y
-        return (1, num_nodes, 1)
-    if not has_x_extent and not has_y_extent: # 1D along Z
-        return (1, 1, num_nodes)
-    
-    # Consider 2D cases
-    if not has_z_extent: # 2D in XY plane
-        for nx_val in factors:
-            if num_nodes % nx_val == 0:
-                ny_val = num_nodes // nx_val
-                # Check for other dimensions being 1
-                if ny_val * nx_val == num_nodes:
-                    current_dims = (nx_val, ny_val, 1)
-                    if current_dims[0] == 1 and not has_x_extent: continue # Skip if X has no extent but nx > 1
-                    if current_dims[1] == 1 and not has_y_extent: continue # Skip if Y has no extent but ny > 1
-
-                    if has_x_extent and has_y_extent:
-                        target_aspect_ratio = domain_size[0] / domain_size[1]
-                        current_aspect_ratio = nx_val / ny_val if ny_val > 0 else float('inf')
-                        diff = abs(np.log(current_aspect_ratio) - np.log(target_aspect_ratio))
-                    else: # One of the dimensions has zero extent, so that dimension must be 1 node
-                        diff = 0 
-
-                    if diff < min_aspect_ratio_diff:
-                        min_aspect_ratio_diff = diff
-                        best_dims = current_dims
-        if best_dims: return best_dims
-
-    if not has_y_extent: # 2D in XZ plane
-        for nx_val in factors:
-            if num_nodes % nx_val == 0:
-                nz_val = num_nodes // nx_val
-                if nz_val * nx_val == num_nodes:
-                    current_dims = (nx_val, 1, nz_val)
-                    if current_dims[0] == 1 and not has_x_extent: continue
-                    if current_dims[2] == 1 and not has_z_extent: continue
-                    
-                    if has_x_extent and has_z_extent:
-                        target_aspect_ratio = domain_size[0] / domain_size[2]
-                        current_aspect_ratio = nx_val / nz_val if nz_val > 0 else float('inf')
-                        diff = abs(np.log(current_aspect_ratio) - np.log(target_aspect_ratio))
-                    else:
-                        diff = 0
-
-                    if diff < min_aspect_ratio_diff:
-                        min_aspect_ratio_diff = diff
-                        best_dims = current_dims
-        if best_dims: return best_dims
-    
-    if not has_x_extent: # 2D in YZ plane
-        for ny_val in factors:
-            if num_nodes % ny_val == 0:
-                nz_val = num_nodes // ny_val
-                if nz_val * ny_val == num_nodes:
-                    current_dims = (1, ny_val, nz_val)
-                    if current_dims[1] == 1 and not has_y_extent: continue
-                    if current_dims[2] == 1 and not has_z_extent: continue
-                    
-                    if has_y_extent and has_z_extent:
-                        target_aspect_ratio = domain_size[1] / domain_size[2]
-                        current_aspect_ratio = ny_val / nz_val if nz_val > 0 else float('inf')
-                        diff = abs(np.log(current_aspect_ratio) - np.log(target_aspect_ratio))
-                    else:
-                        diff = 0
-
-                    if diff < min_aspect_ratio_diff:
-                        min_aspect_ratio_diff = diff
-                        best_dims = current_dims
-        if best_dims: return best_dims
-
-
-    # If it's a full 3D case (all extents > 0) or fallback
-    min_diff_from_cube_root = float('inf') # This variable name is a bit misleading now, as it's min_aspect_ratio_diff
-    best_cube_root_dims = (1, 1, num_nodes) # Fallback
-
-    # Try to find dimensions that respect the domain_size aspect ratio
-    for nx_val in factors:
-        if num_nodes % nx_val == 0:
-            remaining = num_nodes // nx_val
-            for ny_val in factors:
-                if remaining % ny_val == 0:
-                    nz_val = remaining // ny_val
-
-                    if nx_val * ny_val * nz_val != num_nodes:
-                        continue # Should not happen with correct factor finding
-
-                    # Check if the dimensions are compatible with the domain extent
-                    # If domain_size[dim_idx] is close to zero, current_dims[dim_idx] MUST be 1
-                    if (not has_x_extent and nx_val > 1) or \
-                       (not has_y_extent and ny_val > 1) or \
-                       (not has_z_extent and nz_val > 1):
-                        continue
-                    
-                    # If domain_size[dim_idx] is significant, current_dims[dim_idx] MUST be > 1 (unless num_nodes is 1)
-                    if (has_x_extent and nx_val == 1 and num_nodes > 1) or \
-                       (has_y_extent and ny_val == 1 and num_nodes > 1) or \
-                       (has_z_extent and nz_val == 1 and num_nodes > 1):
-                        continue
-                    
-                    current_dims = (nx_val, ny_val, nz_val)
-
-                    # Calculate a score based on matching the domain aspect ratio
-                    score = 0.0
-                    for i in range(3):
-                        if domain_size[i] > tolerance: # Only consider dimensions with extent
-                            if current_dims[i] > 1:
-                                # The ideal "cell size" in this dimension
-                                score += (domain_size[i] / (current_dims[i] - 1)) ** 2
-                            elif domain_size[i] > tolerance: # If it has extent but only 1 node, penalize
-                                score += (domain_size[i] * 100)**2 # Large penalty for not dividing if it has extent
-                        elif current_dims[i] > 1: # If domain has no extent, but grid dim > 1, penalize
-                            score += 1000 # Very large penalty
-                    
-                    if score < min_aspect_ratio_diff:
-                        min_aspect_ratio_diff = score
-                        best_dims = current_dims
-
-    # Fallback if no valid combination is found, or for single node cases
-    if best_dims is None:
-        if num_nodes == 1:
-            return (1, 1, 1)
-        elif has_x_extent and not has_y_extent and not has_z_extent:
-            return (num_nodes, 1, 1)
-        elif not has_x_extent and has_y_extent and not has_z_extent:
-            return (1, num_nodes, 1)
-        elif not has_x_extent and not has_y_extent and has_z_extent:
-            return (1, 1, num_nodes)
-        else: # Generic 3D fallback (try to make it cubic)
-            nx = int(round(num_nodes**(1/3)))
-            while num_nodes % nx != 0:
-                nx -= 1
-            if nx == 0: nx = 1 # Avoid division by zero for small num_nodes
-            remaining = num_nodes // nx
-            ny = int(round(remaining**(1/2)))
-            while remaining % ny != 0:
-                ny -= 1
-            if ny == 0: ny = 1 # Avoid division by zero
-            nz = remaining // ny
-            return (nx, ny, nz)
-    
-    return best_dims

@@ -3,5 +3,7 @@ numpy        # Basic numerical computations (if used in calculations)
 scipy        # Scientific computing (fluid dynamics simulation support)
 pint         # Unit handling for fluid dynamics calculations
 dropbox
+numba
+matplotlib
 
 

@@ -1,80 +1,65 @@
 import numpy as np
 
-def compute_diffusion_acceleration(velocity, mesh_info, viscosity):
+def compute_diffusion_term(field, viscosity, mesh_info):
     """
-    Computes the viscous diffusion term (mu * Laplacian(u)) for the Navier-Stokes equations.
-    Handles 1D, 2D, and 3D cases and boundary conditions for second derivatives.
+    Computes the diffusion term (viscosity * nabla^2(field)) for a given field.
+    This function operates on 3D reshaped NumPy arrays for efficiency.
+    It uses central differences for the second derivatives.
+
+    Args:
+        field (np.ndarray): The scalar or vector field (e.g., velocity component or full velocity).
+                            Expected shape (nx, ny, nz) for scalar, or (nx, ny, nz, 3) for vector.
+        viscosity (float): The fluid's dynamic viscosity (mu).
+        mesh_info (dict): Dictionary containing grid information:
+                          - 'grid_shape': (nx, ny, nz) tuple.
+                          - 'dx', 'dy', 'dz': Grid spacing in each dimension.
+
+    Returns:
+        np.ndarray: The computed diffusion term, same shape as 'field'.
     """
-    num_nodes = mesh_info["nodes"]
-    nx, ny, nz = mesh_info["grid_shape"]
-    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-    idx_to_node = mesh_info["idx_to_node"]
-    node_to_idx = mesh_info["node_to_idx"]
+    nx, ny, nz = mesh_info['grid_shape']
+    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    diffusion_accel = np.zeros_like(velocity)
+    diffusion_term = np.zeros_like(field)
 
-    def get_laplacian_term(val_center, val_plus1, val_minus1, val_plus2_node_idx, val_minus2_node_idx, h_sq, dim_size, index, velocity_component_idx, velocity_field, idx_to_node_map):
-        if dim_size <= 1: # No spatial extent in this dimension
-            return 0.0
-        if index > 0 and index < dim_size - 1: # Central difference
-            return (val_plus1 - 2 * val_center + val_minus1) / h_sq
-        elif index == 0: # Forward difference (uses val_center, val_plus1, val_plus2)
-            # Fetch val_plus2 using the provided index or fallback to val_plus1 if dim_size is small
-            val_plus2 = velocity_field[idx_to_node_map[val_plus2_node_idx], velocity_component_idx] if dim_size > 2 else val_plus1
-            return (val_plus2 - 2 * val_plus1 + val_center) / h_sq
-        elif index == dim_size - 1: # Backward difference (uses val_center, val_minus1, val_minus2)
-            # Fetch val_minus2 using the provided index or fallback to val_minus1 if dim_size is small
-            val_minus2 = velocity_field[idx_to_node_map[val_minus2_node_idx], velocity_component_idx] if dim_size > 2 else val_minus1
-            return (val_center - 2 * val_minus1 + val_minus2) / h_sq
-        return 0.0 # Should not be reached
+    # Determine if field is a scalar (e.g., for pressure, not typically diffused like this)
+    # or a vector (e.g., for momentum diffusion)
+    is_scalar_field = (field.ndim == 3)
 
-    for node_1d_idx in range(num_nodes):
-        i, j, k = node_to_idx[node_1d_idx]
-        u_curr, v_curr, w_curr = velocity[node_1d_idx]
+    # --- Compute second derivatives for each dimension ---
 
-        lap_u, lap_v, lap_w = 0.0, 0.0, 0.0
+    # d^2(field) / dx^2
+    # Applies to all (j, k) planes.
+    # Central difference: (field[i+1] - 2*field[i] + field[i-1]) / dx^2
+    d2_field_dx2 = np.zeros_like(field)
+    if nx > 2: # Need at least 3 points for central difference
+        d2_field_dx2[1:-1, :, :] = (field[2:, :, :] - 2 * field[1:-1, :, :] + field[:-2, :, :]) / (dx**2)
+    elif nx == 2: # Special handling for 2 nodes, effectively a 1st order approx or needs different BC approach
+        # This case is tricky for central diff. For now, a simplified approach
+        # Or, consider handling 1D/2D scenarios as specific cases earlier.
+        # For a 2-node grid, the "interior" doesn't exist for 3-point central diff.
+        # For simplicity, if a dimension has only 2 nodes, diffusion might be zero or treated differently.
+        # Here, setting to zero for now for d2_dx2 where nx=2, as proper 3-point stencil is not applicable.
+        pass # d2_field_dx2 remains zeros
 
-        # X-direction Laplacian
-        if nx > 1:
-            u_i_minus_1_val = velocity[idx_to_node[(i-1,j,k)], 0] if i > 0 else u_curr
-            u_i_plus_1_val = velocity[idx_to_node[(i+1,j,k)], 0] if i < nx - 1 else u_curr
-            v_i_minus_1_val = velocity[idx_to_node[(i-1,j,k)], 1] if i > 0 else v_curr
-            v_i_plus_1_val = velocity[idx_to_node[(i+1,j,k)], 1] if i < nx - 1 else v_curr
-            w_i_minus_1_val = velocity[idx_to_node[(i-1,j,k)], 2] if i > 0 else w_curr
-            w_i_plus_1_val = velocity[idx_to_node[(i+1,j,k)], 2] if i < nx - 1 else w_curr
+    # d^2(field) / dy^2
+    d2_field_dy2 = np.zeros_like(field)
+    if ny > 2:
+        d2_field_dy2[:, 1:-1, :] = (field[:, 2:, :] - 2 * field[:, 1:-1, :] + field[:, :-2, :]) / (dy**2)
+    elif ny == 2:
+        pass # d2_field_dy2 remains zeros
 
-            lap_u += get_laplacian_term(u_curr, u_i_plus_1_val, u_i_minus_1_val, (min(i+2, nx-1),j,k), (max(i-2, 0),j,k), dx**2, nx, i, 0, velocity, idx_to_node)
-            lap_v += get_laplacian_term(v_curr, v_i_plus_1_val, v_i_minus_1_val, (min(i+2, nx-1),j,k), (max(i-2, 0),j,k), dx**2, nx, i, 1, velocity, idx_to_node)
-            lap_w += get_laplacian_term(w_curr, w_i_plus_1_val, w_i_minus_1_val, (min(i+2, nx-1),j,k), (max(i-2, 0),j,k), dx**2, nx, i, 2, velocity, idx_to_node)
+    # d^2(field) / dz^2
+    d2_field_dz2 = np.zeros_like(field)
+    if nz > 2:
+        d2_field_dz2[:, :, 1:-1] = (field[:, :, 2:] - 2 * field[:, :, 1:-1] + field[:, :, :-2]) / (dz**2)
+    elif nz == 2:
+        pass # d2_field_dz2 remains zeros
 
-        # Y-direction Laplacian
-        if ny > 1:
-            u_j_minus_1_val = velocity[idx_to_node[(i,j-1,k)], 0] if j > 0 else u_curr
-            u_j_plus_1_val = velocity[idx_to_node[(i,j+1,k)], 0] if j < ny - 1 else u_curr
-            v_j_minus_1_val = velocity[idx_to_node[(i,j-1,k)], 1] if j > 0 else v_curr
-            v_j_plus_1_val = velocity[idx_to_node[(i,j+1,k)], 1] if j < ny - 1 else v_curr
-            w_j_minus_1_val = velocity[idx_to_node[(i,j-1,k)], 2] if j > 0 else w_curr
-            w_j_plus_1_val = velocity[idx_to_node[(i,j+1,k)], 2] if j < ny - 1 else w_curr
+    # Sum the components of the Laplacian
+    # For a scalar field, nabla^2(scalar) = d2/dx2 + d2/dy2 + d2/dz2
+    # For a vector field, nabla^2(vector) = (nabla^2(Vx), nabla^2(Vy), nabla^2(Vz))
+    # NumPy handles this broadcasting automatically if the last dimension matches or is absent.
+    diffusion_term = viscosity * (d2_field_dx2 + d2_field_dy2 + d2_field_dz2)
 
-            lap_u += get_laplacian_term(u_curr, u_j_plus_1_val, u_j_minus_1_val, (i, min(j+2, ny-1),k), (i, max(j-2, 0),k), dy**2, ny, j, 0, velocity, idx_to_node)
-            lap_v += get_laplacian_term(v_curr, v_j_plus_1_val, v_j_minus_1_val, (i, min(j+2, ny-1),k), (i, max(j-2, 0),k), dy**2, ny, j, 1, velocity, idx_to_node)
-            lap_w += get_laplacian_term(w_curr, w_j_plus_1_val, w_j_minus_1_val, (i, min(j+2, ny-1),k), (i, max(j-2, 0),k), dy**2, ny, j, 2, velocity, idx_to_node)
-
-        # Z-direction Laplacian
-        if nz > 1:
-            u_k_minus_1_val = velocity[idx_to_node[(i,j,k-1)], 0] if k > 0 else u_curr
-            u_k_plus_1_val = velocity[idx_to_node[(i,j,k+1)], 0] if k < nz - 1 else u_curr
-            v_k_minus_1_val = velocity[idx_to_node[(i,j,k-1)], 1] if k > 0 else v_curr
-            v_k_plus_1_val = velocity[idx_to_node[(i,j,k+1)], 1] if k < nz - 1 else v_curr
-            w_k_minus_1_val = velocity[idx_to_node[(i,j,k-1)], 2] if k > 0 else w_curr
-            w_k_plus_1_val = velocity[idx_to_node[(i,j,k+1)], 2] if k < nz - 1 else w_curr
-
-            lap_u += get_laplacian_term(u_curr, u_k_plus_1_val, u_k_minus_1_val, (i, j, min(k+2, nz-1)), (i, j, max(k-2, 0)), dz**2, nz, k, 0, velocity, idx_to_node)
-            lap_v += get_laplacian_term(v_curr, v_k_plus_1_val, v_k_minus_1_val, (i, j, min(k+2, nz-1)), (i, j, max(k-2, 0)), dz**2, nz, k, 1, velocity, idx_to_node)
-            lap_w += get_laplacian_term(w_curr, w_k_plus_1_val, w_k_minus_1_val, (i, j, min(k+2, nz-1)), (i, j, max(k-2, 0)), dz**2, nz, k, 2, velocity, idx_to_node)
-
-        diffusion_accel[node_1d_idx, 0] = viscosity * lap_u
-        diffusion_accel[node_1d_idx, 1] = viscosity * lap_v
-        diffusion_accel[node_1d_idx, 2] = viscosity * lap_w
-    
-    return diffusion_accel
+    return diffusion_term

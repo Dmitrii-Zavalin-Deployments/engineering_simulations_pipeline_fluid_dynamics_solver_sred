@@ -10,6 +10,13 @@ jobs:
   fluid_dynamics_simulation:
     runs-on: ubuntu-latest
 
+    # Define common file paths for clarity and easier updates
+    env:
+      ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
+      # New temporary file path for pre-processed input
+      TEMP_SOLVER_INPUT_FILE: ${{ github.workspace }}/temp/solver_input.json
+      FINAL_OUTPUT_FILE: ${{ github.workspace }}/data/testing-input-output/navier_stokes_results.json
+
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
@@ -23,8 +30,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest numpy # Explicitly install dependencies
-        # Install jq for JSON validation (if not already installed)
+        pip install pytest numpy # Explicitly install common scientific dependencies
+        # Install jq for JSON validation
         sudo apt-get update && sudo apt-get install -y jq
 
     - name: List installed packages (Debugging)
@@ -32,8 +39,8 @@ jobs:
       
     - name: Delete Previous Fluid Simulation Input JSON
       run: |
-        if [ -f $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json ]; then
-          rm $GITHUB_WORKSPACE/data/testing-input-output/fluid_simulation_input.json
+        if [ -f "$ORIGINAL_INPUT_FILE" ]; then
+          rm "$ORIGINAL_INPUT_FILE"
           echo "🗑️ Deleted previous fluid_simulation_input.json file."
         else
           echo "ℹ️ No previous fluid_simulation_input.json found—proceeding with new generation."
@@ -49,47 +56,62 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
       run: src/download_from_dropbox.sh
 
-    # Ensure input file `fluid_simulation_input.json` exists before execution
-    - name: Verify Input File Exists
+    # Ensure original input file `fluid_simulation_input.json` exists before pre-processing
+    - name: Verify Original Input File Exists
       run: |
-        INPUT_FILE="${GITHUB_WORKSPACE}/data/testing-input-output/fluid_simulation_input.json"
-        if [ ! -f "$INPUT_FILE" ]; then
-          echo "❌ Error: Input file fluid_simulation_input.json is missing at $INPUT_FILE!"
+        if [ ! -f "$ORIGINAL_INPUT_FILE" ]; then
+          echo "❌ Error: Original input file fluid_simulation_input.json is missing at $ORIGINAL_INPUT_FILE!"
           exit 1
         fi
-        echo "✅ Input file fluid_simulation_input.json found at $INPUT_FILE."
+        echo "✅ Original input file fluid_simulation_input.json found at $ORIGINAL_INPUT_FILE."
 
-    # Debugging: Print full directory tree before running Navier-Stokes simulation
-    - name: Debugging - List All Files in Repository
+    # Debugging: Print full directory tree before running pre-processor
+    - name: Debugging - List All Files in Repository Before Pre-processing
       run: ls -R "${GITHUB_WORKSPACE}"
-    
-    # Run the Main Navier-Stokes Simulation with full path reference
-    - name: Run Main Navier-Stokes Solver
-      # Updated to run the new main_solver.py script
+
+    # --- NEW STEP: Create Temporary Directory for Solver Input ---
+    - name: Create temp directory for solver input
+      run: mkdir -p "$(dirname "$TEMP_SOLVER_INPUT_FILE")"
+
+    # --- NEW STEP: Run the Pre-processing Script ---
+    - name: Run Fluid Simulation Pre-processor
       run: |
-        python "${GITHUB_WORKSPACE}/src/main_solver.py" "${GITHUB_WORKSPACE}/data/testing-input-output/fluid_simulation_input.json"
+        python "${GITHUB_WORKSPACE}/src/pre_process_input.py" "$ORIGINAL_INPUT_FILE" "$TEMP_SOLVER_INPUT_FILE"
+        echo "✅ Pre-processing completed. Temporary solver input generated at $TEMP_SOLVER_INPUT_FILE."
+    
+    # Verify the temporary file exists after pre-processing
+    - name: Verify Temporary Solver Input File Exists
+      run: |
+        if [ ! -f "$TEMP_SOLVER_INPUT_FILE" ]; then
+          echo "❌ Error: Temporary solver input file is missing at $TEMP_SOLVER_INPUT_FILE!"
+          exit 1
+        fi
+        echo "✅ Temporary solver input file found at $TEMP_SOLVER_INPUT_FILE."
+
+    # --- MODIFIED STEP: Run the Main Navier-Stokes Solver (uses temp file) ---
+    - name: Run Main Navier-Stokes Solver
+      run: |
+        python "${GITHUB_WORKSPACE}/src/main_solver.py" "$TEMP_SOLVER_INPUT_FILE" "$FINAL_OUTPUT_FILE"
         echo "✅ Main Navier-Stokes simulation executed successfully."
 
     # Ensure output file exists after execution
     - name: Verify Output File Exists
       run: |
-        OUTPUT_FILE="${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
-        if [ ! -f "$OUTPUT_FILE" ]; then
-          echo "❌ Error: Simulation output file not found at $OUTPUT_FILE!"
+        if [ ! -f "$FINAL_OUTPUT_FILE" ]; then
+          echo "❌ Error: Simulation output file not found at $FINAL_OUTPUT_FILE!"
           exit 1
         fi
-        echo "✅ Output file navier_stokes_results.json found at $OUTPUT_FILE."
+        echo "✅ Output file navier_stokes_results.json found at $FINAL_OUTPUT_FILE."
 
     - name: Debugging - Show Output File Contents
       run: |
         echo "🔍 Output File Content Preview:"
-        cat "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
+        cat "$FINAL_OUTPUT_FILE"
 
     # Validate JSON Format Before Committing
     - name: Verify JSON Format Before Commit
       run: |
-        OUTPUT_FILE="${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_results.json"
-        if jq empty "$OUTPUT_FILE"; then
+        if jq empty "$FINAL_OUTPUT_FILE"; then
           echo "✅ JSON output is valid."
         else
           echo "❌ Error: JSON output is malformed!"
@@ -106,7 +128,7 @@ jobs:
     #    git config --global user.email "${GIT_USER_EMAIL}"
 
     #    cd "$GITHUB_WORKSPACE"
-    #    RESULTS_FILE="data/testing-input-output/navier_stokes_results.json"
+    #    RESULTS_FILE="data/testing-input-output/navier_stokes_results.json" # Use RESULTS_FILE variable here if defined above
 
     #    if [ -s "$RESULTS_FILE" ]; then
     #      git add "$RESULTS_FILE"
