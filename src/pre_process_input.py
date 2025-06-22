@@ -23,11 +23,6 @@ def validate_json_with_schema(data, schema):
     Validates JSON data against a given schema.
     (Simplified validation - a real implementation would use a library like jsonschema)
     """
-    # This is a very basic placeholder for validation.
-    # For robust validation, consider `pip install jsonschema` and using:
-    # from jsonschema import validate
-    # validate(instance=data, schema=schema)
-    
     # Check for top-level keys
     required_keys = ["fluid_properties", "simulation_parameters", "mesh", "boundary_conditions"]
     for key in required_keys:
@@ -42,13 +37,20 @@ def validate_json_with_schema(data, schema):
     if not data["mesh"]["boundary_faces"]:
         raise ValueError("'mesh.boundary_faces' list cannot be empty.")
     
-    # Check for required fields in boundary_faces (e.g., "nodes")
-    for face in data["mesh"]["boundary_faces"]:
-        if "nodes" not in face or not isinstance(face["nodes"], list):
-            raise ValueError("Each boundary face must have a 'nodes' list.")
-        for node in face["nodes"]:
-            if not (isinstance(node, list) and len(node) == 3):
-                raise ValueError("Each node in boundary_faces must be a 3-element list [x, y, z].")
+    # Check for required fields in boundary_faces and node format
+    for i, face in enumerate(data["mesh"]["boundary_faces"]):
+        if "nodes" not in face:
+            raise ValueError(f"Boundary face at index {i} is missing a 'nodes' key.")
+        
+        # --- MODIFIED LOGIC HERE ---
+        # Now expecting 'nodes' to be a dictionary, and we'll extract its values (the actual coordinates)
+        if not isinstance(face["nodes"], dict):
+            raise ValueError(f"Boundary face at index {i} 'nodes' value must be a dictionary (e.g., node_id: [x,y,z]). Found type: {type(face['nodes'])}")
+        
+        # Validate the coordinates within the 'nodes' dictionary values
+        for node_id, node_coords in face["nodes"].items():
+            if not (isinstance(node_coords, list) and len(node_coords) == 3 and all(isinstance(coord, (int, float)) for coord in node_coords)):
+                raise ValueError(f"Node '{node_id}' in boundary face {i} must be a 3-element list [x, y, z] of numbers.")
 
     # Basic fluid properties check
     fluid_props = data.get("fluid_properties", {})
@@ -76,16 +78,18 @@ def validate_json_with_schema(data, schema):
 def get_domain_extents(boundary_faces):
     """
     Extracts the min/max x, y, z coordinates from all nodes in boundary_faces.
+    Nodes are expected to be in a dictionary format: {node_id: [x,y,z]}.
     """
     all_x = []
     all_y = []
     all_z = []
 
     for face in boundary_faces:
-        for node in face["nodes"]:
-            all_x.append(node[0])
-            all_y.append(node[1])
-            all_z.append(node[2])
+        # Iterate over the VALUES (the [x,y,z] lists) of the 'nodes' dictionary
+        for node_coords in face["nodes"].values():
+            all_x.append(node_coords[0])
+            all_y.append(node_coords[1])
+            all_z.append(node_coords[2])
 
     if not all_x or not all_y or not all_z:
         raise ValueError("No nodes found in boundary faces to determine domain extents.")
@@ -149,6 +153,7 @@ def pre_process_input(input_data):
     """
     
     # 1. Extract Domain Extents
+    # The get_domain_extents function has been updated to handle the dict-of-nodes format.
     min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(input_data["mesh"]["boundary_faces"])
 
     # 2. Extract ALL coordinates for each axis from boundary_faces
@@ -157,10 +162,11 @@ def pre_process_input(input_data):
     all_y_coords = []
     all_z_coords = []
     for face in input_data["mesh"]["boundary_faces"]:
-        for node in face["nodes"]:
-            all_x_coords.append(node[0])
-            all_y_coords.append(node[1])
-            all_z_coords.append(node[2])
+        # Extract values from the 'nodes' dictionary
+        for node_coords in face["nodes"].values():
+            all_x_coords.append(node_coords[0])
+            all_y_coords.append(node_coords[1])
+            all_z_coords.append(node_coords[2])
 
     # 3. Infer Uniform Grid Parameters for each axis based on unique planes
     dx, nx = infer_uniform_grid_parameters(min_x, max_x, all_x_coords, 'x')
