@@ -9,7 +9,8 @@ import os
 # --- Import Simulation Modules ---
 # These imports are now updated to reflect your directory structure
 try:
-    from src.utils.grid import create_grid, get_cell_centers
+    # UPDATED: Changed 'create_grid' to 'create_structured_grid_info'
+    from src.utils.grid import create_structured_grid_info, get_cell_centers
     from src.physics.boundary_conditions import apply_boundary_conditions
     
     # UPDATED IMPORTS: Pointing to the new solver files in numerical_methods
@@ -99,7 +100,7 @@ def run_simulation(input_data: dict) -> dict:
     grid_shape = (nx, ny, nz)
     num_nodes = nx * ny * nz # Total number of nodes/cells in the structured grid
 
-    # It's better to use create_grid for the internal grid setup (e.g. cell face areas, etc.)
+    # It's better to use create_structured_grid_info for the internal grid setup (e.g. cell face areas, etc.)
     # and get_cell_centers to get the coordinates of where results are sampled for output.
     
     # This call is important for the `mesh_info.nodes_coords` in the output
