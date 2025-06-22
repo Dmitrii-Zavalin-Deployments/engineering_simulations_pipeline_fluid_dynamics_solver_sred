@@ -4,17 +4,17 @@ import numpy as np
 import sys
 
 # Import the individual numerical methods you have.
-# Note: The way these functions are used in an implicit scheme
-# will be fundamentally different from explicit schemes.
-# In a true implicit solver, advection and diffusion terms are
-# typically part of a linear system that is solved simultaneously.
-# For this placeholder, we will outline a conceptual flow.
 try:
-    from .advection import advect
-    from .diffusion import diffuse
-    from .pressure_divergence import calculate_divergence
-    from .poisson_solver import solve_poisson
-    from .pressure_correction import correct_pressure
+    # UPDATED: Changed 'advect' to 'compute_advection_term'
+    from .advection import compute_advection_term
+    # UPDATED: Changed 'diffuse' to 'compute_diffusion_term'
+    from .diffusion import compute_diffusion_term
+    # UPDATED: Changed 'calculate_divergence' to 'compute_pressure_divergence'
+    from .pressure_divergence import compute_pressure_divergence
+    # UPDATED: Changed 'solve_poisson' to 'solve_poisson_for_phi'
+    from .poisson_solver import solve_poisson_for_phi
+    # UPDATED: Changed 'correct_pressure' to 'apply_pressure_correction'
+    from .pressure_correction import apply_pressure_correction
 except ImportError as e:
     print(f"Error importing components for implicit_solver: {e}", file=sys.stderr)
     print("Please ensure advection.py, diffusion.py, pressure_divergence.py, "
@@ -66,22 +66,16 @@ def solve_implicit(
     print("WARNING: A true implicit Navier-Stokes solver requires solving complex "
           "linear systems, which is not fully implemented in this placeholder.")
 
-    # In a real implicit solver, you'd typically set up a system of equations
-    # for the unknown velocities and pressures at the next time step.
-    # This involves discretizing the Navier-Stokes equations implicitly.
+    nx, ny, nz = velocity_field.shape[:-1] # Get grid shape
 
-    # For a placeholder, we can simulate the "effect" by potentially iterating
-    # or calling component functions multiple times, but this is NOT a true implicit solve.
-    # A more realistic approach would be:
-    # 1. Formulate the discrete equations for velocity and pressure implicitly.
-    # 2. Assemble the coefficient matrix (A) and right-hand side vector (b).
-    # 3. Solve the linear system Ax = b for the next time step's velocity and pressure.
+    # Prepare mesh_info dictionary for functions that require it
+    mesh_info = {
+        'grid_shape': (nx, ny, nz),
+        'dx': dx,
+        'dy': dy,
+        'dz': dz
+    }
 
-    # --- Simplified Conceptual Implicit Steps (for placeholder) ---
-
-    # For demonstration, we'll run a few "pseudo-iterations"
-    # A real implicit solver would have a sophisticated iterative process
-    # or direct solve of a coupled system.
     num_pseudo_iterations = 5 # This is just illustrative, not a true convergence loop
 
     current_velocity = np.copy(velocity_field)
@@ -91,28 +85,54 @@ def solve_implicit(
         # In a real implicit scheme, these would be part of constructing a linear system.
         # Here, we're just showing the components conceptually being 'involved'.
 
-        # Advection contribution
-        # In implicit, advection term would be evaluated at n+1 time step (unknown)
-        # or linearized. Here, we might use current velocity for simplicity in pseudo-step.
-        current_velocity = advect(current_velocity, current_velocity, dx, dy, dz, dt) # Self-advection
+        # --- Advection contribution ---
+        # Calculate advection terms for each component
+        advection_u = compute_advection_term(current_velocity[..., 0], current_velocity, mesh_info)
+        advection_v = compute_advection_term(current_velocity[..., 1], current_velocity, mesh_info)
+        advection_w = compute_advection_term(current_velocity[..., 2], current_velocity, mesh_info)
 
-        # Diffusion contribution
-        # Diffusion term also typically implicit
-        current_velocity = diffuse(current_velocity, viscosity, density, dx, dy, dz, dt)
+        # Apply advection to current_velocity
+        current_velocity[..., 0] -= dt * advection_u
+        current_velocity[..., 1] -= dt * advection_v
+        current_velocity[..., 2] -= dt * advection_w
 
-        # Pressure Projection (still usually explicit or semi-implicit in fractional step)
-        divergence = calculate_divergence(current_velocity, dx, dy, dz)
+        # --- Diffusion contribution ---
+        # Calculate diffusion terms for each component
+        diffusion_u = compute_diffusion_term(current_velocity[..., 0], viscosity, mesh_info)
+        diffusion_v = compute_diffusion_term(current_velocity[..., 1], viscosity, mesh_info)
+        diffusion_w = compute_diffusion_term(current_velocity[..., 2], viscosity, mesh_info)
+
+        # Apply diffusion to current_velocity
+        current_velocity[..., 0] += dt * (diffusion_u / density)
+        current_velocity[..., 1] += dt * (diffusion_v / density)
+        current_velocity[..., 2] += dt * (diffusion_w / density)
+
+        # --- Pressure Projection (still usually explicit or semi-implicit in fractional step) ---
+        # UPDATED: Function call to match 'compute_pressure_divergence'
+        divergence = compute_pressure_divergence(current_velocity, mesh_info)
         
         poisson_tolerance = 1e-6
         poisson_max_iter = 1000
-        pressure_correction_source = density * divergence / dt 
-        pressure_correction = solve_poisson(
-            pressure_correction_source, dx, dy, dz, 
-            tolerance=poisson_tolerance, max_iter=poisson_max_iter
+        
+        # UPDATED: Function call to match 'solve_poisson_for_phi'
+        pressure_correction = solve_poisson_for_phi(
+            divergence,                   # Corresponds to divergence_u_star
+            mesh_info,                    # Contains dx, dy, dz and grid_shape
+            dt,                           # Corresponds to time_step
+            tolerance=poisson_tolerance,  # Pass tolerance
+            max_iterations=poisson_max_iter # Pass max_iterations
         )
-        current_pressure = current_pressure + pressure_correction # Or another update
-
-        current_velocity = correct_pressure(current_velocity, pressure_correction, density, dx, dy, dz, dt)
+        
+        # UPDATED: The apply_pressure_correction function returns BOTH the updated velocity and pressure.
+        # Removed the redundant pressure update line here.
+        current_velocity, current_pressure = apply_pressure_correction(
+            current_velocity,
+            current_pressure,     # Pass the current pressure to be updated within the function
+            pressure_correction,  # The calculated phi
+            mesh_info,            # Contains dx, dy, dz, grid_shape
+            dt,                   # Time step
+            density               # Fluid density
+        )
 
     updated_velocity_field = current_velocity
     updated_pressure_field = current_pressure
