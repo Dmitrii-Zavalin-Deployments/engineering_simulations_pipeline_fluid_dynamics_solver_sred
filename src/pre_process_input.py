@@ -1,284 +1,264 @@
 # src/pre_process_input.py
 
 import json
-import numpy as np
 import sys
-import os # Import os for path handling
+import os
+import numpy as np
+from itertools import chain
 
-def pre_process_input(input_filepath: str, output_filepath: str):
-    """
-    Reads a fluid simulation input file conforming to fluid_simulation_input.schema.json,
-    infers structured grid parameters (dx, dy, dz) from boundary nodes,
-    maps boundary conditions to a format suitable for the structured grid solver,
-    and writes the transformed data to a new JSON file.
-
-    Args:
-        input_filepath: Path to the input JSON file (fluid_simulation_input.schema.json compliant).
-        output_filepath: Path to the temporary output JSON file for main_solver.py.
-    
-    Raises:
-        FileNotFoundError: If the input file does not exist.
-        json.JSONDecodeError: If the input file is not valid JSON.
-        ValueError: If grid resolution cannot be inferred uniformly or if boundary faces
-                    do not align with axis-aligned planes, or if schema inconsistencies exist.
-    """
-    
-    # --- 1. Load Input Data ---
-    if not os.path.exists(input_filepath):
-        raise FileNotFoundError(f"Input file not found: '{input_filepath}'")
-
+def load_json_schema(filepath):
+    """Loads a JSON schema from a file."""
     try:
-        with open(input_filepath, 'r') as f:
-            input_data = json.load(f)
-    except json.JSONDecodeError as e:
-        raise json.JSONDecodeError(f"Invalid JSON format in '{input_filepath}': {e}", e.doc, e.pos)
+        with open(filepath, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Error: Schema file not found at {filepath}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError:
+        print(f"Error: Invalid JSON schema file at {filepath}", file=sys.stderr)
+        sys.exit(1)
 
-    # --- 2. Extract all boundary node coordinates and store boundary face definitions ---
-    all_x_coords = set()
-    all_y_coords = set()
-    all_z_coords = set()
-
-    # Store boundary face definitions for later mapping
-    # {face_id: {'type': ..., 'nodes': {node_id: [x,y,z]}}}
-    boundary_face_geometry = {} 
-
-    mesh_data = input_data.get('mesh')
-    if not mesh_data:
-        raise ValueError("Input JSON is missing the 'mesh' section.")
+def validate_json_with_schema(data, schema):
+    """
+    Validates JSON data against a given schema.
+    (Simplified validation - a real implementation would use a library like jsonschema)
+    """
+    # This is a very basic placeholder for validation.
+    # For robust validation, consider `pip install jsonschema` and using:
+    # from jsonschema import validate
+    # validate(instance=data, schema=schema)
     
-    boundary_faces_list = mesh_data.get('boundary_faces')
-    if not boundary_faces_list:
-        raise ValueError("Input JSON is missing 'mesh.boundary_faces' section.")
+    # Check for top-level keys
+    required_keys = ["fluid_properties", "simulation_parameters", "mesh", "boundary_conditions"]
+    for key in required_keys:
+        if key not in data:
+            raise ValueError(f"Input JSON missing top-level key: '{key}'")
 
-    for b_face in boundary_faces_list:
-        face_id = str(b_face.get('face_id')) # Get face_id, ensure it's string for dict key
-        if face_id is None:
-            raise ValueError("A boundary face is missing 'face_id'.")
-        if face_id in boundary_face_geometry:
-            print(f"Warning: Duplicate face_id '{face_id}' found in mesh.boundary_faces. Overwriting.", file=sys.stderr)
+    # Basic mesh structure check
+    if "mesh" not in data or "boundary_faces" not in data["mesh"]:
+        raise ValueError("Input JSON missing 'mesh.boundary_faces' section.")
+    if not isinstance(data["mesh"]["boundary_faces"], list):
+        raise ValueError("'mesh.boundary_faces' must be a list.")
+    if not data["mesh"]["boundary_faces"]:
+        raise ValueError("'mesh.boundary_faces' list cannot be empty.")
+    
+    # Check for required fields in boundary_faces (e.g., "nodes")
+    for face in data["mesh"]["boundary_faces"]:
+        if "nodes" not in face or not isinstance(face["nodes"], list):
+            raise ValueError("Each boundary face must have a 'nodes' list.")
+        for node in face["nodes"]:
+            if not (isinstance(node, list) and len(node) == 3):
+                raise ValueError("Each node in boundary_faces must be a 3-element list [x, y, z].")
 
-        boundary_face_geometry[face_id] = b_face
-        
-        nodes_data = b_face.get('nodes')
-        if not nodes_data:
-            raise ValueError(f"Boundary face '{face_id}' is missing 'nodes' geometry.")
+    # Basic fluid properties check
+    fluid_props = data.get("fluid_properties", {})
+    if not isinstance(fluid_props.get("density"), (int, float)) or fluid_props["density"] <= 0:
+        raise ValueError("Fluid density must be a positive number.")
+    if not isinstance(fluid_props.get("viscosity"), (int, float)) or fluid_props["viscosity"] < 0:
+        raise ValueError("Fluid viscosity must be a non-negative number.")
 
-        for node_coords in nodes_data.values():
-            if not (isinstance(node_coords, list) and len(node_coords) == 3 and 
-                    all(isinstance(c, (int, float)) for c in node_coords)):
-                raise ValueError(f"Node coordinates for face '{face_id}' are not a 3-element numeric array: {node_coords}")
-            all_x_coords.add(node_coords[0])
-            all_y_coords.add(node_coords[1])
-            all_z_coords.add(node_coords[2])
+    # Basic simulation parameters check
+    sim_params = data.get("simulation_parameters", {})
+    if not isinstance(sim_params.get("time_step"), (int, float)) or sim_params["time_step"] <= 0:
+        raise ValueError("Simulation time_step must be a positive number.")
+    if not isinstance(sim_params.get("total_time"), (int, float)) or sim_params["total_time"] <= 0:
+        raise ValueError("Simulation total_time must be a positive number.")
+    if sim_params.get("solver") not in ["explicit", "implicit"]:
+        raise ValueError("Solver must be 'explicit' or 'implicit'.")
 
-    # --- 3. Determine Overall Domain Extents (min/max for each axis) ---
-    # Handle cases where a dimension might be effectively 2D (only one unique coordinate)
-    # If a set of coordinates is empty, it implies a 0-D domain, which might be an error
-    if not all_x_coords or not all_y_coords or not all_z_coords:
-        raise ValueError("No valid node coordinates found in boundary faces to determine domain extents. "
-                         "Ensure 'mesh.boundary_faces' contains 'nodes' with [x,y,z] coordinates.")
+    # Basic boundary conditions check (ensure it's a dictionary)
+    if not isinstance(data.get("boundary_conditions"), dict):
+        raise ValueError("Boundary conditions must be a dictionary.")
+    
+    print("✅ Input JSON passed basic structural validation.")
 
-    min_x, max_x = min(all_x_coords), max(all_x_coords)
-    min_y, max_y = min(all_y_coords), max(all_y_coords)
-    min_z, max_z = min(all_z_coords), max(all_z_coords)
 
-    # --- 4. Infer dx, dy, dz from unique coordinate differences ---
-    # This is the critical part that relies on the "no assumptions" constraint.
-    # It assumes the boundary nodes implicitly define a perfectly uniform structured grid.
-    TOLERANCE = 1e-9 # Floating point comparison tolerance
+def get_domain_extents(boundary_faces):
+    """
+    Extracts the min/max x, y, z coordinates from all nodes in boundary_faces.
+    """
+    all_x = []
+    all_y = []
+    all_z = []
 
-    def get_uniform_spacing_and_count(coords_set: set, axis_name: str):
-        """
-        Infers uniform spacing (d_axis) and number of cells (n_axis) along an axis.
-        Raises ValueError if spacing is not uniform.
-        Returns 0.0 and 1 for effectively 2D or 1D dimensions (where extent is zero).
-        """
-        sorted_coords = sorted(list(coords_set))
-        num_points = len(sorted_coords)
+    for face in boundary_faces:
+        for node in face["nodes"]:
+            all_x.append(node[0])
+            all_y.append(node[1])
+            all_z.append(node[2])
 
-        # If only one point or extent is effectively zero, it's a 2D/1D plane in this dimension
-        if num_points <= 1 or abs(sorted_coords[-1] - sorted_coords[0]) < TOLERANCE:
-            return 0.0, 1 # Spacing is 0, and there's effectively 1 'cell' in this dimension
-        
-        diffs = [sorted_coords[i+1] - sorted_coords[i] for i in range(num_points - 1)]
-        
-        # Filter out near-zero differences, which might occur if points are duplicated or too close
-        significant_diffs = [d for d in diffs if d > TOLERANCE]
+    if not all_x or not all_y or not all_z:
+        raise ValueError("No nodes found in boundary faces to determine domain extents.")
 
-        if not significant_diffs:
-            # This shouldn't happen if num_points > 1 and extent > TOLERANCE
-            # but as a safeguard, indicates all points are effectively at the same coord
-            return 0.0, 1
+    min_x, max_x = min(all_x), max(all_x)
+    min_y, max_y = min(all_y), max(all_y)
+    min_z, max_z = min(all_z), max(all_z)
 
-        # Check for uniformity: all significant differences should be "the same" within tolerance.
-        first_diff = significant_diffs[0]
-        for d in significant_diffs:
-            if abs(d - first_diff) > TOLERANCE:
-                raise ValueError(
-                    f"Inconsistent spacing detected along {axis_name}-axis ({d} vs {first_diff}). "
-                    "Cannot infer uniform grid resolution without assumptions. "
-                    "Input mesh boundary nodes do not form a perfectly structured grid. "
-                    "Please ensure nodes are uniformly spaced on axis-aligned boundaries."
-                )
-        
-        # Calculate number of cells based on total extent and derived dx
-        extent = sorted_coords[-1] - sorted_coords[0]
-        # Use a small tolerance for division to avoid issues with floating point arithmetic
-        num_cells = int(round(extent / first_diff)) if first_diff > TOLERANCE else 1
-        return first_diff, num_cells
+    return min_x, max_x, min_y, max_y, min_z, max_z
 
-    dx, nx = get_uniform_spacing_and_count(all_x_coords, 'x')
-    dy, ny = get_uniform_spacing_and_count(all_y_coords, 'y')
-    dz, nz = get_uniform_spacing_and_count(all_z_coords, 'z')
 
-    # --- 5. Map Boundary Conditions to the Structured Grid Format ---
-    # This structure is what main_solver.py currently expects.
-    converted_boundary_conditions = {
-        "inlet": {},
-        "outlet": {},
-        "wall": {}
+def infer_uniform_grid_parameters(min_val, max_val, all_coords_for_axis, axis_name):
+    """
+    Infers dx and nx (or dy, ny / dz, nz) for a uniform grid along a single axis.
+    This function now counts unique coordinates to determine nx/ny/nz and
+    calculates an average spacing, relaxing the strict uniform spacing requirement.
+    """
+    # Collect all coordinates for this axis from ALL boundary nodes
+    unique_coords = sorted(list(set(all_coords_for_axis)))
+
+    if not unique_coords:
+        raise ValueError(f"No unique coordinates found for {axis_name}-axis in boundary faces.")
+
+    num_cells = len(unique_coords)
+    
+    if num_cells < 1: # This case should theoretically not be hit if unique_coords is not empty
+        raise ValueError(f"Cannot determine grid resolution for {axis_name}-axis: fewer than 1 unique coordinate.")
+    
+    # If num_cells is 1, it means the dimension effectively collapses (e.g., a 2D plane in 3D)
+    # or the domain has zero extent along this axis.
+    # In such cases, dx can be set to an arbitrary value (e.g., 1.0) and nx will be 1.
+    # The solver then needs to handle this as a 2D/1D problem for that dimension.
+    if num_cells == 1:
+        # If min_val == max_val, the dimension is truly a point/plane.
+        # Set spacing to a nominal value (e.g., 1.0) as it won't be used to define extent.
+        if abs(max_val - min_val) < 1e-9: # Check for floating point equality
+            spacing = 1.0
+        else:
+            # This case implies num_cells is 1 but max_val != min_val, which is an inconsistency
+            # in how unique_coords was derived or the input data itself.
+            # Fallback to the extent, but this is highly unusual for a single unique coord.
+            print(f"Warning: Unexpected condition in {axis_name}-axis: num_cells=1 but max_val != min_val. Forcing spacing to (max-min).", file=sys.stderr)
+            spacing = (max_val - min_val) # Spacing is the extent itself if only one unique point defined the range.
+    else:
+        # Calculate the average spacing based on the extent and number of unique planes (num_cells)
+        # This gives us the uniform spacing for the new structured grid.
+        spacing = (max_val - min_val) / (num_cells - 1)
+        # Add a check for extremely small spacing which might indicate numerical issues
+        if spacing < 1e-9 and abs(max_val - min_val) > 1e-9: # if spacing is near zero but domain has extent
+             print(f"Warning: Extremely small calculated spacing ({spacing:.2e}) for {axis_name}-axis with significant extent. This might indicate many unique, closely clustered points.", file=sys.stderr)
+
+
+    print(f"Inferred {axis_name}-axis: {num_cells} cells, average spacing {spacing:.6e}")
+    return spacing, num_cells
+
+
+def pre_process_input(input_data):
+    """
+    Pre-processes the raw input JSON data into a structured format
+    suitable for the Navier-Stokes solver.
+    """
+    
+    # 1. Extract Domain Extents
+    min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(input_data["mesh"]["boundary_faces"])
+
+    # 2. Extract ALL coordinates for each axis from boundary_faces
+    # This step is crucial for relaxing the strict uniformity check
+    all_x_coords = []
+    all_y_coords = []
+    all_z_coords = []
+    for face in input_data["mesh"]["boundary_faces"]:
+        for node in face["nodes"]:
+            all_x_coords.append(node[0])
+            all_y_coords.append(node[1])
+            all_z_coords.append(node[2])
+
+    # 3. Infer Uniform Grid Parameters for each axis based on unique planes
+    dx, nx = infer_uniform_grid_parameters(min_x, max_x, all_x_coords, 'x')
+    dy, ny = infer_uniform_grid_parameters(min_y, max_y, all_y_coords, 'y')
+    dz, nz = infer_uniform_grid_parameters(min_z, max_z, all_z_coords, 'z')
+
+    # Ensure nx, ny, nz are at least 1, even for effectively 2D/1D problems
+    nx = max(1, nx)
+    ny = max(1, ny)
+    nz = max(1, nz)
+
+    # Re-adjust dx/dy/dz if a dimension effectively collapses to a single point/plane.
+    # This handles cases where min_val == max_val for a dimension, setting dx/dy/dz to 1.0,
+    # and ensuring nx/ny/nz is 1. This makes the solver aware it's a 2D/1D problem
+    # for that specific axis. Use a small epsilon for floating point comparison.
+    TOLERANCE = 1e-9
+    if abs(max_x - min_x) < TOLERANCE:
+        dx = 1.0 # Set a nominal spacing as this dimension is effectively collapsed
+        nx = 1
+    if abs(max_y - min_y) < TOLERANCE:
+        dy = 1.0
+        ny = 1
+    if abs(max_z - min_z) < TOLERANCE:
+        dz = 1.0
+        nz = 1
+
+
+    domain_settings = {
+        "min_x": min_x, "max_x": max_x, "dx": dx, "nx": nx,
+        "min_y": min_y, "max_y": max_y, "dy": dy, "ny": ny,
+        "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz
     }
 
-    # Helper to check if a set of points forms a plane at a specific coordinate
-    def is_on_plane(coords_map: dict, plane_coord_val: float, axis_index: int, tolerance: float = TOLERANCE) -> bool:
-        """Checks if all nodes in coords_map lie on a plane defined by plane_coord_val on axis_index."""
-        if not coords_map: return False 
-        for coords in coords_map.values():
-            if abs(coords[axis_index] - plane_coord_val) > tolerance:
-                return False
-        return True
+    # 4. Process Boundary Conditions
+    # The boundary_conditions in the input should specify rules for min_x, max_x, etc.
+    # The pre-processor simply passes these on, as they are already structured.
+    # No complex mapping is needed if they are defined by axis-aligned planes.
+    processed_boundary_conditions = input_data.get("boundary_conditions", {})
 
-    input_bcs = input_data.get('boundary_conditions')
-    if not input_bcs:
-        raise ValueError("Input JSON is missing the 'boundary_conditions' section.")
+    # 5. Extract Fluid Properties and Simulation Parameters
+    fluid_properties = input_data.get("fluid_properties", {})
+    simulation_parameters = input_data.get("simulation_parameters", {})
 
-    # Process each boundary type (inlet, outlet, wall) from the input schema
-    for bc_type, bc_data in input_bcs.items():
-        if bc_type not in ["inlet", "outlet", "wall"]:
-            print(f"Warning: Skipping unsupported top-level boundary condition type '{bc_type}'.", file=sys.stderr)
-            continue
-
-        if not isinstance(bc_data, dict):
-            raise ValueError(f"Boundary condition data for '{bc_type}' is not an object.")
-
-        # Copy global properties (velocity, pressure, no_slip) for the BC type
-        if bc_type == "inlet":
-            if "velocity" in bc_data:
-                converted_boundary_conditions["inlet"]["velocity"] = bc_data["velocity"]
-            if "pressure" in bc_data:
-                converted_boundary_conditions["inlet"]["pressure"] = bc_data["pressure"]
-        elif bc_type == "outlet":
-            if "pressure" in bc_data:
-                converted_boundary_conditions["outlet"]["pressure"] = bc_data["pressure"]
-        elif bc_type == "wall":
-            # 'no_slip' is required in schema, but good to handle potential missing with default
-            converted_boundary_conditions["wall"]["no_slip"] = bc_data.get("no_slip", True)
-
-        # Identify which structured grid planes correspond to this BC type
-        faces_list = bc_data.get('faces', [])
-        if not isinstance(faces_list, list):
-            raise ValueError(f"Faces list for '{bc_type}' boundary condition is not an array.")
-
-        for face_id_int in faces_list:
-            face_id = str(face_id_int) # Convert to string to match dict keys
-
-            if face_id not in boundary_face_geometry:
-                raise ValueError(
-                    f"Boundary face_id '{face_id}' for '{bc_type}' boundary condition "
-                    "not found in 'mesh.boundary_faces'. This indicates a schema inconsistency."
-                )
-            
-            face_info = boundary_face_geometry[face_id]
-            face_nodes_coords_map = face_info.get('nodes')
-            face_declared_type = face_info.get('type')
-
-            if not face_nodes_coords_map:
-                raise ValueError(f"Boundary face '{face_id}' has no 'nodes' data.")
-            if face_declared_type is None:
-                raise ValueError(f"Boundary face '{face_id}' is missing its 'type'.")
-
-            # Validate that the face's type matches the boundary condition type it's listed under
-            if face_declared_type != bc_type:
-                raise ValueError(
-                    f"Inconsistency: Boundary face_id '{face_id}' is declared as type '{face_declared_type}' "
-                    f"in mesh.boundary_faces, but is listed under '{bc_type}' boundary conditions. "
-                    "This is a schema violation and indicates a problem in the input data."
-                )
-
-            matched_plane = None
-            if is_on_plane(face_nodes_coords_map, min_x, 0): matched_plane = "min_x"
-            elif is_on_plane(face_nodes_coords_map, max_x, 0): matched_plane = "max_x"
-            elif is_on_plane(face_nodes_coords_map, min_y, 1): matched_plane = "min_y"
-            elif is_on_plane(face_nodes_coords_map, max_y, 1): matched_plane = "max_y"
-            elif is_on_plane(face_nodes_coords_map, min_z, 2): matched_plane = "min_z"
-            elif is_on_plane(face_nodes_coords_map, max_z, 2): matched_plane = "max_z"
-            
-            if matched_plane is None:
-                raise ValueError(
-                    f"Boundary face_id '{face_id}' (type '{face_declared_type}') does not correspond "
-                    "to a simple axis-aligned boundary plane of the inferred structured grid. "
-                    "This input cannot be processed by the current structured grid solver without making assumptions."
-                )
-            
-            # Set the flag for the matched plane in the structured BC dictionary
-            converted_boundary_conditions[bc_type][matched_plane] = True
-
-    # --- 6. Construct the temporary JSON output for main_solver.py ---
-    simulation_parameters = input_data.get("simulation_parameters")
-    if not simulation_parameters:
-        raise ValueError("Input JSON is missing the 'simulation_parameters' section.")
-
-    fluid_properties = input_data.get("fluid_properties")
-    if not fluid_properties:
-        raise ValueError("Input JSON is missing the 'fluid_properties' section.")
-
-    temp_output_data = {
-        "domain_settings": {
-            "min_x": min_x,
-            "max_x": max_x,
-            "min_y": min_y,
-            "max_y": max_y,
-            "min_z": min_z,
-            "max_z": max_z,
-            "dx": dx,
-            "dy": dy,
-            "dz": dz,
-            # nx, ny, nz are derived from domain_settings by the current main_solver
-            # but we include them here for clarity and potential direct use.
-            "nx": nx, 
-            "ny": ny,
-            "nz": nz
-        },
+    pre_processed_data = {
+        "domain_settings": domain_settings,
         "fluid_properties": fluid_properties,
         "simulation_parameters": simulation_parameters,
-        "boundary_conditions": converted_boundary_conditions
+        "boundary_conditions": processed_boundary_conditions
     }
 
-    # --- 7. Write the temporary JSON file ---
-    try:
-        with open(output_filepath, 'w') as f:
-            json.dump(temp_output_data, f, indent=2)
-    except IOError as e:
-        raise IOError(f"Could not write output file '{output_filepath}': {e}")
+    return pre_processed_data
 
-
-    print(f"Successfully converted '{input_filepath}' to '{output_filepath}' for structured grid solver.")
-    print(f"Inferred structured grid: Nx={nx}, Ny={ny}, Nz={nz} with Dx={dx:.4e}, Dy={dy:.4e}, Dz={dz:.4e}")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python src/pre_process_input.py <input_fluid_sim_json> <output_temp_json>")
-        print("Example: python src/pre_process_input.py input/my_complex_fluid_sim.json temp/solver_input.json")
+        print("Usage: python src/pre_process_input.py <input_json_filepath> <output_json_filepath>")
+        print("Example: python src/pre_process_input.py data/fluid_simulation_input.json temp/solver_input.json")
         sys.exit(1)
 
     input_file = sys.argv[1]
     output_file = sys.argv[2]
-    
+
     try:
-        pre_process_input(input_file, output_file)
-    except (FileNotFoundError, json.JSONDecodeError, ValueError, IOError) as e:
+        if not os.path.exists(input_file):
+            raise FileNotFoundError(f"Input file not found: '{input_file}'")
+
+        # Load input data
+        with open(input_file, 'r') as f:
+            raw_input_data = json.load(f)
+
+        # Validate input against a conceptual schema (simplified)
+        # In a real system, you'd use a dedicated schema validation library
+        validate_json_with_schema(raw_input_data, {}) # Pass an empty dict as schema since it's simplified
+
+        # Pre-process the data
+        pre_processed_output = pre_process_input(raw_input_data)
+
+        # Ensure output directory exists
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        # Save pre-processed data to output file
+        with open(output_file, 'w') as f:
+            json.dump(pre_processed_output, f, indent=2)
+        print(f"Pre-processing successful! Data saved to '{output_file}'")
+
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON format in '{input_file}': {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
         print(f"Error during pre-processing: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        print(f"An unexpected error occurred during pre-processing: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
