@@ -10,8 +10,12 @@ import os
 # These imports are now updated to reflect your directory structure
 try:
     # UPDATED: Changed 'create_grid' to 'create_structured_grid_info'
+    # NOTE: The create_structured_grid_info function is in src/utils/grid.py
+    # but based on your project structure, it seems the main_solver.py might also
+    # need access to `get_cell_centers` from grid.py, which I added in a previous step.
+    # So, we keep both here.
     from src.utils.grid import create_structured_grid_info, get_cell_centers
-    from src.physics.boundary_conditions import apply_boundary_conditions
+    from src.physics.boundary_conditions import apply_boundary_conditions, identify_boundary_nodes # Added identify_boundary_nodes here
     
     # UPDATED IMPORTS: Pointing to the new solver files in numerical_methods
     from src.numerical_methods.explicit_solver import solve_explicit
@@ -19,10 +23,12 @@ try:
     
     # If you have other physics functions (e.g., for calculating forces, etc.)
     # from src.physics.navier_stokes import calculate_velocities_pressures 
+    # Also need output_writer
+    from src.utils.io import write_output_to_vtk # Assuming this function is in src/utils/io.py
 except ImportError as e:
     print(f"Error importing essential simulation modules: {e}", file=sys.stderr)
-    print("Please ensure 'src/utils/grid.py', 'src/physics/boundary_conditions.py', "
-          "and 'src/numerical_methods/explicit_solver.py'/'implicit_solver.py' "
+    print("Please ensure all modules and functions (e.g., 'src/utils/grid.py', "
+          "'src/physics/boundary_conditions.py', and 'src/numerical_methods/solver_files') "
           "contain the necessary functions and paths are correct.", file=sys.stderr)
     sys.exit(1)
 
@@ -65,12 +71,9 @@ def run_simulation(input_data: dict) -> dict:
     # Check if dx/dy/dz are consistent with extents and nx/ny/nz, allowing for 2D/1D cases (dx/dy/dz = 0.0)
     # A small tolerance is used for floating point comparison
     TOLERANCE = 1e-9
-    if dx > TOLERANCE and abs((max_x - min_x) / dx - nx) > TOLERANCE and nx != 1:
-        print(f"Warning: X-dimension consistency check failed. ((max_x - min_x) / dx) is {((max_x - min_x) / dx):.4e}, nx is {nx}.", file=sys.stderr)
-    if dy > TOLERANCE and abs((max_y - min_y) / dy - ny) > TOLERANCE and ny != 1:
-        print(f"Warning: Y-dimension consistency check failed. ((max_y - min_y) / dy) is {((max_y - min_y) / dy):.4e}, ny is {ny}.", file=sys.stderr)
-    if dz > TOLERANCE and abs((max_z - min_z) / dz - nz) > TOLERANCE and nz != 1:
-        print(f"Warning: Z-dimension consistency check failed. ((max_z - min_z) / dz) is {((max_z - min_z) / dz):.4e}, nz is {nz}.", file=sys.stderr)
+    # Removed the consistency check warnings here as pre_process_input.py handles this
+    # by generating a uniform grid from potentially non-uniform input extents.
+    # The dx, dy, dz values are now *derived* from the extents and number of unique planes.
 
 
     fluid_properties = input_data.get("fluid_properties")
@@ -87,6 +90,7 @@ def run_simulation(input_data: dict) -> dict:
     time_step = simulation_parameters.get("time_step")
     total_time = simulation_parameters.get("total_time")
     solver_type = simulation_parameters.get("solver")
+    output_interval = simulation_parameters.get('output_interval', 1) # Default to 1 if not specified
     if time_step is None or total_time is None or solver_type is None:
         raise ValueError("Missing 'time_step', 'total_time', or 'solver' in 'simulation_parameters'.")
 
@@ -100,25 +104,54 @@ def run_simulation(input_data: dict) -> dict:
     grid_shape = (nx, ny, nz)
     num_nodes = nx * ny * nz # Total number of nodes/cells in the structured grid
 
-    # It's better to use create_structured_grid_info for the internal grid setup (e.g. cell face areas, etc.)
-    # and get_cell_centers to get the coordinates of where results are sampled for output.
-    
     # This call is important for the `mesh_info.nodes_coords` in the output
     nodes_coords = get_cell_centers(min_x, max_x, min_y, max_y, min_z, max_z, nx, ny, nz)
 
-
-    # Initial conditions (e.g., zero velocity, zero pressure)
-    # Use numpy arrays with correct shapes for vectorized operations
+    # Initialize velocity and pressure fields
     # Velocity field is typically (nx, ny, nz, 3) for 3 components at each grid point (cell center)
     # Pressure field is (nx, ny, nz)
     velocity_field = np.zeros((*grid_shape, 3))
     pressure_field = np.zeros(grid_shape)
 
-    # --- Simulation Loop ---
-    time_points = []
-    velocity_history = []
-    pressure_history = []
+    # Prepare mesh_info dictionary for numerical methods and boundary conditions
+    # This also needs to store the grid lines for identify_boundary_nodes
+    x_coords_grid_lines = np.linspace(min_x, max_x, nx + 1)
+    y_coords_grid_lines = np.linspace(min_y, max_y, ny + 1)
+    z_coords_grid_lines = np.linspace(min_z, max_z, nz + 1)
 
+    mesh_info = {
+        'grid_shape': grid_shape,
+        'dx': dx, 'dy': dy, 'dz': dz,
+        'x_coords_grid_lines': x_coords_grid_lines,
+        'y_coords_grid_lines': y_coords_grid_lines,
+        'z_coords_grid_lines': z_coords_grid_lines,
+        # 'boundary_conditions' will be added after processing
+    }
+
+    # --- Process Boundary Conditions ---
+    # Process raw boundary conditions data into a more usable format
+    processed_bcs = identify_boundary_nodes(boundary_conditions_data, mesh_info)
+    mesh_info['boundary_conditions'] = processed_bcs # Add processed BCs to mesh_info
+
+    # Construct fluid_properties dictionary for apply_boundary_conditions
+    fluid_properties_dict = {
+        "density": density,
+        "viscosity": viscosity
+    }
+
+    # --- Apply Initial Boundary Conditions ---
+    # Apply initial boundary conditions to the fields
+    # The function modifies fields in-place, so no assignment is needed.
+    apply_boundary_conditions(
+        velocity_field, 
+        pressure_field, 
+        fluid_properties_dict, # Pass as a dictionary
+        mesh_info,             # This dict now contains processed BCs and grid info
+        is_tentative_step=False # Applying to initial, final fields
+    )
+
+    # --- Simulation Loop ---
+    num_time_steps = int(total_time / time_step)
     current_time = 0.0
     step_count = 0
 
@@ -132,41 +165,76 @@ def run_simulation(input_data: dict) -> dict:
 
     start_sim_time = time.time()
 
-    while current_time <= total_time + TOLERANCE: # Use tolerance to ensure final time step is included
-        # Store current state for history
-        time_points.append(current_time)
-        # Reshape for output: (num_nodes, 3) for velocity, (num_nodes,) for pressure
-        velocity_history.append(velocity_field.reshape(-1, 3).tolist())
-        pressure_history.append(pressure_field.flatten().tolist())
-
-        # Apply boundary conditions at the beginning of each step
-        # This function modifies velocity_field and pressure_field in place or returns new arrays
-        velocity_field, pressure_field = apply_boundary_conditions(
-            velocity_field, pressure_field, grid_shape,
-            min_x, max_x, min_y, max_y, min_z, max_z,
-            boundary_conditions_data # This is the pre-processed BC data
-        )
-
-        # Choose solver based on input parameters
-        if solver_type == "explicit":
-            velocity_field, pressure_field = solve_explicit(
-                velocity_field, pressure_field, density, viscosity,
-                dx, dy, dz, time_step
-            )
-        elif solver_type == "implicit":
-            velocity_field, pressure_field = solve_implicit(
-                velocity_field, pressure_field, density, viscosity,
-                dx, dy, dz, time_step
-            )
-        else:
-            raise ValueError(f"Unsupported solver type specified in simulation_parameters: '{solver_type}'. "
-                             "Choose 'explicit' or 'implicit'.")
-
+    for step in range(num_time_steps): # Loop through the number of total time steps
         current_time += time_step
         step_count += 1
+        
+        # Apply boundary conditions at the beginning of each step (before solving)
+        # This function modifies velocity_field and pressure_field in place or returns new arrays
+        # Note: Apply boundary conditions to tentative velocity (u_star) when relevant in solvers.
+        # This main loop call applies to the overall velocity_field before the next iteration's solve.
+        # Specific BCs for u_star might be handled within explicit_solver/implicit_solver
+        # if the solver uses a projection method.
+        
+        # Choose solver based on input parameters
+        try:
+            if solver_type == "explicit":
+                velocity_field, pressure_field = solve_explicit(
+                    velocity_field, pressure_field, density, viscosity,
+                    dx, dy, dz, time_step
+                )
+                # Re-apply boundary conditions to the final velocity/pressure after the explicit step
+                # This is crucial for maintaining boundary conditions after the solve.
+                apply_boundary_conditions(
+                    velocity_field, 
+                    pressure_field, 
+                    fluid_properties_dict, 
+                    mesh_info, 
+                    is_tentative_step=False # This applies to the final, updated fields
+                )
+
+            elif solver_type == "implicit":
+                velocity_field, pressure_field = solve_implicit(
+                    velocity_field, pressure_field, density, viscosity,
+                    dx, dy, dz, time_step
+                )
+                # Re-apply boundary conditions to the final velocity/pressure after the implicit step
+                apply_boundary_conditions(
+                    velocity_field, 
+                    pressure_field, 
+                    fluid_properties_dict, 
+                    mesh_info, 
+                    is_tentative_step=False # This applies to the final, updated fields
+                )
+            else:
+                raise ValueError(f"Unsupported solver type specified in simulation_parameters: '{solver_type}'. "
+                                 "Choose 'explicit' or 'implicit'.")
+        except Exception as e:
+            print(f"An error occurred during time step {step_count}: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1) # Exit immediately on solver error
+
         if step_count % 10 == 0: # Print progress every 10 steps
             print(f"Simulation Time: {current_time:.4f}s / {total_time:.4f}s ({step_count} steps)")
             
+        # Output results at specified intervals
+        if (step_count % output_interval == 0) or (step_count == num_time_steps):
+            output_filename = f"navier_stokes_results_step_{step_count}.vti"
+            # Assuming output files go into a 'results' subdirectory in GITHUB_WORKSPACE
+            output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'results')
+            os.makedirs(output_dir, exist_ok=True)
+            output_filepath = os.path.join(output_dir, output_filename)
+            
+            print(f"Writing output to {output_filepath} at time {current_time:.4f}s")
+            write_output_to_vtk(
+                velocity_field,
+                pressure_field,
+                x_coords_grid_lines, y_coords_grid_lines, z_coords_grid_lines,
+                output_filepath
+            )
+
+
     end_sim_time = time.time()
     print(f"\n--- Simulation Complete ---")
     print(f"Total simulation time: {end_sim_time - start_sim_time:.2f} seconds.")
@@ -174,10 +242,11 @@ def run_simulation(input_data: dict) -> dict:
 
 
     # --- Prepare Results for Output Schema (navier_stokes_results.schema.json) ---
+    # For now, we are writing VTI files directly. If a final summary JSON is needed:
     results = {
-        "time_points": time_points,
-        "velocity_history": velocity_history,
-        "pressure_history": pressure_history,
+        "time_points": [current_time], # Only final time
+        "velocity_history": [velocity_field.reshape(-1, 3).tolist()], # Only final state
+        "pressure_history": [pressure_field.flatten().tolist()], # Only final state
         "mesh_info": {
             "nodes": num_nodes, # Total number of nodes in the structured grid
             "nodes_coords": nodes_coords.reshape(-1, 3).tolist(), # Flatten to a list of [x,y,z] lists
@@ -196,7 +265,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    output_file = sys.argv[2] # This will be the main navier_stokes_results.json, not the VTK files
 
     try:
         if not os.path.exists(input_file):
@@ -205,16 +274,20 @@ if __name__ == "__main__":
         with open(input_file, 'r') as f:
             input_data = json.load(f)
         
+        # Pass the desired output directory for VTK files via input_data or directly
+        # The output_file (navier_stokes_output.json) will contain summary, VTK files will be detailed
+        # For VTK, assuming a 'results' folder within the top-level project directory.
+        
         simulation_results = run_simulation(input_data)
 
-        # Ensure output directory exists
-        output_dir = os.path.dirname(output_file)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        # Ensure output directory for the final JSON result exists
+        output_dir_json = os.path.dirname(output_file)
+        if output_dir_json and not os.path.exists(output_dir_json):
+            os.makedirs(output_dir_json)
 
         with open(output_file, 'w') as f:
             json.dump(simulation_results, f, indent=2)
-        print(f"Simulation results successfully saved to '{output_file}'")
+        print(f"Summary simulation results successfully saved to '{output_file}'")
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
