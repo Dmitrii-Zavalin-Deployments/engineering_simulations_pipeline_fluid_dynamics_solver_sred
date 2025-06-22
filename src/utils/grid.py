@@ -1,11 +1,17 @@
 import numpy as np
 import math
 
-def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(0.0, 0.0, 0.0)):
+def create_structured_grid_info(x_coords_grid_lines, y_coords_grid_lines, z_coords_grid_lines):
     """
-    Creates 3D structured grid information based on explicit grid dimensions,
-    domain size, and origin.
-    
+    Creates 3D structured grid information based on explicit lists of sorted unique
+    coordinates for each dimension. This directly constructs the grid points from
+    the inferred grid lines, ensuring perfect alignment with the input's spatial definition.
+
+    Args:
+        x_coords_grid_lines (list): Sorted list of unique x-coordinates defining grid lines.
+        y_coords_grid_lines (list): Sorted list of unique y-coordinates defining grid lines.
+        z_coords_grid_lines (list): Sorted list of unique z-coordinates defining grid lines.
+
     Returns:
         num_nodes (int): Total number of nodes (Nx * Ny * Nz).
         nodes_coords (np.array): (num_nodes, 3) array of node coordinates.
@@ -14,40 +20,39 @@ def create_structured_grid_info(grid_dims, domain_size=(1.0, 1.0, 1.0), origin=(
         node_to_idx (dict): Maps 1D node index to 3D (i,j,k) grid indices.
         idx_to_node (dict): Maps 3D (i,j,k) grid indices to 1D node index.
     """
-    nx, ny, nz = grid_dims
+    nx = len(x_coords_grid_lines)
+    ny = len(y_coords_grid_lines)
+    nz = len(z_coords_grid_lines)
+    
+    grid_shape = (nx, ny, nz)
     num_nodes = nx * ny * nz
     
-    # Generate coordinates using np.linspace for better precision across the domain
-    # Handle cases where a dimension has only one node (i.e., domain_size[dim] == 0)
-    x_coords = np.linspace(origin[0], origin[0] + domain_size[0], nx) if nx > 1 else np.array([origin[0]])
-    y_coords = np.linspace(origin[1], origin[1] + domain_size[1], ny) if ny > 1 else np.array([origin[1]])
-    z_coords = np.linspace(origin[2], origin[2] + domain_size[2], nz) if nz > 1 else np.array([origin[2]])
-
-    # Calculate dx, dy, dz based on the generated linspace points
-    # These should be 0.0 if there's only one node in that dimension
-    dx = x_coords[1] - x_coords[0] if nx > 1 else 0.0
-    dy = y_coords[1] - y_coords[0] if ny > 1 else 0.0
-    dz = z_coords[1] - z_coords[0] if nz > 1 else 0.0
+    # Calculate dx, dy, dz based on the spacing between the first two grid lines,
+    # or 0.0 if there's only one grid line in that dimension.
+    # Handle the case where there's only one node in a dimension (e.g., a 2D problem)
+    dx = x_coords_grid_lines[1] - x_coords_grid_lines[0] if nx > 1 else 0.0
+    dy = y_coords_grid_lines[1] - y_coords_grid_lines[0] if ny > 1 else 0.0
+    dz = z_coords_grid_lines[1] - z_coords_grid_lines[0] if nz > 1 else 0.0
 
     nodes_coords = np.zeros((num_nodes, 3))
     node_to_idx = {}
     idx_to_node = {}
     
     count = 0
+    # Iterate in Z, then Y, then X for standard 1D indexing mapping (k, j, i)
     for k_idx in range(nz):
         for j_idx in range(ny):
             for i_idx in range(nx):
-                # Populate coordinates from the linspace arrays
-                nodes_coords[count, 0] = x_coords[i_idx]
-                nodes_coords[count, 1] = y_coords[j_idx]
-                nodes_coords[count, 2] = z_coords[k_idx]
+                # Populate coordinates directly from the provided grid line lists
+                nodes_coords[count, 0] = x_coords_grid_lines[i_idx]
+                nodes_coords[count, 1] = y_coords_grid_lines[j_idx]
+                nodes_coords[count, 2] = z_coords_grid_lines[k_idx]
                 
                 node_to_idx[count] = (i_idx, j_idx, k_idx)
                 idx_to_node[(i_idx, j_idx, k_idx)] = count
                 count += 1
     
-    # Return dx, dy, dz directly calculated from linspace, which correctly handles nx=1 case etc.
-    return num_nodes, nodes_coords, grid_dims, dx, dy, dz, node_to_idx, idx_to_node
+    return num_nodes, nodes_coords, grid_shape, dx, dy, dz, node_to_idx, idx_to_node
 
 
 def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
@@ -84,6 +89,8 @@ def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
     # We prioritize finding factors that align with the non-zero dimensions.
     
     # Start with a base case for 1D/2D scenarios
+    # These base cases should ideally be caught by the direct coordinate inference in main_solver.py,
+    # but kept here for robustness of this function.
     if not has_y_extent and not has_z_extent: # 1D along X
         return (num_nodes, 1, 1)
     if not has_x_extent and not has_z_extent: # 1D along Y
@@ -102,15 +109,12 @@ def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
                     if current_dims[0] == 1 and not has_x_extent: continue # Skip if X has no extent but nx > 1
                     if current_dims[1] == 1 and not has_y_extent: continue # Skip if Y has no extent but ny > 1
 
-                    # Calculate aspect ratio score. Avoid division by zero if domain_size is zero.
-                    # We want (nx/ny) to be close to (domain_x/domain_y)
-                    # Use a score based on relative differences or log ratios
                     if has_x_extent and has_y_extent:
                         target_aspect_ratio = domain_size[0] / domain_size[1]
                         current_aspect_ratio = nx_val / ny_val if ny_val > 0 else float('inf')
                         diff = abs(np.log(current_aspect_ratio) - np.log(target_aspect_ratio))
                     else: # One of the dimensions has zero extent, so that dimension must be 1 node
-                        diff = 0 # This case should be handled by 1D special cases above or later filtering
+                        diff = 0 
 
                     if diff < min_aspect_ratio_diff:
                         min_aspect_ratio_diff = diff
@@ -161,7 +165,7 @@ def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
 
 
     # If it's a full 3D case (all extents > 0) or fallback
-    min_diff_from_cube_root = float('inf')
+    min_diff_from_cube_root = float('inf') # This variable name is a bit misleading now, as it's min_aspect_ratio_diff
     best_cube_root_dims = (1, 1, num_nodes) # Fallback
 
     # Try to find dimensions that respect the domain_size aspect ratio
@@ -191,21 +195,11 @@ def find_optimal_grid_dimensions(num_nodes, domain_size, tolerance=1e-9):
                     current_dims = (nx_val, ny_val, nz_val)
 
                     # Calculate a score based on matching the domain aspect ratio
-                    # We want (current_dims[i] - 1) / (domain_size[i]) to be roughly constant
-                    # Use a normalized "cell size" approximation if dimensions > 1
-                    
                     score = 0.0
                     for i in range(3):
                         if domain_size[i] > tolerance: # Only consider dimensions with extent
-                            # Aim for roughly equal spacing in "grid units"
-                            # The number of intervals is dim - 1
-                            actual_spacing = domain_size[i] / (current_dims[i] - 1) if current_dims[i] > 1 else domain_size[i]
-                            # Compare actual spacing to a "target" spacing derived from total nodes
-                            # This is a bit abstract, but aims for a more isotropic grid given domain shape
-                            
-                            # A simpler aspect ratio matching:
-                            # Avoid division by zero if domain_size is very small but grid_dim is > 1
                             if current_dims[i] > 1:
+                                # The ideal "cell size" in this dimension
                                 score += (domain_size[i] / (current_dims[i] - 1)) ** 2
                             elif domain_size[i] > tolerance: # If it has extent but only 1 node, penalize
                                 score += (domain_size[i] * 100)**2 # Large penalty for not dividing if it has extent
