@@ -8,9 +8,9 @@ try:
     from .advection import compute_advection_term
     from .diffusion import compute_diffusion_term
     from .pressure_divergence import compute_pressure_divergence
-    # UPDATED: Changed 'solve_poisson' to 'solve_poisson_for_phi'
     from .poisson_solver import solve_poisson_for_phi
-    from .pressure_correction import correct_pressure
+    # UPDATED: Changed 'correct_pressure' to 'apply_pressure_correction'
+    from .pressure_correction import apply_pressure_correction
 except ImportError as e:
     print(f"Error importing components for explicit_solver: {e}", file=sys.stderr)
     print("Please ensure advection.py, diffusion.py, pressure_divergence.py, "
@@ -52,7 +52,7 @@ def solve_explicit(
     - compute_diffusion_term(field, viscosity, mesh_info): Should return diffusion term.
     - compute_pressure_divergence(u_tentative, mesh_info): Should return divergence field.
     - solve_poisson_for_phi(source_term, mesh_info, time_step, tolerance, max_iter): Should return solved scalar field (e.g., pressure correction).
-    - correct_pressure(velocity_field, pressure_correction, dx, dy, dz): Should return pressure-corrected velocity field.
+    - apply_pressure_correction(u_tentative, current_pressure, phi, mesh_info, time_step, rho): Should return corrected velocity and updated pressure.
     """
 
     # Get grid shape from velocity_field for mesh_info
@@ -103,19 +103,10 @@ def solve_explicit(
     divergence = compute_pressure_divergence(u_star, mesh_info)
 
     # Solve Poisson equation for pressure correction (phi)
-    # div(grad(phi)) = (1/dt) * divergence 
-    # Note: Tolerance and max_iter for Poisson solver might be passed via simulation_parameters later
-    # For now, using hardcoded values
     poisson_tolerance = 1e-6
     poisson_max_iter = 1000
-
-    # Source term for Poisson equation: S = (1/dt) * divergence 
-    # (The `solve_poisson_for_phi` function takes `divergence_u_star` directly, and divides by `time_step` internally.)
-    # So `pressure_correction_source` here should be `divergence` itself if `solve_poisson_for_phi` handles `1/dt`
-    # Looking at `poisson_solver.py`, it calculates `b_source = divergence_u_star / time_step`.
-    # So, we pass `divergence` as `divergence_u_star` and `dt` as `time_step`.
-
-    # UPDATED: Changed function call to match `solve_poisson_for_phi` signature
+    
+    # The `solve_poisson_for_phi` function takes `divergence_u_star` directly, and divides by `time_step` internally.
     pressure_correction = solve_poisson_for_phi(
         divergence,                   # Corresponds to divergence_u_star
         mesh_info,                    # Contains dx, dy, dz and grid_shape
@@ -124,23 +115,19 @@ def solve_explicit(
         max_iterations=poisson_max_iter # Pass max_iterations
     )
 
-    # Update pressure field: P_new = P_old + pressure_correction
-    # The pressure_correction term is directly related to the new pressure.
-    # This update method depends on your specific pressure solver formulation.
-    # A common approach is P_new = P_old - pressure_correction (if phi is pressure potential)
-    # or P_new = P_old + dt * pressure_correction_source (if pressure_correction is delta_P)
-    # For this template, let's assume `pressure_correction` directly gives the pressure difference.
-    # This is a simplification; actual pressure updates are more nuanced.
-    updated_pressure_field = pressure_field + pressure_correction # Or some other formula
-
-    # Correct velocity field using the pressure correction gradient
-    # This step ensures the velocity field is divergence-free
-    # Assuming correct_pressure takes the intermediate velocity and pressure correction
-    updated_velocity_field = correct_pressure(u_star, pressure_correction, density, dx, dy, dz, dt)
-
+    # UPDATED: The apply_pressure_correction function now returns BOTH the updated velocity and pressure.
+    # Removed the redundant pressure update line here.
+    updated_velocity_field, updated_pressure_field = apply_pressure_correction(
+        u_star,
+        pressure_field,       # Pass the current pressure to be updated within the function
+        pressure_correction,  # The calculated phi
+        mesh_info,            # Contains dx, dy, dz, grid_shape
+        dt,                   # Time step
+        density               # Fluid density
+    )
 
     return updated_velocity_field, updated_pressure_field
 
 # Note: The actual implementation details within compute_advection_term, compute_diffusion_term, compute_pressure_divergence,
-# solve_poisson_for_phi, and correct_pressure will dictate the exact mathematical operations.
+# solve_poisson_for_phi, and apply_pressure_correction will dictate the exact mathematical operations.
 # You will need to ensure the arguments and return values match what is expected here.
