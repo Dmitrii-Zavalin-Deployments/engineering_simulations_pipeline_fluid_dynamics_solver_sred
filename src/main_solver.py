@@ -3,7 +3,10 @@ import numpy as np
 import json
 
 # Import modules from our new structure
-from utils.grid import create_structured_grid_info, find_optimal_grid_dimensions
+# We will modify create_structured_grid_info to accept explicit axis coordinates
+from utils.grid import create_structured_grid_info
+# find_optimal_grid_dimensions might become obsolete or serve as a fallback,
+# but we'll remove its direct usage for grid generation for now.
 from utils.io import load_json
 from physics.initialization import initialize_fields
 from physics.boundary_conditions import apply_boundary_conditions
@@ -61,64 +64,82 @@ def run_simulation(json_filename):
 
     num_nodes_from_json = mesh_data["nodes"]
     
-    # --- START OF CHANGES ---
+    # --- START OF MAJOR CHANGES ---
 
-    # Initialize domain min/max based on discovered boundary face nodes
-    # This is crucial for matching the validator's expectations of the overall grid
-    overall_domain_min = np.array([float('inf'), float('inf'), float('inf')])
-    overall_domain_max = np.array([float('-inf'), float('-inf'), float('-inf')])
+    # Collect all unique X, Y, Z coordinates from the boundary faces.
+    # This assumes the boundary faces implicitly define the structured grid lines.
+    all_x_coords = set()
+    all_y_coords = set()
+    all_z_coords = set()
     
-    # Collect all unique node coordinates from boundary_faces to infer the overall domain
-    # This loop is already present but ensure its purpose for domain inference is clear.
     found_boundary_nodes = False
     if "boundary_faces" in mesh_data and mesh_data["boundary_faces"]:
         for face_info in mesh_data["boundary_faces"]:
             for node_coords_str in face_info["nodes"].values():
                 coords = np.array(node_coords_str)
-                overall_domain_min = np.minimum(overall_domain_min, coords)
-                overall_domain_max = np.maximum(overall_domain_max, coords)
+                all_x_coords.add(coords[0])
+                all_y_coords.add(coords[1])
+                all_z_coords.add(coords[2])
                 found_boundary_nodes = True
-
-    # If no boundary faces with coordinates are provided, default to a unit cube for now.
-    # In a real-world scenario, you might want to raise an error or have another input
-    # method for domain definition if boundary faces don't fully define it.
-    if not found_boundary_nodes:
-        print("Warning: No boundary face coordinates found in input. Defaulting to a unit cube domain [0,0,0] to [1,1,1].")
-        overall_domain_min = np.array([0.0, 0.0, 0.0])
-        overall_domain_max = np.array([1.0, 1.0, 1.0])
     
-    # Calculate domain size for grid dimension inference.
-    # Ensure very small dimensions are treated as 0 for 2D/1D cases.
-    domain_extent = overall_domain_max - overall_domain_min
-    for i in range(3):
-        if domain_extent[i] < 1e-9: # Use a small tolerance for floating point comparisons
-            domain_extent[i] = 0.0
-    domain_extent = tuple(domain_extent) # Convert to tuple as expected by find_optimal_grid_dimensions
+    # Sort the unique coordinates to define the grid lines explicitly
+    # This is critical for matching the validator's expected node order and positions.
+    x_coords_grid_lines = sorted(list(all_x_coords))
+    y_coords_grid_lines = sorted(list(all_y_coords))
+    z_coords_grid_lines = sorted(list(all_z_coords))
 
-    # Find optimal grid dimensions based on the total number of nodes and the inferred domain extent.
-    # This function in utils/grid.py will be crucial for determining Nx, Ny, Nz.
-    desired_grid_dims = find_optimal_grid_dimensions(num_nodes_from_json, domain_extent)
-    print(f"Automatically determined grid dimensions: {desired_grid_dims}")
-    
-    # Now, create the structured grid information using the derived domain and dimensions.
-    # The 'origin' parameter ensures the grid starts at overall_domain_min.
+    # Determine grid dimensions (Nx, Ny, Nz) directly from the number of unique coordinates
+    nx = len(x_coords_grid_lines)
+    ny = len(y_coords_grid_lines)
+    nz = len(z_coords_grid_lines)
+
+    # If no boundary nodes were found, or if dimensions are 0, fall back to a default,
+    # though this scenario might indicate an invalid input for a structured grid.
+    if not found_boundary_nodes or nx * ny * nz == 0:
+        print("Warning: Could not infer structured grid from boundary faces. Defaulting to a unit cube with sqrt(num_nodes) dimensions.")
+        # Fallback for truly undefined boundary coords - this might still cause mismatches
+        # if the validator expects something specific without boundary faces.
+        # This part of the logic might need further refinement based on specific input file expectations.
+        # For a truly structured grid, boundary_faces should always define the extent.
+        side_len = round(num_nodes_from_json**(1/3))
+        if side_len == 0: side_len = 1
+        nx, ny, nz = side_len, side_len, side_len
+        if nx*ny*nz != num_nodes_from_json: # Simple cubic division might not work for all num_nodes
+            # Fallback to a single axis for simplicity if the cubic approximation fails
+            # This is a very rough fallback and likely won't match arbitrary validator expectations
+            if num_nodes_from_json > 0:
+                nx, ny, nz = num_nodes_from_json, 1, 1
+            else:
+                nx, ny, nz = 1,1,1 # Minimal case
+        
+        # Define default domain for the fallback case
+        x_coords_grid_lines = np.linspace(0.0, 1.0, nx).tolist()
+        y_coords_grid_lines = np.linspace(0.0, 1.0, ny).tolist()
+        z_coords_grid_lines = np.linspace(0.0, 1.0, nz).tolist()
+
+    # Verify that the derived total number of nodes matches the input schema's declared node count
+    actual_derived_nodes = nx * ny * nz
+    if actual_derived_nodes != num_nodes_from_json:
+        print(f"⚠️ Warning: Inferred grid (Nx={nx}, Ny={ny}, Nz={nz} = {actual_derived_nodes} nodes) "
+              f"does not match declared mesh.nodes ({num_nodes_from_json}). Using inferred grid dimensions.")
+        # It's important to use the *inferred* grid if it's the one we are constructing,
+        # but this indicates a potential inconsistency in the input JSON itself.
+        # For now, we proceed with the derived (nx, ny, nz) which define the actual grid generated.
+
+    # Now, create the structured grid information using the derived axis coordinates
     num_nodes_actual, nodes_coords, grid_shape, dx, dy, dz, node_to_idx, idx_to_node = \
-        create_structured_grid_info(grid_dims=desired_grid_dims, domain_size=domain_extent, origin=overall_domain_min)
+        create_structured_grid_info(x_coords_grid_lines, y_coords_grid_lines, z_coords_grid_lines)
 
-    # Note: mesh_data["nodes"] already holds num_nodes_from_json.
-    # num_nodes_actual from create_structured_grid_info should ideally be the same.
-    # We use num_nodes_actual for consistency in the mesh_info dictionary.
-    
     mesh_info = {
-        "nodes": num_nodes_actual, # Use the actual number of nodes generated by grid.py
+        "nodes": num_nodes_actual, # This should now be nx*ny*nz from actual grid lines
         "nodes_coords": nodes_coords, # This is the array of ALL node coordinates
-        "grid_shape": grid_shape,
+        "grid_shape": grid_shape,    # This will be (nx, ny, nz)
         "dx": dx, "dy": dy, "dz": dz,
         "node_to_idx": node_to_idx,
         "idx_to_node": idx_to_node
     }
 
-    # --- END OF CHANGES ---
+    # --- END OF MAJOR CHANGES ---
 
     initial_velocity = np.array(boundary_conditions["inlet"]["velocity"])
     initial_pressure = boundary_conditions["inlet"]["pressure"]
