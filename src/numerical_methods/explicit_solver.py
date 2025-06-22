@@ -6,9 +6,9 @@ import sys
 # Import the individual numerical methods you already have
 try:
     from .advection import compute_advection_term
-    # UPDATED: Changed 'diffuse' to 'compute_diffusion_term'
     from .diffusion import compute_diffusion_term
-    from .pressure_divergence import calculate_divergence
+    # UPDATED: Changed 'calculate_divergence' to 'compute_pressure_divergence'
+    from .pressure_divergence import compute_pressure_divergence
     from .poisson_solver import solve_poisson
     from .pressure_correction import correct_pressure
 except ImportError as e:
@@ -50,7 +50,7 @@ def solve_explicit(
     Notes on assumed function signatures for imported modules:
     - compute_advection_term(field, velocity_field, mesh_info): Should return advection term.
     - compute_diffusion_term(field, viscosity, mesh_info): Should return diffusion term.
-    - calculate_divergence(velocity_field, dx, dy, dz): Should return divergence field.
+    - compute_pressure_divergence(u_tentative, mesh_info): Should return divergence field.
     - solve_poisson(source_term, dx, dy, dz, tolerance, max_iter): Should return solved scalar field (e.g., pressure correction).
     - correct_pressure(velocity_field, pressure_correction, dx, dy, dz): Should return pressure-corrected velocity field.
     """
@@ -58,7 +58,7 @@ def solve_explicit(
     # Get grid shape from velocity_field for mesh_info
     grid_shape = velocity_field.shape[:-1] # (nx, ny, nz)
 
-    # Prepare mesh_info dictionary for advection and diffusion functions
+    # Prepare mesh_info dictionary for advection, diffusion, and divergence functions
     mesh_info = {
         'grid_shape': grid_shape,
         'dx': dx,
@@ -100,7 +100,8 @@ def solve_explicit(
 
     # --- Step 2: Pressure Projection (ensures incompressibility) ---
     # Compute the divergence of the intermediate velocity field
-    divergence = calculate_divergence(u_star, dx, dy, dz)
+    # UPDATED: Changed function call to match `compute_pressure_divergence` signature
+    divergence = compute_pressure_divergence(u_star, mesh_info)
 
     # Solve Poisson equation for pressure correction (phi)
     # div(grad(phi)) = divergence / dt
@@ -138,6 +139,6 @@ def solve_explicit(
 
     return updated_velocity_field, updated_pressure_field
 
-# Note: The actual implementation details within compute_advection_term, compute_diffusion_term, calculate_divergence,
+# Note: The actual implementation details within compute_advection_term, compute_diffusion_term, compute_pressure_divergence,
 # solve_poisson, and correct_pressure will dictate the exact mathematical operations.
 # You will need to ensure the arguments and return values match what is expected here.
