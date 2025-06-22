@@ -5,9 +5,9 @@ import sys
 
 # Import the individual numerical methods you already have
 try:
-    # UPDATED: Changed 'advect' to 'compute_advection_term'
     from .advection import compute_advection_term
-    from .diffusion import diffuse
+    # UPDATED: Changed 'diffuse' to 'compute_diffusion_term'
+    from .diffusion import compute_diffusion_term
     from .pressure_divergence import calculate_divergence
     from .poisson_solver import solve_poisson
     from .pressure_correction import correct_pressure
@@ -49,9 +49,7 @@ def solve_explicit(
 
     Notes on assumed function signatures for imported modules:
     - compute_advection_term(field, velocity_field, mesh_info): Should return advection term.
-      (Note: The `advection.py` function takes `mesh_info` dictionary, not `dx, dy, dz, dt` directly.
-      You might need to construct `mesh_info` or pass `grid_shape`, `dx`, `dy`, `dz` as individual args.)
-    - diffuse(field, viscosity, density, dx, dy, dz, dt): Should return diffused field.
+    - compute_diffusion_term(field, viscosity, mesh_info): Should return diffusion term.
     - calculate_divergence(velocity_field, dx, dy, dz): Should return divergence field.
     - solve_poisson(source_term, dx, dy, dz, tolerance, max_iter): Should return solved scalar field (e.g., pressure correction).
     - correct_pressure(velocity_field, pressure_correction, dx, dy, dz): Should return pressure-corrected velocity field.
@@ -60,8 +58,7 @@ def solve_explicit(
     # Get grid shape from velocity_field for mesh_info
     grid_shape = velocity_field.shape[:-1] # (nx, ny, nz)
 
-    # Prepare mesh_info dictionary for advection function
-    # This is necessary because compute_advection_term expects a dictionary
+    # Prepare mesh_info dictionary for advection and diffusion functions
     mesh_info = {
         'grid_shape': grid_shape,
         'dx': dx,
@@ -74,26 +71,28 @@ def solve_explicit(
 
     # 1. Advection Step
     # Calculate the advection term for each velocity component
-    # Advection term is - (u . grad)u. This needs to be applied as a change.
-    # The compute_advection_term function calculates the term, not the advected field directly.
-    # So, u_new = u_old + dt * (-advection_term)
-
-    # Calculate advection terms for each component (U, V, W) of the velocity field
+    # Advection term is - (u . grad)u. Apply as a change.
     advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, mesh_info)
     advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, mesh_info)
     advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, mesh_info)
 
-    # Apply advection to u_star
-    u_star[..., 0] = velocity_field[..., 0] + dt * (-advection_u)
-    u_star[..., 1] = velocity_field[..., 1] + dt * (-advection_v)
-    u_star[..., 2] = velocity_field[..., 2] + dt * (-advection_w)
+    # Apply advection to u_star (minus sign because advection term is positive in N-S equation, but it's a "loss" from current perspective)
+    u_star[..., 0] = velocity_field[..., 0] - dt * advection_u
+    u_star[..., 1] = velocity_field[..., 1] - dt * advection_v
+    u_star[..., 2] = velocity_field[..., 2] - dt * advection_w
 
     # 2. Diffusion Step
-    # Assuming 'diffuse' returns the diffused field or updates in place.
-    # If `diffuse` calculates the diffusion term (like advection.py does for advection),
-    # then you'd apply it similarly: u_star += dt * diffusion_term
-    # For this example, assuming `diffuse` applies the update to the field.
-    u_star = diffuse(u_star, viscosity, density, dx, dy, dz, dt)
+    # Calculate the diffusion term for each velocity component
+    # Diffusion term is (viscosity * nabla^2(field)). Apply as a change.
+    # Note: The term in N-S equation is (mu/rho) * nabla^2(u)
+    diffusion_u = compute_diffusion_term(u_star[..., 0], viscosity, mesh_info)
+    diffusion_v = compute_diffusion_term(u_star[..., 1], viscosity, mesh_info)
+    diffusion_w = compute_diffusion_term(u_star[..., 2], viscosity, mesh_info)
+
+    # Apply diffusion to u_star (positive sign for gain, divided by density to get acceleration)
+    u_star[..., 0] += dt * (diffusion_u / density)
+    u_star[..., 1] += dt * (diffusion_v / density)
+    u_star[..., 2] += dt * (diffusion_w / density)
 
 
     # 3. Add External Forces (if any, e.g., gravity - not in current schema, but common)
@@ -113,7 +112,7 @@ def solve_explicit(
     poisson_max_iter = 1000
 
     # Solve for pressure correction, scaled by density
-    # The source term for pressure Poisson is usually density * divergence / dt
+    # The source term for pressure Poisson is usually density * divergence / dt 
     pressure_correction_source = density * divergence / dt 
     
     # The `solve_poisson` function should return the pressure correction field
@@ -139,6 +138,6 @@ def solve_explicit(
 
     return updated_velocity_field, updated_pressure_field
 
-# Note: The actual implementation details within compute_advection_term, diffuse, calculate_divergence,
+# Note: The actual implementation details within compute_advection_term, compute_diffusion_term, calculate_divergence,
 # solve_poisson, and correct_pressure will dictate the exact mathematical operations.
 # You will need to ensure the arguments and return values match what is expected here.
