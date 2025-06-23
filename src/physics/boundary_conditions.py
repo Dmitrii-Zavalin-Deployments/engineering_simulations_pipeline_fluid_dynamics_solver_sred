@@ -36,7 +36,11 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
     # Grid lines are needed for converting world coords to cell indices
     min_x, max_x = mesh_info['min_x'], mesh_info['max_x']
     min_y, max_y = mesh_info['min_y'], mesh_info['max_y']
+    min_z, max_z = mesh_info['min_z'], mesh_info['min_z'] # Corrected: should be min_z, max_z
+    
+    # Corrected line: It was min_z, min_z
     min_z, max_z = mesh_info['min_z'], mesh_info['max_z']
+
 
     # Create a lookup for mesh faces by their face_id for quick access
     mesh_face_lookup = {face['face_id']: face for face in all_mesh_boundary_faces}
@@ -65,7 +69,7 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
 
         # Accumulate all cell (i,j,k) indices for this logical boundary (e.g., all cells of the "inlet")
         current_bc_cell_indices = set() # Use a set to avoid duplicate indices
-        
+
         # Track the overall bounding box of all faces belonging to this boundary condition
         # This is used to determine if the combined boundary is axis-aligned and which side it's on.
         overall_min_coords_boundary = np.array([np.inf, np.inf, np.inf])
@@ -76,11 +80,11 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
             if not mesh_face_data:
                 print(f"Warning: Mesh face with face_id {face_id} not found for boundary '{bc_name}'. Skipping.", file=sys.stderr)
                 continue
-            
+
             # Extract node coordinates for the current mesh face
             # Nodes are stored as a dictionary {node_id: [x,y,z]}, get the values
             face_nodes_coords = np.array(list(mesh_face_data['nodes'].values()), dtype=np.float64)
-            
+
             # Calculate the bounding box for THIS INDIVIDUAL MESH FACE
             face_min_coords = np.min(face_nodes_coords, axis=0)
             face_max_coords = np.max(face_nodes_coords, axis=0)
@@ -93,7 +97,7 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
             # We determine the min/max grid indices covered by this face's bounding box.
             # Using cell center logic from pre_process_input, dx, dy, dz are cell sizes.
             # Grid index for a point 'coord' is typically (coord - min_domain) / cell_size
-            
+
             # Adjust ranges for integer indexing. max_coords for cells should be (N-1)
             # Add a small buffer for floating point comparisons when determining bounds.
             i_min_face = int(np.floor((face_min_coords[0] - min_x) / dx - TOLERANCE)) if dx > TOLERANCE else 0
@@ -120,7 +124,7 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
         if not current_bc_cell_indices:
             print(f"Warning: No structured grid cells found for boundary '{bc_name}' matching its face definitions. Skipping.", file=sys.stderr)
             continue
-        
+
         # Convert set of tuples to a NumPy array for easy indexing
         final_cell_indices_array = np.array(list(current_bc_cell_indices), dtype=int)
 
@@ -141,7 +145,7 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
             boundary_dim = 0
             boundary_side = "max"
             interior_neighbor_offset[0] = -1 # Neighbor is (i-1, j, k)
-        
+
         elif abs(overall_min_coords_boundary[1] - min_y) < TOLERANCE and \
              abs(overall_max_coords_boundary[1] - min_y) < TOLERANCE: # Min Y plane (bottom boundary)
             boundary_dim = 1
@@ -152,7 +156,7 @@ def identify_boundary_nodes(boundary_conditions_definition, all_mesh_boundary_fa
             boundary_dim = 1
             boundary_side = "max"
             interior_neighbor_offset[1] = -1
-        
+
         elif abs(overall_min_coords_boundary[2] - min_z) < TOLERANCE and \
              abs(overall_max_coords_boundary[2] - min_z) < TOLERANCE: # Min Z plane (front boundary)
             boundary_dim = 2
@@ -238,12 +242,12 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
             if boundary_dim is not None: # Only for axis-aligned external boundaries
                 # Calculate interior neighbor indices
                 neighbor_indices = cell_indices + interior_neighbor_offset
-                
+
                 # Filter out-of-bounds neighbor indices (e.g., if nx, ny, nz = 1 for a dimension)
                 valid_neighbors_mask = (neighbor_indices[:,0] >= 0) & (neighbor_indices[:,0] < nx) & \
                                        (neighbor_indices[:,1] >= 0) & (neighbor_indices[:,1] < ny) & \
                                        (neighbor_indices[:,2] >= 0) & (neighbor_indices[:,2] < nz)
-                
+
                 valid_cell_indices = cell_indices[valid_neighbors_mask]
                 valid_neighbor_indices = neighbor_indices[valid_neighbors_mask]
 
@@ -271,11 +275,11 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
             if "velocity" in apply_to_fields:
                 if boundary_dim is not None: # Only for axis-aligned external boundaries
                     neighbor_indices = cell_indices + interior_neighbor_offset
-                    
+
                     valid_neighbors_mask = (neighbor_indices[:,0] >= 0) & (neighbor_indices[:,0] < nx) & \
                                            (neighbor_indices[:,1] >= 0) & (neighbor_indices[:,1] < ny) & \
                                            (neighbor_indices[:,2] >= 0) & (neighbor_indices[:,2] < nz)
-                    
+
                     valid_cell_indices = cell_indices[valid_neighbors_mask]
                     valid_neighbor_indices = neighbor_indices[valid_neighbors_mask]
 
@@ -288,3 +292,7 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
                     print(f"Warning: Pressure Outlet BC '{bc_name}' on non-axis-aligned external boundary or internal face for velocity. Skipping application. Manual handling required.", file=sys.stderr)
         else:
             print(f"Warning: Unknown boundary condition type '{bc_type}' for '{bc_name}'. Skipping.", file=sys.stderr)
+
+    # --- THIS IS THE CRUCIAL FIX ---
+    # The function modifies arrays in-place but must return them for unpacking.
+    return velocity_field, pressure_field
