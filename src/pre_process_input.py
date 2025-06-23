@@ -6,9 +6,20 @@ import os
 import numpy as np
 from itertools import chain
 
-# Import identify_boundary_nodes from the correct relative path
-# Assuming pre_process_input.py is in 'src/' and boundary_conditions.py is in 'src/physics/'
-from .physics.boundary_conditions import identify_boundary_nodes
+# --- FIX FOR ImportError: attempted relative import with no known parent package ---
+# Get the directory where the current script (pre_process_input.py) resides.
+# This will typically be /home/runner/work/.../src/
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Add this directory (which contains 'physics' sub-directory) to sys.path
+# so that absolute imports like 'physics.boundary_conditions' work.
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+# --- END FIX ---
+
+# Now, import using the absolute path from the added sys.path entry
+# (i.e., relative to the 'src' directory)
+from physics.boundary_conditions import identify_boundary_nodes
+
 
 def load_json_schema(filepath):
     """Loads a JSON schema from a file."""
@@ -35,16 +46,10 @@ def validate_json_with_schema(data, schema):
 
     # Basic mesh structure check
     if "mesh" not in data or "boundary_faces" not in data["mesh"]:
-        # This will now correctly trigger an error if boundary_faces is truly missing
         raise ValueError("Input JSON missing 'mesh.boundary_faces' section.")
     if not isinstance(data["mesh"]["boundary_faces"], list):
         raise ValueError("'mesh.boundary_faces' must be a list.")
-    # Allow empty boundary_faces list for cases where no boundaries are explicitly defined,
-    # but still warn in pre_process_input if it's empty
-    # if not data["mesh"]["boundary_faces"]:
-    #     raise ValueError("'mesh.boundary_faces' list cannot be empty.")
 
-    # Check for required fields in boundary_faces and node format
     for i, face in enumerate(data["mesh"]["boundary_faces"]):
         if "nodes" not in face:
             raise ValueError(f"Boundary face at index {i} is missing a 'nodes' key.")
@@ -122,33 +127,26 @@ def infer_uniform_grid_parameters(min_val, max_val, all_coords_for_axis, axis_na
     num_unique_planes = len(unique_coords)
 
     if num_unique_planes == 1:
-        # If min_val == max_val, the dimension is truly a point/plane.
-        # Set spacing to a nominal value (e.g., 1.0) and num_cells to 1.
         if abs(max_val - min_val) < 1e-9:
             spacing = 1.0
             num_cells = 1
         else:
-            # This case implies an inconsistency where a single unique coord spans a non-zero extent.
-            # Treat as 1 cell with spacing equal to the extent.
             print(f"Warning: Unexpected condition in {axis_name}-axis: 1 unique coord but max_val != min_val. Forcing {axis_name}x=1 cell and spacing=(max-min).", file=sys.stderr)
             spacing = (max_val - min_val)
             num_cells = 1
     else:
-        # Calculate the average spacing based on the extent and number of unique planes (num_unique_planes).
-        # num_cells for the grid will be (num_unique_planes - 1) if boundary faces define cell boundaries.
         spacing = (max_val - min_val) / (num_unique_planes - 1)
         num_cells = num_unique_planes - 1
         
-        if num_cells <= 0: # Ensure at least 1 cell if domain has extent
+        if num_cells <= 0:
              if abs(max_val - min_val) > 1e-9:
                  num_cells = 1
                  spacing = (max_val - min_val)
                  print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells despite domain extent. Forcing {axis_name}x=1 and spacing=(max-min).", file=sys.stderr)
-             else: # Zero extent
+             else:
                  num_cells = 1
-                 spacing = 1.0 # Nominal spacing for collapsed dimension
+                 spacing = 1.0
                  print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells for zero-extent domain. Forcing {axis_name}x=1 and nominal spacing.", file=sys.stderr)
-
 
         if spacing < 1e-9 and abs(max_val - min_val) > 1e-9:
              print(f"Warning: Extremely small calculated spacing ({spacing:.2e}) for {axis_name}-axis with significant extent. This might indicate many unique, closely clustered points.", file=sys.stderr)
@@ -157,17 +155,15 @@ def infer_uniform_grid_parameters(min_val, max_val, all_coords_for_axis, axis_na
     return spacing, num_cells
 
 
-def pre_process_input_data(input_data): # Renamed to _data to avoid conflict with filename
+def pre_process_input_data(input_data):
     """
     Pre-processes the raw input JSON data into a structured format
     suitable for the Navier-Stokes solver.
     """
     print("DEBUG (pre_process_input_data): Starting pre-processing.")
 
-    # 1. Extract Domain Extents from boundary_faces (this is reliable)
     min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(input_data["mesh"]["boundary_faces"])
 
-    # 2. Extract ALL coordinates for each axis from boundary_faces
     all_x_coords = []
     all_y_coords = []
     all_z_coords = []
@@ -177,26 +173,19 @@ def pre_process_input_data(input_data): # Renamed to _data to avoid conflict wit
             all_y_coords.append(node_coords[1])
             all_z_coords.append(node_coords[2])
 
-    # Get nx, ny, nz from domain_definition if present, to prioritize them
     json_domain_def = input_data.get('domain_definition', {})
     json_nx = json_domain_def.get('nx')
     json_ny = json_domain_def.get('ny')
     json_nz = json_domain_def.get('nz')
 
-
-    # 3. Infer Uniform Grid Parameters for each axis based on unique planes
-    #    Pass the JSON specified nx/ny/nz to infer function
     dx, nx = infer_uniform_grid_parameters(min_x, max_x, all_x_coords, 'x', json_nx)
     dy, ny = infer_uniform_grid_parameters(min_y, max_y, all_y_coords, 'y', json_ny)
     dz, nz = infer_uniform_grid_parameters(min_z, max_z, all_z_coords, 'z', json_nz)
 
-    # Ensure nx, ny, nz are at least 1, even for effectively 2D/1D problems
     nx = max(1, nx)
     ny = max(1, ny)
     nz = max(1, nz)
 
-    # Re-adjust dx/dy/dz if a dimension effectively collapses to a single point/plane.
-    # This ensures dx/dy/dz are nominal (1.0) and nx/ny/nz are 1 for collapsed dimensions.
     TOLERANCE_ZERO_EXTENT = 1e-9
     if abs(max_x - min_x) < TOLERANCE_ZERO_EXTENT:
         dx = 1.0
@@ -215,12 +204,8 @@ def pre_process_input_data(input_data): # Renamed to _data to avoid conflict wit
         "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz
     }
 
-    # 4. Process Boundary Conditions
-    # The identify_boundary_nodes function needs the original boundary_conditions
-    # definition and the mesh's boundary_faces.
-    all_mesh_boundary_faces = input_data["mesh"]["boundary_faces"] # Get it from raw input
+    all_mesh_boundary_faces = input_data["mesh"]["boundary_faces"]
     
-    # mesh_info is needed by identify_boundary_nodes
     mesh_info_for_bc = {
         'grid_shape': (nx, ny, nz),
         'dx': dx, 'dy': dy, 'dz': dz,
@@ -229,14 +214,12 @@ def pre_process_input_data(input_data): # Renamed to _data to avoid conflict wit
         'min_z': min_z, 'max_z': max_z
     }
 
-    # Process boundary conditions using identify_boundary_nodes
     processed_boundary_conditions = identify_boundary_nodes(
         input_data.get("boundary_conditions", {}),
-        all_mesh_boundary_faces, # Pass the actual boundary faces data here
+        all_mesh_boundary_faces,
         mesh_info_for_bc
     )
 
-    # 5. Extract Fluid Properties and Simulation Parameters
     fluid_properties = input_data.get("fluid_properties", {})
     simulation_parameters = input_data.get("simulation_parameters", {})
 
@@ -244,9 +227,9 @@ def pre_process_input_data(input_data): # Renamed to _data to avoid conflict wit
         "domain_settings": domain_settings,
         "fluid_properties": fluid_properties,
         "simulation_parameters": simulation_parameters,
-        "boundary_conditions": processed_boundary_conditions, # This now contains cell_indices
-        "mesh": { # Add the original mesh data here, specifically boundary_faces if needed later
-            "boundary_faces": all_mesh_boundary_faces # Include boundary_faces for main_solver or post-processing
+        "boundary_conditions": processed_boundary_conditions,
+        "mesh": {
+            "boundary_faces": all_mesh_boundary_faces
         }
     }
     print("DEBUG (pre_process_input_data): Pre-processing complete. Output structure prepared.")
@@ -269,10 +252,9 @@ if __name__ == "__main__":
         with open(input_file, 'r') as f:
             raw_input_data = json.load(f)
 
-        validate_json_with_schema(raw_input_data, {}) # No schema object needed for this simplified validation
+        validate_json_with_schema(raw_input_data, {})
 
-        # Call the pre-processing function
-        pre_processed_output = pre_process_input_data(raw_input_data) # Use the renamed function
+        pre_processed_output = pre_process_input_data(raw_input_data)
 
         output_dir = os.path.dirname(output_file)
         if output_dir and not os.path.exists(output_dir):
@@ -296,3 +278,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
