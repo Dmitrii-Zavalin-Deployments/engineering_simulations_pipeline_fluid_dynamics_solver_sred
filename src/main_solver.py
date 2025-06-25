@@ -52,15 +52,17 @@ class Simulation:
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data) # This populates self.mesh_info
         
-        # --- NEW FIX: Convert cell_indices lists back to NumPy arrays after loading ---
-        # The 'boundary_conditions' data is loaded from JSON as a list.
-        # We must convert it back to a NumPy array for vectorized operations in the solver.
+        # --- NEW FIX: Convert cell_indices lists to NumPy arrays after loading ---
         if 'boundary_conditions' in self.mesh_info:
             print("DEBUG (Simulation.__init__): Converting 'cell_indices' lists to NumPy arrays.")
             for bc_data in self.mesh_info['boundary_conditions'].values():
                 if 'cell_indices' in bc_data:
                     bc_data['cell_indices'] = np.array(bc_data['cell_indices'], dtype=int)
         # --- END NEW FIX ---
+
+        # --- FIX: Expose grid_shape as a top-level attribute for easy access ---
+        self.grid_shape = self.mesh_info['grid_shape']
+        # --- END FIX ---
 
         initialize_fields(self, self.input_data)
         
