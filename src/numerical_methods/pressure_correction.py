@@ -1,75 +1,79 @@
+# src/numerical_methods/pressure_correction.py
 import numpy as np
 
-def apply_pressure_correction(u_tentative, current_pressure, phi, mesh_info, time_step, rho):
+def calculate_gradient(field, h, axis):
     """
-    Applies the pressure correction to the tentative velocity field and updates the pressure.
-    u^(n+1) = u* - dt * grad(phi)
-    p^(n+1) = p^n + rho * phi
+    Calculates the gradient of a field using central differencing.
+    Assumes the field has the shape of the physical grid (nx, ny, nz)
+    and pads it to enable central differencing at boundaries.
 
     Args:
-        u_tentative (np.ndarray): The tentative velocity field, shape (nx, ny, nz, 3).
-        current_pressure (np.ndarray): The pressure field from the previous time step, shape (nx, ny, nz).
-        phi (np.ndarray): The pressure correction field obtained from the Poisson solver, shape (nx, ny, nz).
-        mesh_info (dict): Dictionary containing grid information:
-                          - 'grid_shape': (nx, ny, nz) tuple.
-                          - 'dx', 'dy', 'dz': Grid spacing in each dimension.
-        time_step (float): The simulation time step (dt).
-        rho (float): The fluid density.
+        field (np.ndarray): The field to calculate the gradient of (nx, ny, nz).
+        h (float): Grid spacing (dx, dy, or dz).
+        axis (int): The axis along which to calculate the gradient (0=x, 1=y, 2=z).
 
     Returns:
-        tuple: (velocity_next (np.ndarray), pressure_next (np.ndarray))
-               The corrected velocity field and the updated pressure field.
+        np.ndarray: The gradient of the field along the specified axis (nx, ny, nz).
     """
-    nx, ny, nz = mesh_info['grid_shape']
+    # Pad the field with a layer of ghost cells using 'edge' values to allow central differencing
+    padded_field = np.pad(field, ((1, 1), (1, 1), (1, 1)), mode='edge')
+    
+    # Central differencing on the padded field
+    if axis == 0:
+        return (padded_field[2:, 1:-1, 1:-1] - padded_field[:-2, 1:-1, 1:-1]) / (2 * h)
+    elif axis == 1:
+        return (padded_field[1:-1, 2:, 1:-1] - padded_field[1:-1, :-2, 1:-1]) / (2 * h)
+    elif axis == 2:
+        return (padded_field[1:-1, 1:-1, 2:] - padded_field[1:-1, 1:-1, :-2]) / (2 * h)
+    else:
+        raise ValueError("Axis must be 0, 1, or 2.")
+
+def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step, density):
+    """
+    Corrects the tentative velocity field to be divergence-free
+    using the calculated pressure potential (phi).
+
+    Args:
+        velocity_next (np.ndarray): The tentative velocity field with ghost cells (nx+2, ny+2, nz+2, 3).
+        p_field (np.ndarray): The pressure field with ghost cells (nx+2, ny+2, nz+2).
+        phi (np.ndarray): The pressure potential calculated from the Poisson solver (nx, ny, nz).
+        mesh_info (dict): Grid information including dx, dy, dz.
+        time_step (float): The time step (dt).
+        density (float): The fluid density.
+
+    Returns:
+        tuple: A tuple containing the corrected velocity field and the updated pressure field.
+    """
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    # Initialize corrected velocity and next pressure
-    velocity_next = np.copy(u_tentative) # Start with tentative velocity
-    pressure_next = np.copy(current_pressure) # Start with current pressure
+    # Update the pressure field by adding the potential phi to the interior cells
+    # This maps the (nx, ny, nz) phi field to the (nx+2, ny+2, nz+2) pressure field.
+    updated_pressure_field = p_field.copy()
+    updated_pressure_field[1:-1, 1:-1, 1:-1] += phi
 
-    # --- Compute grad(phi) = (dphi/dx, dphi/dy, dphi/dz) ---
-    # Using central differences for interior points, and forward/backward for boundaries.
+    # Calculate gradients of the pressure potential phi
+    # These gradients will have the shape of the physical grid (nx, ny, nz)
+    dphi_dx = calculate_gradient(phi, dx, axis=0)
+    dphi_dy = calculate_gradient(phi, dy, axis=1)
+    dphi_dz = calculate_gradient(phi, dz, axis=2)
 
-    # dphi/dx
-    dphi_dx = np.zeros((nx, ny, nz), dtype=np.float64)
-    if nx > 1:
-        dphi_dx[1:-1, :, :] = (phi[2:, :, :] - phi[:-2, :, :]) / (2 * dx)
-        dphi_dx[0, :, :] = (phi[1, :, :] - phi[0, :, :]) / dx       # Forward difference at x=0
-        dphi_dx[nx-1, :, :] = (phi[nx-1, :, :] - phi[nx-2, :, :]) / dx # Backward difference at x=nx-1
-    elif nx == 1:
-        # If only one point in x, derivative is 0 or needs special BC handling
-        pass # dphi_dx remains zeros
-
-    # dphi/dy
-    dphi_dy = np.zeros((nx, ny, nz), dtype=np.float64)
-    if ny > 1:
-        dphi_dy[:, 1:-1, :] = (phi[:, 2:, :] - phi[:, :-2, :]) / (2 * dy)
-        dphi_dy[:, 0, :] = (phi[:, 1, :] - phi[:, 0, :]) / dy       # Forward difference at y=0
-        dphi_dy[:, ny-1, :] = (phi[:, ny-1, :] - phi[:, ny-2, :]) / dy # Backward difference at y=ny-1
-    elif ny == 1:
-        pass # dphi_dy remains zeros
-
-    # dphi/dz
-    dphi_dz = np.zeros((nx, ny, nz), dtype=np.float64)
-    if nz > 1:
-        dphi_dz[:, :, 1:-1] = (phi[:, :, 2:] - phi[:, :, :-2]) / (2 * dz)
-        dphi_dz[:, :, 0] = (phi[:, :, 1] - phi[:, :, 0]) / dz       # Forward difference at z=0
-        dphi_dz[:, :, nz-1] = (phi[:, :, nz-1] - phi[:, :, nz-2]) / dz # Backward difference at z=nz-1
-    elif nz == 1:
-        pass # dphi_dz remains zeros
-
-    # --- Apply velocity correction ---
-    # u^(n+1) = u* - dt * dphi/dx
-    # v^(n+1) = v* - dt * dphi/dy
-    # w^(n+1) = w* - dt * dphi/dz
-
-    # Subtract the pressure gradient term from the respective velocity components
-    velocity_next[..., 0] -= time_step * dphi_dx  # X-component (Vx)
-    velocity_next[..., 1] -= time_step * dphi_dy  # Y-component (Vy)
-    velocity_next[..., 2] -= time_step * dphi_dz  # Z-component (Vz)
-
-    # --- Update pressure ---
-    # p^(n+1) = p^n + rho * phi
-    pressure_next = current_pressure + rho * phi
-
-    return velocity_next, pressure_next
+    # Create a copy of the velocity field to apply corrections to
+    corrected_velocity_field = velocity_next.copy()
+    
+    # --- FIX: Apply pressure correction only to the interior grid cells ---
+    # The pressure gradients (dphi_d*) have the shape of the physical grid (nx, ny, nz).
+    # The velocity field has ghost cells (nx+2, ny+2, nz+2, 3).
+    # We must slice the velocity field to match the shape of the gradients before the update.
+    # The interior slice for the ghosted grid is [1:-1, 1:-1, 1:-1].
+    
+    # X-component (Vx)
+    corrected_velocity_field[1:-1, 1:-1, 1:-1, 0] -= time_step * dphi_dx / density
+    
+    # Y-component (Vy)
+    corrected_velocity_field[1:-1, 1:-1, 1:-1, 1] -= time_step * dphi_dy / density
+    
+    # Z-component (Vz)
+    corrected_velocity_field[1:-1, 1:-1, 1:-1, 2] -= time_step * dphi_dz / density
+    # --- END FIX ---
+    
+    return corrected_velocity_field, updated_pressure_field
