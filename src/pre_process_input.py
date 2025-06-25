@@ -56,12 +56,13 @@ def pre_process_input_data(input_data):
     domain_settings = {
         "min_x": min_x, "max_x": max_x, "dx": dx, "nx": nx,
         "min_y": min_y, "max_y": max_y, "dy": dy, "ny": ny,
-        "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz
+        "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz,
+        "grid_shape": [nx, ny, nz] # Make grid_shape available here too
     }
 
-    # CONSOLIDATE: Create a mesh_info dictionary for both BCs and the solver
+    # Consolidated mesh_info dictionary
     mesh_info = {
-        'grid_shape': [nx, ny, nz],  # Using a list instead of a tuple for JSON compatibility
+        'grid_shape': [nx, ny, nz],
         'dx': dx, 'dy': dy, 'dz': dz,
         'min_x': min_x, 'max_x': max_x,
         'min_y': min_y, 'max_y': max_y,
@@ -72,7 +73,7 @@ def pre_process_input_data(input_data):
     processed_boundary_conditions = identify_boundary_nodes(
         input_data.get("boundary_conditions", {}),
         input_data["mesh"]["boundary_faces"],
-        mesh_info # Use the consolidated mesh_info here
+        mesh_info
     )
 
     processed_boundary_conditions = convert_numpy_to_list(processed_boundary_conditions)
@@ -83,7 +84,7 @@ def pre_process_input_data(input_data):
         "simulation_parameters": input_data.get("simulation_parameters", {}),
         "initial_conditions": input_data.get("initial_conditions", {}),
         "boundary_conditions": processed_boundary_conditions,
-        "mesh_info": mesh_info, # ADDED: This is now the consolidated mesh info
+        "mesh_info": mesh_info, # This is the consolidated mesh info
         "mesh": {
             "boundary_faces": input_data["mesh"]["boundary_faces"]
         }
@@ -111,6 +112,11 @@ if __name__ == "__main__":
         validate_json_schema(raw_input_data)
 
         pre_processed_output = pre_process_input_data(raw_input_data)
+
+        # --- DEBUGGING: Print the output JSON to the log ---
+        print("\n--- DEBUG: Pre-processed JSON to be passed to main_solver.py ---")
+        print(json.dumps(pre_processed_output, indent=2))
+        print("--- END DEBUG ---\n")
 
         output_dir = os.path.dirname(output_file)
         if output_dir and not os.path.exists(output_dir):
