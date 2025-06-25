@@ -47,9 +47,9 @@ def initialize_grid(sim_instance, input_data):
     sim_instance.dz = grid_data.get('dz', 1.0)
     sim_instance.dy = grid_data.get('dy', 1.0) # Corrected to use dy
     
-    # --- FIX 1: Populate mesh_info with all required data, including boundary conditions ---
+    # --- FIX: Populate mesh_info with the correct key 'grid_shape' ---
     sim_instance.mesh_info = {
-        'shape': (sim_instance.nx, sim_instance.ny, sim_instance.nz),
+        'grid_shape': (sim_instance.nx, sim_instance.ny, sim_instance.nz),
         'dx': sim_instance.dx,
         'dy': sim_instance.dy,
         'dz': sim_instance.dz,
@@ -66,7 +66,7 @@ def initialize_fields(sim_instance, input_data):
     """
     # --- FIX 2: Correctly size the arrays for a staggered grid with ghost cells ---
     # Velocity components are defined on cell faces, so they need one extra point per dimension.
-    # We add 2 points for dimensions where nx/ny/nz > 1 for ghost cells.
+    # We add 2 points for dimensions with size > 1 for ghost cells.
     # For dimensions with size 1, we add 1 extra point for the boundary.
     u_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
     v_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
