@@ -59,18 +59,20 @@ def pre_process_input_data(input_data):
         "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz
     }
 
-    # This is the dictionary the solver expects.
-    # It was previously only used internally by pre_process_input_data.
-    mesh_info_for_bc = {
-        'grid_shape': (nx, ny, nz), 'dx': dx, 'dy': dy, 'dz': dz,
-        'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y,
+    # CONSOLIDATE: Create a mesh_info dictionary for both BCs and the solver
+    mesh_info = {
+        'grid_shape': [nx, ny, nz],  # Using a list instead of a tuple for JSON compatibility
+        'dx': dx, 'dy': dy, 'dz': dz,
+        'min_x': min_x, 'max_x': max_x,
+        'min_y': min_y, 'max_y': max_y,
         'min_z': min_z, 'max_z': max_z
     }
     
+    # Use the consolidated mesh_info for boundary condition identification
     processed_boundary_conditions = identify_boundary_nodes(
         input_data.get("boundary_conditions", {}),
         input_data["mesh"]["boundary_faces"],
-        mesh_info_for_bc
+        mesh_info # Use the consolidated mesh_info here
     )
 
     processed_boundary_conditions = convert_numpy_to_list(processed_boundary_conditions)
@@ -81,7 +83,7 @@ def pre_process_input_data(input_data):
         "simulation_parameters": input_data.get("simulation_parameters", {}),
         "initial_conditions": input_data.get("initial_conditions", {}),
         "boundary_conditions": processed_boundary_conditions,
-        "mesh_info": mesh_info_for_bc,  # ADDED: Include mesh_info for the solver
+        "mesh_info": mesh_info, # ADDED: This is now the consolidated mesh info
         "mesh": {
             "boundary_faces": input_data["mesh"]["boundary_faces"]
         }
