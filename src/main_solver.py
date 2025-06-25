@@ -96,6 +96,11 @@ class Simulation:
         # --- FIX: Calculate the total number of steps based on total_time and time_step
         # Use round() for more robust calculation of steps to avoid floating point issues
         # that might cause one too many or one too few steps.
+        # Ensure total_time and time_step are correctly read from input data.
+        
+        print(f"DEBUG (Before loop) - self.total_time: {self.total_time} s")
+        print(f"DEBUG (Before loop) - self.time_step: {self.time_step} s")
+        
         num_steps = int(round(self.total_time / self.time_step))
         
         print(f"Total desired simulation time: {self.total_time} s")
@@ -117,7 +122,15 @@ class Simulation:
                 self.step_count += 1
                 self.current_time = self.step_count * self.time_step 
                 
+                # --- NEW DEBUG PRINT ---
+                # This will show you the step_count and current_time in each iteration
+                # print(f"DEBUG (In loop) - Step: {self.step_count}, Current Time: {self.current_time:.4f} s")
+
                 # Save snapshot at every time step (or a specified frequency)
+                # If you want to save snapshots ONLY at output_frequency_steps,
+                # uncomment the if condition below and indent the save_field_snapshot line.
+                # Currently, it saves every step, and output_frequency_steps just controls console prints.
+                # if self.step_count % self.output_frequency_steps == 0 or self.step_count == num_steps: # Save initial and final, and at frequency
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
