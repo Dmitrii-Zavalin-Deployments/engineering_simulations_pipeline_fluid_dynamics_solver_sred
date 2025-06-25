@@ -5,18 +5,20 @@ import sys
 import os
 import numpy as np
 
-# --- FIX FOR ImportError: attempted relative import with no known parent package ---
-# Get the directory where the current script (pre_process_input.py) resides.
-# This will typically be /home/runner/work/.../src/
+# --- REFINED FIX FOR ImportError ---
+# Get the directory of the current script (e.g., /path/to/project/src).
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Add this directory (which contains 'physics' and 'utils' sub-directories) to sys.path
-# so that absolute imports like 'physics.boundary_conditions' work.
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
-# --- END FIX ---
+# Get the parent directory of the script's directory (e.g., /path/to/project).
+# This is the root of your source package structure.
+project_root = os.path.dirname(script_dir)
+# Add the project root to sys.path, allowing absolute imports like 'src.physics' to work.
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --- END REFINED FIX ---
 
 # Now, import using the absolute path from the added sys.path entry
-from physics.boundary_conditions import identify_boundary_nodes
+# --- FIX: Changed import path for identify_boundary_nodes ---
+from physics import identify_boundary_nodes # This imports it via src/physics/__init__.py
 from utils.io_utils import load_json_schema, convert_numpy_to_list, save_json
 from utils.validation import validate_json_schema
 from utils.mesh_utils import get_domain_extents, infer_uniform_grid_parameters
