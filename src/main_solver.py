@@ -55,10 +55,11 @@ class Simulation:
         # This aligns with the new solver's input requirements.
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
         
-        # Instantiate the explicit solver object.
-        # This object will manage the time stepping logic.
+        # --- REVISED: Use a new variable name to avoid collision with a string attribute ---
+        # The 'solver' attribute is likely a string set in initialize_simulation_parameters.
+        # We rename the instance to 'time_stepper' to avoid a crash in the print function.
         fluid_properties = {'density': self.rho, 'viscosity': self.nu}
-        self.solver = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
+        self.time_stepper = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
 
         # Use external function to print setup details
         print_initial_setup(self)
@@ -71,10 +72,10 @@ class Simulation:
         
         try:
             while current_time < self.total_time:
-                # --- REPLACED OLD FUNCTION CALLS WITH THE NEW SOLVER'S STEP METHOD ---
+                # --- REVISED: Call the step method on the new instance variable ---
                 # The ExplicitSolver's step method handles advection, diffusion, pressure
                 # projection, and boundary conditions in one step.
-                self.velocity_field, self.p = self.solver.step(self.velocity_field, self.p)
+                self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
                 # Update time and step count
                 current_time += self.time_step
