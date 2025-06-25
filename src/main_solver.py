@@ -4,13 +4,16 @@ import numpy as np
 import sys
 import os
 
-# --- FIX FOR ImportError: attempted relative import with no known parent package ---
-# Get the directory where the current script resides (e.g., /home/runner/work/.../src).
+# --- REFINED FIX FOR ImportError ---
+# Get the directory of the current script (e.g., /path/to/project/src).
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Add this directory to sys.path so that we can import from `numerical_methods`, `physics`, and `solver`.
-if script_dir not in sys.path:
-    sys.path.insert(0, script_dir)
-# --- END FIX ---
+# Get the parent directory of the script's directory (e.g., /path/to/project).
+# This is the root of your source package structure.
+project_root = os.path.dirname(script_dir)
+# Add the project root to sys.path, allowing absolute imports like 'src.physics' to work.
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --- END REFINED FIX ---
 
 # --- UPDATED IMPORTS ---
 # Import the new ExplicitSolver class instead of the old standalone functions.
@@ -25,6 +28,7 @@ from solver.initialization import (
     print_initial_setup
 )
 from solver.results_handler import save_simulation_results
+
 
 class Simulation:
     """
