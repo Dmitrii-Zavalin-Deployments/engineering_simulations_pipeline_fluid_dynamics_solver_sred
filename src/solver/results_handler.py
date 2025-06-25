@@ -28,8 +28,6 @@ def save_simulation_metadata(sim_instance, output_dir):
     print(f"Saved simulation config to: {config_path}")
 
     # Save mesh data
-    # --- BEGIN CORRECTION ---
-    # Use .get() with a fallback to handle different BC types (e.g., 'value' for Dirichlet, 'pressure' for Pressure Outlet)
     boundary_conditions_data = {}
     for bc_name, bc_data in sim_instance.mesh_info['boundary_conditions'].items():
         # Safely get the BC value, checking for 'value' first, then 'pressure'
@@ -49,7 +47,6 @@ def save_simulation_metadata(sim_instance, output_dir):
         'dz': sim_instance.mesh_info['dz'],
         'boundary_conditions': boundary_conditions_data
     }
-    # --- END CORRECTION ---
 
     with open(mesh_path, 'w') as f:
         json.dump(mesh_data, f, indent=2)
