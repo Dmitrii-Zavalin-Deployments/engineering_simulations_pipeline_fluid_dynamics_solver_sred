@@ -59,6 +59,8 @@ def pre_process_input_data(input_data):
         "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz
     }
 
+    # This is the dictionary the solver expects.
+    # It was previously only used internally by pre_process_input_data.
     mesh_info_for_bc = {
         'grid_shape': (nx, ny, nz), 'dx': dx, 'dy': dy, 'dz': dz,
         'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y,
@@ -79,6 +81,7 @@ def pre_process_input_data(input_data):
         "simulation_parameters": input_data.get("simulation_parameters", {}),
         "initial_conditions": input_data.get("initial_conditions", {}),
         "boundary_conditions": processed_boundary_conditions,
+        "mesh_info": mesh_info_for_bc,  # ADDED: Include mesh_info for the solver
         "mesh": {
             "boundary_faces": input_data["mesh"]["boundary_faces"]
         }
@@ -103,7 +106,7 @@ if __name__ == "__main__":
         with open(input_file, 'r') as f:
             raw_input_data = json.load(f)
 
-        validate_json_schema(raw_input_data) # Schema argument is no longer needed
+        validate_json_schema(raw_input_data)
 
         pre_processed_output = pre_process_input_data(raw_input_data)
 
