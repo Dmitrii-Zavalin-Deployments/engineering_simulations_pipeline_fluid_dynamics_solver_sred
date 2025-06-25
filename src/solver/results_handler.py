@@ -28,21 +28,29 @@ def save_simulation_metadata(sim_instance, output_dir):
     print(f"Saved simulation config to: {config_path}")
 
     # Save mesh data
+    # --- BEGIN CORRECTION ---
+    # Use .get() with a fallback to handle different BC types (e.g., 'value' for Dirichlet, 'pressure' for Pressure Outlet)
+    boundary_conditions_data = {}
+    for bc_name, bc_data in sim_instance.mesh_info['boundary_conditions'].items():
+        # Safely get the BC value, checking for 'value' first, then 'pressure'
+        bc_value = bc_data.get('value', bc_data.get('pressure', None))
+        
+        boundary_conditions_data[bc_name] = {
+            'type': bc_data['type'],
+            # Convert cell_indices to a list for JSON serialization
+            'cell_indices': bc_data['cell_indices'].tolist() if isinstance(bc_data.get('cell_indices'), np.ndarray) else bc_data.get('cell_indices'),
+            'value': bc_value
+        }
+
     mesh_data = {
         'grid_shape': sim_instance.grid_shape,
         'dx': sim_instance.mesh_info['dx'],
         'dy': sim_instance.mesh_info['dy'],
         'dz': sim_instance.mesh_info['dz'],
-        'boundary_conditions': {
-            bc_name: {
-                'type': bc_data['type'],
-                # Convert cell_indices to a list for JSON serialization
-                'cell_indices': bc_data['cell_indices'].tolist() if isinstance(bc_data.get('cell_indices'), np.ndarray) else bc_data.get('cell_indices'),
-                'value': bc_data['value']
-            }
-            for bc_name, bc_data in sim_instance.mesh_info['boundary_conditions'].items()
-        }
+        'boundary_conditions': boundary_conditions_data
     }
+    # --- END CORRECTION ---
+
     with open(mesh_path, 'w') as f:
         json.dump(mesh_data, f, indent=2)
     print(f"Saved mesh data to: {mesh_path}")
