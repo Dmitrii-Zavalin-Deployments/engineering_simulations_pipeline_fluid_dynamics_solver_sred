@@ -16,10 +16,14 @@ if project_root not in sys.path:
 # --- END REFINED FIX ---
 
 # --- UPDATED IMPORTS ---
-# Import the new ExplicitSolver class instead of the old standalone functions.
+# Import the new ExplicitSolver class.
 from numerical_methods.explicit_solver import ExplicitSolver
 
-# The functions below are still needed and their import paths are correct.
+# Import boundary condition functions from their new, specific modules.
+from physics.boundary_conditions_applicator import apply_boundary_conditions # This one
+# You will also need identify_boundary_nodes if it's called directly in main_solver,
+# but it's likely called within the pre_process_input.py chain, so no need here.
+
 from solver.initialization import (
     load_input_data,
     initialize_simulation_parameters,
@@ -48,17 +52,17 @@ class Simulation:
         
         # Use external functions for initialization
         initialize_simulation_parameters(self, self.input_data)
-        initialize_grid(self, self.input_data)
+        initialize_grid(self, self.input_data) # This populates self.mesh_info
         initialize_fields(self, self.input_data)
         
         # After initialization, combine the separate velocity components into a single array
         # This aligns with the new solver's input requirements.
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
         
-        # --- REVISED: Use a new variable name to avoid collision with a string attribute ---
-        # The 'solver' attribute is likely a string set in initialize_simulation_parameters.
-        # We rename the instance to 'time_stepper' to avoid a crash in the print function.
+        # Instantiate the explicit solver object.
+        # This object will manage the time stepping logic.
         fluid_properties = {'density': self.rho, 'viscosity': self.nu}
+        # The ExplicitSolver expects mesh_info, which now has the 'grid_shape' and 'boundary_conditions'
         self.time_stepper = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
 
         # Use external function to print setup details
@@ -72,7 +76,6 @@ class Simulation:
         
         try:
             while current_time < self.total_time:
-                # --- REVISED: Call the step method on the new instance variable ---
                 # The ExplicitSolver's step method handles advection, diffusion, pressure
                 # projection, and boundary conditions in one step.
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
@@ -92,11 +95,6 @@ class Simulation:
             import traceback
             traceback.print_exc()
             sys.exit(1)
-
-    # Note: The `save_results` method has been moved to results_handler.py
-    # To maintain compatibility with the saving function, you might need to
-    # update self.u, self.v, self.w from self.velocity_field before saving.
-    # We will handle this when needed.
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

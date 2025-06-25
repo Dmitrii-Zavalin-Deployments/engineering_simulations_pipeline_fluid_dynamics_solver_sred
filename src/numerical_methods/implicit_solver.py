@@ -11,7 +11,7 @@ try:
     from .poisson_solver import solve_poisson_for_phi
     from .pressure_correction import apply_pressure_correction
     # NEW IMPORT: This is needed to apply boundary conditions
-    from src.physics.boundary_conditions import apply_boundary_conditions
+    from physics.boundary_conditions_applicator import apply_boundary_conditions
 except ImportError as e:
     print(f"Error importing components for implicit_solver: {e}", file=sys.stderr)
     print("Please ensure all necessary files exist in their respective directories "
