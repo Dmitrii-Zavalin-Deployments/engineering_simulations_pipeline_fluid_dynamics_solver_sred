@@ -29,7 +29,8 @@ from solver.initialization import (
     initialize_fields,
     print_initial_setup
 )
-from solver.results_handler import save_simulation_results
+# Import new functions from the refactored results_handler
+from solver.results_handler import save_simulation_metadata, save_field_snapshot, save_final_summary
 
 
 class Simulation:
@@ -37,13 +38,14 @@ class Simulation:
     Main simulation class for the Navier-Stokes solver.
     This class orchestrates the simulation process.
     """
-    def __init__(self, input_file_path):
+    def __init__(self, input_file_path, output_dir):
         """
         Initializes the simulation by loading pre-processed input data
         and setting up the grid and fields.
         """
         print("--- Simulation Setup ---")
         self.input_file_path = input_file_path
+        self.output_dir = output_dir # Store the output directory
         
         # Use external function to load input data
         self.input_data = load_input_data(self.input_file_path)
@@ -52,13 +54,13 @@ class Simulation:
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data) # This populates self.mesh_info
         
-        # --- NEW FIX: Convert cell_indices lists to NumPy arrays after loading ---
+        # --- FIX: Convert cell_indices lists to NumPy arrays after loading ---
         if 'boundary_conditions' in self.mesh_info:
             print("DEBUG (Simulation.__init__): Converting 'cell_indices' lists to NumPy arrays.")
             for bc_data in self.mesh_info['boundary_conditions'].values():
                 if 'cell_indices' in bc_data:
                     bc_data['cell_indices'] = np.array(bc_data['cell_indices'], dtype=int)
-        # --- END NEW FIX ---
+        # --- END FIX ---
 
         # --- FIX: Expose grid_shape as a top-level attribute for easy access ---
         self.grid_shape = self.mesh_info['grid_shape']
@@ -82,24 +84,34 @@ class Simulation:
     def run(self):
         """Main simulation loop."""
         print("--- Running Simulation ---")
-        current_time = 0.0
-        step_count = 0
+        self.current_time = 0.0
+        self.step_count = 0
+        
+        # Determine the subdirectory for field snapshots
+        fields_dir = os.path.join(self.output_dir, "fields")
         
         try:
-            while current_time < self.total_time:
+            # --- NEW: Save the initial state (step 0) before the loop starts ---
+            save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+            
+            while self.current_time < self.total_time:
                 # The ExplicitSolver's step method handles advection, diffusion, pressure
                 # projection, and boundary conditions in one step.
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
                 # Update time and step count
-                current_time += self.time_step
-                step_count += 1
+                self.current_time += self.time_step
+                self.step_count += 1
+                
+                # --- NEW: Save snapshot at every time step (or a specified frequency) ---
+                # For simplicity, we save every step. You can add a frequency check if needed.
+                save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
-                if step_count % self.output_frequency_steps == 0:
-                    print(f"Step {step_count}: Time = {current_time:.4f} s")
+                if self.step_count % self.output_frequency_steps == 0:
+                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s")
 
             print("--- Simulation Finished ---")
-            print(f"Final time: {current_time:.4f} s, Total steps: {step_count}")
+            print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
         
         except Exception as e:
             print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
@@ -109,28 +121,25 @@ class Simulation:
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: python src/main_solver.py <input_json_filepath> <output_json_filepath>")
-        print("Example: python src/main_solver.py temp/solver_input.json results/solution.json")
+        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>")
+        print("Example: python src/main_solver.py temp/solver_input.json data/testing-output-run")
         sys.exit(1)
     
     input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    output_dir = sys.argv[2] # Changed to a directory
     
     try:
         # Create a simulation instance
-        simulation_instance = Simulation(input_file)
+        simulation_instance = Simulation(input_file, output_dir)
+        
+        # --- NEW: Save metadata at the start before the simulation runs ---
+        save_simulation_metadata(simulation_instance, output_dir)
         
         # Run the simulation
         simulation_instance.run()
         
-        # To save results, we need to extract u, v, w from the combined field.
-        # Assuming save_simulation_results expects separate components.
-        simulation_instance.u = simulation_instance.velocity_field[..., 0]
-        simulation_instance.v = simulation_instance.velocity_field[..., 1]
-        simulation_instance.w = simulation_instance.velocity_field[..., 2]
-        
-        # Use the external function to save results
-        save_simulation_results(simulation_instance, output_file)
+        # --- NEW: Save a final summary after the simulation is done ---
+        save_final_summary(simulation_instance, output_dir)
         
     except Exception as e:
         print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)

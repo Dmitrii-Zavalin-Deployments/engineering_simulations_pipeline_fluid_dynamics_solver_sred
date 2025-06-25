@@ -2,38 +2,81 @@
 
 import json
 import os
-import sys
+import numpy as np
 
-def save_simulation_results(simulation_instance, output_file_path):
+def save_simulation_metadata(sim_instance, output_dir):
     """
-    Saves the final velocity and pressure fields to a JSON file.
-    Takes the simulation instance as input to access final state data.
+    Saves static simulation metadata (config and mesh info) at the start.
     """
-    print(f"Saving results to: {output_file_path}")
-    try:
-        # Convert NumPy arrays to lists for JSON serialization
-        results = {
-            'final_time': simulation_instance.total_time,
-            'time_steps': int(simulation_instance.total_time / simulation_instance.time_step),
-            'grid_shape': simulation_instance.grid_shape,
-            'dx': simulation_instance.dx,
-            'dy': simulation_instance.dy,
-            'dz': simulation_instance.dz,
-            'final_velocity_u': simulation_instance.u.tolist(),
-            'final_velocity_v': simulation_instance.v.tolist(),
-            'final_velocity_w': simulation_instance.w.tolist(),
-            'final_pressure': simulation_instance.p.tolist()
+    # Create the output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Define file paths
+    config_path = os.path.join(output_dir, 'config.json')
+    mesh_path = os.path.join(output_dir, 'mesh.json')
+    
+    # Save config metadata
+    config_data = {
+        'total_time': sim_instance.total_time,
+        'time_step': sim_instance.time_step,
+        'grid_shape': sim_instance.grid_shape,
+        'fluid_density': sim_instance.rho,
+        'fluid_viscosity': sim_instance.nu
+    }
+    with open(config_path, 'w') as f:
+        json.dump(config_data, f, indent=2)
+    print(f"Saved simulation config to: {config_path}")
+
+    # Save mesh data
+    mesh_data = {
+        'grid_shape': sim_instance.grid_shape,
+        'dx': sim_instance.mesh_info['dx'],
+        'dy': sim_instance.mesh_info['dy'],
+        'dz': sim_instance.mesh_info['dz'],
+        'boundary_conditions': {
+            bc_name: {
+                'type': bc_data['type'],
+                # Convert cell_indices to a list for JSON serialization
+                'cell_indices': bc_data['cell_indices'].tolist() if isinstance(bc_data.get('cell_indices'), np.ndarray) else bc_data.get('cell_indices'),
+                'value': bc_data['value']
+            }
+            for bc_name, bc_data in sim_instance.mesh_info['boundary_conditions'].items()
         }
-        
-        output_dir = os.path.dirname(output_file_path)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            
-        with open(output_file_path, 'w') as f:
-            json.dump(results, f, indent=2)
-            
-        print("Results saved successfully.")
-        
-    except Exception as e:
-        print(f"Error saving results: {e}", file=sys.stderr)
-        sys.exit(1)
+    }
+    with open(mesh_path, 'w') as f:
+        json.dump(mesh_data, f, indent=2)
+    print(f"Saved mesh data to: {mesh_path}")
+
+def save_field_snapshot(step_number, velocity_field, pressure_field, fields_dir):
+    """
+    Saves the velocity and pressure fields for a specific time step.
+    """
+    # Create the fields subdirectory if it doesn't exist
+    os.makedirs(fields_dir, exist_ok=True)
+    
+    # Format the filename with zero-padding (e.g., step_0000.json, step_0001.json)
+    filename = f"step_{step_number:04d}.json"
+    filepath = os.path.join(fields_dir, filename)
+    
+    # Convert NumPy arrays to lists for JSON serialization
+    snapshot_data = {
+        "velocity": velocity_field.tolist(),
+        "pressure": pressure_field.tolist()
+    }
+    
+    with open(filepath, 'w') as f:
+        json.dump(snapshot_data, f, indent=2)
+    print(f"DEBUG: Saved snapshot for step {step_number} to {filepath}")
+
+def save_final_summary(sim_instance, output_dir):
+    """
+    Saves a final summary of the simulation run.
+    """
+    summary_path = os.path.join(output_dir, 'final_summary.json')
+    summary_data = {
+        'final_time': sim_instance.current_time,
+        'time_steps': sim_instance.step_count
+    }
+    with open(summary_path, 'w') as f:
+        json.dump(summary_data, f, indent=2)
+    print(f"Saved final summary to: {summary_path}")
