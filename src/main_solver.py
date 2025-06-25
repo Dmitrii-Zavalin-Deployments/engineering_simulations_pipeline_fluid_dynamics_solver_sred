@@ -3,6 +3,7 @@
 import numpy as np
 import sys
 import os
+import math # Import the math module for ceil or round
 
 # --- REFINED FIX FOR ImportError ---
 # Get the directory of the current script (e.g., /path/to/project/src).
@@ -20,7 +21,9 @@ if project_root not in sys.path:
 from numerical_methods.explicit_solver import ExplicitSolver
 
 # Import boundary condition functions from their new, specific modules.
-from physics.boundary_conditions_applicator import apply_boundary_conditions
+# Note: apply_boundary_conditions is expected to be used internally by ExplicitSolver,
+# not directly by the Simulation class here.
+from physics.boundary_conditions_applicator import apply_boundary_conditions 
 
 from solver.initialization import (
     load_input_data,
@@ -90,21 +93,31 @@ class Simulation:
         # Determine the subdirectory for field snapshots
         fields_dir = os.path.join(self.output_dir, "fields")
         
+        # --- FIX: Calculate the total number of steps based on total_time and time_step
+        # Use round() for more robust calculation of steps to avoid floating point issues
+        # that might cause one too many or one too few steps.
+        num_steps = int(round(self.total_time / self.time_step))
+        
+        print(f"Total desired simulation time: {self.total_time} s")
+        print(f"Time step per iteration: {self.time_step} s")
+        print(f"Calculated number of simulation steps: {num_steps}")
+
         try:
-            # --- NEW: Save the initial state (step 0) before the loop starts ---
+            # Save the initial state (step 0) before the loop starts
             save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
             
-            while self.current_time < self.total_time:
+            # --- FIX: Use a for loop for predictable iteration count
+            for i in range(num_steps):
                 # The ExplicitSolver's step method handles advection, diffusion, pressure
                 # projection, and boundary conditions in one step.
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
                 # Update time and step count
-                self.current_time += self.time_step
+                # Calculate current_time precisely based on step_count to avoid accumulation errors
                 self.step_count += 1
+                self.current_time = self.step_count * self.time_step 
                 
-                # --- NEW: Save snapshot at every time step (or a specified frequency) ---
-                # For simplicity, we save every step. You can add a frequency check if needed.
+                # Save snapshot at every time step (or a specified frequency)
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
