@@ -3,7 +3,8 @@
 import numpy as np
 import sys
 import os
-import math # Import the math module for ceil or round
+import math
+from datetime import datetime # Import datetime to get the current time
 
 # --- REFINED FIX FOR ImportError ---
 # Get the directory of the current script (e.g., /path/to/project/src).
@@ -32,8 +33,10 @@ from solver.initialization import (
     initialize_fields,
     print_initial_setup
 )
-# Import new functions from the refactored results_handler
-from solver.results_handler import save_simulation_metadata, save_field_snapshot, save_final_summary
+# Import functions from the refactored results_handler for saving snapshots and final summary
+from solver.results_handler import save_field_snapshot, save_final_summary
+# Import the new output manager
+from utils.simulation_output_manager import setup_simulation_output_directory
 
 
 class Simulation:
@@ -49,6 +52,9 @@ class Simulation:
         print("--- Simulation Setup ---")
         self.input_file_path = input_file_path
         self.output_dir = output_dir # Store the output directory
+        
+        # --- FIX: Record the start time of the simulation ---
+        self.start_time = datetime.now().isoformat()
         
         # Use external function to load input data
         self.input_data = load_input_data(self.input_file_path)
@@ -93,14 +99,7 @@ class Simulation:
         # Determine the subdirectory for field snapshots
         fields_dir = os.path.join(self.output_dir, "fields")
         
-        # --- FIX: Calculate the total number of steps based on total_time and time_step
-        # Use round() for more robust calculation of steps to avoid floating point issues
-        # that might cause one too many or one too few steps.
-        # Ensure total_time and time_step are correctly read from input data.
-        
-        print(f"DEBUG (Before loop) - self.total_time: {self.total_time} s")
-        print(f"DEBUG (Before loop) - self.time_step: {self.time_step} s")
-        
+        # Calculate the total number of steps based on total_time and time_step
         num_steps = int(round(self.total_time / self.time_step))
         
         print(f"Total desired simulation time: {self.total_time} s")
@@ -111,26 +110,17 @@ class Simulation:
             # Save the initial state (step 0) before the loop starts
             save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
             
-            # --- FIX: Use a for loop for predictable iteration count
+            # Use a for loop for predictable iteration count
             for i in range(num_steps):
                 # The ExplicitSolver's step method handles advection, diffusion, pressure
                 # projection, and boundary conditions in one step.
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
                 # Update time and step count
-                # Calculate current_time precisely based on step_count to avoid accumulation errors
                 self.step_count += 1
                 self.current_time = self.step_count * self.time_step 
                 
-                # --- NEW DEBUG PRINT ---
-                # This will show you the step_count and current_time in each iteration
-                # print(f"DEBUG (In loop) - Step: {self.step_count}, Current Time: {self.current_time:.4f} s")
-
                 # Save snapshot at every time step (or a specified frequency)
-                # If you want to save snapshots ONLY at output_frequency_steps,
-                # uncomment the if condition below and indent the save_field_snapshot line.
-                # Currently, it saves every step, and output_frequency_steps just controls console prints.
-                # if self.step_count % self.output_frequency_steps == 0 or self.step_count == num_steps: # Save initial and final, and at frequency
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
@@ -158,8 +148,8 @@ if __name__ == "__main__":
         # Create a simulation instance
         simulation_instance = Simulation(input_file, output_dir)
         
-        # --- NEW: Save metadata at the start before the simulation runs ---
-        save_simulation_metadata(simulation_instance, output_dir)
+        # --- NEW: Setup output directory and save initial metadata BEFORE running the simulation ---
+        setup_simulation_output_directory(simulation_instance, output_dir)
         
         # Run the simulation
         simulation_instance.run()
