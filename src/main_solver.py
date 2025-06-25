@@ -46,7 +46,7 @@ class Simulation:
     """
     def __init__(self, input_file_path, output_dir):
         """
-        Initializes the simulation by loading pre-processed input data
+        Initalizes the simulation by loading pre-processed input data
         and setting up the grid and fields.
         """
         print("--- Simulation Setup ---")
@@ -120,8 +120,10 @@ class Simulation:
                 self.step_count += 1
                 self.current_time = self.step_count * self.time_step 
                 
-                # Save snapshot at every time step (or a specified frequency)
-                save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+                # --- FIX: Save snapshot at output_frequency_steps, and always the final step ---
+                # Check if current step is a multiple of output_frequency_steps OR if it's the very last step
+                if self.step_count % self.output_frequency_steps == 0 or self.step_count == num_steps:
+                    save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
                     print(f"Step {self.step_count}: Time = {self.current_time:.4f} s")
@@ -141,8 +143,10 @@ if __name__ == "__main__":
         print("Example: python src/main_solver.py temp/solver_input.json data/testing-output-run")
         sys.exit(1)
     
+    # --- FIX: Modify output_dir to include the 'navier_stokes_output' subdirectory ---
     input_file = sys.argv[1]
-    output_dir = sys.argv[2] # Changed to a directory
+    base_output_dir = sys.argv[2]
+    output_dir = os.path.join(base_output_dir, "navier_stokes_output")
     
     try:
         # Create a simulation instance
