@@ -1,152 +1,160 @@
-# src/solver/results_handler.py
+# src/main_solver.py
 
-import os
-import json
 import numpy as np
+import sys
+import os
+import math
+from datetime import datetime # Import datetime to get the current time
 
-def save_simulation_metadata(simulation_instance, output_dir):
+# --- REFINED FIX FOR ImportError ---
+# Get the directory of the current script (e.g., /path/to/project/src).
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Get the parent directory of the script's directory (e.g., /path/to/project).
+# This is the root of your source package structure.
+project_root = os.path.dirname(script_dir)
+# Add the project root to sys.path, allowing absolute imports like 'src.physics' to work.
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --- END REFINED FIX ---
+
+# --- UPDATED IMPORTS ---
+# Import the new ExplicitSolver class.
+from numerical_methods.explicit_solver import ExplicitSolver
+
+# Import boundary condition functions from their new, specific modules.
+# Note: apply_boundary_conditions is expected to be used internally by ExplicitSolver,
+# not directly by the Simulation class here.
+from physics.boundary_conditions_applicator import apply_boundary_conditions 
+
+from solver.initialization import (
+    load_input_data,
+    initialize_simulation_parameters,
+    initialize_grid,
+    initialize_fields,
+    print_initial_setup
+)
+# Import new functions from the refactored results_handler
+from solver.results_handler import save_simulation_metadata, save_field_snapshot, save_final_summary
+
+
+class Simulation:
     """
-    Saves simulation configuration and mesh definition to JSON files.
+    Main simulation class for the Navier-Stokes solver.
+    This class orchestrates the simulation process.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    def __init__(self, input_file_path, output_dir):
+        """
+        Initializes the simulation by loading pre-processed input data
+        and setting up the grid and fields.
+        """
+        print("--- Simulation Setup ---")
+        self.input_file_path = input_file_path
+        self.output_dir = output_dir # Store the output directory
+        
+        # --- FIX: Record the start time of the simulation ---
+        self.start_time = datetime.now().isoformat()
+        
+        # Use external function to load input data
+        self.input_data = load_input_data(self.input_file_path)
+        
+        # Use external functions for initialization
+        initialize_simulation_parameters(self, self.input_data)
+        initialize_grid(self, self.input_data) # This populates self.mesh_info
+        
+        # --- FIX: Convert cell_indices lists to NumPy arrays after loading ---
+        if 'boundary_conditions' in self.mesh_info:
+            print("DEBUG (Simulation.__init__): Converting 'cell_indices' lists to NumPy arrays.")
+            for bc_data in self.mesh_info['boundary_conditions'].values():
+                if 'cell_indices' in bc_data:
+                    bc_data['cell_indices'] = np.array(bc_data['cell_indices'], dtype=int)
+        # --- END FIX ---
 
-    config_filepath = os.path.join(output_dir, "config.json")
-    mesh_filepath = os.path.join(output_dir, "mesh.json")
-    readme_filepath = os.path.join(output_dir, "readme.txt")
+        # --- FIX: Expose grid_shape as a top-level attribute for easy access ---
+        self.grid_shape = self.mesh_info['grid_shape']
+        # --- END FIX ---
 
-    # Save simulation parameters (excluding large arrays like fields)
-    config_data = {
-        "domain_definition": simulation_instance.input_data.get("domain_definition"),
-        "fluid_properties": simulation_instance.input_data.get("fluid_properties"),
-        "initial_conditions": simulation_instance.input_data.get("initial_conditions"),
-        "simulation_parameters": simulation_instance.input_data.get("simulation_parameters"),
-    }
-    with open(config_filepath, 'w') as f:
-        json.dump(config_data, f, indent=2)
-    print(f"Saved simulation config to: {config_filepath}")
+        initialize_fields(self, self.input_data)
+        
+        # After initialization, combine the separate velocity components into a single array
+        # This aligns with the new solver's input requirements.
+        self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
+        
+        # Instantiate the explicit solver object.
+        # This object will manage the time stepping logic.
+        fluid_properties = {'density': self.rho, 'viscosity': self.nu}
+        # The ExplicitSolver expects mesh_info, which now has the 'grid_shape' and 'boundary_conditions'
+        self.time_stepper = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
 
-    # Save mesh definition (including boundary faces if present)
-    mesh_data = {
-        "grid_shape": simulation_instance.mesh_info.get("grid_shape"),
-        "dx": simulation_instance.mesh_info.get("dx"),
-        "dy": simulation_instance.mesh_info.get("dy"),
-        "dz": simulation_instance.mesh_info.get("dz"),
-        "cell_coords": simulation_instance.mesh_info.get("cell_coords").tolist() if simulation_instance.mesh_info.get("cell_coords") is not None else None,
-        "face_coords": simulation_instance.mesh_info.get("face_coords").tolist() if simulation_instance.mesh_info.get("face_coords") is not None else None,
-        "boundary_conditions": {}
-    }
-    
-    # Safely handle boundary_conditions for JSON serialization
-    if 'boundary_conditions' in simulation_instance.mesh_info:
-        for bc_name, bc_info in simulation_instance.mesh_info['boundary_conditions'].items():
-            serializable_bc_info = bc_info.copy()
-            # Convert numpy arrays in bc_info to lists if they exist
-            if 'cell_indices' in serializable_bc_info and isinstance(serializable_bc_info['cell_indices'], np.ndarray):
-                serializable_bc_info['cell_indices'] = serializable_bc_info['cell_indices'].tolist()
-            if 'face_indices' in serializable_bc_info and isinstance(serializable_bc_info['face_indices'], np.ndarray):
-                serializable_bc_info['face_indices'] = serializable_bc_info['face_indices'].tolist()
+        # Use external function to print setup details
+        print_initial_setup(self)
+
+    def run(self):
+        """Main simulation loop."""
+        print("--- Running Simulation ---")
+        self.current_time = 0.0
+        self.step_count = 0
+        
+        # Determine the subdirectory for field snapshots
+        fields_dir = os.path.join(self.output_dir, "fields")
+        
+        # Calculate the total number of steps based on total_time and time_step
+        num_steps = int(round(self.total_time / self.time_step))
+        
+        print(f"Total desired simulation time: {self.total_time} s")
+        print(f"Time step per iteration: {self.time_step} s")
+        print(f"Calculated number of simulation steps: {num_steps}")
+
+        try:
+            # Save the initial state (step 0) before the loop starts
+            save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
             
-            mesh_data["boundary_conditions"][bc_name] = serializable_bc_info
+            # Use a for loop for predictable iteration count
+            for i in range(num_steps):
+                # The ExplicitSolver's step method handles advection, diffusion, pressure
+                # projection, and boundary conditions in one step.
+                self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
-    with open(mesh_filepath, 'w') as f:
-        json.dump(mesh_data, f, indent=2)
-    print(f"Saved mesh definition to: {mesh_filepath}")
+                # Update time and step count
+                self.step_count += 1
+                self.current_time = self.step_count * self.time_step 
+                
+                # Save snapshot at every time step (or a specified frequency)
+                save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
-    # Create a simple README file
-    with open(readme_filepath, 'w') as f:
-        f.write("Fluid Dynamics Simulation Results\n")
-        f.write("---------------------------------\n")
-        f.write(f"Input file: {os.path.basename(simulation_instance.input_file_path)}\n")
-        f.write(f"Simulation started: {simulation_instance.start_time}\n")
-        f.write(f"Total simulation time: {simulation_instance.total_time} s\n")
-        f.write(f"Time step: {simulation_instance.time_step} s\n")
-        f.write(f"Grid dimensions: {simulation_instance.grid_shape[0]}x{simulation_instance.grid_shape[1]}x{simulation_instance.grid_shape[2]}\n")
-        f.write("\nField snapshots are saved in the 'fields' subdirectory.")
-        f.write("\nFinal summary is in 'final_summary.json'.")
-    print(f"Created readme: {readme_filepath}")
+                if self.step_count % self.output_frequency_steps == 0:
+                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s")
 
+            print("--- Simulation Finished ---")
+            print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
+        
+        except Exception as e:
+            print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
 
-def save_field_snapshot(step_count, velocity_field, pressure_field, fields_dir):
-    """
-    Saves the current velocity and pressure fields to a JSON file.
-    """
-    os.makedirs(fields_dir, exist_ok=True)
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>")
+        print("Example: python src/main_solver.py temp/solver_input.json data/testing-output-run")
+        sys.exit(1)
     
-    # Format step_count to have leading zeros for consistent file naming
-    filename = f"step_{step_count:04d}.json"
-    filepath = os.path.join(fields_dir, filename)
-
-    # Convert numpy arrays to lists for JSON serialization
-    # Use tolist() for the main arrays
-    # Ensure nested arrays (like velocity_field[i][j][k] being [u,v,w]) are handled
-    field_data = {
-        "step": step_count,
-        "velocity": velocity_field.tolist(), # Convert entire numpy array to nested list
-        "pressure": pressure_field.tolist()  # Convert entire numpy array to nested list
-    }
-
-    with open(filepath, 'w') as f:
-        json.dump(field_data, f, indent=2)
-    print(f"Saved snapshot step {step_count} → {filepath}")
-
-
-def save_final_summary(simulation_instance, output_dir):
-    """
-    Saves a summary of the simulation results, including a list of time points
-    and history of a selected metric (e.g., average velocity magnitude).
-    This function aggregates data that was saved incrementally.
-    """
-    final_summary_filepath = os.path.join(output_dir, "final_summary.json")
-    fields_dir = os.path.join(output_dir, "fields")
-
-    # --- FIX: Generate time_points based on actual simulation parameters ---
-    # The time points should correspond to 0.01, 0.02, etc., up to total_time.
-    # The range should start from time_step and go up to total_time, inclusive,
-    # with a small tolerance for floating point accuracy.
-    num_steps = int(round(simulation_instance.total_time / simulation_instance.time_step))
+    input_file = sys.argv[1]
+    output_dir = sys.argv[2] # Changed to a directory
     
-    # time_points should include the initial state (0.0) if relevant for plotting,
-    # and then all subsequent steps. Given your snapshot saving starts at step 0,
-    # and then increments, we should reflect that.
-    # Let's generate points from 0 to total_time at intervals of time_step.
-    # Adjust np.arange to correctly include the final point.
-    time_points = np.linspace(0.0, simulation_instance.total_time, num_steps + 1).tolist()
-    # If the first point (0.0) is not desired, remove it:
-    # time_points = np.linspace(simulation_instance.time_step, simulation_instance.total_time, num_steps).tolist()
-
-    velocity_history = []
-    pressure_history = [] # Assuming you might want to save pressure history too
-
-    # Load all saved field snapshots to compile history
-    for step_idx in range(num_steps + 1): # Include step 0
-        filename = f"step_{step_idx:04d}.json"
-        filepath = os.path.join(fields_dir, filename)
-        if os.path.exists(filepath):
-            with open(filepath, 'r') as f:
-                snapshot_data = json.load(f)
-            
-            # Extract relevant data, e.g., velocity field for history.
-            # For simplicity, we'll just store the first cell's velocity as an example.
-            # You might want to calculate an average or other metric.
-            # If velocity_field is already a list of lists from .tolist(), direct append works.
-            # If it's the full array, you'd save a summary metric.
-            
-            # For now, let's just append the velocity data from each step.
-            # WARNING: Saving full velocity field history can create very large files.
-            # Consider saving a derived metric (e.g., average velocity magnitude) instead.
-            velocity_history.append(snapshot_data["velocity"])
-            pressure_history.append(snapshot_data["pressure"]) # Example: append pressure
-
-    summary_data = {
-        "simulation_parameters": simulation_instance.input_data.get("simulation_parameters"),
-        "time_points": time_points,
-        "velocity_history": velocity_history,
-        "pressure_history": pressure_history # Include pressure history
-        # Add other summary metrics as needed (e.g., average pressure, total kinetic energy)
-    }
-
-    with open(final_summary_filepath, 'w') as f:
-        json.dump(summary_data, f, indent=4) # Use indent=4 for better readability of large JSONs
-    print(f"Saved final summary to: {final_summary_filepath}")
-    print("✅ Main Navier-Stokes simulation executed successfully.")
-
+    try:
+        # Create a simulation instance
+        simulation_instance = Simulation(input_file, output_dir)
+        
+        # --- NEW: Save metadata at the start before the simulation runs ---
+        save_simulation_metadata(simulation_instance, output_dir)
+        
+        # Run the simulation
+        simulation_instance.run()
+        
+        # --- NEW: Save a final summary after the simulation is done ---
+        save_final_summary(simulation_instance, output_dir)
+        
+    except Exception as e:
+        print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
