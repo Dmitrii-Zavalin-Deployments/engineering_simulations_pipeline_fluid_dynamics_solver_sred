@@ -139,21 +139,33 @@ def infer_uniform_grid_parameters(min_val, max_val, all_coords_for_axis, axis_na
         num_cells = num_unique_planes - 1
         
         if num_cells <= 0:
-             if abs(max_val - min_val) > 1e-9:
-                 num_cells = 1
-                 spacing = (max_val - min_val)
-                 print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells despite domain extent. Forcing {axis_name}x=1 and spacing=(max-min).", file=sys.stderr)
-             else:
-                 num_cells = 1
-                 spacing = 1.0
-                 print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells for zero-extent domain. Forcing {axis_name}x=1 and nominal spacing.", file=sys.stderr)
+            if abs(max_val - min_val) > 1e-9:
+                num_cells = 1
+                spacing = (max_val - min_val)
+                print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells despite domain extent. Forcing {axis_name}x=1 and spacing=(max-min).", file=sys.stderr)
+            else:
+                num_cells = 1
+                spacing = 1.0
+                print(f"Warning: Inferred {axis_name}x resulted in 0 or less cells for zero-extent domain. Forcing {axis_name}x=1 and nominal spacing.", file=sys.stderr)
 
         if spacing < 1e-9 and abs(max_val - min_val) > 1e-9:
-             print(f"Warning: Extremely small calculated spacing ({spacing:.2e}) for {axis_name}-axis with significant extent. This might indicate many unique, closely clustered points.", file=sys.stderr)
+            print(f"Warning: Extremely small calculated spacing ({spacing:.2e}) for {axis_name}-axis with significant extent. This might indicate many unique, closely clustered points.", file=sys.stderr)
 
     print(f"Inferred {axis_name}-axis: {num_cells} cells, spacing {spacing:.6e}")
     return spacing, num_cells
 
+def convert_numpy_to_list(obj):
+    """
+    Recursively converts NumPy arrays within a dictionary or list to standard Python lists.
+    """
+    if isinstance(obj, dict):
+        return {k: convert_numpy_to_list(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_to_list(elem) for elem in obj]
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist() # This is the key conversion
+    else:
+        return obj
 
 def pre_process_input_data(input_data):
     """
@@ -220,6 +232,12 @@ def pre_process_input_data(input_data):
         mesh_info_for_bc
     )
 
+    # --- START OF FIX ---
+    # Recursively convert any NumPy arrays in the processed boundary conditions
+    # to standard Python lists, as NumPy arrays are not JSON serializable.
+    processed_boundary_conditions = convert_numpy_to_list(processed_boundary_conditions)
+    # --- END OF FIX ---
+
     fluid_properties = input_data.get("fluid_properties", {})
     simulation_parameters = input_data.get("simulation_parameters", {})
 
@@ -278,4 +296,6 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
 
