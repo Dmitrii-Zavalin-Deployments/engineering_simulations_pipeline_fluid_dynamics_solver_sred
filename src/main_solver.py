@@ -33,8 +33,9 @@ from solver.initialization import (
     initialize_fields,
     print_initial_setup
 )
-# Import functions from the refactored results_handler for saving snapshots and final summary
-from solver.results_handler import save_field_snapshot, save_final_summary
+# Import functions from the refactored results_handler for saving snapshots.
+# save_final_summary has been removed from results_handler.py, so it's removed here too.
+from solver.results_handler import save_field_snapshot 
 # Import the new output manager
 from utils.simulation_output_manager import setup_simulation_output_directory
 
@@ -160,12 +161,9 @@ if __name__ == "__main__":
         # Run the simulation
         simulation_instance.run()
         
-        # --- NEW: Save a final summary after the simulation is done ---
-        # Note: save_final_summary will now only generate its output if called.
-        # Based on previous request to remove final_summary.json, this call might be removed
-        # but is kept here for now as you only asked about its size.
-        # If you still want to remove it, this line should be commented/removed.
-        save_final_summary(simulation_instance, output_dir)
+        # --- NEW: save_final_summary is no longer called as the function was removed from results_handler.py ---
+        # save_final_summary(simulation_instance, output_dir) 
+        print("✅ Main Navier-Stokes simulation executed successfully.")
         
     except Exception as e:
         print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)
