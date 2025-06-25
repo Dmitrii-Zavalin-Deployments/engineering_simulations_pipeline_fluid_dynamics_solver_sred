@@ -8,14 +8,15 @@ from datetime import datetime
 def setup_simulation_output_directory(simulation_instance, output_dir):
     """
     Sets up the output directory structure and saves initial simulation metadata.
-    This includes config.json, mesh.json, and a readme.txt.
+    This includes config.json and mesh.json.
+    Creation of readme.txt has been removed as per user request.
     """
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(os.path.join(output_dir, "fields"), exist_ok=True) # Ensure fields directory exists
 
     config_filepath = os.path.join(output_dir, "config.json")
     mesh_filepath = os.path.join(output_dir, "mesh.json")
-    readme_filepath = os.path.join(output_dir, "readme.txt")
+    # readme_filepath and its creation block removed as per user request
 
     # Save simulation parameters (excluding large arrays like fields)
     config_data = {
@@ -53,16 +54,3 @@ def setup_simulation_output_directory(simulation_instance, output_dir):
     with open(mesh_filepath, 'w') as f:
         json.dump(mesh_data, f, indent=2)
     print(f"Saved mesh definition to: {mesh_filepath}")
-
-    # Create a simple README file
-    with open(readme_filepath, 'w') as f:
-        f.write("Fluid Dynamics Simulation Results\n")
-        f.write("---------------------------------\n")
-        f.write(f"Input file: {os.path.basename(simulation_instance.input_file_path)}\n")
-        f.write(f"Simulation started: {simulation_instance.start_time}\n")
-        f.write(f"Total simulation time: {simulation_instance.total_time} s\n")
-        f.write(f"Time step: {simulation_instance.time_step} s\n")
-        f.write(f"Grid dimensions: {simulation_instance.grid_shape[0]}x{simulation_instance.grid_shape[1]}x{simulation_instance.grid_shape[2]}\n")
-        f.write("\nField snapshots are saved in the 'fields' subdirectory.")
-        f.write("\nFinal summary is in 'final_summary.json'.")
-    print(f"Created readme: {readme_filepath}")
