@@ -7,13 +7,16 @@ import os
 # --- FIX FOR ImportError: attempted relative import with no known parent package ---
 # Get the directory where the current script resides (e.g., /home/runner/work/.../src).
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Add this directory to sys.path so that we can import from `physics` and `solver`.
+# Add this directory to sys.path so that we can import from `numerical_methods`, `physics`, and `solver`.
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 # --- END FIX ---
 
-# Import functions from the new modular files
-from physics.solver_utils import compute_velocity_field, update_pressure_field, apply_boundary_conditions
+# --- UPDATED IMPORTS ---
+# Import the new ExplicitSolver class instead of the old standalone functions.
+from numerical_methods.explicit_solver import ExplicitSolver
+
+# The functions below are still needed and their import paths are correct.
 from solver.initialization import (
     load_input_data,
     initialize_simulation_parameters,
@@ -22,7 +25,6 @@ from solver.initialization import (
     print_initial_setup
 )
 from solver.results_handler import save_simulation_results
-
 
 class Simulation:
     """
@@ -45,6 +47,15 @@ class Simulation:
         initialize_grid(self, self.input_data)
         initialize_fields(self, self.input_data)
         
+        # After initialization, combine the separate velocity components into a single array
+        # This aligns with the new solver's input requirements.
+        self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
+        
+        # Instantiate the explicit solver object.
+        # This object will manage the time stepping logic.
+        fluid_properties = {'density': self.rho, 'viscosity': self.nu}
+        self.solver = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
+
         # Use external function to print setup details
         print_initial_setup(self)
 
@@ -56,21 +67,10 @@ class Simulation:
         
         try:
             while current_time < self.total_time:
-                # Apply boundary conditions at the start of each step
-                apply_boundary_conditions(self.u, self.v, self.w, self.p, self.boundary_conditions, self.mesh_info)
-                
-                # Compute the new velocity field
-                self.u, self.v, self.w = compute_velocity_field(
-                    self.u, self.v, self.w, self.p,
-                    self.dx, self.dy, self.dz, self.time_step, self.rho, self.nu
-                )
-
-                # Update the pressure field
-                self.p = update_pressure_field(
-                    self.u, self.v, self.w, self.p,
-                    self.dx, self.dy, self.dz, self.time_step, self.rho,
-                    self.boundary_conditions, self.mesh_info
-                )
+                # --- REPLACED OLD FUNCTION CALLS WITH THE NEW SOLVER'S STEP METHOD ---
+                # The ExplicitSolver's step method handles advection, diffusion, pressure
+                # projection, and boundary conditions in one step.
+                self.velocity_field, self.p = self.solver.step(self.velocity_field, self.p)
 
                 # Update time and step count
                 current_time += self.time_step
@@ -81,7 +81,7 @@ class Simulation:
 
             print("--- Simulation Finished ---")
             print(f"Final time: {current_time:.4f} s, Total steps: {step_count}")
-
+        
         except Exception as e:
             print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
             import traceback
@@ -89,6 +89,9 @@ class Simulation:
             sys.exit(1)
 
     # Note: The `save_results` method has been moved to results_handler.py
+    # To maintain compatibility with the saving function, you might need to
+    # update self.u, self.v, self.w from self.velocity_field before saving.
+    # We will handle this when needed.
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -105,6 +108,12 @@ if __name__ == "__main__":
         
         # Run the simulation
         simulation_instance.run()
+        
+        # To save results, we need to extract u, v, w from the combined field.
+        # Assuming save_simulation_results expects separate components.
+        simulation_instance.u = simulation_instance.velocity_field[..., 0]
+        simulation_instance.v = simulation_instance.velocity_field[..., 1]
+        simulation_instance.w = simulation_instance.velocity_field[..., 2]
         
         # Use the external function to save results
         save_simulation_results(simulation_instance, output_file)
