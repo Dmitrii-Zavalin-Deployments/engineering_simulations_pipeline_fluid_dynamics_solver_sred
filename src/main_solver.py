@@ -20,9 +20,7 @@ if project_root not in sys.path:
 from numerical_methods.explicit_solver import ExplicitSolver
 
 # Import boundary condition functions from their new, specific modules.
-from physics.boundary_conditions_applicator import apply_boundary_conditions # This one
-# You will also need identify_boundary_nodes if it's called directly in main_solver,
-# but it's likely called within the pre_process_input.py chain, so no need here.
+from physics.boundary_conditions_applicator import apply_boundary_conditions
 
 from solver.initialization import (
     load_input_data,
@@ -53,6 +51,17 @@ class Simulation:
         # Use external functions for initialization
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data) # This populates self.mesh_info
+        
+        # --- NEW FIX: Convert cell_indices lists back to NumPy arrays after loading ---
+        # The 'boundary_conditions' data is loaded from JSON as a list.
+        # We must convert it back to a NumPy array for vectorized operations in the solver.
+        if 'boundary_conditions' in self.mesh_info:
+            print("DEBUG (Simulation.__init__): Converting 'cell_indices' lists to NumPy arrays.")
+            for bc_data in self.mesh_info['boundary_conditions'].values():
+                if 'cell_indices' in bc_data:
+                    bc_data['cell_indices'] = np.array(bc_data['cell_indices'], dtype=int)
+        # --- END NEW FIX ---
+
         initialize_fields(self, self.input_data)
         
         # After initialization, combine the separate velocity components into a single array
