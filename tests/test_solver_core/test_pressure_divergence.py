@@ -2,8 +2,8 @@
 
 import numpy as np
 import pytest
-from src.numerical_methods.pressure import (
-    compute_divergence,
+from src.numerical_methods.pressure_divergence import (
+    compute_pressure_divergence as compute_divergence,
     compute_pressure_gradient,
 )
 
@@ -89,13 +89,13 @@ def test_anisotropic_spacing_affects_divergence_scale():
     velocity = create_velocity_field(shape, component=0, value=1.0)
     mesh = mesh_metadata(shape, dx=2.0, dy=1.0, dz=0.5)
     div = compute_divergence(velocity, mesh)
-    expected = 1.0 / (2.0)  # since du/dx = constant, dx affects magnitude
+    expected = 1.0 / 2.0
     assert np.allclose(div[2:-2, 2:-2, 2:-2], expected, atol=1e-10)
 
 def test_divergence_of_velocity_with_boundary_gradient_only():
     shape = (6, 6, 6)
     velocity = create_zero_velocity_field(shape)
-    velocity[3, 1:-1, 1:-1, 0] = 1.0  # single interior slice active
+    velocity[3, 1:-1, 1:-1, 0] = 1.0
     mesh = mesh_metadata(shape)
     div = compute_divergence(velocity, mesh)
     assert np.any(np.abs(div) > 0.0)
