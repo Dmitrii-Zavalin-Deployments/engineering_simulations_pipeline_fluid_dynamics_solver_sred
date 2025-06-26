@@ -59,7 +59,7 @@ def test_vector_field_gradient_advects_components_independently():
     field[3:, 3:-3, 3:-3, 0] = 1.0  # step in x-component of vector field
 
     velocity = np.zeros_like(field)
-    velocity[..., 0] = 1.0  # flow in x
+    velocity[..., 0] = 1.0  # flow in x-direction
 
     mesh = {"grid_shape": field.shape[:3], "dx": 1.0, "dy": 1.0, "dz": 1.0}
     adv = compute_advection_term(field, velocity, mesh)

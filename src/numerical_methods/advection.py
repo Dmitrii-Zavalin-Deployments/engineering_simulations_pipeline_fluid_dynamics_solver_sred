@@ -24,44 +24,48 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     vel_y = velocity_field[..., 1]
     vel_z = velocity_field[..., 2]
 
-    def compute_flux_component(u, v):
-        pos = np.maximum(v, 0)
-        neg = np.minimum(v, 0)
+    def upwind_derivative(u, v, axis, spacing):
+        """
+        Compute first-order upwind derivative of u along given axis using velocity v.
+        """
+        deriv = np.zeros_like(u)
+        pos_vel = v > 0
 
         if not is_scalar:
-            pos = pos[..., np.newaxis]
-            neg = neg[..., np.newaxis]
+            pos_vel = pos_vel[..., np.newaxis]
 
-        return u * pos, u * neg
+        idx = [slice(None)] * u.ndim
+        idx_p = idx.copy()
+        idx_n = idx.copy()
 
-    # X-direction
-    Fp, Fn = compute_flux_component(u_field, vel_x)
-    flux_x = np.zeros_like(u_field)
-    flux_x[1:] += Fp[1:] + Fn[:-1]
-    flux_x[0] = Fn[0]
-    flux_x[:-1] -= Fp[:-1] + Fn[1:]
-    flux_x[-1] -= Fp[-1]
-    advection += flux_x / dx
+        idx_p[axis] = slice(1, -1)
+        idx_n[axis] = slice(0, -2)
 
-    # Y-direction
-    Fp, Fn = compute_flux_component(u_field, vel_y)
-    flux_y = np.zeros_like(u_field)
-    flux_y[:, 1:] += Fp[:, 1:] + Fn[:, :-1]
-    flux_y[:, 0] = Fn[:, 0]
-    flux_y[:, :-1] -= Fp[:, :-1] + Fn[:, 1:]
-    flux_y[:, -1] -= Fp[:, -1]
-    advection += flux_y / dy
+        forward = (u[tuple(idx_p)] - u[tuple(idx_n)]) / spacing
 
-    # Z-direction
-    Fp, Fn = compute_flux_component(u_field, vel_z)
-    flux_z = np.zeros_like(u_field)
-    flux_z[:, :, 1:] += Fp[:, :, 1:] + Fn[:, :, :-1]
-    flux_z[:, :, 0] = Fn[:, :, 0]
-    flux_z[:, :, :-1] -= Fp[:, :, :-1] + Fn[:, :, 1:]
-    flux_z[:, :, -1] -= Fp[:, :, -1]
-    advection += flux_z / dz
+        idx_p2 = idx.copy()
+        idx_n2 = idx.copy()
+        idx_p2[axis] = slice(2, None)
+        idx_n2[axis] = slice(1, -1)
 
-    return advection
+        backward = (u[tuple(idx_n2)] - u[tuple(idx_n)]) / spacing
+
+        center = idx.copy()
+        center[axis] = slice(1, -1)
+
+        deriv[tuple(center)] = np.where(
+            pos_vel[tuple(center)],
+            backward,
+            forward
+        )
+
+        return deriv
+
+    advection += vel_x * upwind_derivative(u_field, vel_x, axis=0, spacing=dx)
+    advection += vel_y * upwind_derivative(u_field, vel_y, axis=1, spacing=dy)
+    advection += vel_z * upwind_derivative(u_field, vel_z, axis=2, spacing=dz)
+
+    return -advection  # Note the negative sign for - (u · ∇)u
 
 def advect_velocity(u, v, w, dx, dy, dz, dt):
     """
@@ -85,9 +89,9 @@ def advect_velocity(u, v, w, dx, dy, dz, dt):
         "dz": dz,
     }
 
-    u_star = u[interior] - dt * compute_advection_term(u, velocity, mesh_info)[interior]
-    v_star = v[interior] - dt * compute_advection_term(v, velocity, mesh_info)[interior]
-    w_star = w[interior] - dt * compute_advection_term(w, velocity, mesh_info)[interior]
+    u_star = u[interior] + dt * compute_advection_term(u, velocity, mesh_info)[interior]
+    v_star = v[interior] + dt * compute_advection_term(v, velocity, mesh_info)[interior]
+    w_star = w[interior] + dt * compute_advection_term(w, velocity, mesh_info)[interior]
 
     return u_star, v_star, w_star
 
