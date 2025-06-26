@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 # 🔧 Adjust this import path to your actual initialization module
-from src.utils import grid
+from src.utils.grid import create_mac_grid_fields, generate_physical_coordinates
 
 def test_mac_field_shapes_match_expected():
     """
