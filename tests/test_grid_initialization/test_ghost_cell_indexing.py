@@ -3,36 +3,35 @@
 import numpy as np
 import pytest
 
-def create_padded_grid(shape, padding=1):
-    """
-    Returns a padded grid with ghost cells around the computational domain.
-    The core grid values are set to 1, ghost cells to -1.
-    """
-    nx, ny, nz = shape
-    padded_shape = (nx + 2 * padding, ny + 2 * padding, nz + 2 * padding)
-    grid = np.full(padded_shape, fill_value=-1.0)  # Ghost cells
-    grid[padding:-padding, padding:-padding, padding:-padding] = 1.0  # Real domain
-    return grid
+# 🔧 Adjust these import paths based on your actual module layout
+from src.grid.grid_builder import create_mac_grid_fields
+from src.boundary_conditions.ghost_utils import apply_ghost_cells
 
-def test_ghost_cell_layer_surrounds_domain():
+@pytest.mark.parametrize("field_name", ["u", "v", "w"])
+def test_ghost_cells_preserve_domain_and_apply_padding(field_name):
     """
-    Verify that a 1-cell-wide ghost layer wraps the real domain on all faces.
+    Validates that ghost cells are correctly added around the velocity field.
+    The real solver's functions are used to allocate and apply ghost cells.
     """
-    nx, ny, nz = 4, 3, 2
+    nx, ny, nz = 4, 4, 4
     ghost_width = 1
-    grid = create_padded_grid((nx, ny, nz), padding=ghost_width)
 
-    # Check interior values (should be 1.0)
-    interior = grid[ghost_width:-ghost_width, ghost_width:-ghost_width, ghost_width:-ghost_width]
-    assert np.all(interior == 1.0), "Interior domain values incorrect."
+    # Step 1: Generate core MAC grid velocity fields
+    fields = create_mac_grid_fields((nx, ny, nz), ghost_width=ghost_width)
+    field = fields[field_name]  # e.g., fields["u"]
 
-    # Check each ghost face for -1.0
-    assert np.all(grid[0, :, :] == -1.0), "Ghost cells on min x-face not set correctly."
-    assert np.all(grid[-1, :, :] == -1.0), "Ghost cells on max x-face not set correctly."
-    assert np.all(grid[:, 0, :] == -1.0), "Ghost cells on min y-face not set correctly."
-    assert np.all(grid[:, -1, :] == -1.0), "Ghost cells on max y-face not set correctly."
-    assert np.all(grid[:, :, 0] == -1.0), "Ghost cells on min z-face not set correctly."
-    assert np.all(grid[:, :, -1] == -1.0), "Ghost cells on max z-face not set correctly."
+    # Step 2: Apply boundary padding using solver logic
+    apply_ghost_cells(field, field_name)
+
+    # Step 3: Check that inner domain is preserved
+    interior = field[ghost_width:-ghost_width, ghost_width:-ghost_width, ghost_width:-ghost_width]
+    assert interior.shape == (nx, ny, nz), "Interior domain has incorrect shape after padding."
+    assert not np.any(np.isnan(interior)), "Interior domain contains NaNs."
+
+    # Step 4: Check that ghost cells are non-zero (or marked)
+    outer_shell = field.copy()
+    outer_shell[ghost_width:-ghost_width, ghost_width:-ghost_width, ghost_width:-ghost_width] = 0
+    assert np.any(outer_shell != 0), f"Ghost cells for {field_name} field may not have been set properly."
 
 
 

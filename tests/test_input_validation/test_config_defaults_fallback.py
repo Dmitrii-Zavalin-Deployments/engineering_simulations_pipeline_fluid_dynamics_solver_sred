@@ -1,46 +1,38 @@
 # tests/test_input_validation/test_config_defaults_fallback.py
 
 import pytest
+from copy import deepcopy
 
-def test_defaults_applied_when_optional_fields_missing(monkeypatch, basic_solver_config):
+# This is your real implementation
+from src.utils.io_utils import apply_config_defaults
+
+def test_defaults_are_applied_when_fields_are_missing(basic_solver_config):
     """
-    Simulates missing optional keys in the config and checks fallback behavior.
-    Assumes your simulation code provides default values for these keys internally.
+    Validates that apply_config_defaults fills in reasonable defaults when optional fields are omitted.
     """
 
-    # Remove some optional fields
-    basic_solver_config["grid"].pop("dx", None)
-    basic_solver_config["time"].pop("time_step", None)
-    basic_solver_config["solver"]["method"] = ""  # Empty method string
+    config = deepcopy(basic_solver_config)
 
-    # Assume there's a function in your pre-processing pipeline that applies defaults
-    # You may need to replace this with the actual import path
-    from src.utils.io_utils import apply_config_defaults  
+    # Remove optional entries to simulate incomplete input
+    config["grid"].pop("dx", None)
+    config["time"].pop("time_step", None)
+    config["solver"]["method"] = ""  # Clear value
 
-    try:
-        filled = apply_config_defaults(basic_solver_config)
-    except Exception as e:
-        pytest.fail(f"Default application raised an unexpected error: {e}")
+    updated = apply_config_defaults(config)
 
-    # Now validate that defaults have been injected
-    assert "dx" in filled["grid"], "Default dx not applied to grid."
-    assert filled["grid"]["dx"] > 0, "Default dx must be positive."
+    assert "dx" in updated["grid"] and updated["grid"]["dx"] > 0, "Default dx not set."
+    assert "time_step" in updated["time"] and updated["time"]["time_step"] > 0, "Default time_step not set."
+    assert updated["solver"]["method"], "Default solver method not applied."
 
-    assert "time_step" in filled["time"], "Default time_step not applied."
-    assert filled["time"]["time_step"] > 0, "Default time_step must be positive."
-
-    assert filled["solver"]["method"], "Default solver method should not be empty."
-
-def test_missing_required_fields_should_raise(basic_solver_config):
+def test_missing_required_field_raises_exception(basic_solver_config):
     """
-    Test that truly required fields still cause a failure if removed.
+    Validates that apply_config_defaults raises an error when a required field is missing.
     """
-    basic_solver_config["fluid"].pop("density", None)
+    config = deepcopy(basic_solver_config)
+    config["fluid"].pop("density", None)
 
-    from src.utils.io_utils import apply_config_defaults
-
-    with pytest.raises(KeyError):
-        apply_config_defaults(basic_solver_config)
+    with pytest.raises(KeyError, match="fluid.density"):
+        apply_config_defaults(config)
 
 
 

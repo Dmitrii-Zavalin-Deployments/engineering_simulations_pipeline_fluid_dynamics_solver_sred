@@ -3,65 +3,45 @@
 import numpy as np
 import pytest
 
-def generate_field_coordinates(nx, ny, nz, dx=1.0, origin=(0, 0, 0)):
+# 🔧 Adjust this to your actual grid builder
+from src.grid.grid_builder import create_mac_grid_fields, generate_physical_coordinates
+
+def test_field_center_coordinates_match_expected_offsets():
     """
-    Computes the physical coordinates for each field center:
-    - u: faces normal to x, shape (nx+1, ny, nz)
-    - v: faces normal to y, shape (nx, ny+1, nz)
-    - w: faces normal to z, shape (nx, ny, nz+1)
-    - p: cell centers, shape (nx, ny, nz)
+    Verifies that the physical coordinates of u, v, w, and p fields
+    match MAC grid staggering relative to the origin and spacing.
     """
-    ox, oy, oz = origin
-    u_x = np.linspace(ox, ox + nx * dx, nx + 1)
-    u_y = np.linspace(oy + 0.5 * dx, oy + (ny - 0.5) * dx, ny)
-    u_z = np.linspace(oz + 0.5 * dx, oz + (nz - 0.5) * dx, nz)
-
-    v_x = np.linspace(ox + 0.5 * dx, ox + (nx - 0.5) * dx, nx)
-    v_y = np.linspace(oy, oy + ny * dx, ny + 1)
-    v_z = np.linspace(oz + 0.5 * dx, oz + (nz - 0.5) * dx, nz)
-
-    w_x = np.linspace(ox + 0.5 * dx, ox + (nx - 0.5) * dx, nx)
-    w_y = np.linspace(oy + 0.5 * dx, oy + (ny - 0.5) * dx, ny)
-    w_z = np.linspace(oz, oz + nz * dx, nz + 1)
-
-    p_x = np.linspace(ox + 0.5 * dx, ox + (nx - 0.5) * dx, nx)
-    p_y = np.linspace(oy + 0.5 * dx, oy + (ny - 0.5) * dx, ny)
-    p_z = np.linspace(oz + 0.5 * dx, oz + (nz - 0.5) * dx, nz)
-
-    return {
-        "u": (u_x, u_y, u_z),
-        "v": (v_x, v_y, v_z),
-        "w": (w_x, w_y, w_z),
-        "p": (p_x, p_y, p_z),
-    }
-
-def test_field_centers_are_staggered_consistently():
-    """Ensure each field is offset as expected according to MAC grid."""
     nx, ny, nz = 4, 3, 2
-    dx = 1.0
-    coords = generate_field_coordinates(nx, ny, nz, dx)
+    ghost = 1
+    dx = dy = dz = 1.0
+    origin = (0.0, 0.0, 0.0)
 
-    # Validate field center locations (relative comparisons)
+    # Call real grid logic to generate fields
+    fields = create_mac_grid_fields((nx, ny, nz), ghost_width=ghost)
+    coords = generate_physical_coordinates((nx, ny, nz), (dx, dy, dz), origin, ghost_width=ghost)
+
+    # Unpack expected coordinates
     u_x, u_y, u_z = coords["u"]
     v_x, v_y, v_z = coords["v"]
     w_x, w_y, w_z = coords["w"]
     p_x, p_y, p_z = coords["p"]
 
-    # Check alignment: pressure center vs other fields
-    # u and p should differ by 0.5 dx along x
-    assert np.isclose(u_x[0], p_x[0] - 0.5 * dx), "u_x not staggered correctly relative to pressure"
-    assert np.isclose(v_y[0], p_y[0] - 0.5 * dx), "v_y not staggered correctly relative to pressure"
-    assert np.isclose(w_z[0], p_z[0] - 0.5 * dx), "w_z not staggered correctly relative to pressure"
+    # Validate staggering: u is offset by 0.0 in x, but 0.5 dx in y/z, etc.
+    assert np.isclose(u_x[0], origin[0]), "u_x should start at domain origin"
+    assert np.isclose(u_y[0], origin[1] + 0.5 * dy), "u_y not properly staggered"
+    assert np.isclose(v_x[0], origin[0] + 0.5 * dx), "v_x not properly staggered"
+    assert np.isclose(w_z[0], origin[2], "w_z should start at domain origin")
 
-    # Staggered field should span full domain plus 1 cell
-    assert len(u_x) == nx + 1
-    assert len(v_y) == ny + 1
-    assert len(w_z) == nz + 1
+    # Validate cell-centered pressure offset
+    assert np.isclose(p_x[0], origin[0] + 0.5 * dx), "p_x should be at cell centers"
+    assert np.isclose(p_y[0], origin[1] + 0.5 * dy), "p_y should be at cell centers"
+    assert np.isclose(p_z[0], origin[2] + 0.5 * dz), "p_z should be at cell centers"
 
-    # Pressure field centered at cell centers
-    assert len(p_x) == nx
-    assert len(p_y) == ny
-    assert len(p_z) == nz
+    # Ensure full coverage
+    assert len(p_x) == nx, "Unexpected number of pressure points in x"
+    assert len(u_x) == nx + 1, "Unexpected number of u points in x"
+    assert len(v_y) == ny + 1, "Unexpected number of v points in y"
+    assert len(w_z) == nz + 1, "Unexpected number of w points in z"
 
 
 
