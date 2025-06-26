@@ -15,6 +15,30 @@ def create_velocity_field(shape, component=0, value=1.0):
 def create_zero_velocity_field(shape):
     return np.zeros((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3))
 
+def create_linearly_increasing_velocity(shape, axis=0):
+    padded = (shape[0] + 2, shape[1] + 2, shape[2] + 2)
+    velocity = np.zeros(padded + (3,), dtype=np.float64)
+    grid = np.linspace(0, 1, padded[axis])
+    if axis == 0:
+        velocity[..., 0] = grid[:, None, None]
+    elif axis == 1:
+        velocity[..., 1] = grid[None, :, None]
+    elif axis == 2:
+        velocity[..., 2] = grid[None, None, :]
+    return velocity
+
+def create_quadratic_pressure_field(shape, axis=0):
+    padded = (shape[0] + 2, shape[1] + 2, shape[2] + 2)
+    p = np.zeros(padded, dtype=np.float64)
+    coords = np.linspace(-1, 1, padded[axis]) ** 2
+    if axis == 0:
+        p[:, :, :] = coords[:, None, None]
+    elif axis == 1:
+        p[:, :, :] = coords[None, :, None]
+    elif axis == 2:
+        p[:, :, :] = coords[None, None, :]
+    return p
+
 def create_pressure_field(shape, ramp_axis=0):
     padded = (shape[0] + 2, shape[1] + 2, shape[2] + 2)
     p = np.zeros(padded, dtype=np.float64)
@@ -53,16 +77,17 @@ def test_pressure_gradient_is_nonzero_for_ramp():
 
 def test_divergence_of_pressure_gradient_mimics_laplacian():
     shape = (6, 6, 6)
-    pressure = create_pressure_field(shape, ramp_axis=0)
+    pressure = create_quadratic_pressure_field(shape, axis=0)
     mesh = mesh_metadata(shape)
     grad = compute_pressure_gradient(pressure, mesh)
     div = compute_divergence(grad, mesh)
     interior = div[2:-2, 2:-2, 2:-2]
-    assert np.all(np.abs(interior) > 0.0)
+    mean_val = np.mean(interior)
+    assert np.allclose(interior, mean_val, atol=1e-10)
 
 def test_divergence_sign_detects_expansion_or_compression():
     shape = (5, 5, 5)
-    velocity = create_velocity_field(shape, component=0, value=1.0)
+    velocity = create_linearly_increasing_velocity(shape, axis=0)
     mesh = mesh_metadata(shape)
     div = compute_divergence(velocity, mesh)
     core = div[2:-2, 2:-2, 2:-2]
@@ -85,11 +110,12 @@ def test_divergence_of_rotational_field_is_zero():
 
 def test_anisotropic_spacing_affects_divergence_scale():
     shape = (6, 6, 6)
-    velocity = create_velocity_field(shape, component=0, value=1.0)
+    velocity = create_linearly_increasing_velocity(shape, axis=0)
     mesh = mesh_metadata(shape, dx=2.0, dy=1.0, dz=0.5)
     div = compute_divergence(velocity, mesh)
-    expected = 1.0 / 2.0
-    assert np.allclose(div[2:-2, 2:-2, 2:-2], expected, atol=1e-10)
+    expected = 1.0 / mesh["dx"]
+    core = div[2:-2, 2:-2, 2:-2]
+    assert np.allclose(core, expected, atol=1e-10)
 
 def test_divergence_of_velocity_with_boundary_gradient_only():
     shape = (6, 6, 6)
