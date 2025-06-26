@@ -58,4 +58,39 @@ def add_zero_padding(core_field):
     return padded
 
 
+def compute_scaled_laplacian(phi_padded, dx):
+    """
+    Computes the 7-point finite-difference Laplacian scaled by 1/dx².
+
+    Args:
+        phi_padded (np.ndarray): Padded scalar field of shape (nx+2, ny+2, nz+2)
+        dx (float): Grid spacing (assumed uniform)
+
+    Returns:
+        np.ndarray: Laplacian approximation over the interior (nx, ny, nz)
+    """
+    return (
+        -6.0 * phi_padded[1:-1, 1:-1, 1:-1] +
+        phi_padded[2:, 1:-1, 1:-1] + phi_padded[:-2, 1:-1, 1:-1] +
+        phi_padded[1:-1, 2:, 1:-1] + phi_padded[1:-1, :-2, 1:-1] +
+        phi_padded[1:-1, 1:-1, 2:] + phi_padded[1:-1, 1:-1, :-2]
+    ) / dx**2
+
+
+def compute_relative_residual(laplacian, rhs_core):
+    """
+    Computes the relative L2 residual norm ||∇²φ - f|| / ||f||.
+
+    Args:
+        laplacian (np.ndarray): Interior Laplacian estimate
+        rhs_core (np.ndarray): Unpadded right-hand side
+
+    Returns:
+        float: Relative residual norm
+    """
+    residual = laplacian - rhs_core
+    norm_rhs = np.linalg.norm(rhs_core)
+    return np.linalg.norm(residual) / norm_rhs if norm_rhs > 1e-12 else np.linalg.norm(residual)
+
+
 

@@ -11,13 +11,14 @@ from numba import jit, float64
         float64, float64, float64,  # dx, dy, dz
         float64,  # omega
         float64,  # max_iterations
-        float64   # tolerance
+        float64,  # tolerance
+        float64[:]  # output_residual[0] (return via array)
     ),
     nopython=True,
     parallel=False,
     cache=False
 )
-def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, tolerance):
+def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, tolerance, output_residual):
     nx, ny, nz = phi.shape
     dx2_inv = 1.0 / (dx * dx)
     dy2_inv = 1.0 / (dy * dy)
@@ -46,11 +47,13 @@ def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, toleran
                         max_residual = max(max_residual, abs(delta))
         if max_residual < tolerance:
             break
+    output_residual[0] = max_residual
     return phi
 
 
 def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
-                          omega=1.7, max_iterations=3000, tolerance=1e-6):
+                          omega=1.7, max_iterations=3000, tolerance=1e-6,
+                          return_residual=False):
     """
     Solves the Poisson equation for pressure correction using SOR with residual checking.
 
@@ -61,9 +64,11 @@ def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
         omega (float): Relaxation factor (recommended 1.7 for 3D)
         max_iterations (int): Maximum number of SOR iterations
         tolerance (float): Residual tolerance for convergence (early stopping)
+        return_residual (bool): If True, also return the final residual (for testing/debug)
 
     Returns:
         np.ndarray: Solution φ (pressure correction), shape (nx, ny, nz)
+        float (optional): Final residual (only if return_residual=True)
     """
     nx, ny, nz = mesh_info["grid_shape"]
     dx = mesh_info["dx"]
@@ -73,9 +78,17 @@ def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
     phi = np.zeros((nx, ny, nz), dtype=np.float64)
     b_source = divergence_u_star / time_step
 
-    phi = _sor_kernel_with_residual(phi, b_source, dx, dy, dz, omega,
-                                    float(max_iterations), float(tolerance))
-    return phi
+    residual_container = np.zeros(1, dtype=np.float64)
+
+    phi = _sor_kernel_with_residual(
+        phi, b_source, dx, dy, dz, omega,
+        float(max_iterations), float(tolerance), residual_container
+    )
+
+    if return_residual:
+        return phi, residual_container[0]
+    else:
+        return phi
 
 
 
