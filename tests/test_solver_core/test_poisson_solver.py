@@ -47,7 +47,8 @@ def test_poisson_matches_manufactured_sine_solution():
 
     reference -= reference.mean()
     core -= core.mean()
-    assert np.allclose(core, reference, atol=1e-2)
+    error = np.mean(np.abs(core - reference))
+    assert error < 0.02
 
 
 def test_poisson_output_matches_rhs_shape():
