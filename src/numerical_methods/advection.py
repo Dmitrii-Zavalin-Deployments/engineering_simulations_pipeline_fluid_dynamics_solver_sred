@@ -25,47 +25,45 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     vel_z = velocity_field[..., 2]
 
     def upwind_derivative(u, v, axis, spacing):
-        """
-        Compute first-order upwind derivative of u along given axis using velocity v.
-        """
         deriv = np.zeros_like(u)
         pos_vel = v > 0
-
         if not is_scalar:
             pos_vel = pos_vel[..., np.newaxis]
 
         idx = [slice(None)] * u.ndim
         idx_p = idx.copy()
         idx_n = idx.copy()
-
         idx_p[axis] = slice(1, -1)
         idx_n[axis] = slice(0, -2)
-
         forward = (u[tuple(idx_p)] - u[tuple(idx_n)]) / spacing
 
         idx_p2 = idx.copy()
         idx_n2 = idx.copy()
         idx_p2[axis] = slice(2, None)
         idx_n2[axis] = slice(1, -1)
-
         backward = (u[tuple(idx_n2)] - u[tuple(idx_n)]) / spacing
 
         center = idx.copy()
         center[axis] = slice(1, -1)
-
         deriv[tuple(center)] = np.where(
             pos_vel[tuple(center)],
             backward,
             forward
         )
-
         return deriv
 
-    advection += vel_x * upwind_derivative(u_field, vel_x, axis=0, spacing=dx)
-    advection += vel_y * upwind_derivative(u_field, vel_y, axis=1, spacing=dy)
-    advection += vel_z * upwind_derivative(u_field, vel_z, axis=2, spacing=dz)
+    if is_scalar:
+        advection += vel_x * upwind_derivative(u_field, vel_x, axis=0, spacing=dx)
+        advection += vel_y * upwind_derivative(u_field, vel_y, axis=1, spacing=dy)
+        advection += vel_z * upwind_derivative(u_field, vel_z, axis=2, spacing=dz)
+    else:
+        for comp in range(3):
+            uc = u_field[..., comp]
+            advection[..., comp] += vel_x * upwind_derivative(uc, vel_x, axis=0, spacing=dx)
+            advection[..., comp] += vel_y * upwind_derivative(uc, vel_y, axis=1, spacing=dy)
+            advection[..., comp] += vel_z * upwind_derivative(uc, vel_z, axis=2, spacing=dz)
 
-    return -advection  # Note the negative sign for - (u · ∇)u
+    return -advection  # Negative for - (u · ∇)u
 
 def advect_velocity(u, v, w, dx, dy, dz, dt):
     """
@@ -80,7 +78,6 @@ def advect_velocity(u, v, w, dx, dy, dz, dt):
         tuple: Advected components (u*, v*, w*) on the interior domain
     """
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
-
     velocity = np.stack([u, v, w], axis=-1)
     mesh_info = {
         "grid_shape": u.shape,
