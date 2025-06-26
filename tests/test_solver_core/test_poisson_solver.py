@@ -36,7 +36,7 @@ def test_poisson_matches_known_quadratic_solution():
     dx = dy = dz = 1.0 / nx
     mesh = create_mesh_info(nx, ny, nz, dx, dy, dz)
 
-    rhs_core = -6.0 * np.ones((nx, ny, nz))  # Laplacian of x^2 + y^2 + z^2
+    rhs_core = -6.0 * np.ones((nx, ny, nz))  # ∇²(x² + y² + z²) = -6
     rhs_padded = add_zero_padding(rhs_core)
 
     phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=10000)
