@@ -6,8 +6,6 @@ from src.numerical_methods.pressure_correction import apply_pressure_correction
 from src.numerical_methods.pressure_divergence import compute_pressure_divergence
 from tests.test_solver_core.test_utils import (
     mesh_metadata,
-    compute_total_momentum,
-    compute_total_mass_flux,
     create_sinusoidal_velocity,
 )
 
@@ -83,10 +81,10 @@ def test_projection_preserves_momentum_on_divergence_free_field():
     div = compute_pressure_divergence(velocity, mesh)
     assert np.allclose(div[1:-1, 1:-1, 1:-1], 0.0, atol=1e-10)
 
-    rhs = np.pad(div, ((1,1), (1,1), (1,1)), mode="constant")
+    rhs = np.pad(div, ((1, 1), (1, 1), (1, 1)), mode="constant")
     phi = solve_poisson_for_phi(rhs, mesh, time_step=1.0)
     corrected_u, _ = apply_pressure_correction(
-        velocity, np.zeros_like(phi), phi[1:-1,1:-1,1:-1],
+        velocity, np.zeros_like(phi), phi[1:-1, 1:-1, 1:-1],
         mesh, 1.0, 1.0
     )
 

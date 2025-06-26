@@ -72,7 +72,7 @@ def create_sinusoidal_velocity(shape):
     z = np.linspace(0, 2 * np.pi, shape[2] + 2)
     X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
 
-    velocity = np.zeros((shape[0]+2, shape[1]+2, shape[2]+2, 3))
+    velocity = np.zeros((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3))
     velocity[..., 0] = np.sin(X) * np.cos(Y) * np.cos(Z)
     velocity[..., 1] = -np.cos(X) * np.sin(Y) * np.cos(Z)
     velocity[..., 2] = 0.0
