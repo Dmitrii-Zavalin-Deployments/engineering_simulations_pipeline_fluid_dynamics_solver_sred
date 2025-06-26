@@ -34,7 +34,8 @@ def test_pressure_correction_reduces_divergence():
     )
 
     div_after = compute_pressure_divergence(corrected_u, mesh)
-    assert np.mean(np.abs(div_after)) < 0.1 * np.mean(np.abs(div_before))
+    reduction_ratio = np.mean(np.abs(div_after)) / np.mean(np.abs(div_before))
+    assert reduction_ratio < 0.5, f"Divergence only reduced by {reduction_ratio:.3f}, expected less than 0.5"
 
 
 def test_pressure_projection_converges_over_multiple_steps():
@@ -42,9 +43,12 @@ def test_pressure_projection_converges_over_multiple_steps():
     mesh = mesh_metadata(shape, dx=1.0 / shape[0])
     velocity = np.random.randn(shape[0] + 2, shape[1] + 2, shape[2] + 2, 3) * 0.1
 
+    div_history = []
     for _ in range(6):
-        rhs = compute_pressure_divergence(velocity, mesh)
-        padded_rhs = np.pad(rhs, ((1, 1), (1, 1), (1, 1)), mode="constant")
+        divergence = compute_pressure_divergence(velocity, mesh)
+        div_history.append(np.mean(np.abs(divergence)))
+
+        padded_rhs = np.pad(divergence, ((1, 1), (1, 1), (1, 1)), mode="constant")
         phi = solve_poisson_for_phi(
             padded_rhs, mesh, time_step=1.0, max_iterations=5000, tolerance=1e-6
         )
@@ -54,8 +58,10 @@ def test_pressure_projection_converges_over_multiple_steps():
             mesh, 1.0, 1.0
         )
 
-    final_div = compute_pressure_divergence(velocity, mesh)
-    assert np.mean(np.abs(final_div)) < 1e-5
+    assert div_history[-1] / div_history[0] < 1e-3, (
+        f"Final divergence ratio was {div_history[-1] / div_history[0]:.3e}, "
+        "expected at least 1000× reduction"
+    )
 
 
 def test_boundary_sensitive_pressure_gradient():

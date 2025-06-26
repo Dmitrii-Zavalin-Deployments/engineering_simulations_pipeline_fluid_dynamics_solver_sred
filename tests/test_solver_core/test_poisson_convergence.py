@@ -2,16 +2,12 @@
 
 import numpy as np
 from src.numerical_methods.poisson_solver import solve_poisson_for_phi
-from tests.test_solver_core.test_utils import create_mesh_info, add_zero_padding
-
-
-def compute_scaled_laplacian(phi, dx):
-    return (
-        -6.0 * phi[1:-1, 1:-1, 1:-1] +
-        phi[2:, 1:-1, 1:-1] + phi[:-2, 1:-1, 1:-1] +
-        phi[1:-1, 2:, 1:-1] + phi[1:-1, :-2, 1:-1] +
-        phi[1:-1, 1:-1, 2:] + phi[1:-1, 1:-1, :-2]
-    ) / dx**2
+from tests.test_solver_core.test_utils import (
+    create_mesh_info,
+    add_zero_padding,
+    compute_scaled_laplacian,
+    compute_relative_residual,
+)
 
 
 def test_poisson_convergence_improves_with_iterations():
@@ -21,17 +17,16 @@ def test_poisson_convergence_improves_with_iterations():
     rhs_core = -6.0 * np.ones((nx, ny, nz))
     rhs_padded = add_zero_padding(rhs_core)
 
-    phi_low = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=20)
-    phi_high = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=200)
+    phi_early = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=20)
+    phi_late = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=200)
 
-    lap_low = compute_scaled_laplacian(phi_low, dx)
-    lap_high = compute_scaled_laplacian(phi_high, dx)
+    lap_early = compute_scaled_laplacian(phi_early, dx)
+    lap_late = compute_scaled_laplacian(phi_late, dx)
 
-    res_low = np.linalg.norm(lap_low - rhs_core)
-    res_high = np.linalg.norm(lap_high - rhs_core)
+    res_early = compute_relative_residual(lap_early, rhs_core)
+    res_late = compute_relative_residual(lap_late, rhs_core)
 
-    # Allow for equality within floating-point tolerance
-    assert res_high < res_low or np.isclose(res_high, res_low, atol=1e-6)
+    assert res_late < res_early or np.isclose(res_late, res_early, atol=1e-6)
 
 
 def test_poisson_converges_toward_zero_residual_when_rhs_zero():
@@ -84,11 +79,15 @@ def test_poisson_residual_decay_against_strict_tolerance():
     rhs_core = np.sin(np.pi * X) * np.sin(np.pi * Y) * np.sin(np.pi * Z)
     rhs_padded = add_zero_padding(rhs_core)
 
-    phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=10000, tolerance=1e-8)
+    phi = solve_poisson_for_phi(
+        rhs_padded,
+        mesh,
+        time_step=1.0,
+        max_iterations=10000,
+        tolerance=1e-8
+    )
     laplacian = compute_scaled_laplacian(phi, dx)
-
-    residual = np.linalg.norm(laplacian - rhs_core)
-    rel_residual = residual / np.linalg.norm(rhs_core)
+    rel_residual = compute_relative_residual(laplacian, rhs_core)
 
     assert rel_residual < 1e-3
 

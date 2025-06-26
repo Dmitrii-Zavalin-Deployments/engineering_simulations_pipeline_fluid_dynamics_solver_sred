@@ -1,6 +1,7 @@
 # tests/test_solver_core/test_utils.py
 
 import numpy as np
+from src.numerical_methods.pressure_divergence import compute_pressure_divergence
 
 
 def mesh_metadata(shape, dx=1.0, dy=1.0, dz=1.0):
@@ -91,6 +92,37 @@ def compute_relative_residual(laplacian, rhs_core):
     residual = laplacian - rhs_core
     norm_rhs = np.linalg.norm(rhs_core)
     return np.linalg.norm(residual) / norm_rhs if norm_rhs > 1e-12 else np.linalg.norm(residual)
+
+
+def compute_mean_divergence(velocity, mesh):
+    """
+    Computes the mean absolute divergence of a velocity field.
+
+    Args:
+        velocity (np.ndarray): Velocity field of shape (nx+2, ny+2, nz+2, 3)
+        mesh (dict): Mesh metadata with dx, dy, dz
+
+    Returns:
+        float: Mean absolute divergence over the interior grid
+    """
+    divergence = compute_pressure_divergence(velocity, mesh)
+    return np.mean(np.abs(divergence))
+
+
+def divergence_reduction_ratio(before, after):
+    """
+    Computes the ratio of mean divergence before and after correction.
+
+    Args:
+        before (np.ndarray): Initial divergence field
+        after (np.ndarray): Divergence field after correction
+
+    Returns:
+        float: Reduction ratio (after / before)
+    """
+    norm_before = np.mean(np.abs(before))
+    norm_after = np.mean(np.abs(after))
+    return norm_after / norm_before if norm_before > 1e-12 else norm_after
 
 
 
