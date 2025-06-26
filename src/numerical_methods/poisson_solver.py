@@ -12,7 +12,7 @@ from numba import jit, float64
         float64,  # omega
         float64,  # max_iterations
         float64,  # tolerance
-        float64[:]  # output_residual[0] (return via array)
+        float64[:]  # output_residual[0]
     ),
     nopython=True,
     parallel=False,
@@ -30,11 +30,7 @@ def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, toleran
         for k in range(nz):
             for j in range(ny):
                 for i in range(nx):
-                    if (
-                        i == 0 or i == nx - 1 or
-                        j == 0 or j == ny - 1 or
-                        k == 0 or k == nz - 1
-                    ):
+                    if i == 0 or i == nx - 1 or j == 0 or j == ny - 1 or k == 0 or k == nz - 1:
                         phi[i, j, k] = 0.0
                     else:
                         term_x = (phi[i + 1, j, k] + phi[i - 1, j, k]) * dx2_inv
@@ -52,24 +48,28 @@ def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, toleran
 
 
 def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
-                          omega=1.7, max_iterations=3000, tolerance=1e-6,
-                          return_residual=False):
+                          omega=1.7, max_iterations=1000, tolerance=1e-6,
+                          return_residual=False, backend="sor"):
     """
-    Solves the Poisson equation for pressure correction using SOR with residual checking.
+    Solves the Poisson equation for pressure correction using a selected backend.
 
     Args:
-        divergence_u_star (np.ndarray): Source term (typically ∇·u*), shape (nx, ny, nz)
-        mesh_info (dict): Contains grid_shape and spacings 'dx', 'dy', 'dz'
-        time_step (float): Time step size (dt)
-        omega (float): Relaxation factor (recommended 1.7 for 3D)
-        max_iterations (int): Maximum number of SOR iterations
-        tolerance (float): Residual tolerance for convergence (early stopping)
-        return_residual (bool): If True, also return the final residual (for testing/debug)
+        divergence_u_star (np.ndarray): Source term (∇·u*), shape (nx, ny, nz)
+        mesh_info (dict): Dict with grid_shape and spacings ('dx', 'dy', 'dz')
+        time_step (float): Timestep (dt)
+        omega (float): Relaxation factor for SOR (default 1.7)
+        max_iterations (int): Max SOR iterations
+        tolerance (float): Residual threshold for convergence
+        return_residual (bool): If True, return final residual as second output
+        backend (str): Solver backend to use. Only 'sor' is currently supported.
 
     Returns:
-        np.ndarray: Solution φ (pressure correction), shape (nx, ny, nz)
-        float (optional): Final residual (only if return_residual=True)
+        np.ndarray: Pressure correction field φ
+        float (optional): Final residual (if return_residual=True)
     """
+    if backend != "sor":
+        raise ValueError(f"Unsupported backend '{backend}'. Only 'sor' is implemented.")
+
     nx, ny, nz = mesh_info["grid_shape"]
     dx = mesh_info["dx"]
     dy = mesh_info["dy"]
@@ -77,7 +77,6 @@ def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
 
     phi = np.zeros((nx, ny, nz), dtype=np.float64)
     b_source = divergence_u_star / time_step
-
     residual_container = np.zeros(1, dtype=np.float64)
 
     phi = _sor_kernel_with_residual(
@@ -85,10 +84,7 @@ def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
         float(max_iterations), float(tolerance), residual_container
     )
 
-    if return_residual:
-        return phi, residual_container[0]
-    else:
-        return phi
+    return (phi, residual_container[0]) if return_residual else phi
 
 
 

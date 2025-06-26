@@ -7,13 +7,13 @@ from src.numerical_methods.pressure_divergence import compute_pressure_divergenc
 def mesh_metadata(shape, dx=1.0, dy=1.0, dz=1.0):
     """
     Constructs mesh metadata for velocity and pressure correction tests.
-    
+
     Args:
         shape (tuple): Physical grid shape (nx, ny, nz) without ghost cells.
         dx (float): Spacing in x-direction.
         dy (float): Spacing in y-direction.
         dz (float): Spacing in z-direction.
-    
+
     Returns:
         dict: Metadata including padded grid shape and spacings.
     """
@@ -123,6 +123,24 @@ def divergence_reduction_ratio(before, after):
     norm_before = np.mean(np.abs(before))
     norm_after = np.mean(np.abs(after))
     return norm_after / norm_before if norm_before > 1e-12 else norm_after
+
+
+def log_divergence_progression(divergence_list):
+    """
+    Logs divergence values and reduction factors across projection steps.
+
+    Args:
+        divergence_list (list[float]): Mean divergence at each time step
+    """
+    print("\nDivergence convergence history:")
+    for i, div in enumerate(divergence_list):
+        tag = "initial" if i == 0 else f"step {i}"
+        print(f"  {tag:<8} → mean |div| = {div:.5e}")
+    if len(divergence_list) > 1:
+        final = divergence_list[-1]
+        initial = divergence_list[0]
+        reduction = final / initial if initial > 1e-12 else float("inf")
+        print(f"  Reduction factor: {reduction:.3e}")
 
 
 
