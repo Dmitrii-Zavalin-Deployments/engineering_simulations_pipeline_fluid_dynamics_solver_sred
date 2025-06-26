@@ -5,8 +5,7 @@ import pytest
 
 # 🔧 Adjust these import paths based on your actual module layout
 from src.utils import grid
-from src.boundary_conditions.ghost_utils import apply_ghost_cells
-
+from src.physics.boundary_conditions_applicator import apply_ghost_cells
 @pytest.mark.parametrize("field_name", ["u", "v", "w"])
 def test_ghost_cells_preserve_domain_and_apply_padding(field_name):
     """
