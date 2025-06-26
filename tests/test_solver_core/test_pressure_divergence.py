@@ -79,7 +79,6 @@ def test_divergence_of_rotational_field_is_zero():
     )
     u[..., 0] = -Y
     u[..., 1] = X
-    u[..., 2] = 0.0
     mesh = mesh_metadata(shape)
     div = compute_divergence(u, mesh)
     assert np.allclose(div[2:-2, 2:-2, 2:-2], 0.0, atol=1e-10)

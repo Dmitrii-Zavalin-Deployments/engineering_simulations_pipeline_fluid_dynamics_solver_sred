@@ -43,3 +43,27 @@ def compute_pressure_divergence(u_field, mesh_info):
     divergence = du_dx + dv_dy + dw_dz
     
     return divergence
+
+def compute_pressure_gradient(p_field, mesh_info):
+    """
+    Computes the gradient of the scalar pressure field using central differencing.
+
+    Args:
+        p_field (np.ndarray): Pressure field with ghost cells (nx+2, ny+2, nz+2).
+        mesh_info (dict): Dictionary with grid spacings: 'dx', 'dy', 'dz'.
+
+    Returns:
+        np.ndarray: Pressure gradient field of shape (nx, ny, nz, 3).
+    """
+    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
+
+    grad = np.zeros(p_field.shape + (3,), dtype=p_field.dtype)
+
+    grad[1:-1, 1:-1, 1:-1, 0] = (p_field[2:, 1:-1, 1:-1] - p_field[:-2, 1:-1, 1:-1]) / (2 * dx)
+    grad[1:-1, 1:-1, 1:-1, 1] = (p_field[1:-1, 2:, 1:-1] - p_field[1:-1, :-2, 1:-1]) / (2 * dy)
+    grad[1:-1, 1:-1, 1:-1, 2] = (p_field[1:-1, 1:-1, 2:] - p_field[1:-1, 1:-1, :-2]) / (2 * dz)
+
+    return grad
+
+
+
