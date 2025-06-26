@@ -7,22 +7,24 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     Computes the advection term - (u · ∇)u using a first-order upwind scheme.
 
     Args:
-        u_field (np.ndarray): Scalar or vector field being advected (shape: (nx, ny, nz) or (nx, ny, nz, 3)).
-        velocity_field (np.ndarray): Vector field with shape (nx, ny, nz, 3).
-        mesh_info (dict): Contains:
-            - 'grid_shape': tuple (nx, ny, nz)
-            - 'dx', 'dy', 'dz': Grid spacing
+        u_field (np.ndarray): Scalar (nx, ny, nz) or vector (nx, ny, nz, 3) field to advect.
+        velocity_field (np.ndarray): Velocity vector field of shape (nx, ny, nz, 3).
+        mesh_info (dict): Dictionary with:
+            - 'grid_shape': (nx, ny, nz)
+            - 'dx', 'dy', 'dz': Grid spacing in each direction.
 
     Returns:
-        np.ndarray: Advection term with the same shape as u_field.
+        np.ndarray: Advection term, same shape as u_field.
     """
-    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
+    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
+    is_scalar = u_field.ndim == 3
     advection = np.zeros_like(u_field)
-    is_scalar = (u_field.ndim == 3)
 
-    vel_x, vel_y, vel_z = velocity_field[..., 0], velocity_field[..., 1], velocity_field[..., 2]
+    vel_x = velocity_field[..., 0]
+    vel_y = velocity_field[..., 1]
+    vel_z = velocity_field[..., 2]
 
-    def compute_flux_component(u, v, axis):
+    def compute_flux_component(u, v):
         pos = np.maximum(0, v)
         neg = np.minimum(0, v)
 
@@ -30,68 +32,62 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
             pos = pos[..., np.newaxis]
             neg = neg[..., np.newaxis]
 
-        F_plus = u * pos
-        F_minus = u * neg
-
-        return F_plus, F_minus
+        return u * pos, u * neg
 
     # X-direction
-    Fp, Fn = compute_flux_component(u_field, vel_x, axis=0)
-    Fx_p = np.zeros_like(u_field)
-    Fx_n = np.zeros_like(u_field)
-    Fx_p[:-1] = Fp[:-1] + Fn[1:]
-    Fx_p[-1] = Fp[-1]
-    Fx_n[1:] = Fp[1:] + Fn[:-1]
-    Fx_n[0] = Fn[0]
-    advection += (Fx_p - Fx_n) / dx
+    Fp, Fn = compute_flux_component(u_field, vel_x)
+    flux_x = np.zeros_like(u_field)
+    flux_x[1:] += Fp[1:] + Fn[:-1]
+    flux_x[0] = Fn[0]
+    flux_x[:-1] -= Fp[:-1] + Fn[1:]
+    flux_x[-1] -= Fp[-1]
+    advection += flux_x / dx
 
     # Y-direction
-    Fp, Fn = compute_flux_component(u_field, vel_y, axis=1)
-    Fy_p = np.zeros_like(u_field)
-    Fy_n = np.zeros_like(u_field)
-    Fy_p[:, :-1] = Fp[:, :-1] + Fn[:, 1:]
-    Fy_p[:, -1] = Fp[:, -1]
-    Fy_n[:, 1:] = Fp[:, 1:] + Fn[:, :-1]
-    Fy_n[:, 0] = Fn[:, 0]
-    advection += (Fy_p - Fy_n) / dy
+    Fp, Fn = compute_flux_component(u_field, vel_y)
+    flux_y = np.zeros_like(u_field)
+    flux_y[:, 1:] += Fp[:, 1:] + Fn[:, :-1]
+    flux_y[:, 0] = Fn[:, 0]
+    flux_y[:, :-1] -= Fp[:, :-1] + Fn[:, 1:]
+    flux_y[:, -1] -= Fp[:, -1]
+    advection += flux_y / dy
 
     # Z-direction
-    Fp, Fn = compute_flux_component(u_field, vel_z, axis=2)
-    Fz_p = np.zeros_like(u_field)
-    Fz_n = np.zeros_like(u_field)
-    Fz_p[:, :, :-1] = Fp[:, :, :-1] + Fn[:, :, 1:]
-    Fz_p[:, :, -1] = Fp[:, :, -1]
-    Fz_n[:, :, 1:] = Fp[:, :, 1:] + Fn[:, :, :-1]
-    Fz_n[:, :, 0] = Fn[:, :, 0]
-    advection += (Fz_p - Fz_n) / dz
+    Fp, Fn = compute_flux_component(u_field, vel_z)
+    flux_z = np.zeros_like(u_field)
+    flux_z[:, :, 1:] += Fp[:, :, 1:] + Fn[:, :, :-1]
+    flux_z[:, :, 0] = Fn[:, :, 0]
+    flux_z[:, :, :-1] -= Fp[:, :, :-1] + Fn[:, :, 1:]
+    flux_z[:, :, -1] -= Fp[:, :, -1]
+    advection += flux_z / dz
 
     return advection
 
 def advect_velocity(u, v, w, dx, dy, dz, dt):
     """
-    Computes the velocity field after one forward Euler advection step.
+    Performs forward Euler advection of velocity components using a staggered MAC grid.
 
     Args:
-        u, v, w: Velocity components with ghost cells included (shape: (nx+2, ny+2, nz+2))
-        dx, dy, dz: Grid spacing
-        dt: Time step
+        u, v, w (np.ndarray): Velocity components with ghost cells, shape (nx+2, ny+2, nz+2)
+        dx, dy, dz (float): Grid spacing
+        dt (float): Time step
 
     Returns:
-        u*, v*, w*: Advected velocity fields on the interior domain
+        tuple: Advected components (u*, v*, w*) on the interior domain
     """
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
 
     velocity = np.stack([u, v, w], axis=-1)
-    mesh = {
-        'grid_shape': u.shape,
-        'dx': dx,
-        'dy': dy,
-        'dz': dz,
+    mesh_info = {
+        "grid_shape": u.shape,
+        "dx": dx,
+        "dy": dy,
+        "dz": dz,
     }
 
-    u_star = u[interior] - dt * compute_advection_term(u, velocity, mesh)[interior]
-    v_star = v[interior] - dt * compute_advection_term(v, velocity, mesh)[interior]
-    w_star = w[interior] - dt * compute_advection_term(w, velocity, mesh)[interior]
+    u_star = u[interior] - dt * compute_advection_term(u, velocity, mesh_info)[interior]
+    v_star = v[interior] - dt * compute_advection_term(v, velocity, mesh_info)[interior]
+    w_star = w[interior] - dt * compute_advection_term(w, velocity, mesh_info)[interior]
 
     return u_star, v_star, w_star
 
