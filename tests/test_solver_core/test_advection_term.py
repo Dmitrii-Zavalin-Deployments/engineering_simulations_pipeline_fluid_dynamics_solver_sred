@@ -24,8 +24,8 @@ def test_uniform_scalar_field_with_uniform_flow_remains_constant():
     shape = (6, 6, 6)
     field = create_padded_field(shape, fill=3.0)
     velocity = create_padded_velocity(shape, fill=1.0)
-    mesh = {"grid_shape": field.shape, "dx": 1.0, "dy": 1.0, "dz": 1.0}
 
+    mesh = {"grid_shape": field.shape, "dx": 1.0, "dy": 1.0, "dz": 1.0}
     adv = compute_advection_term(field, velocity, mesh)
     interior = adv[2:-2, 2:-2, 2:-2]
     assert np.allclose(interior, 0.0, atol=1e-10)
@@ -33,7 +33,7 @@ def test_uniform_scalar_field_with_uniform_flow_remains_constant():
 def test_step_scalar_field_advects_properly():
     shape = (8, 8, 8)
     field = create_padded_field(shape)
-    field[4:, 3:-3, 3:-3] = 1.0  # step at x=4 inside core
+    field[3:, 3:-3, 3:-3] = 1.0  # step starting at x=3
 
     velocity = create_padded_velocity(shape, fill=0.0)
     velocity[..., 0] = 1.0  # flow in +x
@@ -56,8 +56,7 @@ def test_uniform_vector_field_yields_zero_advection():
 def test_vector_field_gradient_advects_components_independently():
     shape = (8, 8, 8)
     field = np.zeros((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3))
-    for i in range(field.shape[0]):
-        field[i, 3:-3, 3:-3, 0] = float(i)  # strong x-gradient across padded domain
+    field[3:, 3:-3, 3:-3, 0] = 1.0  # step in x-component of vector field
 
     velocity = np.zeros_like(field)
     velocity[..., 0] = 1.0  # flow in x
