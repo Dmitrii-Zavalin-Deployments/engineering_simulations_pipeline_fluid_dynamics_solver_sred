@@ -2,65 +2,88 @@
 
 import numpy as np
 import pytest
-from src.numerical_methods.diffusion import apply_diffusion_step
+from src.numerical_methods.diffusion import (
+    apply_diffusion_step,
+    compute_diffusion_term,
+)
 
-def create_test_field(nx, ny, nz, value=1.0):
-    """
-    Returns a padded 3D field with uniform interior values and ghost cells = 0.
-    """
-    padded_shape = (nx + 2, ny + 2, nz + 2)
-    field = np.zeros(padded_shape, dtype=np.float64)
+def create_uniform_field(nx, ny, nz, value=1.0):
+    field = np.zeros((nx + 2, ny + 2, nz + 2), dtype=np.float64)
     field[1:-1, 1:-1, 1:-1] = value
     return field
 
-def test_diffusion_does_not_change_uniform_field():
-    """
-    A uniform field should remain unchanged under diffusion.
-    """
-    nx, ny, nz = 8, 8, 8
-    dt = 0.01
-    nu = 0.1
+def create_spike_field(nx, ny, nz, spike_value=10.0):
+    field = np.zeros((nx + 2, ny + 2, nz + 2), dtype=np.float64)
+    cx, cy, cz = (nx + 1) // 2, (ny + 1) // 2, (nz + 1) // 2
+    field[cx, cy, cz] = spike_value
+    return field
 
-    mesh_info = {
+def mesh_metadata(nx, ny, nz, dx=1.0, dy=1.0, dz=1.0):
+    return {
         "grid_shape": (nx + 2, ny + 2, nz + 2),
-        "dx": 1.0, "dy": 1.0, "dz": 1.0
+        "dx": dx,
+        "dy": dy,
+        "dz": dz,
     }
 
-    u = create_test_field(nx, ny, nz, value=5.0)
+def test_apply_diffusion_uniform_field_stays_constant():
+    nx, ny, nz = 6, 6, 6
+    dt = 0.01
+    nu = 0.1
+    field = create_uniform_field(nx, ny, nz, value=5.0)
+    mesh_info = mesh_metadata(nx, ny, nz)
 
-    u_new = apply_diffusion_step(u.copy(), diffusion_coefficient=nu, mesh_info=mesh_info, dt=dt)
+    result = apply_diffusion_step(field.copy(), nu, mesh_info, dt)
+    interior = result[1:-1, 1:-1, 1:-1]
+    assert np.allclose(interior, 5.0, atol=1e-10)
 
-    interior = (slice(1, -1), slice(1, -1), slice(1, -1))
-    assert np.allclose(u_new[interior], u[interior], atol=1e-10), "Uniform field should remain constant"
-
-def test_diffusion_smooths_sharp_peak():
-    """
-    A central peak should smooth over time due to diffusion.
-    """
+def test_apply_diffusion_smooths_peak():
     nx, ny, nz = 5, 5, 5
     dt = 0.01
     nu = 0.1
+    mesh_info = mesh_metadata(nx, ny, nz)
+    u = create_spike_field(nx, ny, nz, spike_value=10.0)
 
-    mesh_info = {
-        "grid_shape": (nx + 2, ny + 2, nz + 2),
-        "dx": 1.0, "dy": 1.0, "dz": 1.0
-    }
-
-    u = np.zeros((nx + 2, ny + 2, nz + 2), dtype=np.float64)
-    u[3, 3, 3] = 10.0  # Central spike
-
-    u_new = apply_diffusion_step(u.copy(), diffusion_coefficient=nu, mesh_info=mesh_info, dt=dt)
-
-    peak_before = u[3, 3, 3]
-    peak_after = u_new[3, 3, 3]
-    neighbors = [
-        u_new[4, 3, 3], u_new[2, 3, 3],
-        u_new[3, 4, 3], u_new[3, 2, 3],
-        u_new[3, 3, 4], u_new[3, 3, 2]
+    u_new = apply_diffusion_step(u.copy(), nu, mesh_info, dt)
+    center = (nx + 1) // 2
+    interior_peak = u[center, center, center]
+    smoothed = u_new[center, center, center]
+    neighbor_values = [
+        u_new[center + 1, center, center],
+        u_new[center - 1, center, center],
+        u_new[center, center + 1, center],
+        u_new[center, center - 1, center],
+        u_new[center, center, center + 1],
+        u_new[center, center, center - 1],
     ]
+    assert smoothed < interior_peak
+    assert all(n > 0 for n in neighbor_values)
 
-    assert peak_after < peak_before, "Central value should decrease due to diffusion"
-    assert all(n > 0 for n in neighbors), "Neighbors should increase due to smoothing"
+def test_compute_diffusion_term_returns_zero_for_uniform_field():
+    nx, ny, nz = 4, 4, 4
+    nu = 0.1
+    mesh_info = mesh_metadata(nx, ny, nz)
+    field = create_uniform_field(nx, ny, nz, value=2.5)
+    diff = compute_diffusion_term(field, nu, mesh_info)
+    assert np.allclose(diff, 0.0)
+
+def test_compute_diffusion_term_returns_expected_shape():
+    nx, ny, nz = 5, 4, 3
+    mesh_info = mesh_metadata(nx, ny, nz)
+    field = np.random.rand(nx + 2, ny + 2, nz + 2)
+    diff = compute_diffusion_term(field, viscosity=0.2, mesh_info=mesh_info)
+    assert diff.shape == field.shape
+
+def test_vector_field_component_diffusion():
+    nx, ny, nz = 6, 6, 6
+    mesh_info = mesh_metadata(nx, ny, nz)
+    field = np.zeros((nx + 2, ny + 2, nz + 2, 3), dtype=np.float64)
+    field[3, 3, 3, 0] = 5.0  # x component spike
+
+    diff = compute_diffusion_term(field, viscosity=0.1, mesh_info=mesh_info)
+    assert diff.shape == field.shape
+    assert diff[3, 3, 3, 0] < 0.0  # Should lose mass
+    assert np.allclose(diff[..., 1:], 0.0)  # y/z untouched
 
 
 
