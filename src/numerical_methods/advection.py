@@ -26,25 +26,20 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
 
     def upwind_derivative(u, v, axis, spacing):
         deriv = np.zeros_like(u)
-        pos_vel = v > 0
-        if not is_scalar:
-            pos_vel = pos_vel[..., np.newaxis]
+        pos_vel = v > 0  # No extra dimension added
 
         idx = [slice(None)] * u.ndim
-        idx_p = idx.copy()
-        idx_n = idx.copy()
+        idx_p = idx.copy(); idx_n = idx.copy()
         idx_p[axis] = slice(1, -1)
         idx_n[axis] = slice(0, -2)
         forward = (u[tuple(idx_p)] - u[tuple(idx_n)]) / spacing
 
-        idx_p2 = idx.copy()
-        idx_n2 = idx.copy()
+        idx_p2 = idx.copy(); idx_n2 = idx.copy()
         idx_p2[axis] = slice(2, None)
         idx_n2[axis] = slice(1, -1)
         backward = (u[tuple(idx_n2)] - u[tuple(idx_n)]) / spacing
 
-        center = idx.copy()
-        center[axis] = slice(1, -1)
+        center = idx.copy(); center[axis] = slice(1, -1)
         deriv[tuple(center)] = np.where(
             pos_vel[tuple(center)],
             backward,
