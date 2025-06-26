@@ -25,7 +25,7 @@ def convert_numpy_to_list(obj):
     elif isinstance(obj, list):
         return [convert_numpy_to_list(elem) for elem in obj]
     elif isinstance(obj, np.ndarray):
-        return obj.tolist() # This is the key conversion
+        return obj.tolist()
     else:
         return obj
 
@@ -37,3 +37,30 @@ def save_json(data, filepath):
     except Exception as e:
         print(f"Error saving JSON to {filepath}: {e}", file=sys.stderr)
         sys.exit(1)
+
+def apply_config_defaults(config):
+    """
+    Fills in default values for optional fields in the simulation config.
+    Raises KeyError for truly required fields.
+    """
+    config.setdefault("grid", {})
+    config["grid"].setdefault("dx", 1.0)
+
+    config.setdefault("time", {})
+    config["time"].setdefault("time_step", 0.01)
+
+    config.setdefault("solver", {})
+    if not config["solver"].get("method"):
+        config["solver"]["method"] = "explicit"
+
+    config.setdefault("initial_conditions", {})
+    config["initial_conditions"].setdefault("velocity_magnitude", 1.0)
+
+    # Required check: density must be present
+    if "fluid" not in config or "density" not in config["fluid"]:
+        raise KeyError("Missing required field: fluid.density")
+
+    return config
+
+
+
