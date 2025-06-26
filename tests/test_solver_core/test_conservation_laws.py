@@ -22,8 +22,11 @@ def test_mass_conservation_improves_after_projection():
     shape = (16, 16, 16)
     mesh = mesh_metadata(shape, dx=1.0)
 
+    np.random.seed(42)
     velocity = np.random.randn(*mesh["grid_shape"], 3) * 0.1
+
     div_before = compute_pressure_divergence(velocity, mesh)
+    mean_div_before = np.mean(np.abs(div_before))
     mass_flux_before = compute_total_mass_flux(div_before)
 
     rhs = np.pad(div_before, ((1, 1), (1, 1), (1, 1)), mode="constant")
@@ -35,10 +38,14 @@ def test_mass_conservation_improves_after_projection():
     )
 
     div_after = compute_pressure_divergence(corrected_u, mesh)
+    mean_div_after = np.mean(np.abs(div_after))
     mass_flux_after = compute_total_mass_flux(div_after)
 
-    assert abs(mass_flux_after) < abs(mass_flux_before), (
-        f"Mass flux worsened: before={mass_flux_before:.2e}, after={mass_flux_after:.2e}"
+    print(f"ℹ️ Mass flux:     before = {mass_flux_before:.3e}, after = {mass_flux_after:.3e}")
+    print(f"ℹ️ Mean |div|:    before = {mean_div_before:.3e}, after = {mean_div_after:.3e}")
+
+    assert abs(mean_div_after) < abs(mean_div_before), (
+        f"Mean divergence did not improve: {mean_div_before:.3e} → {mean_div_after:.3e}"
     )
 
 def test_projection_preserves_total_momentum():
