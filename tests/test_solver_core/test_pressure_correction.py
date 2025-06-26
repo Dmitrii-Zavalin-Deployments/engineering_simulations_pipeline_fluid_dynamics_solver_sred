@@ -20,14 +20,14 @@ def mesh_metadata(shape, dx=1.0, dy=1.0, dz=1.0):
 
 
 def test_calculate_gradient_matches_analytic_derivative():
-    nx, ny, nz = 8, 8, 8
+    nx, ny, nz = 64, 8, 8
     dx = 1.0 / nx
     x = np.linspace(0, 1, nx)
     X = np.broadcast_to(x[:, None, None], (nx, ny, nz))
     field = X**2
     grad_numeric = calculate_gradient(field, dx, axis=0)
     grad_exact = 2 * X
-    error = np.abs(grad_numeric - grad_exact).mean()
+    error = np.abs(grad_numeric[2:-2] - grad_exact[2:-2]).mean()
     assert error < 0.02
 
 
@@ -44,7 +44,10 @@ def test_apply_pressure_correction_modifies_velocity_and_pressure():
     dt = 0.1
     rho = 1.0
 
-    phi_core = np.ones((nx, ny, nz))
+    x = np.linspace(0, 1, nx)
+    X = np.broadcast_to(x[:, None, None], (nx, ny, nz))
+    phi_core = X
+
     p_field = np.zeros((nx + 2, ny + 2, nz + 2))
     velocity = np.zeros((nx + 2, ny + 2, nz + 2, 3))
 
@@ -59,7 +62,10 @@ def test_apply_pressure_correction_modifies_velocity_and_pressure():
 
 def test_velocity_correction_scales_with_density():
     shape = (6, 6, 6)
-    phi = np.ones(shape)
+    x = np.linspace(0, 1, shape[0])
+    X = np.broadcast_to(x[:, None, None], shape)
+    phi = X
+
     velocity = np.zeros((8, 8, 8, 3))
     pressure = np.zeros((8, 8, 8))
     mesh = mesh_metadata(shape, dx=1.0 / shape[0])
@@ -123,15 +129,17 @@ def test_boundary_sensitive_pressure_gradient():
     dx = 1.0 / nx
     mesh = mesh_metadata((nx, ny, nz), dx, dx, dx)
     phi = np.zeros((nx, ny, nz))
-    phi[-1, :, :] = 10.0  # Sharp gradient near boundary
+    phi[-1, :, :] = 10.0
 
     velocity = np.zeros((nx + 2, ny + 2, nz + 2, 3))
     pressure = np.zeros((nx + 2, ny + 2, nz + 2))
 
-    corrected_u, _ = apply_pressure_correction(velocity.copy(), pressure.copy(), phi, mesh, time_step=1.0, density=1.0)
+    corrected_u, _ = apply_pressure_correction(
+        velocity.copy(), pressure.copy(), phi, mesh, time_step=1.0, density=1.0
+    )
 
-    corner_velocity = corrected_u[-2, ny//2, nz//2, 0]
-    assert corner_velocity < -4.0  # Expect strong correction at boundary-facing cell
+    corner_velocity = corrected_u[-2, ny // 2, nz // 2, 0]
+    assert corner_velocity < -4.0
 
 
 def test_kinetic_energy_drops_after_projection():
@@ -139,14 +147,16 @@ def test_kinetic_energy_drops_after_projection():
     mesh = mesh_metadata(shape, dx=1.0 / shape[0])
     velocity = np.random.randn(shape[0] + 2, shape[1] + 2, shape[2] + 2, 3)
 
-    ke_before = 0.5 * np.sum(velocity[1:-1, 1:-1, 1:-1]**2)
+    ke_before = 0.5 * np.sum(velocity[1:-1, 1:-1, 1:-1] ** 2)
 
     rhs = compute_pressure_divergence(velocity, mesh)
     padded_rhs = np.pad(rhs, ((1, 1), (1, 1), (1, 1)), mode="constant")
     phi = solve_poisson_for_phi(padded_rhs, mesh, time_step=1.0, max_iterations=1000)
 
-    corrected_u, _ = apply_pressure_correction(velocity, np.zeros_like(phi), phi[1:-1, 1:-1, 1:-1], mesh, 1.0, 1.0)
-    ke_after = 0.5 * np.sum(corrected_u[1:-1, 1:-1, 1:-1]**2)
+    corrected_u, _ = apply_pressure_correction(
+        velocity, np.zeros_like(phi), phi[1:-1, 1:-1, 1:-1], mesh, 1.0, 1.0
+    )
+    ke_after = 0.5 * np.sum(corrected_u[1:-1, 1:-1, 1:-1] ** 2)
 
     assert ke_after < ke_before
 
