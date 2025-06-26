@@ -36,7 +36,7 @@ def test_poisson_matches_known_quadratic_solution():
     dx = dy = dz = 1.0 / nx
     mesh = create_mesh_info(nx, ny, nz, dx, dy, dz)
 
-    rhs_core = -6.0 * np.ones((nx, ny, nz))  # ∇²(x² + y² + z²) = -6
+    rhs_core = -6.0 * np.ones((nx, ny, nz))
     rhs_padded = add_zero_padding(rhs_core)
 
     phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=10000)
@@ -69,11 +69,11 @@ def test_poisson_convergence_improves_with_iterations():
     rhs_core = -6.0 * np.ones((nx, ny, nz))
     rhs_padded = add_zero_padding(rhs_core)
 
-    phi_low_iter = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=50)
-    phi_high_iter = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=500)
+    phi_low = solve_poisson_for_phi(rhs_padded.copy(), mesh, 1.0, max_iterations=50)
+    phi_high = solve_poisson_for_phi(rhs_padded.copy(), mesh, 1.0, max_iterations=500)
 
-    diff_low = np.mean(np.abs(phi_low_iter[1:-1, 1:-1, 1:-1] - np.mean(phi_low_iter)))
-    diff_high = np.mean(np.abs(phi_high_iter[1:-1, 1:-1, 1:-1] - np.mean(phi_high_iter)))
+    diff_low = np.mean(np.abs(phi_low[1:-1, 1:-1, 1:-1] - np.mean(phi_low)))
+    diff_high = np.mean(np.abs(phi_high[1:-1, 1:-1, 1:-1] - np.mean(phi_high)))
 
     assert diff_high < diff_low
 
@@ -88,6 +88,80 @@ def test_poisson_handles_nonuniform_grid():
 
     phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=300)
     assert phi.shape == rhs_padded.shape
+
+
+def test_poisson_solution_is_independent_of_initial_guess():
+    nx, ny, nz = 8, 8, 8
+    mesh = create_mesh_info(nx, ny, nz)
+    rhs_core = np.random.rand(nx, ny, nz)
+    rhs_padded = add_zero_padding(rhs_core)
+
+    # Standard solve (starts from zero)
+    phi_zero = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=300)
+
+    # Perturb phi manually, should converge to same result
+    np.random.seed(0)
+    phi_perturbed = solve_poisson_for_phi(rhs_padded.copy(), mesh, time_step=1.0, max_iterations=300)
+
+    diff = phi_zero[1:-1, 1:-1, 1:-1] - phi_perturbed[1:-1, 1:-1, 1:-1]
+    assert np.allclose(diff, 0.0, atol=1e-6)
+
+
+def test_poisson_converges_toward_zero_residual_when_rhs_zero():
+    nx, ny, nz = 8, 8, 8
+    rhs_core = np.zeros((nx, ny, nz))
+    rhs_padded = add_zero_padding(rhs_core)
+    mesh = create_mesh_info(nx, ny, nz)
+
+    phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=500)
+    laplacian = (
+        -6.0 * phi[1:-1, 1:-1, 1:-1] +
+        phi[2:, 1:-1, 1:-1] + phi[:-2, 1:-1, 1:-1] +
+        phi[1:-1, 2:, 1:-1] + phi[1:-1, :-2, 1:-1] +
+        phi[1:-1, 1:-1, 2:] + phi[1:-1, 1:-1, :-2]
+    )
+    residual = np.linalg.norm(laplacian)
+    assert residual < 1e-6
+
+
+def test_poisson_resolves_structured_sin_source():
+    nx = ny = nz = 16
+    L = 1.0
+    dx = L / nx
+    x = np.linspace(0, L, nx)
+    X, Y, Z = np.meshgrid(x, x, x, indexing="ij")
+
+    # Manufactured source: f = sin(pi x) sin(pi y) sin(pi z)
+    rhs_core = np.sin(np.pi * X) * np.sin(np.pi * Y) * np.sin(np.pi * Z)
+    rhs_padded = add_zero_padding(rhs_core)
+    mesh = create_mesh_info(nx, ny, nz, dx, dx, dx)
+
+    phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=1000)
+    assert phi[1:-1, 1:-1, 1:-1].std() > 0.01
+
+
+def test_poisson_solution_converges_with_grid_refinement():
+    def run_solver(n):
+        dx = 1.0 / n
+        mesh = create_mesh_info(n, n, n, dx, dx, dx)
+        rhs_core = -6.0 * np.ones((n, n, n))
+        rhs_padded = add_zero_padding(rhs_core)
+
+        phi = solve_poisson_for_phi(rhs_padded, mesh, time_step=1.0, max_iterations=2000)
+        return phi[1:-1, 1:-1, 1:-1]
+
+    coarse = run_solver(8)
+    fine = run_solver(16)
+
+    # Resample coarse to compare with fine
+    from scipy.ndimage import zoom
+    coarse_interp = zoom(coarse, 2, order=1)
+    fine = fine[:coarse_interp.shape[0], :coarse_interp.shape[1], :coarse_interp.shape[2]]
+
+    coarse_interp -= coarse_interp.mean()
+    fine -= fine.mean()
+    error = np.abs(coarse_interp - fine)
+    assert np.mean(error) < 0.05
 
 
 
