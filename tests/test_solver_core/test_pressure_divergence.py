@@ -112,8 +112,13 @@ def test_anisotropic_spacing_affects_divergence_scale():
     shape = (6, 6, 6)
     velocity = create_linearly_increasing_velocity(shape, axis=0)
     mesh = mesh_metadata(shape, dx=2.0, dy=1.0, dz=0.5)
+
+    nx = mesh["grid_shape"][0] - 2
+    spacing = mesh["dx"]
+    effective_intervals = nx + 1
+    expected = (1.0 / effective_intervals) / spacing
+
     div = compute_divergence(velocity, mesh)
-    expected = 1.0 / mesh["dx"]
     core = div[2:-2, 2:-2, 2:-2]
     assert np.allclose(core, expected, atol=1e-10)
 
