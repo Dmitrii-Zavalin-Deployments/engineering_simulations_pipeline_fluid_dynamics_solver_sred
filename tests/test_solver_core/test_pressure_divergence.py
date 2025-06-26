@@ -82,7 +82,12 @@ def test_divergence_of_pressure_gradient_mimics_laplacian():
     grad = compute_pressure_gradient(pressure, mesh)
     div = compute_divergence(grad, mesh)
     interior = div[2:-2, 2:-2, 2:-2]
-    mean_val = np.mean(interior)
+
+    # Safety check to avoid RuntimeWarning on empty mean
+    assert interior.size > 0, "Interior divergence region is unexpectedly empty"
+
+    # Use nanmean to suppress any accidental NaNs
+    mean_val = np.nanmean(interior)
     assert np.allclose(interior, mean_val, atol=1e-10)
 
 def test_divergence_sign_detects_expansion_or_compression():
