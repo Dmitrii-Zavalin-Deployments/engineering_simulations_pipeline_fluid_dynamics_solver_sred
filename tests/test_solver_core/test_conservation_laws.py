@@ -1,0 +1,61 @@
+# tests/test_solver_core/test_conservation_laws.py
+
+import numpy as np
+from src.numerical_methods.poisson_solver import solve_poisson_for_phi
+from src.numerical_methods.pressure_correction import apply_pressure_correction
+from src.numerical_methods.pressure_divergence import compute_pressure_divergence
+from tests.test_solver_core.test_utils import mesh_metadata
+
+def compute_total_momentum(velocity):
+    core = velocity[1:-1, 1:-1, 1:-1, :]
+    return np.sum(core, axis=(0, 1, 2))
+
+def compute_total_mass_flux(divergence_field, cell_volume=1.0):
+    return np.sum(divergence_field) * cell_volume
+
+def test_mass_conservation_improves_after_projection():
+    shape = (16, 16, 16)
+    mesh = mesh_metadata(shape, dx=1.0)
+
+    velocity = np.random.randn(*mesh["grid_shape"], 3) * 0.1
+    div_before = compute_pressure_divergence(velocity, mesh)
+    mass_flux_before = compute_total_mass_flux(div_before)
+
+    rhs = np.pad(div_before, ((1, 1), (1, 1), (1, 1)), mode="constant")
+    phi = solve_poisson_for_phi(rhs, mesh, time_step=1.0)
+
+    corrected_u, _ = apply_pressure_correction(
+        velocity, np.zeros_like(phi),
+        phi[1:-1,1:-1,1:-1], mesh, 1.0, 1.0
+    )
+    div_after = compute_pressure_divergence(corrected_u, mesh)
+    mass_flux_after = compute_total_mass_flux(div_after)
+
+    assert abs(mass_flux_after) < abs(mass_flux_before), (
+        f"Mass flux worsened: before={mass_flux_before:.2e}, after={mass_flux_after:.2e}"
+    )
+
+def test_projection_preserves_total_momentum():
+    shape = (12, 12, 12)
+    mesh = mesh_metadata(shape)
+
+    velocity = np.random.randn(*mesh["grid_shape"], 3) * 0.2
+    momentum_before = compute_total_momentum(velocity)
+
+    div = compute_pressure_divergence(velocity, mesh)
+    rhs = np.pad(div, ((1, 1), (1, 1), (1, 1)), mode="constant")
+    phi = solve_poisson_for_phi(rhs, mesh, time_step=1.0)
+
+    corrected_u, _ = apply_pressure_correction(
+        velocity, np.zeros_like(phi),
+        phi[1:-1,1:-1,1:-1], mesh, 1.0, 1.0
+    )
+    momentum_after = compute_total_momentum(corrected_u)
+
+    delta = np.linalg.norm(momentum_after - momentum_before)
+    norm_before = np.linalg.norm(momentum_before)
+    rel_error = delta / norm_before if norm_before > 1e-12 else delta
+    assert rel_error < 1e-6, f"Momentum changed: Δ = {delta:.2e} (rel = {rel_error:.2e})"
+
+
+
