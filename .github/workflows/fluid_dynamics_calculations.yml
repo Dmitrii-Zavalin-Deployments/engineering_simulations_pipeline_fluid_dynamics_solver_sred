@@ -71,6 +71,9 @@ jobs:
           echo "ℹ️ First snapshot not found to validate (expected for very short runs)."
         fi
 
+    - name: Run Tests
+      run: pytest tests/ --verbose -ra
+
     - name: Upload Results to Dropbox
       env:
         APP_KEY: ${{ secrets.APP_KEY }}
