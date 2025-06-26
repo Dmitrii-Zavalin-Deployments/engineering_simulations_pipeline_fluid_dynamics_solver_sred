@@ -1,0 +1,21 @@
+{
+  "fluid": {
+    "density": 1000.0,
+    "viscosity": 0.001
+  },
+  "solver": {
+    "method": "explicit"
+  },
+  "time": {
+    "time_step": 0.001
+  },
+  "grid": {
+    "nx": 16,
+    "ny": 16,
+    "nz": 16,
+    "dx": 1.0
+  },
+  "initial_conditions": {
+    "velocity_magnitude": 1.0
+  }
+}
