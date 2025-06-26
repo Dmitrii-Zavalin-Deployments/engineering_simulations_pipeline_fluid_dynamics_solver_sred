@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 # 🔧 Adjust this to your actual grid builder
-from src.grid.grid_builder import create_mac_grid_fields, generate_physical_coordinates
+from src.utils import grid
 
 def test_field_center_coordinates_match_expected_offsets():
     """

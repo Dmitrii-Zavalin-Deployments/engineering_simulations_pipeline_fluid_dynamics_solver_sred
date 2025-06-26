@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 # 🔧 Adjust these import paths based on your actual module layout
-from src.grid.grid_builder import create_mac_grid_fields
+from src.utils import grid
 from src.boundary_conditions.ghost_utils import apply_ghost_cells
 
 @pytest.mark.parametrize("field_name", ["u", "v", "w"])
