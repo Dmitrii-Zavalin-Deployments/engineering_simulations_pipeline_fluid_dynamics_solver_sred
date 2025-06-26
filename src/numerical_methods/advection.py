@@ -25,8 +25,8 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     vel_z = velocity_field[..., 2]
 
     def compute_flux_component(u, v):
-        pos = np.maximum(0, v)
-        neg = np.minimum(0, v)
+        pos = np.maximum(v, 0)
+        neg = np.minimum(v, 0)
 
         if not is_scalar:
             pos = pos[..., np.newaxis]
@@ -68,7 +68,7 @@ def advect_velocity(u, v, w, dx, dy, dz, dt):
     Performs forward Euler advection of velocity components using a staggered MAC grid.
 
     Args:
-        u, v, w (np.ndarray): Velocity components with ghost cells, shape (nx+2, ny+2, nz+2)
+        u, v, w (np.ndarray): Velocity components with ghost cells (shape: (nx+2, ny+2, nz+2))
         dx, dy, dz (float): Grid spacing
         dt (float): Time step
 

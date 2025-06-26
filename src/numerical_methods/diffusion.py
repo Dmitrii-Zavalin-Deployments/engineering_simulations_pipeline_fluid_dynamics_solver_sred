@@ -4,56 +4,50 @@ import numpy as np
 
 def compute_diffusion_term(field, viscosity, mesh_info):
     """
-    Computes the diffusion term (viscosity * nabla^2(field)) using central differences.
+    Computes the diffusion term (viscosity * ∇²(field)) using central differences.
 
     Args:
-        field (np.ndarray): Scalar (nx, ny, nz) or vector (nx, ny, nz, 3) field.
-        viscosity (float): The fluid's dynamic viscosity (mu).
-        mesh_info (dict): Grid metadata with 'grid_shape', 'dx', 'dy', 'dz'.
+        field (np.ndarray): Scalar field (nx, ny, nz) or vector field (nx, ny, nz, 3) with ghost cells.
+        viscosity (float): The fluid's kinematic or dynamic viscosity (ν or μ).
+        mesh_info (dict): Grid metadata including:
+            - 'grid_shape': (nx, ny, nz)
+            - 'dx', 'dy', 'dz': spacing in x, y, z directions.
 
     Returns:
-        np.ndarray: Diffusion term, same shape as input field.
+        np.ndarray: Diffusion term (same shape as input field).
     """
     nx, ny, nz = mesh_info['grid_shape']
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    d2_field_dx2 = np.zeros_like(field)
+    d2x = np.zeros_like(field)
+    d2y = np.zeros_like(field)
+    d2z = np.zeros_like(field)
+
     if nx > 2:
-        d2_field_dx2[1:-1, :, :] = (
-            field[2:, :, :] - 2 * field[1:-1, :, :] + field[:-2, :, :]
-        ) / dx**2
-
-    d2_field_dy2 = np.zeros_like(field)
+        d2x[1:-1, :, :] = (field[2:, :, :] - 2 * field[1:-1, :, :] + field[:-2, :, :]) / dx**2
     if ny > 2:
-        d2_field_dy2[:, 1:-1, :] = (
-            field[:, 2:, :] - 2 * field[:, 1:-1, :] + field[:, :-2, :]
-        ) / dy**2
-
-    d2_field_dz2 = np.zeros_like(field)
+        d2y[:, 1:-1, :] = (field[:, 2:, :] - 2 * field[:, 1:-1, :] + field[:, :-2, :]) / dy**2
     if nz > 2:
-        d2_field_dz2[:, :, 1:-1] = (
-            field[:, :, 2:] - 2 * field[:, :, 1:-1] + field[:, :, :-2]
-        ) / dz**2
+        d2z[:, :, 1:-1] = (field[:, :, 2:] - 2 * field[:, :, 1:-1] + field[:, :, :-2]) / dz**2
 
-    laplacian = d2_field_dx2 + d2_field_dy2 + d2_field_dz2
-    return viscosity * laplacian
+    return viscosity * (d2x + d2y + d2z)
 
 def apply_diffusion_step(field, diffusion_coefficient, mesh_info, dt):
     """
-    Advances the field forward by one explicit diffusion step:
+    Performs one explicit diffusion update using:
         u_new = u + dt * ν ∇²(u)
 
     Args:
-        field (np.ndarray): 3D array (with ghost cells) to be diffused.
-        diffusion_coefficient (float): ν (e.g., kinematic viscosity)
-        mesh_info (dict): Must include 'grid_shape', 'dx', 'dy', 'dz'
-        dt (float): Time step
+        field (np.ndarray): Field with ghost padding (3D scalar or 4D vector).
+        diffusion_coefficient (float): Kinematic viscosity.
+        mesh_info (dict): Must include 'grid_shape', 'dx', 'dy', 'dz'.
+        dt (float): Time step.
 
     Returns:
-        np.ndarray: New field after one diffusion update.
+        np.ndarray: Updated field (same shape).
     """
-    diff_term = compute_diffusion_term(field, diffusion_coefficient, mesh_info)
-    return field + dt * diff_term
+    diff = compute_diffusion_term(field, diffusion_coefficient, mesh_info)
+    return field + dt * diff
 
 
 

@@ -27,11 +27,10 @@ def mesh_metadata(nx, ny, nz, dx=1.0, dy=1.0, dz=1.0):
     }
 
 def apply_zero_gradient_ghost_padding(field):
-    """Simple ghost fill assuming Neumann (zero-gradient) BCs."""
-    field[0, :, :] = field[1, :, :]
-    field[-1, :, :] = field[-2, :, :]
-    field[:, 0, :] = field[:, 1, :]
-    field[:, -1, :] = field[:, -2, :]
+    field[0] = field[1]
+    field[-1] = field[-2]
+    field[:, 0] = field[:, 1]
+    field[:, -1] = field[:, -2]
     field[:, :, 0] = field[:, :, 1]
     field[:, :, -1] = field[:, :, -2]
     return field
@@ -68,8 +67,8 @@ def test_apply_diffusion_smooths_peak():
         u_new[center, center, center + 1],
         u_new[center, center, center - 1],
     ]
-    assert peak_after < peak_before, "Central spike should diffuse downward"
-    assert all(n > 0.0 for n in neighbors), "Neighbor cells should receive diffused value"
+    assert peak_after < peak_before
+    assert all(n > 0.0 for n in neighbors)
 
 def test_compute_diffusion_term_returns_zero_for_uniform_field():
     nx, ny, nz = 4, 4, 4
@@ -92,20 +91,19 @@ def test_vector_field_component_diffusion():
     nx, ny, nz = 6, 6, 6
     mesh_info = mesh_metadata(nx, ny, nz)
     field = np.zeros((nx + 2, ny + 2, nz + 2, 3), dtype=np.float64)
-    field[3, 3, 3, 0] = 5.0  # x component spike
+    field[3, 3, 3, 0] = 5.0
 
-    # Optional: ghost cell fill for vector field
-    field[0, :, :, :] = field[1, :, :, :]
-    field[-1, :, :, :] = field[-2, :, :, :]
-    field[:, 0, :, :] = field[:, 1, :, :]
-    field[:, -1, :, :] = field[:, -2, :, :]
-    field[:, :, 0, :] = field[:, :, 1, :]
-    field[:, :, -1, :] = field[:, :, -2, :]
+    field[0] = field[1]
+    field[-1] = field[-2]
+    field[:, 0] = field[:, 1]
+    field[:, -1] = field[:, -2]
+    field[:, :, 0] = field[:, :, 1]
+    field[:, :, -1] = field[:, :, -2]
 
     diff = compute_diffusion_term(field, viscosity=0.1, mesh_info=mesh_info)
     assert diff.shape == field.shape
-    assert diff[3, 3, 3, 0] < 0.0, "Central spike should diffuse downward"
-    assert np.allclose(diff[..., 1:], 0.0, atol=1e-10), "Other components should remain zero"
+    assert diff[3, 3, 3, 0] < 0.0
+    assert np.allclose(diff[..., 1:], 0.0, atol=1e-10)
 
 
 

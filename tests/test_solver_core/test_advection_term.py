@@ -5,8 +5,7 @@ import pytest
 from src.numerical_methods.advection import compute_advection_term
 
 def create_padded_field(shape, fill=0.0):
-    padded = np.ones((shape[0] + 2, shape[1] + 2, shape[2] + 2)) * fill
-    return padded
+    return np.ones((shape[0] + 2, shape[1] + 2, shape[2] + 2)) * fill
 
 def create_padded_velocity(shape, fill=0.0):
     return np.ones((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3)) * fill
@@ -34,14 +33,15 @@ def test_uniform_scalar_field_with_uniform_flow_remains_constant():
 def test_step_scalar_field_advects_properly():
     shape = (5, 5, 5)
     field = create_padded_field(shape)
-    field[2:-1, 2:-2, 2:-2] = 1.0  # sharp step inside domain
+    field[3:, 2:-2, 2:-2] = 1.0  # step function in x-direction, sharp change at x=3
 
     velocity = create_padded_velocity(shape, fill=0.0)
     velocity[..., 0] = 1.0  # x-direction flow
 
     mesh = {"grid_shape": field.shape, "dx": 1.0, "dy": 1.0, "dz": 1.0}
     adv = compute_advection_term(field, velocity, mesh)
-    assert np.any(np.abs(adv[2:-2, 2:-2, 2:-2]) > 1e-8), "Advection term should be non-zero near step"
+    core = adv[2:-2, 2:-2, 2:-2]
+    assert np.any(np.abs(core) > 1e-8), "Advection term should be non-zero near step"
 
 def test_uniform_vector_field_yields_zero_advection():
     shape = (6, 6, 6)
@@ -57,10 +57,10 @@ def test_vector_field_gradient_advects_components_independently():
     shape = (5, 5, 5)
     field = np.zeros((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3))
     for i in range(1, shape[0] + 1):
-        field[i, 2:-2, 2:-2, 0] = float(i)  # steeper x-gradient
+        field[i, 2:-2, 2:-2, 0] = float(i)  # stronger x-gradient
 
     velocity = np.zeros_like(field)
-    velocity[..., 0] = 1.0  # x-direction flow
+    velocity[..., 0] = 1.0  # flow in x-direction only
 
     mesh = {"grid_shape": field.shape[:3], "dx": 1.0, "dy": 1.0, "dz": 1.0}
     adv = compute_advection_term(field, velocity, mesh)
