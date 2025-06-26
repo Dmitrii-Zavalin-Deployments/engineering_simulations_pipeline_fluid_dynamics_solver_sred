@@ -33,7 +33,7 @@ def test_uniform_scalar_field_with_uniform_flow_remains_constant():
 def test_step_scalar_field_advects_properly():
     shape = (5, 5, 5)
     field = create_padded_field(shape)
-    field[3:, 2:-2, 2:-2] = 1.0  # step function in x-direction, sharp change at x=3
+    field[2:, 2:-2, 2:-2] = 1.0  # step function moved left so stencil sees change
 
     velocity = create_padded_velocity(shape, fill=0.0)
     velocity[..., 0] = 1.0  # x-direction flow
@@ -56,8 +56,8 @@ def test_uniform_vector_field_yields_zero_advection():
 def test_vector_field_gradient_advects_components_independently():
     shape = (5, 5, 5)
     field = np.zeros((shape[0] + 2, shape[1] + 2, shape[2] + 2, 3))
-    for i in range(1, shape[0] + 1):
-        field[i, 2:-2, 2:-2, 0] = float(i)  # stronger x-gradient
+    for i in range(field.shape[0]):
+        field[i, 2:-2, 2:-2, 0] = i  # steeper x-gradient fully within padded range
 
     velocity = np.zeros_like(field)
     velocity[..., 0] = 1.0  # flow in x-direction only
