@@ -6,29 +6,19 @@ import os
 import numpy as np
 
 # --- REFINED FIX FOR ImportError ---
-# Get the directory of the current script (e.g., /path/to/project/src).
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Get the parent directory of the script's directory (e.g., /path/to/project).
-# This is the root of your source package structure.
 project_root = os.path.dirname(script_dir)
-# Add the project root to sys.path, allowing absolute imports like 'src.physics' to work.
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 # --- END REFINED FIX ---
 
-# Now, import using the absolute path from the added sys.path entry
-# --- FIX: Changed import path for identify_boundary_nodes ---
-from physics import identify_boundary_nodes # This imports it via src/physics/__init__.py
+from physics import identify_boundary_nodes
 from utils.io_utils import load_json_schema, convert_numpy_to_list, save_json
 from utils.validation import validate_json_schema
 from utils.mesh_utils import get_domain_extents, infer_uniform_grid_parameters
 
 
 def pre_process_input_data(input_data):
-    """
-    Pre-processes the raw input JSON data into a structured format
-    suitable for the Navier-Stokes solver.
-    """
     print("DEBUG (pre_process_input_data): Starting pre-processing.")
 
     min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(input_data["mesh"]["boundary_faces"])
@@ -41,11 +31,28 @@ def pre_process_input_data(input_data):
             all_z_coords.append(node_coords[2])
 
     json_domain_def = input_data.get('domain_definition', {})
-    json_nx, json_ny, json_nz = json_domain_def.get('nx'), json_domain_def.get('ny'), json_domain_def.get('nz')
+    json_nx = json_domain_def.get('nx')
+    json_ny = json_domain_def.get('ny')
+    json_nz = json_domain_def.get('nz')
 
-    dx, nx = infer_uniform_grid_parameters(min_x, max_x, all_x_coords, 'x', json_nx)
-    dy, ny = infer_uniform_grid_parameters(min_y, max_y, all_y_coords, 'y', json_ny)
-    dz, nz = infer_uniform_grid_parameters(min_z, max_z, all_z_coords, 'z', json_nz)
+    # Respect user-defined nx, ny, nz if provided, else infer
+    if json_nx is not None:
+        nx = json_nx
+        dx = (max_x - min_x) / nx
+    else:
+        dx, nx = infer_uniform_grid_parameters(min_x, max_x, all_x_coords, 'x', None)
+
+    if json_ny is not None:
+        ny = json_ny
+        dy = (max_y - min_y) / ny
+    else:
+        dy, ny = infer_uniform_grid_parameters(min_y, max_y, all_y_coords, 'y', None)
+
+    if json_nz is not None:
+        nz = json_nz
+        dz = (max_z - min_z) / nz
+    else:
+        dz, nz = infer_uniform_grid_parameters(min_z, max_z, all_z_coords, 'z', None)
 
     nx, ny, nz = max(1, nx), max(1, ny), max(1, nz)
 
@@ -55,14 +62,15 @@ def pre_process_input_data(input_data):
     if abs(max_y - min_y) < TOLERANCE_ZERO_EXTENT: dy, ny = 1.0, 1
     if abs(max_z - min_z) < TOLERANCE_ZERO_EXTENT: dz, nz = 1.0, 1
 
+    print(f"✔ Grid dimensions: nx={nx}, ny={ny}, nz={nz}")
+
     domain_settings = {
         "min_x": min_x, "max_x": max_x, "dx": dx, "nx": nx,
         "min_y": min_y, "max_y": max_y, "dy": dy, "ny": ny,
         "min_z": min_z, "max_z": max_z, "dz": dz, "nz": nz,
-        "grid_shape": [nx, ny, nz] # Make grid_shape available here too
+        "grid_shape": [nx, ny, nz]
     }
 
-    # Consolidated mesh_info dictionary
     mesh_info = {
         'grid_shape': [nx, ny, nz],
         'dx': dx, 'dy': dy, 'dz': dz,
@@ -70,8 +78,7 @@ def pre_process_input_data(input_data):
         'min_y': min_y, 'max_y': max_y,
         'min_z': min_z, 'max_z': max_z
     }
-    
-    # Use the consolidated mesh_info for boundary condition identification
+
     processed_boundary_conditions = identify_boundary_nodes(
         input_data.get("boundary_conditions", {}),
         input_data["mesh"]["boundary_faces"],
@@ -86,11 +93,12 @@ def pre_process_input_data(input_data):
         "simulation_parameters": input_data.get("simulation_parameters", {}),
         "initial_conditions": input_data.get("initial_conditions", {}),
         "boundary_conditions": processed_boundary_conditions,
-        "mesh_info": mesh_info, # This is the consolidated mesh info
+        "mesh_info": mesh_info,
         "mesh": {
             "boundary_faces": input_data["mesh"]["boundary_faces"]
         }
     }
+
     print("DEBUG (pre_process_input_data): Pre-processing complete. Output structure prepared.")
     return pre_processed_output
 
@@ -115,7 +123,6 @@ if __name__ == "__main__":
 
         pre_processed_output = pre_process_input_data(raw_input_data)
 
-        # --- DEBUGGING: Print the output JSON to the log ---
         print("\n--- DEBUG: Pre-processed JSON to be passed to main_solver.py ---")
         print(json.dumps(pre_processed_output, indent=2))
         print("--- END DEBUG ---\n")
@@ -141,3 +148,6 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+
