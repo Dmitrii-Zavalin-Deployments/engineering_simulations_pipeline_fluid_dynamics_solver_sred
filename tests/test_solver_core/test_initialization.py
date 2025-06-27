@@ -5,7 +5,7 @@ import json
 import numpy as np
 
 from types import SimpleNamespace
-from solver import initialization
+from src.solver import initialization
 
 @pytest.fixture
 def minimal_input_data():
