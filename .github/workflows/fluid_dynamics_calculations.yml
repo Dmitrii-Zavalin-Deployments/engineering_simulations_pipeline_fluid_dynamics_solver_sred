@@ -72,7 +72,13 @@ jobs:
         fi
 
     - name: Run Tests
-      run: pytest tests/ --verbose -ra
+      env:
+        FULL_OUTPUT_DIR: ${{ github.workspace }}/data/testing-output-run-full/navier_stokes_output
+        RESTARTED_OUTPUT_DIR: ${{ github.workspace }}/data/testing-output-run-restarted/navier_stokes_output
+      run: |
+        echo "🔍 FULL_OUTPUT_DIR=$FULL_OUTPUT_DIR"
+        echo "🔍 RESTARTED_OUTPUT_DIR=$RESTARTED_OUTPUT_DIR"
+        pytest tests/ --verbose -ra
 
     - name: Upload Results to Dropbox
       env:
