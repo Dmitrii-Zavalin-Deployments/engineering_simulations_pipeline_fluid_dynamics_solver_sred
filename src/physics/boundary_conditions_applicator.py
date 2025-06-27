@@ -46,10 +46,19 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
             print(f"WARNING: No cells for boundary '{bc_name}'. Skipping.", file=sys.stderr)
             continue
 
+        cell_indices = np.array(cell_indices)
+
         if bc_type == "dirichlet":
             if "velocity" in apply_to_fields:
+                max_indices = np.array(velocity_field.shape[:3])
+                if np.any(np.max(cell_indices, axis=0) >= max_indices):
+                    print(f"ERROR: Boundary '{bc_name}' has cell indices beyond grid shape {max_indices.tolist()}", file=sys.stderr)
+                    raise IndexError(f"Invalid cell_indices for velocity in '{bc_name}' — indices exceed grid bounds")
                 velocity_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_velocity
             if "pressure" in apply_to_fields and not is_tentative_step:
+                if np.any(np.max(cell_indices, axis=0) >= pressure_field.shape):
+                    print(f"ERROR: Pressure indices out of bounds for '{bc_name}'", file=sys.stderr)
+                    raise IndexError(f"Invalid cell_indices for pressure in '{bc_name}' — indices exceed grid bounds")
                 pressure_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_pressure
 
         elif bc_type in ["neumann", "pressure_outlet"]:
