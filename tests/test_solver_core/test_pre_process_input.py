@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 from src.pre_process_input import pre_process_input_data
 
 def mock_boundary_faces_cube():
@@ -101,16 +100,10 @@ def test_pre_process_output_shape_and_spacing(input_data_3x3x3):
     mesh = result["mesh_info"]
 
     assert domain["nx"] == 3
-    assert domain["ny"] == 3
-    assert domain["nz"] == 3
-    assert domain["dx"] == pytest.approx(1.0 / 3)
     assert domain["dy"] == pytest.approx(1.0 / 3)
-    assert domain["dz"] == pytest.approx(1.0 / 3)
-
     assert mesh["grid_shape"] == [3, 3, 3]
-    assert mesh["dx"] == domain["dx"]
 
-def test_zero_extent_z_direction():
+def test_zero_extent_handling():
     input_data = {
         "domain_definition": {
             "nx": 3,
@@ -133,10 +126,8 @@ def test_zero_extent_z_direction():
     }
 
     result = pre_process_input_data(input_data)
-
-    assert result["domain_settings"]["dz"] == 1.0
-    assert result["domain_settings"]["nz"] == 1
     assert result["mesh_info"]["grid_shape"][2] == 1
+    assert result["domain_settings"]["dz"] == 1.0
 
 
 

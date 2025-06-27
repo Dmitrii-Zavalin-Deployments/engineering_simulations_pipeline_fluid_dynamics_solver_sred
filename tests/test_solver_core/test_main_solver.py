@@ -6,7 +6,6 @@ import pytest
 import json
 
 from src.main_solver import Simulation
-from src.solver.initialization import load_input_data
 
 @pytest.fixture
 def minimal_preprocessed_input():
@@ -43,7 +42,7 @@ def test_simulation_initializes(minimal_preprocessed_input):
         sim = Simulation(input_path, output_dir)
 
         assert sim.nx == 3
-        assert sim.velocity_field.shape == (5, 5, 5, 3)  # +2 ghost cells, 3 velocity components
+        assert sim.velocity_field.shape == (5, 5, 5, 3)
         assert np.all(sim.velocity_field == 0.0)
         assert sim.p.shape == (5, 5, 5)
         assert sim.total_time == 0.1
@@ -65,7 +64,7 @@ def test_simulation_runs_and_outputs_fields(minimal_preprocessed_input):
 
         snapshots = sorted(os.listdir(fields_path))
         assert "step_0000.json" in snapshots
-        assert "step_0002.json" in snapshots  # Should run 2 steps for 0.1s total @0.05 timestep
+        assert "step_0002.json" in snapshots  # 2 steps for 0.1s total @0.05 timestep
 
 def test_simulation_handles_missing_input():
     with pytest.raises(FileNotFoundError):
