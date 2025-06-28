@@ -19,10 +19,8 @@ def test_missing_input_file_triggers_error(temp_output_dir):
 
 
 def test_unreadable_input_file_triggers_json_error(temp_output_dir):
-    # Create a corrupt JSON file
     bad_file = temp_output_dir / "corrupt.json"
     bad_file.write_text("{ bad json : missing quote }")
-
     with pytest.raises(json.JSONDecodeError):
         load_input_data(str(bad_file))
 
@@ -48,26 +46,23 @@ def test_simulation_fails_on_read_only_output(tmp_path):
         "boundary_conditions": {}
     }
 
-    # Write a valid input JSON
     input_file = tmp_path / "input.json"
     with open(input_file, "w") as f:
         json.dump(input_data, f)
 
-    # Create read-only output directory
     output_dir = tmp_path / "readonly_output"
     output_dir.mkdir()
-    output_dir.chmod(0o400)  # read-only
+    output_dir.chmod(0o400)  # make it read-only
 
     try:
         with pytest.raises(PermissionError):
             sim = Simulation(str(input_file), str(output_dir))
             sim.run()
     finally:
-        # Restore permissions so pytest can clean up
-        output_dir.chmod(0o700)
+        output_dir.chmod(0o700)  # restore permissions so pytest can clean up
 
 
-def test_snapshot_write_failure_is_handled_gracefully(tmp_path):
+def test_snapshot_write_permission_error_via_mock(tmp_path):
     input_data = {
         "mesh_info": {
             "grid_shape": [2, 2, 2],
@@ -95,7 +90,7 @@ def test_snapshot_write_failure_is_handled_gracefully(tmp_path):
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    # Patch os.makedirs or open to simulate write error
+    # Simulate a write failure when open() is called anywhere
     with mock.patch("builtins.open", side_effect=PermissionError("Mocked write failure")):
         with pytest.raises(PermissionError):
             sim = Simulation(str(input_file), str(output_dir))

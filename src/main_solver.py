@@ -3,7 +3,6 @@
 import numpy as np
 import sys
 import os
-import math
 from datetime import datetime
 
 # --- REFINED FIX FOR ImportError ---
@@ -39,9 +38,8 @@ class Simulation:
 
         self.input_data = load_input_data(self.input_file_path)
         initialize_simulation_parameters(self, self.input_data)
-        initialize_grid(self, self.input_data)  # sets self.mesh_info
+        initialize_grid(self, self.input_data)
 
-        # Defensive check: boundary_conditions should have 'cell_indices'
         if 'boundary_conditions' in self.mesh_info:
             for name, bc_data in self.mesh_info['boundary_conditions'].items():
                 if 'cell_indices' not in bc_data:
@@ -93,9 +91,10 @@ class Simulation:
             print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
             import traceback
             traceback.print_exc()
-            sys.exit(1)
+            raise  # 🚫 Removed sys.exit(1) so this is now test- and notebook-friendly
 
-if __name__ == "__main__":
+
+def cli_entrypoint():
     if len(sys.argv) != 3:
         print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>")
         print("Example: python src/main_solver.py temp/solver_input.json data/testing-output-run")
@@ -113,7 +112,10 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(1)  # ✅ This is the only place sys.exit belongs — at CLI boundary
+
+if __name__ == "__main__":
+    cli_entrypoint()
 
 
 
