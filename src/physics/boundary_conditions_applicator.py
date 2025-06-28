@@ -18,7 +18,7 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
         is_tentative_step (bool): True for u*, False for uⁿ⁺¹ or pressure.
     """
     print(f"DEBUG: apply_boundary_conditions called. is_tentative_step={is_tentative_step}")
-    
+
     if not isinstance(velocity_field, np.ndarray) or velocity_field.dtype != np.float64:
         print(f"ERROR: velocity_field invalid. Type: {type(velocity_field)}, Dtype: {getattr(velocity_field, 'dtype', 'N/A')}", file=sys.stderr)
         return velocity_field, pressure_field
@@ -30,23 +30,27 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
     if processed_bcs is None:
         print("ERROR: boundary_conditions missing in mesh_info.", file=sys.stderr)
         return velocity_field, pressure_field
-    
+
     nx, ny, nz = mesh_info['grid_shape']
 
     for bc_name, bc in processed_bcs.items():
-        bc_type = bc["type"]
-        cell_indices = bc["cell_indices"]
-        target_velocity = bc["velocity"]
-        target_pressure = bc["pressure"]
-        apply_to_fields = bc["apply_to"]
-        boundary_dim = bc["boundary_dim"]
-        offset = bc["interior_neighbor_offset"]
+        if "cell_indices" not in bc:
+            raise ValueError(
+                f"❌ Boundary condition '{bc_name}' is missing 'cell_indices'.\n"
+                "Was the input preprocessed with 'identify_boundary_nodes()'?"
+            )
 
-        if len(cell_indices) == 0:
+        bc_type = bc.get("type")
+        cell_indices = np.array(bc["cell_indices"])
+        target_velocity = bc.get("velocity", [0.0, 0.0, 0.0])
+        target_pressure = bc.get("pressure", 0.0)
+        apply_to_fields = bc.get("apply_to", [])
+        boundary_dim = bc.get("boundary_dim")
+        offset = bc.get("interior_neighbor_offset", [0, 0, 0])
+
+        if cell_indices.size == 0:
             print(f"WARNING: No cells for boundary '{bc_name}'. Skipping.", file=sys.stderr)
             continue
-
-        cell_indices = np.array(cell_indices)
 
         if bc_type == "dirichlet":
             if "velocity" in apply_to_fields:
@@ -80,7 +84,6 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
 
     return velocity_field, pressure_field
 
-# Optional adapter for tests simulating ghost cell padding
 def apply_ghost_cells(field, field_name):
     """
     Simple in-place ghost cell filler for test purposes.
