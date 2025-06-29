@@ -33,9 +33,10 @@ def mock_input_data():
             "max_z": 2.0,
             "boundary_conditions": {
                 "inlet": {
-                    "cell_indices": [0, 1],
+                    "cell_indices": [[0, 0, 0]],
                     "velocity": [1.0, 0.0, 0.0],
-                    "type": "dirichlet"
+                    "type": "dirichlet",
+                    "apply_to": ["velocity"]
                 }
             }
         }
@@ -81,8 +82,9 @@ def test_missing_boundary_indices_raises_error(mock_load, mock_init_grid, mock_i
         "boundary_conditions": {
             "inlet": {
                 "velocity": [1.0, 0.0, 0.0],
-                "type": "dirichlet"
-                # Intentionally missing 'cell_indices'
+                "type": "dirichlet",
+                "apply_to": ["velocity"]
+                # 'cell_indices' intentionally omitted
             }
         }
     }

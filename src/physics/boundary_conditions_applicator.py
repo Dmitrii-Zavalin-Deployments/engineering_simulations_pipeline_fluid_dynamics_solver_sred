@@ -2,10 +2,17 @@
 
 import numpy as np
 import sys
+from typing import Tuple
 
 TOLERANCE = 1e-6
 
-def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, mesh_info, is_tentative_step):
+def apply_boundary_conditions(
+    velocity_field: np.ndarray,
+    pressure_field: np.ndarray,
+    fluid_properties: dict,
+    mesh_info: dict,
+    is_tentative_step: bool
+) -> Tuple[np.ndarray, np.ndarray]:
     """
     Applies boundary conditions to the velocity and pressure fields using NumPy indexing.
     Modifies input fields in-place.
@@ -26,9 +33,9 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
         print(f"ERROR: pressure_field invalid. Type: {type(pressure_field)}, Dtype: {getattr(pressure_field, 'dtype', 'N/A')}", file=sys.stderr)
         return velocity_field, pressure_field
 
-    processed_bcs = mesh_info.get('boundary_conditions')
-    if processed_bcs is None:
-        print("ERROR: boundary_conditions missing in mesh_info.", file=sys.stderr)
+    processed_bcs = mesh_info.get('boundary_conditions', {})
+    if not processed_bcs:
+        print("WARNING: No boundary_conditions found in mesh_info.", file=sys.stderr)
         return velocity_field, pressure_field
 
     nx, ny, nz = mesh_info['grid_shape']
@@ -44,7 +51,7 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
         cell_indices = np.array(bc["cell_indices"])
         target_velocity = bc.get("velocity", [0.0, 0.0, 0.0])
         target_pressure = bc.get("pressure", 0.0)
-        apply_to_fields = bc.get("apply_to", [])
+        apply_to_fields = bc.get("apply_to") or []
         boundary_dim = bc.get("boundary_dim")
         offset = bc.get("interior_neighbor_offset", [0, 0, 0])
 
@@ -84,7 +91,8 @@ def apply_boundary_conditions(velocity_field, pressure_field, fluid_properties, 
 
     return velocity_field, pressure_field
 
-def apply_ghost_cells(field, field_name):
+
+def apply_ghost_cells(field: np.ndarray, field_name: str):
     """
     Simple in-place ghost cell filler for test purposes.
     Copies interior slices to boundary ghost layers (periodic-style default).

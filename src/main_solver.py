@@ -53,10 +53,10 @@ class Simulation:
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
-        fluid_properties = {'density': self.rho, 'viscosity': self.nu}
-        self.time_stepper = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
-
+        self.fluid_properties = {'density': self.rho, 'viscosity': self.nu}
         self.boundary_conditions = self.mesh_info.get("boundary_conditions", {})
+
+        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
 
         print_initial_setup(self)
 
@@ -77,9 +77,13 @@ class Simulation:
             for _ in range(num_steps):
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
-                # ✅ Enforce boundary conditions AFTER solving
+                # ✅ Apply boundary conditions AFTER each step
                 apply_boundary_conditions(
-                    self.velocity_field, self.p, self.mesh_info, self.boundary_conditions
+                    velocity_field=self.velocity_field,
+                    pressure_field=self.p,
+                    fluid_properties=self.fluid_properties,
+                    mesh_info=self.mesh_info,
+                    is_tentative_step=False
                 )
 
                 self.step_count += 1

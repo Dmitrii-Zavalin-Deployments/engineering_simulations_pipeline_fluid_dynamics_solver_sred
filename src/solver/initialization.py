@@ -24,14 +24,19 @@ def initialize_simulation_parameters(sim_instance, input_data):
     Initializes simulation parameters from the input data.
     """
     params = input_data.get('simulation_parameters', {})
+    fluid = input_data.get('fluid_properties', {})
+    ic = input_data.get('initial_conditions', {})
+
     sim_instance.total_time = params.get('total_time', 1.0)
     sim_instance.time_step = params.get('time_step', 0.01)
-    sim_instance.rho = params.get('density', 1.0)
-    sim_instance.nu = params.get('kinematic_viscosity', 0.01)
     sim_instance.output_frequency_steps = params.get('output_frequency_steps', 10)
     sim_instance.solver_type = params.get('solver_type', 'explicit')
-    sim_instance.initial_velocity = input_data.get('initial_conditions', {}).get('velocity', [0.0, 0.0, 0.0])
-    sim_instance.initial_pressure = input_data.get('initial_conditions', {}).get('pressure', 0.0)
+
+    sim_instance.rho = fluid.get('density', 1.0)
+    sim_instance.nu = fluid.get('viscosity', 0.01)
+
+    sim_instance.initial_velocity = ic.get('initial_velocity') or ic.get('velocity') or [0.0, 0.0, 0.0]
+    sim_instance.initial_pressure = ic.get('initial_pressure') or ic.get('pressure') or 0.0
 
 def initialize_grid(sim_instance, input_data):
     """
@@ -53,15 +58,12 @@ def initialize_fields(sim_instance, input_data):
     """
     Initializes velocity and pressure fields with appropriate ghost cell padding.
     """
-    u_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
-    v_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
-    w_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
-    p_shape = (sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2)
+    nx, ny, nz = sim_instance.nx + 2, sim_instance.ny + 2, sim_instance.nz + 2
 
-    sim_instance.u = np.full(u_shape, sim_instance.initial_velocity[0], dtype=np.float64)
-    sim_instance.v = np.full(v_shape, sim_instance.initial_velocity[1], dtype=np.float64)
-    sim_instance.w = np.full(w_shape, sim_instance.initial_velocity[2], dtype=np.float64)
-    sim_instance.p = np.full(p_shape, sim_instance.initial_pressure, dtype=np.float64)
+    sim_instance.u = np.full((nx, ny, nz), sim_instance.initial_velocity[0], dtype=np.float64)
+    sim_instance.v = np.full((nx, ny, nz), sim_instance.initial_velocity[1], dtype=np.float64)
+    sim_instance.w = np.full((nx, ny, nz), sim_instance.initial_velocity[2], dtype=np.float64)
+    sim_instance.p = np.full((nx, ny, nz), sim_instance.initial_pressure, dtype=np.float64)
 
 def print_initial_setup(sim_instance):
     """
