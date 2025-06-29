@@ -32,9 +32,11 @@ def initialize_simulation_parameters(sim_instance, input_data):
     sim_instance.output_frequency_steps = params.get('output_frequency_steps', 10)
     sim_instance.solver_type = params.get('solver_type', 'explicit')
 
+    # ✅ Correctly extract from fluid_properties
     sim_instance.rho = fluid.get('density', 1.0)
     sim_instance.nu = fluid.get('viscosity', 0.01)
 
+    # Allow backward compatibility with legacy keys
     sim_instance.initial_velocity = ic.get('initial_velocity') or ic.get('velocity') or [0.0, 0.0, 0.0]
     sim_instance.initial_pressure = ic.get('initial_pressure') or ic.get('pressure') or 0.0
 
