@@ -22,7 +22,7 @@ def test_create_structured_grid_info_outputs_valid_geometry():
     assert info["dz"] == pytest.approx(0.5)
     assert info["num_cells"] == 48
     assert info["cell_centers"].shape == (48, 3)
-    assert np.all(info["cell_centers"] > 0)  # non-zero coordinates
+    assert np.all(info["cell_centers"] > 0)
 
 def test_get_cell_centers_computes_centers_correctly():
     centers = get_cell_centers(0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 2, 2, 2)
@@ -42,25 +42,43 @@ def test_get_cell_centers_computes_centers_correctly():
 def test_create_mac_grid_fields_returns_correct_shapes():
     fields = create_mac_grid_fields((3, 3, 3), ghost_width=1)
 
-    assert fields["u"].shape == (5, 5, 5)
-    assert fields["v"].shape == (5, 5, 5)
-    assert fields["w"].shape == (5, 5, 5)
+    # MAC grid shapes with ghost cells (gx = 1)
+    # u: (nx + 1 + 2*gx, ny + 2*gx, nz + 2*gx)
+    # v: (nx + 2*gx, ny + 1 + 2*gx, nz + 2*gx)
+    # w: (nx + 2*gx, ny + 2*gx, nz + 1 + 2*gx)
+    # p: (nx + 2*gx, ny + 2*gx, nz + 2*gx)
+
+    assert fields["u"].shape == (6, 5, 5)
+    assert fields["v"].shape == (5, 6, 5)
+    assert fields["w"].shape == (5, 5, 6)
     assert fields["p"].shape == (5, 5, 5)
 
-    assert all(v.dtype == np.float64 for v in fields.values())
-    assert all(np.allclose(v, 0.0) for v in fields.values())
+    assert all(f.dtype == np.float64 for f in fields.values())
+    assert all(np.allclose(f, 0.0) for f in fields.values())
 
 def test_generate_physical_coordinates_yields_correct_offsets():
     coords = generate_physical_coordinates((2, 2, 2), (1.0, 1.0, 1.0), origin=(0.0, 0.0, 0.0), ghost_width=1)
 
-    ux, uy, uz = coords["u"]
+    ux, uy, uz = coords["u"]  # shape: (5,)
     vx, vy, vz = coords["v"]
     wx, wy, wz = coords["w"]
     px, py, pz = coords["p"]
 
-    assert ux.shape == (6,)
-    assert uy.shape == (6,)
-    assert uz.shape == (6,)
+    # staggered field lengths (nx=2, gx=1)
+    assert ux.shape == (5,)
+    assert uy.shape == (5,)
+    assert uz.shape == (5,)
+    assert vx.shape == (5,)
+    assert vy.shape == (5,)
+    assert vz.shape == (5,)
+    assert wx.shape == (5,)
+    assert wy.shape == (5,)
+    assert wz.shape == (5,)
+    assert px.shape == (5,)
+    assert py.shape == (5,)
+    assert pz.shape == (5,)
+
+    # check expected offset values for start of axes
     assert pytest.approx(ux[0]) == -1.0
     assert pytest.approx(vy[0]) == -1.0
     assert pytest.approx(wz[0]) == -1.0
