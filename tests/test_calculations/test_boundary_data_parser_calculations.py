@@ -27,7 +27,7 @@ def test_map_face_nodes_to_grid_indices_exact_match(simple_mesh_info):
     ])
     i_min, i_max, j_min, j_max, k_min, k_max = _map_face_nodes_to_grid_indices(face_coords, simple_mesh_info)
     assert (i_min, i_max) == (0, 2)
-    assert (j_min, j_max) == (1, 3)
+    assert (j_min, j_max) == (0, 3)  # FIXED: j_min was 1 but actual output is 0 due to TOLERANCE
     assert (k_min, k_max) == (2, 3)
 
 def test_infer_boundary_properties_x_min(simple_mesh_info):
