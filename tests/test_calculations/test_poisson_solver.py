@@ -31,5 +31,35 @@ def test_poisson_solver_raises_for_unsupported_backend(mesh_info):
     with pytest.raises(ValueError, match="Unsupported backend"):
         solve_poisson_for_phi(divergence, mesh_info, time_step=0.1, backend="invalid_method")
 
+def test_poisson_solver_matches_analytic_solution(mesh_info):
+    """
+    Verifies that the Poisson solver recovers the known φ(x,y,z) = sin(πx)sin(πy)sin(πz)
+    by feeding it a manufactured source term: b = -∇²φ.
+    """
+    nx, ny, nz = mesh_info["grid_shape"]
+    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
+    dt = 0.1
+
+    # Physical domain: [0, 1]
+    x = np.linspace(0, 1, nx)
+    y = np.linspace(0, 1, ny)
+    z = np.linspace(0, 1, nz)
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+
+    # Known solution and source term
+    true_phi = np.sin(np.pi * X) * np.sin(np.pi * Y) * np.sin(np.pi * Z)
+    laplace_phi = -3 * (np.pi ** 2) * true_phi
+    divergence = laplace_phi * dt  # RHS for solve_poisson_for_phi expects divergence
+
+    recovered_phi, residual = solve_poisson_for_phi(
+        divergence, mesh_info, time_step=dt,
+        tolerance=1e-8, max_iterations=2000,
+        return_residual=True
+    )
+
+    error = np.abs(recovered_phi - true_phi)
+    max_error = np.max(error)
+    assert max_error < 1e-2, f"Max error too high: {max_error}"
+
 
 
