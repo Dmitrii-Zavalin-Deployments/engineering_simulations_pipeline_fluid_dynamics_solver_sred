@@ -21,40 +21,50 @@ def test_divergence_of_uniform_velocity_is_zero(uniform_grid):
     assert div.shape == (5, 5, 5)
     assert np.allclose(div, 0.0)
 
-def test_divergence_linear_field_x(uniform_grid):
+def test_divergence_linear_increasing_x(uniform_grid):
     shape = uniform_grid["grid_shape"]
     u_field = np.zeros(shape + (3,))
-    x = np.linspace(0, 1, shape[0])
-    u_field[:, :, :, 0] = x[:, None, None]  # u(x) = x in x-direction
+    x = np.arange(shape[0])  # dx = 1.0
+    u_field[..., 0] = x[:, None, None]  # ∂u/∂x = 1.0 → ∇·u = 1.0
 
     div = compute_pressure_divergence(u_field, uniform_grid)
-    # ∂u/∂x = 1 across domain → expect divergence ≈ 1 in interior
-    assert np.allclose(div, 1.0, atol=1e-2)
+    assert div.shape == (5, 5, 5)
+    assert np.allclose(div, 1.0, atol=1e-6)
 
-def test_pressure_gradient_matches_expected(uniform_grid):
+def test_pressure_gradient_uniform_gradient_x(uniform_grid):
     shape = uniform_grid["grid_shape"]
-    p = np.zeros(shape)
-    x = np.linspace(-1, 1, shape[0])
-    X = np.tile(x[:, None, None], (1, shape[1], shape[2]))  # p(x) = x
-    p[:] = X
+    x = np.arange(shape[0])  # dx = 1.0
+    p = np.tile(x[:, None, None], (1, shape[1], shape[2]))
 
     grad = compute_pressure_gradient(p, uniform_grid)
     assert grad.shape == (5, 5, 5, 3)
-    assert np.allclose(grad[..., 0], 1.0, atol=1e-2)  # ∂p/∂x = 1
-    assert np.allclose(grad[..., 1], 0.0, atol=1e-12)
-    assert np.allclose(grad[..., 2], 0.0, atol=1e-12)
+    assert np.allclose(grad[..., 0], 1.0, atol=1e-6)  # ∂p/∂x = 1.0
+    assert np.allclose(grad[..., 1:], 0.0, atol=1e-12)
+
+def test_pressure_gradient_quadratic_x(uniform_grid):
+    shape = uniform_grid["grid_shape"]
+    x = np.linspace(-1, 1, shape[0])
+    p = np.tile(x[:, None, None]**2, (1, shape[1], shape[2]))  # p(x) = x² → ∂p/∂x = 2x
+
+    grad = compute_pressure_gradient(p, uniform_grid)
+    center = grad.shape[0] // 2
+    g_center = grad[center, center, center, 0]
+    assert g_center == pytest.approx(0.0, abs=1e-1)
+
+    left = grad[0, center, center, 0]
+    right = grad[-1, center, center, 0]
+    assert left < 0  # gradient negative on left side of parabola
+    assert right > 0  # gradient positive on right side
 
 def test_pressure_gradient_3d_paraboloid(uniform_grid):
     shape = uniform_grid["grid_shape"]
-    nx, ny, nz = shape
-    x = np.linspace(-1, 1, nx)
-    y = np.linspace(-1, 1, ny)
-    z = np.linspace(-1, 1, nz)
+    x = np.linspace(-1, 1, shape[0])
+    y = np.linspace(-1, 1, shape[1])
+    z = np.linspace(-1, 1, shape[2])
     X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
     p = X**2 + Y**2 + Z**2
 
     grad = compute_pressure_gradient(p, uniform_grid)
-    # Analytical: ∇p = [2x, 2y, 2z] → test magnitude grows radially
     center = grad.shape[0] // 2
     gx, gy, gz = grad[center, center, center]
     assert gx == pytest.approx(0.0, abs=1e-1)
@@ -62,9 +72,9 @@ def test_pressure_gradient_3d_paraboloid(uniform_grid):
     assert gz == pytest.approx(0.0, abs=1e-1)
 
     edge = grad[0, -1, -1]
-    assert edge[0] < 0  # ∂p/∂x negative on left side
-    assert edge[1] > 0
-    assert edge[2] > 0
+    assert edge[0] < 0  # ∂p/∂x negative at min x
+    assert edge[1] > 0  # ∂p/∂y positive at max y
+    assert edge[2] > 0  # ∂p/∂z positive at max z
 
 
 
