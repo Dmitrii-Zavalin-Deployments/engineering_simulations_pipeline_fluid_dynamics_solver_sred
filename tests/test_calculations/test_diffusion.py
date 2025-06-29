@@ -15,12 +15,13 @@ def test_diffusion_scalar_linear_x(mesh):
     x = np.linspace(0, 1, 5)
     field = np.tile(x[:, None, None], (1, 5, 5))  # linear ramp in x-direction
     result = compute_diffusion_term(field, viscosity=1.0, mesh_info=mesh)
-    # Expected Laplacian is zero because second derivative of linear field is zero
     assert np.allclose(result, 0.0), "Laplacian of linear scalar field should be zero"
 
-def test_diffusion_scalar_quadratic_x(mesh):
+def test_diffusion_scalar_quadratic_x():
     x = np.linspace(-1, 1, 5)
-    field = np.tile((x**2)[..., None, None], (1, 5, 5))  # quadratic in x → constant 2nd derivative
+    dx = x[1] - x[0]
+    field = np.tile((x**2)[..., None, None], (1, 5, 5))
+    mesh = {"grid_shape": (5, 5, 5), "dx": dx, "dy": 1.0, "dz": 1.0}
     result = compute_diffusion_term(field, viscosity=1.0, mesh_info=mesh)
     expected = np.zeros_like(field)
     expected[1:-1, 1:-1, 1:-1] = 2.0  # d²(x²)/dx² = 2
