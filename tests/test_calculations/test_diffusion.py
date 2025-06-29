@@ -39,14 +39,17 @@ def test_apply_diffusion_step_advances_correctly(mesh):
     assert np.sum(updated > 0) > 1, "Impulse should diffuse outward"
     assert updated[2, 2, 2] < 1.0, "Peak value should decrease due to diffusion"
 
-def test_diffusion_scalar_sin():
-    x = np.linspace(0, 2 * np.pi, 5)
+def test_diffusion_scalar_sin_high_resolution():
+    x = np.linspace(0, 2 * np.pi, 101)  # Higher resolution grid
     dx = x[1] - x[0]
-    field = np.tile(np.sin(x)[..., None, None], (1, 5, 5))
-    mesh = {"grid_shape": (5, 5, 5), "dx": dx, "dy": 1.0, "dz": 1.0}
+    field = np.tile(np.sin(x)[:, None, None], (1, 5, 5))
+    mesh = {"grid_shape": (101, 5, 5), "dx": dx, "dy": 1.0, "dz": 1.0}
     result = compute_diffusion_term(field, viscosity=1.0, mesh_info=mesh)
-    expected = np.tile(-np.sin(x)[..., None, None], (1, 5, 5))  # Laplacian of sin(x) = -sin(x)
-    assert np.allclose(result[1:-1, 1:-1, 1:-1], expected[1:-1, 1:-1, 1:-1], atol=1e-2), "Laplacian of sin(x) should be -sin(x)"
+    expected = np.tile(-np.sin(x)[:, None, None], (1, 5, 5))
+
+    # Skip boundaries to avoid error from incomplete stencil
+    center = slice(10, -10)
+    assert np.allclose(result[center, 1:-1, 1:-1], expected[center, 1:-1, 1:-1], atol=1e-2), "Laplacian of sin(x) should be -sin(x) in the interior"
 
 def test_diffusion_nonuniform_spacing():
     field = np.zeros((5, 5, 5))
