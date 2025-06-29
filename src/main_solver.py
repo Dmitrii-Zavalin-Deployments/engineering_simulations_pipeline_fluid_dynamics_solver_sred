@@ -56,6 +56,8 @@ class Simulation:
         fluid_properties = {'density': self.rho, 'viscosity': self.nu}
         self.time_stepper = ExplicitSolver(fluid_properties, self.mesh_info, self.time_step)
 
+        self.boundary_conditions = self.mesh_info.get("boundary_conditions", {})
+
         print_initial_setup(self)
 
     def run(self):
@@ -72,8 +74,14 @@ class Simulation:
         try:
             save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
-            for i in range(num_steps):
+            for _ in range(num_steps):
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
+
+                # ✅ Enforce boundary conditions AFTER solving
+                apply_boundary_conditions(
+                    self.velocity_field, self.p, self.mesh_info, self.boundary_conditions
+                )
+
                 self.step_count += 1
                 self.current_time = self.step_count * self.time_step
 
@@ -82,7 +90,8 @@ class Simulation:
                     save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
-                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s")
+                    vel_mag = np.linalg.norm(self.velocity_field)
+                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
 
             print("--- Simulation Finished ---")
             print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
@@ -91,7 +100,7 @@ class Simulation:
             print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
             import traceback
             traceback.print_exc()
-            raise  # 🚫 Removed sys.exit(1) so this is now test- and notebook-friendly
+            raise
 
 
 def cli_entrypoint():
@@ -112,7 +121,7 @@ def cli_entrypoint():
 
     except Exception as e:
         print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)
-        sys.exit(1)  # ✅ This is the only place sys.exit belongs — at CLI boundary
+        sys.exit(1)
 
 if __name__ == "__main__":
     cli_entrypoint()
