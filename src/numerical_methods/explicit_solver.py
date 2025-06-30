@@ -90,20 +90,23 @@ class ExplicitSolver:
         print("  3. Solving Poisson equation for pressure correction...")
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
         
-        # Optional: Add logging for divergence
-        # max_div = np.max(np.abs(divergence))
-        # print(f"    - Max divergence before correction: {max_div:.6e}")
+        # --- Add useful logging for debugging divergence ---
+        max_div = np.max(np.abs(divergence))
+        print(f"    - Max divergence before correction: {max_div:.6e}")
         
-        pressure_correction = solve_poisson_for_phi(
+        # The solve_poisson_for_phi function now takes the mesh_info to apply
+        # the Dirichlet pressure BCs as constraints during the solve.
+        pressure_correction, residual = solve_poisson_for_phi(
             divergence,
             self.mesh_info,
             self.dt,
             tolerance=1e-6,
-            max_iterations=1000
+            max_iterations=1000,
+            return_residual=True # Request the residual for logging
         )
         
-        # Optional: Log pressure solver residual if available
-        # print(f"    - Pressure solver residual: [add residual value from solver]")
+        # --- Add logging for pressure solver residual ---
+        print(f"    - Pressure solver residual: {residual:.6e}")
 
         # --- Step 4: Correct the velocity field and update pressure ---
         print("  4. Applying pressure correction to velocity and updating pressure...")
@@ -127,11 +130,16 @@ class ExplicitSolver:
             is_tentative_step=False # Flag to apply both velocity and pressure BCs
         )
 
-        # Optional: Add logging for kinetic energy, min/max velocity/pressure
-        # total_kinetic_energy = 0.5 * self.density * np.sum(updated_velocity_field[1:-1, 1:-1, 1:-1, :]**2)
-        # print(f"    - Total Kinetic Energy: {total_kinetic_energy:.4e}")
-        # print(f"    - Max Velocity Magnitude: {np.max(np.linalg.norm(updated_velocity_field[1:-1, 1:-1, 1:-1, :], axis=-1)):.4e}")
-        # print(f"    - Pressure range: [{np.min(updated_pressure_field[1:-1, 1:-1, 1:-1]):.4e}, {np.max(updated_pressure_field[1:-1, 1:-1, 1:-1]):.4e}]")
+        # --- Add optional logging for flow metrics ---
+        # This is extremely useful for tracking simulation progress and convergence.
+        interior_velocity = updated_velocity_field[1:-1, 1:-1, 1:-1, :]
+        total_kinetic_energy = 0.5 * self.density * np.sum(np.linalg.norm(interior_velocity, axis=-1)**2)
+        print(f"    - Total Kinetic Energy: {total_kinetic_energy:.4e}")
+        max_velocity_magnitude = np.max(np.linalg.norm(interior_velocity, axis=-1))
+        print(f"    - Max Velocity Magnitude: {max_velocity_magnitude:.4e}")
+        
+        interior_pressure = updated_pressure_field[1:-1, 1:-1, 1:-1]
+        print(f"    - Pressure range (interior): [{np.min(interior_pressure):.4e}, {np.max(interior_pressure):.4e}]")
 
         print("--- Explicit Time Step Complete ---")
         return updated_velocity_field, updated_pressure_field
