@@ -12,11 +12,10 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 # --- END REFINED FIX ---
 
-from physics import identify_boundary_nodes
+from preprocessing.identify_boundary_nodes import identify_boundary_nodes
 from utils.io_utils import load_json_schema, convert_numpy_to_list, save_json
 from utils.validation import validate_json_schema
 from utils.mesh_utils import get_domain_extents, infer_uniform_grid_parameters
-
 
 def pre_process_input_data(input_data):
     print("DEBUG (pre_process_input_data): Starting pre-processing.")
@@ -79,13 +78,11 @@ def pre_process_input_data(input_data):
         'min_z': min_z, 'max_z': max_z
     }
 
-    processed_boundary_conditions = identify_boundary_nodes(
-        input_data.get("boundary_conditions", {}),
-        input_data["mesh"]["boundary_faces"],
-        mesh_info
-    )
+    # Copy boundary_conditions into mesh_info and populate cell_indices
+    mesh_info["boundary_conditions"] = input_data.get("boundary_conditions", {})
+    identify_boundary_nodes(mesh_info)
 
-    processed_boundary_conditions = convert_numpy_to_list(processed_boundary_conditions)
+    processed_boundary_conditions = convert_numpy_to_list(mesh_info["boundary_conditions"])
 
     pre_processed_output = {
         "domain_settings": domain_settings,
@@ -101,7 +98,6 @@ def pre_process_input_data(input_data):
 
     print("DEBUG (pre_process_input_data): Pre-processing complete. Output structure prepared.")
     return pre_processed_output
-
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

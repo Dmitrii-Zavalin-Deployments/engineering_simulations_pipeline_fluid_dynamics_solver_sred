@@ -84,7 +84,7 @@ def test_missing_boundary_indices_raises_error(mock_load, mock_init_grid, mock_i
                 "velocity": [1.0, 0.0, 0.0],
                 "type": "dirichlet",
                 "apply_to": ["velocity"]
-                # 'cell_indices' intentionally omitted
+                # cell_indices intentionally omitted to test validation
             }
         }
     }

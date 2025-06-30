@@ -55,6 +55,8 @@ def apply_boundary_conditions(
         boundary_dim = bc.get("boundary_dim")
         offset = bc.get("interior_neighbor_offset", [0, 0, 0])
 
+        print(f"[BC DEBUG] Processing '{bc_name}': type={bc_type}, cells={cell_indices.shape[0]}, apply_to={apply_to_fields}")
+
         if cell_indices.size == 0:
             print(f"WARNING: No cells for boundary '{bc_name}'. Skipping.", file=sys.stderr)
             continue
@@ -66,11 +68,13 @@ def apply_boundary_conditions(
                     print(f"ERROR: Boundary '{bc_name}' has cell indices beyond grid shape {max_indices.tolist()}", file=sys.stderr)
                     raise IndexError(f"Invalid cell_indices for velocity in '{bc_name}' — indices exceed grid bounds")
                 velocity_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_velocity
+                print(f"[BC DEBUG] Applied velocity {target_velocity} to '{bc_name}'")
             if "pressure" in apply_to_fields and not is_tentative_step:
                 if np.any(np.max(cell_indices, axis=0) >= pressure_field.shape):
                     print(f"ERROR: Pressure indices out of bounds for '{bc_name}'", file=sys.stderr)
                     raise IndexError(f"Invalid cell_indices for pressure in '{bc_name}' — indices exceed grid bounds")
                 pressure_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_pressure
+                print(f"[BC DEBUG] Applied pressure {target_pressure} to '{bc_name}'")
 
         elif bc_type in ["neumann", "pressure_outlet"]:
             neighbor = cell_indices + offset
@@ -83,9 +87,10 @@ def apply_boundary_conditions(
 
             if "velocity" in apply_to_fields:
                 velocity_field[inner[:,0], inner[:,1], inner[:,2]] = velocity_field[neigh[:,0], neigh[:,1], neigh[:,2]]
-
+                print(f"[BC DEBUG] Neumann velocity copied from neighbors for '{bc_name}'")
             if bc_type == "pressure_outlet" and "pressure" in apply_to_fields and not is_tentative_step:
                 pressure_field[inner[:,0], inner[:,1], inner[:,2]] = target_pressure
+                print(f"[BC DEBUG] Applied outlet pressure {target_pressure} to '{bc_name}'")
         else:
             print(f"WARNING: Unknown BC type '{bc_type}' for '{bc_name}'.", file=sys.stderr)
 
