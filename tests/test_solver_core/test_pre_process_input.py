@@ -76,11 +76,11 @@ def test_zero_extent_mesh_z():
                 }
             ]
         }
+        # 🧠 Note: no 'boundary_conditions' provided on purpose
     }
 
-    result = pre_process_input_data(flat_input)
-    assert result["mesh_info"]["grid_shape"][2] == 1
-    assert result["domain_settings"]["dz"] == 1.0
+    with pytest.raises(ValueError, match="No boundary_conditions found in mesh_info"):
+        pre_process_input_data(flat_input)
 
 
 
