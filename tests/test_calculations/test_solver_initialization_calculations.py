@@ -16,10 +16,12 @@ def sample_input_data():
         "simulation_parameters": {
             "total_time": 2.5,
             "time_step": 0.05,
-            "density": 1.23,
-            "kinematic_viscosity": 0.004,
             "output_frequency_steps": 20,
             "solver_type": "implicit"
+        },
+        "fluid_properties": {
+            "density": 1.23,
+            "viscosity": 0.004
         },
         "initial_conditions": {
             "velocity": [2.0, -1.0, 0.5],
