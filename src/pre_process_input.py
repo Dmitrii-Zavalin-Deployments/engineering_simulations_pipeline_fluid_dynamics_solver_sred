@@ -20,10 +20,11 @@ from utils.mesh_utils import get_domain_extents, infer_uniform_grid_parameters
 def pre_process_input_data(input_data):
     print("DEBUG (pre_process_input_data): Starting pre-processing.")
 
-    min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(input_data["mesh"]["boundary_faces"])
+    boundary_faces = input_data["mesh"]["boundary_faces"]
+    min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(boundary_faces)
 
     all_x_coords, all_y_coords, all_z_coords = [], [], []
-    for face in input_data["mesh"]["boundary_faces"]:
+    for face in boundary_faces:
         for node_coords in face["nodes"].values():
             all_x_coords.append(node_coords[0])
             all_y_coords.append(node_coords[1])
@@ -34,7 +35,6 @@ def pre_process_input_data(input_data):
     json_ny = json_domain_def.get('ny')
     json_nz = json_domain_def.get('nz')
 
-    # Respect user-defined nx, ny, nz if provided, else infer
     if json_nx is not None:
         nx = json_nx
         dx = (max_x - min_x) / nx
@@ -55,7 +55,6 @@ def pre_process_input_data(input_data):
 
     nx, ny, nz = max(1, nx), max(1, ny), max(1, nz)
 
-    # Handle zero-extent domains
     TOLERANCE_ZERO_EXTENT = 1e-9
     if abs(max_x - min_x) < TOLERANCE_ZERO_EXTENT: dx, nx = 1.0, 1
     if abs(max_y - min_y) < TOLERANCE_ZERO_EXTENT: dy, ny = 1.0, 1
@@ -78,9 +77,8 @@ def pre_process_input_data(input_data):
         'min_z': min_z, 'max_z': max_z
     }
 
-    # Copy boundary_conditions into mesh_info and populate cell_indices
     mesh_info["boundary_conditions"] = input_data.get("boundary_conditions", {})
-    identify_boundary_nodes(mesh_info)
+    identify_boundary_nodes(mesh_info, boundary_faces)  # ✅ key fix: pass face geometry
 
     processed_boundary_conditions = convert_numpy_to_list(mesh_info["boundary_conditions"])
 
@@ -92,7 +90,7 @@ def pre_process_input_data(input_data):
         "boundary_conditions": processed_boundary_conditions,
         "mesh_info": mesh_info,
         "mesh": {
-            "boundary_faces": input_data["mesh"]["boundary_faces"]
+            "boundary_faces": boundary_faces
         }
     }
 
