@@ -70,7 +70,6 @@ class ExplicitSolver:
         u_star[..., 2] += self.dt * (diffusion_w / self.density)
 
         # --- Optional External Forces ---
-        # e.g., gravity or body force terms
         # u_star[..., 2] -= 9.81 * self.dt
 
         # --- Apply tentative BCs ---
@@ -93,13 +92,14 @@ class ExplicitSolver:
             max_iterations=1000
         )
 
+        # ✅ Updated to positional arguments
         updated_velocity_field, updated_pressure_field = apply_pressure_correction(
-            velocity_field=u_star,
-            pressure_field=pressure_field,
-            phi=pressure_correction,
-            mesh_info=self.mesh_info,
-            dt=self.dt,
-            density=self.density
+            u_star,
+            pressure_field,
+            pressure_correction,
+            self.mesh_info,
+            self.dt,
+            self.density
         )
 
         # --- Apply BCs to final velocity & pressure fields ---
