@@ -47,14 +47,14 @@ def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, toleran
     return phi
 
 
-def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
+def solve_poisson_for_phi(divergence, mesh_info, time_step,
                           omega=1.7, max_iterations=1000, tolerance=1e-6,
                           return_residual=False, backend="sor"):
     """
     Solves the Poisson equation for pressure correction using a selected backend.
 
     Args:
-        divergence_u_star (np.ndarray): Source term (∇·u*), shape (nx, ny, nz)
+        divergence (np.ndarray): Source term (∇·u*), shape (nx, ny, nz)
         mesh_info (dict): Dict with grid_shape and spacings ('dx', 'dy', 'dz')
         time_step (float): Timestep (dt)
         omega (float): Relaxation factor for SOR (default 1.7)
@@ -76,11 +76,11 @@ def solve_poisson_for_phi(divergence_u_star, mesh_info, time_step,
     dz = mesh_info["dz"]
 
     phi = np.zeros((nx, ny, nz), dtype=np.float64)
-    b_source = divergence_u_star / time_step
+    rhs = divergence / time_step
     residual_container = np.zeros(1, dtype=np.float64)
 
     phi = _sor_kernel_with_residual(
-        phi, b_source, dx, dy, dz, omega,
+        phi, rhs, dx, dy, dz, omega,
         float(max_iterations), float(tolerance), residual_container
     )
 

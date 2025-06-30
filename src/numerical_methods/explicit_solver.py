@@ -86,9 +86,9 @@ class ExplicitSolver:
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
 
         pressure_correction = solve_poisson_for_phi(
-            divergence=divergence,
-            mesh_info=self.mesh_info,
-            dt=self.dt,
+            divergence,
+            self.mesh_info,
+            self.dt,
             tolerance=1e-6,
             max_iterations=1000
         )
