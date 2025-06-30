@@ -23,8 +23,10 @@ def mesh_and_props():
 @patch("src.numerical_methods.explicit_solver.compute_diffusion_term", return_value=np.ones((5, 5, 5)))
 @patch("src.numerical_methods.explicit_solver.compute_pressure_divergence", return_value=np.zeros((5, 5, 5)))
 @patch("src.numerical_methods.explicit_solver.solve_poisson_for_phi", return_value=np.zeros((5, 5, 5)))
-@patch("src.numerical_methods.explicit_solver.apply_pressure_correction", side_effect=lambda u, p, phi, m, dt, rho: (u * 0.5, p + 0.1))
-@patch("src.numerical_methods.explicit_solver.apply_boundary_conditions", side_effect=lambda u, p, f, m, is_tentative_step: (u, p))
+@patch("src.numerical_methods.explicit_solver.apply_pressure_correction",
+       side_effect=lambda u, p, phi, m, dt, rho: (u * 0.5, p + 0.1))
+@patch("src.numerical_methods.explicit_solver.apply_boundary_conditions",
+       side_effect=lambda **kwargs: (kwargs["velocity_field"], kwargs["pressure_field"]))
 def test_explicit_solver_step_mocked(
     mock_boundary,
     mock_pcorr,
