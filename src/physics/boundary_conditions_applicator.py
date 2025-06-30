@@ -46,9 +46,9 @@ def apply_boundary_conditions(
             print(f"WARNING: BC '{bc_name}' is missing indices. Skipping. Was pre-processing successful?", file=sys.stderr)
             continue
             
-        bc_data = bc.get("data", {})
-        bc_type = bc_data.get("type")
-        apply_to_fields = bc_data.get("apply_to", [])
+        # --- FIX: Access bc_type, apply_to_fields, etc., directly from 'bc' ---
+        bc_type = bc.get("type")
+        apply_to_fields = bc.get("apply_to", [])
             
         # Get the indices for the boundary cells and the ghost cells
         cell_indices = np.array(bc["cell_indices"])
@@ -61,7 +61,8 @@ def apply_boundary_conditions(
             # Apply Dirichlet Velocity BCs (e.g., No-slip walls, fixed inlet velocity)
             if "velocity" in apply_to_fields:
                 if ghost_indices.size > 0:
-                    target_velocity = bc_data.get("velocity", [0.0, 0.0, 0.0])
+                    # FIX: Access 'velocity' directly from the bc dictionary
+                    target_velocity = bc.get("velocity", [0.0, 0.0, 0.0])
                     # Apply the velocity to the ghost cells
                     velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = target_velocity
                     print(f"    -> Applied Dirichlet velocity {target_velocity} to ghost cells for '{bc_name}'.")
@@ -72,7 +73,8 @@ def apply_boundary_conditions(
             # This is applied to the final pressure field after the solve.
             if "pressure" in apply_to_fields and not is_tentative_step:
                 if ghost_indices.size > 0:
-                    target_pressure = bc_data.get("pressure", 0.0)
+                    # FIX: Access 'pressure' directly from the bc dictionary
+                    target_pressure = bc.get("pressure", 0.0)
                     # Apply the pressure to the ghost cells
                     pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
                     print(f"    -> Applied Dirichlet pressure {target_pressure} to ghost cells for '{bc_name}'.")
@@ -103,12 +105,11 @@ def apply_boundary_conditions(
                     print(f"    -> WARNING: No boundary/ghost cells found for Neumann pressure BC '{bc_name}'.")
 
         # --- 3. Handle a combined 'outflow' BC type (Optional, based on your JSON) ---
-        # Note: Your JSON uses 'dirichlet' for both inlet and outlet pressure,
-        # so this 'outflow' type may not be used directly, but the logic is fine.
         elif bc_type == "outflow":
             if "pressure" in apply_to_fields and not is_tentative_step:
                 if ghost_indices.size > 0:
-                    target_pressure = bc_data.get("pressure", 0.0)
+                    # FIX: Access 'pressure' directly from the bc dictionary
+                    target_pressure = bc.get("pressure", 0.0)
                     pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
                     print(f"    -> Applied Dirichlet pressure {target_pressure} for outflow BC '{bc_name}'.")
             
@@ -138,5 +139,6 @@ def apply_ghost_cells(field: np.ndarray, field_name: str):
     field[:, -1, :] = field[:, -2, :]
     field[:, :, 0] = field[:, :, 1]
     field[:, :, -1] = field[:, :, -2]
+
 
 

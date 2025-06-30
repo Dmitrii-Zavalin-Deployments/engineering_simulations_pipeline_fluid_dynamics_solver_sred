@@ -79,7 +79,7 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
     dy = mesh_info["dy"]
     dz = mesh_info["dz"]
 
-    # --- CRITICAL UPDATE: Initialize phi with Dirichlet BCs ---
+    # --- CRITICAL UPDATE: Initialize phi field with Dirichlet BCs ---
     # The phi field is related to pressure. For fixed pressure BCs, we fix phi
     # on the ghost cells to the corresponding pressure value.
     phi = np.zeros((nx_total, ny_total, nz_total), dtype=np.float64)
@@ -87,19 +87,24 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
 
     print("[Poisson Solver] Initializing phi field with Dirichlet BCs...")
     for bc_name, bc in processed_bcs.items():
-        bc_data = bc.get("data", {})
+        # --- FIX: Access apply_to and type directly from the bc dictionary ---
+        # No 'data' key is needed.
+        bc_type = bc.get("type")
+        apply_to_fields = bc.get("apply_to", [])
+        
         # Only apply pressure BCs
-        if bc.get("type") == "dirichlet" and "pressure" in bc_data.get("apply_to", []):
+        if bc_type == "dirichlet" and "pressure" in apply_to_fields:
             if "ghost_indices" in bc:
                 ghost_indices = np.array(bc["ghost_indices"])
-                target_pressure = bc_data.get("pressure", 0.0)
+                # FIX: Access 'pressure' directly from the bc dictionary
+                target_pressure = bc.get("pressure", 0.0)
                 
                 if ghost_indices.size > 0:
                     # Apply the pressure value directly to the phi field in the ghost cells
                     phi[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
                     print(f"   -> Applied pressure {target_pressure} to phi field for BC '{bc_name}'.")
                 else:
-                    print(f"   -> WARNING: No ghost indices found for BC '{bc_name}'.")
+                    print(f"   -> WARNING: No ghost indices found for pressure BC '{bc_name}'.")
 
     # The RHS of the Poisson equation is ∇·u* / dt
     rhs = divergence / time_step
@@ -115,6 +120,5 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
     print(f"[Poisson Solver] Solver finished. Final residual: {residual_container[0]:.6e}")
 
     return (phi, residual_container[0]) if return_residual else phi
-
 
 
