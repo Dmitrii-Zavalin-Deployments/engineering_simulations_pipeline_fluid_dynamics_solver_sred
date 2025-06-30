@@ -47,24 +47,27 @@ class ExplicitSolver:
         Returns:
             A tuple of (updated_velocity_field, updated_pressure_field)
         """
+        print("--- Starting Explicit Time Step ---")
 
-        # Tentative velocity field (u*)
+        # Create a copy of the velocity field to compute the tentative velocity (u*)
         u_star = np.copy(velocity_field)
 
-        # --- Advection Step ---
+        # --- Step 1: Advection and Diffusion ---
+        print("  1. Computing advection and diffusion terms...")
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
         advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, self.mesh_info)
 
-        u_star[..., 0] = velocity_field[..., 0] - self.dt * advection_u
-        u_star[..., 1] = velocity_field[..., 1] - self.dt * advection_v
-        u_star[..., 2] = velocity_field[..., 2] - self.dt * advection_w
+        # Update velocity with advection term
+        u_star[..., 0] -= self.dt * advection_u
+        u_star[..., 1] -= self.dt * advection_v
+        u_star[..., 2] -= self.dt * advection_w
 
-        # --- Diffusion Step ---
         diffusion_u = compute_diffusion_term(u_star[..., 0], self.viscosity, self.mesh_info)
         diffusion_v = compute_diffusion_term(u_star[..., 1], self.viscosity, self.mesh_info)
         diffusion_w = compute_diffusion_term(u_star[..., 2], self.viscosity, self.mesh_info)
-
+        
+        # Update velocity with diffusion term
         u_star[..., 0] += self.dt * (diffusion_u / self.density)
         u_star[..., 1] += self.dt * (diffusion_v / self.density)
         u_star[..., 2] += self.dt * (diffusion_w / self.density)
@@ -72,18 +75,25 @@ class ExplicitSolver:
         # --- Optional External Forces ---
         # u_star[..., 2] -= 9.81 * self.dt
 
-        # --- Apply tentative BCs ---
+        # --- Step 2: Apply BCs to the tentative velocity field (u*) ---
+        # This is where no-slip velocity boundaries are enforced for the intermediate velocity.
+        print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
         u_star, _ = apply_boundary_conditions(
             velocity_field=u_star,
-            pressure_field=pressure_field,
+            pressure_field=pressure_field, # The pressure field is not updated at this stage
             fluid_properties=self.fluid_properties_dict,
             mesh_info=self.mesh_info,
-            is_tentative_step=True
+            is_tentative_step=True # Flag to apply only velocity BCs
         )
 
-        # --- Pressure Projection ---
+        # --- Step 3: Pressure Projection (Solve Poisson Equation) ---
+        print("  3. Solving Poisson equation for pressure correction...")
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
-
+        
+        # Optional: Add logging for divergence
+        # max_div = np.max(np.abs(divergence))
+        # print(f"    - Max divergence before correction: {max_div:.6e}")
+        
         pressure_correction = solve_poisson_for_phi(
             divergence,
             self.mesh_info,
@@ -91,8 +101,12 @@ class ExplicitSolver:
             tolerance=1e-6,
             max_iterations=1000
         )
+        
+        # Optional: Log pressure solver residual if available
+        # print(f"    - Pressure solver residual: [add residual value from solver]")
 
-        # ✅ Updated to positional arguments
+        # --- Step 4: Correct the velocity field and update pressure ---
+        print("  4. Applying pressure correction to velocity and updating pressure...")
         updated_velocity_field, updated_pressure_field = apply_pressure_correction(
             u_star,
             pressure_field,
@@ -102,16 +116,24 @@ class ExplicitSolver:
             self.density
         )
 
-        # --- Apply BCs to final velocity & pressure fields ---
+        # --- Step 5: Apply final BCs to the corrected fields ---
+        # This is the crucial step for enforcing Dirichlet pressure conditions.
+        print("  5. Applying final boundary conditions to the corrected fields...")
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
             velocity_field=updated_velocity_field,
             pressure_field=updated_pressure_field,
             fluid_properties=self.fluid_properties_dict,
             mesh_info=self.mesh_info,
-            is_tentative_step=False
+            is_tentative_step=False # Flag to apply both velocity and pressure BCs
         )
 
-        return updated_velocity_field, updated_pressure_field
+        # Optional: Add logging for kinetic energy, min/max velocity/pressure
+        # total_kinetic_energy = 0.5 * self.density * np.sum(updated_velocity_field[1:-1, 1:-1, 1:-1, :]**2)
+        # print(f"    - Total Kinetic Energy: {total_kinetic_energy:.4e}")
+        # print(f"    - Max Velocity Magnitude: {np.max(np.linalg.norm(updated_velocity_field[1:-1, 1:-1, 1:-1, :], axis=-1)):.4e}")
+        # print(f"    - Pressure range: [{np.min(updated_pressure_field[1:-1, 1:-1, 1:-1]):.4e}, {np.max(updated_pressure_field[1:-1, 1:-1, 1:-1]):.4e}]")
 
+        print("--- Explicit Time Step Complete ---")
+        return updated_velocity_field, updated_pressure_field
 
 

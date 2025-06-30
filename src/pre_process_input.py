@@ -18,8 +18,13 @@ from utils.validation import validate_json_schema
 from utils.mesh_utils import get_domain_extents, infer_uniform_grid_parameters
 
 def pre_process_input_data(input_data):
+    """
+    Pre-processes raw input data from a JSON file into a structured format
+    suitable for the fluid dynamics solver.
+    """
     print("DEBUG (pre_process_input_data): Starting pre-processing.")
 
+    # 1. Determine grid dimensions and domain extents
     boundary_faces = input_data["mesh"]["boundary_faces"]
     min_x, max_x, min_y, max_y, min_z, max_z = get_domain_extents(boundary_faces)
 
@@ -55,6 +60,7 @@ def pre_process_input_data(input_data):
 
     nx, ny, nz = max(1, nx), max(1, ny), max(1, nz)
 
+    # Handle zero-extent dimensions for 2D or 1D problems
     TOLERANCE_ZERO_EXTENT = 1e-9
     if abs(max_x - min_x) < TOLERANCE_ZERO_EXTENT: dx, nx = 1.0, 1
     if abs(max_y - min_y) < TOLERANCE_ZERO_EXTENT: dy, ny = 1.0, 1
@@ -69,17 +75,52 @@ def pre_process_input_data(input_data):
         "grid_shape": [nx, ny, nz]
     }
 
+    # 2. Build the mesh_info dictionary
     mesh_info = {
         'grid_shape': [nx, ny, nz],
         'dx': dx, 'dy': dy, 'dz': dz,
         'min_x': min_x, 'max_x': max_x,
         'min_y': min_y, 'max_y': max_y,
-        'min_z': min_z, 'max_z': max_z
+        'min_z': min_z, 'max_z': max_z,
+        'boundary_conditions': {} # Initialize an empty dict
     }
 
-    mesh_info["boundary_conditions"] = input_data.get("boundary_conditions", {})
-    identify_boundary_nodes(mesh_info, boundary_faces)  # ✅ key fix: pass face geometry
+    # 3. Process and pass through boundary conditions, including pressure
+    raw_boundary_conditions = input_data.get("boundary_conditions", [])
+    if not isinstance(raw_boundary_conditions, list):
+        raise ValueError("The 'boundary_conditions' field must be a list of condition objects.")
 
+    for bc_config in raw_boundary_conditions:
+        bc_label = bc_config.get("label")
+        if not bc_label:
+            print("Warning: Found a boundary condition without a 'label'. It will be skipped.")
+            continue
+            
+        # Extract the fields to be applied (e.g., "velocity", "pressure")
+        apply_to_fields = bc_config.get("apply_to", [])
+        
+        # Check that 'apply_to' is a list
+        if not isinstance(apply_to_fields, list):
+             raise ValueError(f"The 'apply_to' field for BC '{bc_label}' must be a list.")
+             
+        # Create a copy to pass through to mesh_info
+        bc_data = bc_config.copy()
+        
+        # We need to map the fields requested in `apply_to`
+        for field_name in apply_to_fields:
+            if field_name in bc_data:
+                # Store the value in mesh_info under the label
+                # This ensures the preprocessor just passes the data through
+                # without needing to know if it's velocity, pressure, etc.
+                if bc_label not in mesh_info['boundary_conditions']:
+                    mesh_info['boundary_conditions'][bc_label] = {'data': {}, 'type': bc_config.get('type')}
+                mesh_info['boundary_conditions'][bc_label]['data'][field_name] = bc_data[field_name]
+        
+    # 4. Identify boundary nodes based on the processed conditions and mesh geometry
+    identify_boundary_nodes(mesh_info, boundary_faces)
+
+    # 5. Prepare the final output dictionary
+    # The 'boundary_conditions' in the output now contains the grid indices from identify_boundary_nodes
     processed_boundary_conditions = convert_numpy_to_list(mesh_info["boundary_conditions"])
 
     pre_processed_output = {
@@ -118,7 +159,8 @@ if __name__ == "__main__":
         pre_processed_output = pre_process_input_data(raw_input_data)
 
         print("\n--- DEBUG: Pre-processed JSON to be passed to main_solver.py ---")
-        print(json.dumps(pre_processed_output, indent=2))
+        # Use a more readable dump for debugging
+        print(json.dumps(pre_processed_output, indent=2, default=lambda x: str(x) if isinstance(x, np.ndarray) else x))
         print("--- END DEBUG ---\n")
 
         output_dir = os.path.dirname(output_file)
@@ -142,6 +184,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
-
 
 

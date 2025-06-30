@@ -35,77 +35,97 @@ def apply_boundary_conditions(
 
     processed_bcs = mesh_info.get('boundary_conditions', {})
     if not processed_bcs:
-        print("WARNING: No boundary_conditions found in mesh_info.", file=sys.stderr)
+        print("WARNING: No boundary_conditions found in mesh_info. Skipping BC application.", file=sys.stderr)
         return velocity_field, pressure_field
 
-    nx, ny, nz = mesh_info['grid_shape']
-
     for bc_name, bc in processed_bcs.items():
-        if "cell_indices" not in bc:
-            raise ValueError(
-                f"❌ Boundary condition '{bc_name}' is missing 'cell_indices'.\n"
-                "Was the input preprocessed with 'identify_boundary_nodes()'?"
-            )
-
-        bc_type = bc.get("type")
-        cell_indices = np.array(bc["cell_indices"])
-        target_velocity = bc.get("velocity", [0.0, 0.0, 0.0])
-        target_pressure = bc.get("pressure", 0.0)
-        apply_to_fields = bc.get("apply_to") or []
-        boundary_dim = bc.get("boundary_dim")
-        offset = bc.get("interior_neighbor_offset", [0, 0, 0])
-
-        print(f"[BC DEBUG] Processing '{bc_name}': type={bc_type}, cells={cell_indices.shape[0]}, apply_to={apply_to_fields}")
-
-        if cell_indices.size == 0:
-            print(f"WARNING: No cells for boundary '{bc_name}'. Skipping.", file=sys.stderr)
+        if "cell_indices" not in bc or "ghost_indices" not in bc:
+            print(f"WARNING: BC '{bc_name}' is missing indices. Skipping. Was pre-processing successful?", file=sys.stderr)
             continue
-
+            
+        bc_data = bc.get("data", {})
+        bc_type = bc.get("type")
+        apply_to_fields = bc_data.get("apply_to", [])
+        
+        # Get the indices for the boundary cells and the ghost cells
+        cell_indices = np.array(bc["cell_indices"])
+        ghost_indices = np.array(bc["ghost_indices"])
+        
+        print(f"[BC DEBUG] Processing '{bc_name}': type={bc_type}, apply_to={apply_to_fields}")
+        
         if bc_type == "dirichlet":
+            # --- Apply Dirichlet Velocity BCs (No-slip walls, fixed inlet velocity) ---
             if "velocity" in apply_to_fields:
-                max_indices = np.array(velocity_field.shape[:3])
-                if np.any(np.max(cell_indices, axis=0) >= max_indices):
-                    print(f"ERROR: Boundary '{bc_name}' has cell indices beyond grid shape {max_indices.tolist()}", file=sys.stderr)
-                    raise IndexError(f"Invalid cell_indices for velocity in '{bc_name}' — indices exceed grid bounds")
-                velocity_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_velocity
-                print(f"[BC DEBUG] Applied velocity {target_velocity} to '{bc_name}'")
+                if ghost_indices.size > 0:
+                    target_velocity = bc_data.get("velocity", [0.0, 0.0, 0.0])
+                    # Apply the velocity to the ghost cells
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = target_velocity
+                    print(f"   -> Applied Dirichlet velocity {target_velocity} to ghost cells for '{bc_name}'.")
+                else:
+                     print(f"   -> WARNING: No ghost cells identified for velocity BC '{bc_name}'.")
+
+            # --- Apply Dirichlet Pressure BCs (Fixed pressure inlet/outlet) ---
+            # This should only be applied after the tentative velocity step, before pressure solve
             if "pressure" in apply_to_fields and not is_tentative_step:
-                if np.any(np.max(cell_indices, axis=0) >= pressure_field.shape):
-                    print(f"ERROR: Pressure indices out of bounds for '{bc_name}'", file=sys.stderr)
-                    raise IndexError(f"Invalid cell_indices for pressure in '{bc_name}' — indices exceed grid bounds")
-                pressure_field[cell_indices[:,0], cell_indices[:,1], cell_indices[:,2]] = target_pressure
-                print(f"[BC DEBUG] Applied pressure {target_pressure} to '{bc_name}'")
-
-        elif bc_type in ["neumann", "pressure_outlet"]:
-            neighbor = cell_indices + offset
-            valid = (neighbor[:, 0] >= 0) & (neighbor[:, 0] < nx) & \
-                    (neighbor[:, 1] >= 0) & (neighbor[:, 1] < ny) & \
-                    (neighbor[:, 2] >= 0) & (neighbor[:, 2] < nz)
-
-            inner = cell_indices[valid]
-            neigh = neighbor[valid]
-
+                if ghost_indices.size > 0:
+                    target_pressure = bc_data.get("pressure", 0.0)
+                    # Apply the pressure to the ghost cells
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
+                    print(f"   -> Applied Dirichlet pressure {target_pressure} to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"   -> WARNING: No ghost cells identified for pressure BC '{bc_name}'.")
+            
+        elif bc_type == "neumann":
+            # --- Apply Neumann Velocity BCs (e.g., zero-gradient outlet) ---
             if "velocity" in apply_to_fields:
-                velocity_field[inner[:,0], inner[:,1], inner[:,2]] = velocity_field[neigh[:,0], neigh[:,1], neigh[:,2]]
-                print(f"[BC DEBUG] Neumann velocity copied from neighbors for '{bc_name}'")
-            if bc_type == "pressure_outlet" and "pressure" in apply_to_fields and not is_tentative_step:
-                pressure_field[inner[:,0], inner[:,1], inner[:,2]] = target_pressure
-                print(f"[BC DEBUG] Applied outlet pressure {target_pressure} to '{bc_name}'")
-        else:
-            print(f"WARNING: Unknown BC type '{bc_type}' for '{bc_name}'.", file=sys.stderr)
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    # We need to copy the velocity from the boundary cells to the ghost cells.
+                    # This implies a zero-gradient (Neumann) condition.
+                    # The indices are already paired by the preprocessor's logic
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = \
+                        velocity_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2], :]
+                    print(f"   -> Applied Neumann velocity (zero-gradient) to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"   -> WARNING: No boundary/ghost cells found for Neumann velocity BC '{bc_name}'.")
 
+            # --- Apply Neumann Pressure BCs (e.g., zero-gradient outlet) ---
+            if "pressure" in apply_to_fields and not is_tentative_step:
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    # Copy pressure from boundary cells to ghost cells
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = \
+                        pressure_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2]]
+                    print(f"   -> Applied Neumann pressure (zero-gradient) to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"   -> WARNING: No boundary/ghost cells found for Neumann pressure BC '{bc_name}'.")
+
+        elif bc_type == "outflow":
+            # A common type of outlet BC. Can be a mix of Dirichlet pressure and Neumann velocity.
+            if "pressure" in apply_to_fields and not is_tentative_step:
+                if ghost_indices.size > 0:
+                    target_pressure = bc_data.get("pressure", 0.0)
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
+                    print(f"   -> Applied Dirichlet pressure {target_pressure} for outflow BC '{bc_name}'.")
+            
+            if "velocity" in apply_to_fields:
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    # Apply zero-gradient velocity (Neumann) at the outlet
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = \
+                        velocity_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2], :]
+                    print(f"   -> Applied Neumann velocity (zero-gradient) for outflow BC '{bc_name}'.")
+                    
+        else:
+            print(f"WARNING: Unknown BC type '{bc_type}' for '{bc_name}'. Skipping.", file=sys.stderr)
+
+    print("DEBUG: apply_boundary_conditions completed.")
     return velocity_field, pressure_field
 
 
 def apply_ghost_cells(field: np.ndarray, field_name: str):
     """
-    Simple in-place ghost cell filler for test purposes.
-    Copies interior slices to boundary ghost layers (periodic-style default).
-
-    Args:
-        field (np.ndarray): 3D array with ghost cells.
-        field_name (str): For future extension (e.g., 'u', 'v', 'w').
+    DEPRECATED: This function is replaced by the more robust apply_boundary_conditions.
+    Kept for reference but should not be used in the main solver loop.
     """
+    print(f"WARNING: apply_ghost_cells() is deprecated. Use apply_boundary_conditions() instead.")
     gx = 1  # single ghost layer
     field[0, :, :] = field[1, :, :]
     field[-1, :, :] = field[-2, :, :]
