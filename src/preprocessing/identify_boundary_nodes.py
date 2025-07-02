@@ -94,7 +94,7 @@ def identify_boundary_nodes(mesh_info, mesh_faces=None):
                     candidate_direction = key
                     break
 
-        if candidate_direction not in face_map:
+        if candidate_direction not in face_map or f"{candidate_direction}_ghost" not in ghost_cell_face_map:
             print(f"[identify_boundary_nodes] ⚠️ Could not determine geometric face for BC '{bc_name}'.")
             continue
 
@@ -102,11 +102,16 @@ def identify_boundary_nodes(mesh_info, mesh_faces=None):
         ghost_slice = ghost_cell_face_map[f"{candidate_direction}_ghost"]
 
         boundary_mask = np.full((nx_total, ny_total, nz_total), False)
-        boundary_mask[boundary_slice] = True
-        boundary_indices = np.argwhere(boundary_mask)
-
         ghost_mask = np.full((nx_total, ny_total, nz_total), False)
-        ghost_mask[ghost_slice] = True
+
+        try:
+            boundary_mask[boundary_slice] = True
+            ghost_mask[ghost_slice] = True
+        except IndexError as e:
+            print(f"[identify_boundary_nodes] ⚠️ Failed to apply slice for BC '{bc_name}': {e}")
+            continue
+
+        boundary_indices = np.argwhere(boundary_mask)
         ghost_indices = np.argwhere(ghost_mask)
 
         bc_data["cell_indices"] = boundary_indices.tolist()
