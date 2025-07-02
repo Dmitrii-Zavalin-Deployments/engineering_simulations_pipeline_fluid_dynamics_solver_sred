@@ -30,7 +30,7 @@ def convert_numpy_to_list(obj):
         return obj
 
 def save_json(data, filepath):
-    """Saves data to a JSON file, handling non-serializable types."""
+    """Saves data to a JSON file, handling NumPy arrays and non-serializable types."""
     try:
         cleaned_data = convert_numpy_to_list(data)
         with open(filepath, 'w') as f:
@@ -57,7 +57,6 @@ def apply_config_defaults(config):
     config.setdefault("initial_conditions", {})
     config["initial_conditions"].setdefault("velocity_magnitude", 1.0)
 
-    # Required check: density must be present
     if "fluid" not in config or "density" not in config["fluid"]:
         raise KeyError("Missing required field: fluid.density")
 
