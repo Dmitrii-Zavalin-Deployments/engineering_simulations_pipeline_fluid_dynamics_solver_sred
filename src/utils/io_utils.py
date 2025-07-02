@@ -18,19 +18,22 @@ def load_json_schema(filepath):
 
 def convert_numpy_to_list(obj):
     """
-    Recursively converts NumPy arrays within a dictionary or list to standard Python lists.
+    Recursively converts NumPy arrays within dictionaries, lists, or other containers
+    to standard Python types that are JSON serializable.
     """
-    if isinstance(obj, dict):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
         return {k: convert_numpy_to_list(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [convert_numpy_to_list(elem) for elem in obj]
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_to_list(elem) for elem in obj)
     else:
         return obj
 
 def save_json(data, filepath):
-    """Saves data to a JSON file, handling NumPy arrays and non-serializable types."""
+    """Saves data to a JSON file after converting NumPy arrays to lists."""
     try:
         cleaned_data = convert_numpy_to_list(data)
         with open(filepath, 'w') as f:
