@@ -25,12 +25,23 @@ def log_flow_metrics(
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]
     interior_div = divergence_field[1:-1, 1:-1, 1:-1]
 
+    # Defensive check for empty interior slices
+    if interior_v.size == 0 or interior_p.size == 0:
+        print(f"⚠️ Empty interior domain at step {step_count} — skipping diagnostics.")
+        return
+
     kinetic_energy = 0.5 * fluid_density * np.sum(np.linalg.norm(interior_v, axis=-1)**2)
     max_velocity = np.max(np.linalg.norm(interior_v, axis=-1))
     min_p = np.min(interior_p)
     max_p = np.max(interior_p)
-    max_div = np.max(np.abs(interior_div))
-    mean_div = np.mean(np.abs(interior_div))
+
+    if interior_div.size > 0:
+        max_div = np.max(np.abs(interior_div))
+        mean_div = np.mean(np.abs(interior_div))
+    else:
+        max_div = 0.0
+        mean_div = 0.0
+        print("⚠️ Warning: ∇·u interior slice is empty — skipping divergence metrics.")
 
     print(f"📊 Step {step_count} @ t = {current_time:.4f}s")
     print(f"   • Total Kinetic Energy: {kinetic_energy:.4e}")
