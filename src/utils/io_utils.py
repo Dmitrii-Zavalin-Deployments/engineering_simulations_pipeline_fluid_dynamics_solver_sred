@@ -32,8 +32,9 @@ def convert_numpy_to_list(obj):
 def save_json(data, filepath):
     """Saves data to a JSON file, handling non-serializable types."""
     try:
+        cleaned_data = convert_numpy_to_list(data)
         with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump(cleaned_data, f, indent=2)
     except Exception as e:
         print(f"Error saving JSON to {filepath}: {e}", file=sys.stderr)
         sys.exit(1)
