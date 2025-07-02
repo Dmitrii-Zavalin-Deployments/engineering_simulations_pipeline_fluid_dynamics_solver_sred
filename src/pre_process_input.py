@@ -1,5 +1,3 @@
-# src/pre_process_input.py
-
 import json
 import numpy as np
 import sys
@@ -27,7 +25,7 @@ def pre_process_input(input_file_path: str, output_file_path: str):
         sys.exit(1)
         
     print("Pre-processing input data...")
-    
+
     # --- 1. Validate and extract domain definition ---
     domain = input_data.get("domain_definition")
     if not domain:
@@ -55,55 +53,45 @@ def pre_process_input(input_file_path: str, output_file_path: str):
         "min_z": domain["min_z"],
         "max_x": domain["max_x"],
         "max_y": domain["max_y"],
-        "max_z": domain["max_z"],
-        "boundary_conditions": {} # This will be populated with processed BCs
+        "max_z": domain["max_z"]
     }
 
     # --- 3. Process Boundary Conditions ---
-    # The 'boundary_conditions' key can now be either a dictionary or a list of objects.
     raw_bcs = input_data.get("boundary_conditions", {})
     processed_bcs = {}
 
     if isinstance(raw_bcs, dict):
-        # Handle the old dictionary format
         print("Detected dictionary-based boundary conditions.")
         for name, bc_data in raw_bcs.items():
-            processed_bcs[name] = {
-                "type": bc_data.get("type"),
-                "data": bc_data, # Store the original data for easy access
-            }
+            processed_bcs[name] = bc_data
     elif isinstance(raw_bcs, list):
-        # Handle the new list-of-objects format
         print("Detected list-based boundary conditions.")
         for i, bc_data in enumerate(raw_bcs):
             label = bc_data.get("label", f"bc_{i}")
-            processed_bcs[label] = {
-                "type": bc_data.get("type"),
-                "faces": bc_data.get("faces"),
-                "data": bc_data # Store the original data for easy access
-            }
+            processed_bcs[label] = bc_data
     else:
         raise ValueError("Boundary conditions must be a dictionary or a list of objects.")
-        
+
     mesh_info["boundary_conditions"] = processed_bcs
 
     # --- 4. Identify boundary nodes and map them to grid indices ---
-    # This step is crucial and must be run after the BCs are loaded.
     mesh_faces = input_data.get("mesh", {}).get("boundary_faces")
     identify_boundary_nodes(mesh_info, mesh_faces)
 
-    # --- 5. Combine all processed data into a final structure ---
+    # --- 5. Build final output dictionary ---
     processed_data = {
         "mesh_info": mesh_info,
         "fluid_properties": input_data.get("fluid_properties", {}),
         "initial_conditions": input_data.get("initial_conditions", {}),
-        "simulation_parameters": input_data.get("simulation_parameters", {})
+        "simulation_parameters": input_data.get("simulation_parameters", {}),
+        "mesh": {
+            "boundary_faces": mesh_faces
+        }
     }
 
-    # --- 6. Save the processed data to the output file ---
+    # --- 6. Save processed JSON ---
     print(f"Saving pre-processed data to: {output_file_path}")
     try:
-        # Create the directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
         with open(output_file_path, 'w') as f:
             json.dump(processed_data, f, indent=2)

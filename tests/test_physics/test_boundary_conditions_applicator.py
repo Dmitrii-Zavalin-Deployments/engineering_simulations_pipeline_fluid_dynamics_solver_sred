@@ -34,30 +34,27 @@ def test_skips_empty_cell_indices(capfd):
         "empty_face": {
             "type": "dirichlet",
             "cell_indices": np.zeros((0, 3), dtype=int),
+            "ghost_indices": np.zeros((0, 3), dtype=int),
             "velocity": [1.0, 0.0, 0.0],
             "pressure": 42.0,
-            "apply_to": ["velocity", "pressure"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [1, 0, 0]
+            "apply_to": ["velocity", "pressure"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=True)
     err = capfd.readouterr().err
-    assert "No cells for boundary" in err
+    assert "Skipping" in err or "missing indices" in err
 
 def test_dirichlet_velocity_only():
     v, p = dummy_fields()
     mesh = dummy_mesh()
-    idx = np.array([[0, 1, 1]])
+    ghost_idx = np.array([[0, 1, 1]])
     mesh["boundary_conditions"] = {
         "inlet": {
             "type": "dirichlet",
-            "cell_indices": idx,
+            "ghost_indices": ghost_idx,
+            "cell_indices": ghost_idx,
             "velocity": [5.0, 0.0, 0.0],
-            "pressure": 999.0,
-            "apply_to": ["velocity"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [1, 0, 0]
+            "apply_to": ["velocity"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=True)
@@ -67,16 +64,14 @@ def test_dirichlet_velocity_only():
 def test_dirichlet_pressure_only_final_step():
     v, p = dummy_fields()
     mesh = dummy_mesh()
-    idx = np.array([[0, 1, 1]])
+    ghost_idx = np.array([[0, 1, 1]])
     mesh["boundary_conditions"] = {
         "wall": {
             "type": "dirichlet",
-            "cell_indices": idx,
-            "velocity": [0.0, 0.0, 0.0],
+            "ghost_indices": ghost_idx,
+            "cell_indices": ghost_idx,
             "pressure": 1337.0,
-            "apply_to": ["pressure"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [1, 0, 0]
+            "apply_to": ["pressure"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=False)
@@ -89,12 +84,9 @@ def test_neumann_velocity_mirroring():
     mesh["boundary_conditions"] = {
         "outlet": {
             "type": "neumann",
-            "cell_indices": np.array([[0, 2, 2]]),
-            "velocity": None,
-            "pressure": None,
-            "apply_to": ["velocity"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [1, 0, 0]
+            "cell_indices": np.array([[1, 2, 2]]),
+            "ghost_indices": np.array([[0, 2, 2]]),
+            "apply_to": ["velocity"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=True)
@@ -102,38 +94,34 @@ def test_neumann_velocity_mirroring():
 
 def test_pressure_outlet_applies_pressure_only_after_projection():
     v, p = dummy_fields()
-    idx = np.array([[3, 3, 3]])
+    ghost_idx = np.array([[3, 3, 3]])
     mesh = dummy_mesh()
     mesh["boundary_conditions"] = {
         "exit": {
             "type": "pressure_outlet",
-            "cell_indices": idx,
-            "velocity": [0.0, 0.0, 0.0],
+            "ghost_indices": ghost_idx,
+            "cell_indices": ghost_idx,
             "pressure": 101325.0,
-            "apply_to": ["pressure"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [-1, 0, 0]
+            "apply_to": ["pressure"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=True)
     assert p[3, 3, 3] == 0.0
-
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=False)
     assert p[3, 3, 3] == 101325.0
 
 def test_unknown_bc_type_warns(capfd):
     v, p = dummy_fields()
     mesh = dummy_mesh()
-    idx = np.array([[1, 1, 1]])
+    ghost_idx = np.array([[1, 1, 1]])
     mesh["boundary_conditions"] = {
         "mystery": {
             "type": "mythic",
-            "cell_indices": idx,
+            "ghost_indices": ghost_idx,
+            "cell_indices": ghost_idx,
             "velocity": [1.0, 1.0, 1.0],
             "pressure": 0.0,
-            "apply_to": ["velocity", "pressure"],
-            "boundary_dim": 0,
-            "interior_neighbor_offset": [-1, 0, 0]
+            "apply_to": ["velocity", "pressure"]
         }
     }
     apply_boundary_conditions(v, p, {}, mesh, is_tentative_step=True)

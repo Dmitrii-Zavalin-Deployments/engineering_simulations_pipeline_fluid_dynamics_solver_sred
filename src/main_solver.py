@@ -26,10 +26,6 @@ from utils.simulation_output_manager import setup_simulation_output_directory
 
 
 class Simulation:
-    """
-    Main simulation class for the Navier-Stokes solver.
-    This class orchestrates the simulation process.
-    """
     def __init__(self, input_file_path, output_dir):
         print("--- Simulation Setup ---")
         self.input_file_path = input_file_path
@@ -40,22 +36,20 @@ class Simulation:
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data)
 
-        if 'boundary_conditions' in self.mesh_info:
-            for name, bc_data in self.mesh_info['boundary_conditions'].items():
-                if 'cell_indices' not in bc_data:
-                    raise ValueError(
-                        f"❌ Boundary condition '{name}' is missing 'cell_indices'. "
-                        "Did you forget to run preprocessing with 'identify_boundary_nodes()'?"
-                    )
-                bc_data['cell_indices'] = np.array(bc_data['cell_indices'], dtype=int)
+        bc_dict = self.input_data["mesh_info"].get("boundary_conditions", {})
+        for name, bc_data in bc_dict.items():
+            if "cell_indices" not in bc_data or "ghost_indices" not in bc_data:
+                raise ValueError(f"❌ BC '{name}' missing cell or ghost indices. Was pre-processing successful?")
+            bc_data["cell_indices"] = np.array(bc_data["cell_indices"], dtype=int)
+            bc_data["ghost_indices"] = np.array(bc_data["ghost_indices"], dtype=int)
 
-        self.grid_shape = self.mesh_info['grid_shape']
+        self.mesh_info = self.input_data["mesh_info"]
+        self.grid_shape = self.mesh_info["grid_shape"]
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
-        self.fluid_properties = {'density': self.rho, 'viscosity': self.nu}
-        self.boundary_conditions = self.mesh_info.get("boundary_conditions", {})
-
+        self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
+        self.boundary_conditions = bc_dict
         self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
 
         print_initial_setup(self)
@@ -77,7 +71,7 @@ class Simulation:
             for _ in range(num_steps):
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
-                # ✅ Apply boundary conditions AFTER each step
+                # ✅ Re-apply final boundary conditions
                 apply_boundary_conditions(
                     velocity_field=self.velocity_field,
                     pressure_field=self.p,
@@ -94,7 +88,7 @@ class Simulation:
                     save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
                 if self.step_count % self.output_frequency_steps == 0:
-                    vel_mag = np.linalg.norm(self.velocity_field)
+                    vel_mag = np.linalg.norm(self.velocity_field[1:-1, 1:-1, 1:-1, :])
                     print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
 
             print("--- Simulation Finished ---")
@@ -109,8 +103,7 @@ class Simulation:
 
 def cli_entrypoint():
     if len(sys.argv) != 3:
-        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>")
-        print("Example: python src/main_solver.py temp/solver_input.json data/testing-output-run")
+        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>", file=sys.stderr)
         sys.exit(1)
 
     input_file = sys.argv[1]
@@ -118,13 +111,13 @@ def cli_entrypoint():
     output_dir = os.path.join(base_output_dir, "navier_stokes_output")
 
     try:
-        simulation_instance = Simulation(input_file, output_dir)
-        setup_simulation_output_directory(simulation_instance, output_dir)
-        simulation_instance.run()
+        sim = Simulation(input_file, output_dir)
+        setup_simulation_output_directory(sim, output_dir)
+        sim.run()
         print("✅ Main Navier-Stokes simulation executed successfully.")
 
     except Exception as e:
-        print(f"Error: Process completed with exit code 1. An unexpected error occurred: {e}", file=sys.stderr)
+        print(f"Error: Simulation failed: {e}", file=sys.stderr)
         sys.exit(1)
 
 if __name__ == "__main__":
