@@ -15,9 +15,7 @@ def identify_boundary_nodes(mesh_info, mesh_faces=None):
         raise ValueError("grid_shape must be a list of [nx, ny, nz]")
 
     nx, ny, nz = grid_shape
-    nx_total = nx + 2
-    ny_total = ny + 2
-    nz_total = nz + 2
+    nx_total, ny_total, nz_total = nx + 2, ny + 2, nz + 2
 
     dx = mesh_info.get("dx", 1.0)
     dy = mesh_info.get("dy", 1.0)
@@ -101,8 +99,8 @@ def identify_boundary_nodes(mesh_info, mesh_faces=None):
         boundary_slice = face_map[candidate_direction]
         ghost_slice = ghost_cell_face_map[f"{candidate_direction}_ghost"]
 
-        boundary_mask = np.full((nx_total, ny_total, nz_total), False)
-        ghost_mask = np.full((nx_total, ny_total, nz_total), False)
+        boundary_mask = np.zeros((nx_total, ny_total, nz_total), dtype=bool)
+        ghost_mask = np.zeros((nx_total, ny_total, nz_total), dtype=bool)
 
         try:
             boundary_mask[boundary_slice] = True

@@ -7,25 +7,16 @@ def calculate_gradient(field, h, axis, padding_mode="edge"):
     Calculates the central difference gradient of a 3D scalar field.
 
     Pads the input field using the specified mode to enable gradient estimation 
-    at the boundaries. Central differencing is used along the given axis.
+    near boundaries. Central differencing is used along the specified axis.
 
     Args:
-        field (np.ndarray): Input scalar field of shape (nx, ny, nz).
-        h (float): Grid spacing along the specified axis.
-        axis (int): Axis to compute gradient along (0 = x, 1 = y, 2 = z).
-        padding_mode (str): Padding mode passed to np.pad (default is 'edge').
-
-            Common options:
-                - 'edge': replicates boundary values (1st-order accurate)
-                - 'reflect': mirror-symmetric boundaries (2nd-order)
-                - 'constant': zero-padding
-                - 'wrap': periodic boundaries
+        field (np.ndarray): Scalar field (shape: [nx, ny, nz]).
+        h (float): Grid spacing along the axis.
+        axis (int): Axis index (0 = x, 1 = y, 2 = z).
+        padding_mode (str): Padding strategy passed to np.pad.
 
     Returns:
-        np.ndarray: Gradient field of the same shape as input.
-
-    Raises:
-        ValueError: If axis is not 0, 1, or 2.
+        np.ndarray: Gradient field matching input shape.
     """
     padded = np.pad(field, ((1, 1), (1, 1), (1, 1)), mode=padding_mode)
 
@@ -41,29 +32,31 @@ def calculate_gradient(field, h, axis, padding_mode="edge"):
 
 def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step, density):
     """
-    Applies pressure correction to enforce divergence-free velocity 
-    using the pressure potential φ from the Poisson solve.
+    Applies pressure correction to enforce incompressibility.
 
     Args:
-        velocity_next (np.ndarray): Tentative velocity field (shape: nx+2, ny+2, nz+2, 3).
-        p_field (np.ndarray): Pressure field with ghost cells (shape: nx+2, ny+2, nz+2).
-        phi (np.ndarray): Pressure correction potential φ (shape: nx, ny, nz).
-        mesh_info (dict): Dictionary with keys 'dx', 'dy', 'dz'.
+        velocity_next (np.ndarray): Tentative velocity field [nx+2, ny+2, nz+2, 3].
+        p_field (np.ndarray): Pressure field [nx+2, ny+2, nz+2].
+        phi (np.ndarray): Pressure correction potential φ [nx, ny, nz].
+        mesh_info (dict): Grid spacing dictionary: {'dx', 'dy', 'dz'}.
         time_step (float): Time step Δt.
         density (float): Fluid density ρ.
 
     Returns:
-        tuple: Corrected velocity field and updated pressure field.
+        (np.ndarray, np.ndarray): Updated velocity and pressure fields.
     """
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
+    # Update interior pressure with φ correction
     updated_pressure = p_field.copy()
     updated_pressure[1:-1, 1:-1, 1:-1] += phi
 
+    # Compute gradients of φ
     grad_phi_x = calculate_gradient(phi, dx, axis=0, padding_mode="edge")
     grad_phi_y = calculate_gradient(phi, dy, axis=1, padding_mode="edge")
     grad_phi_z = calculate_gradient(phi, dz, axis=2, padding_mode="edge")
 
+    # Apply pressure correction to velocity
     corrected_velocity = velocity_next.copy()
     corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density
