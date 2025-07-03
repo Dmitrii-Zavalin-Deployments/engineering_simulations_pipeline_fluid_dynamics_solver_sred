@@ -16,9 +16,11 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     Returns:
         np.ndarray: Advection term, same shape as u_field.
     """
-    # Clamp invalid inputs
     u_field = np.nan_to_num(u_field, nan=0.0, posinf=0.0, neginf=0.0)
     velocity_field = np.nan_to_num(velocity_field, nan=0.0, posinf=0.0, neginf=0.0)
+
+    if not np.all(u_field.shape == velocity_field[..., 0].shape):
+        print("⚠️ Shape mismatch between scalar/vector field and velocity components.")
 
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
     is_scalar = u_field.ndim == 3
@@ -62,8 +64,8 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
             advection[..., comp] += vel_y * upwind_derivative(uc, vel_y, axis=1, spacing=dy)
             advection[..., comp] += vel_z * upwind_derivative(uc, vel_z, axis=2, spacing=dz)
 
-    # Clamp advection output
     if np.isnan(advection).any() or np.isinf(advection).any():
+        print(f"   Advection stats before clamp: min={np.min(advection):.2e}, max={np.max(advection):.2e}")
         print("❌ Warning: NaNs or infs detected in advection term — clamping to zero.")
     advection = np.nan_to_num(advection, nan=0.0, posinf=0.0, neginf=0.0)
 
@@ -84,6 +86,12 @@ def advect_velocity(u, v, w, dx, dy, dz, dt):
     """
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
     velocity = np.stack([u, v, w], axis=-1)
+
+    cfl_x = np.max(np.abs(velocity[..., 0])) * dt / dx
+    cfl_y = np.max(np.abs(velocity[..., 1])) * dt / dy
+    cfl_z = np.max(np.abs(velocity[..., 2])) * dt / dz
+    print(f"   CFL conditions: X={cfl_x:.2f}, Y={cfl_y:.2f}, Z={cfl_z:.2f}")
+
     mesh_info = {
         "grid_shape": u.shape,
         "dx": dx,

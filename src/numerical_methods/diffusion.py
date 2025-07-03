@@ -19,12 +19,15 @@ def compute_diffusion_term(field, viscosity, mesh_info):
     nx, ny, nz = mesh_info['grid_shape']
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
+    # Clamp invalid input
     field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
 
+    # Initialize second derivatives
     d2x = np.zeros_like(field)
     d2y = np.zeros_like(field)
     d2z = np.zeros_like(field)
 
+    # Apply central differencing if sufficient resolution
     if nx > 2:
         d2x[1:-1, :, :] = (field[2:, :, :] - 2 * field[1:-1, :, :] + field[:-2, :, :]) / dx**2
     if ny > 2:
