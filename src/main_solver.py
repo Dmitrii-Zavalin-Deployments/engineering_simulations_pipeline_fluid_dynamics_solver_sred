@@ -44,7 +44,12 @@ class Simulation:
             bc_data["ghost_indices"] = np.array(bc_data["ghost_indices"], dtype=int)
 
         self.mesh_info = self.input_data["mesh_info"]
-        self.grid_shape = self.mesh_info["grid_shape"]
+        self.grid_shape = self.mesh_info["grid_shape"] # This is (nx, ny, nz) for interior
+        # The actual field arrays will have (nx+2, ny+2, nz+2) due to ghost cells
+        self.dx = self.mesh_info["dx"]
+        self.dy = self.mesh_info["dy"]
+        self.dz = self.mesh_info["dz"]
+
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
@@ -53,6 +58,27 @@ class Simulation:
         self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
 
         print_initial_setup(self)
+
+    def calculate_max_cfl(self, velocity_field):
+        """
+        Calculates the maximum CFL number in the domain.
+        CFL = max(|u|*dt/dx, |v|*dt/dy, |w|*dt/dz)
+        """
+        # Consider only interior cells for CFL calculation
+        u_interior = velocity_field[1:-1, 1:-1, 1:-1, 0]
+        v_interior = velocity_field[1:-1, 1:-1, 1:-1, 1]
+        w_interior = velocity_field[1:-1, 1:-1, 1:-1, 2]
+
+        max_u = np.max(np.abs(u_interior)) if u_interior.size > 0 else 0.0
+        max_v = np.max(np.abs(v_interior)) if v_interior.size > 0 else 0.0
+        max_w = np.max(np.abs(w_interior)) if w_interior.size > 0 else 0.0
+
+        cfl_x = (max_u * self.time_step) / self.dx if self.dx > 0 else 0.0
+        cfl_y = (max_v * self.time_step) / self.dy if self.dy > 0 else 0.0
+        cfl_z = (max_w * self.time_step) / self.dz if self.dz > 0 else 0.0
+
+        return max(cfl_x, cfl_y, cfl_z)
+
 
     def run(self):
         print("--- Running Simulation ---")
@@ -72,6 +98,7 @@ class Simulation:
                 self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
 
                 # ✅ Re-apply final boundary conditions
+                # This is crucial after the pressure correction step
                 apply_boundary_conditions(
                     velocity_field=self.velocity_field,
                     pressure_field=self.p,
@@ -83,13 +110,21 @@ class Simulation:
                 self.step_count += 1
                 self.current_time = self.step_count * self.time_step
 
+                # Output and logging frequency
                 if (self.step_count % self.output_frequency_steps == 0) or \
                    (self.step_count == num_steps and self.step_count != 0):
                     save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
-
-                if self.step_count % self.output_frequency_steps == 0:
+                    
+                    # Calculate and print CFL number
+                    max_cfl = self.calculate_max_cfl(self.velocity_field)
+                    print(f"    CFL Number: {max_cfl:.4f}")
+                    
+                    # Also print flow metrics as before
+                    # Ensure log_flow_metrics also handles potential NaNs/Infs gracefully
+                    # (it should already be doing so based on previous updates)
                     vel_mag = np.linalg.norm(self.velocity_field[1:-1, 1:-1, 1:-1, :])
                     print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
+
 
             print("--- Simulation Finished ---")
             print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
@@ -122,6 +157,7 @@ def cli_entrypoint():
 
 if __name__ == "__main__":
     cli_entrypoint()
+
 
 
 
