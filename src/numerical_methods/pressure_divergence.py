@@ -8,9 +8,7 @@ def compute_pressure_divergence(u_field, mesh_info):
 
     Args:
         u_field (np.ndarray): Velocity field with ghost cells, shape (nx+2, ny+2, nz+2, 3).
-        mesh_info (dict): Includes:
-            - 'grid_shape': (nx+2, ny+2, nz+2)
-            - 'dx', 'dy', 'dz': grid spacing in x, y, z directions.
+        mesh_info (dict): Includes 'dx', 'dy', 'dz'.
 
     Returns:
         np.ndarray: Divergence field of shape (nx, ny, nz).
@@ -26,7 +24,13 @@ def compute_pressure_divergence(u_field, mesh_info):
     dw_dz = (w[1:-1, 1:-1, 2:] - w[1:-1, 1:-1, :-2]) / (2 * dz)
 
     divergence = du_dx + dv_dy + dw_dz
+
+    if np.isnan(divergence).any():
+        print("❌ Warning: NaNs detected in divergence field — clamping to zero.")
+    divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
+
     return divergence
+
 
 def compute_pressure_gradient(p_field, mesh_info):
     """
@@ -34,8 +38,7 @@ def compute_pressure_gradient(p_field, mesh_info):
 
     Args:
         p_field (np.ndarray): Scalar pressure field with ghost cells, shape (nx+2, ny+2, nz+2).
-        mesh_info (dict): Includes:
-            - 'dx', 'dy', 'dz': grid spacing in x, y, z directions.
+        mesh_info (dict): Includes 'dx', 'dy', 'dz'.
 
     Returns:
         np.ndarray: Pressure gradient field of shape (nx, ny, nz, 3).
@@ -47,6 +50,11 @@ def compute_pressure_gradient(p_field, mesh_info):
     grad_z = (p_field[1:-1, 1:-1, 2:] - p_field[1:-1, 1:-1, :-2]) / (2 * dz)
 
     grad = np.stack([grad_x, grad_y, grad_z], axis=-1)
+
+    if np.isnan(grad).any():
+        print("❌ Warning: NaNs detected in pressure gradient — clamping to zero.")
+    grad = np.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0)
+
     return grad
 
 

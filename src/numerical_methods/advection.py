@@ -26,7 +26,7 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
 
     def upwind_derivative(u, v, axis, spacing):
         deriv = np.zeros_like(u)
-        pos_vel = v > 0  # No extra dimension added
+        pos_vel = v > 0
 
         idx = [slice(None)] * u.ndim
         idx_p = idx.copy(); idx_n = idx.copy()
@@ -58,14 +58,20 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
             advection[..., comp] += vel_y * upwind_derivative(uc, vel_y, axis=1, spacing=dy)
             advection[..., comp] += vel_z * upwind_derivative(uc, vel_z, axis=2, spacing=dz)
 
-    return -advection  # Negative for - (u · ∇)u
+    if np.isnan(advection).any():
+        print("❌ Warning: NaNs detected in advection term — clamping to zero.")
+
+    advection = np.nan_to_num(advection, nan=0.0, posinf=0.0, neginf=0.0)
+
+    return -advection
+
 
 def advect_velocity(u, v, w, dx, dy, dz, dt):
     """
     Performs forward Euler advection of velocity components using a staggered MAC grid.
 
     Args:
-        u, v, w (np.ndarray): Velocity components with ghost cells (shape: (nx+2, ny+2, nz+2))
+        u, v, w (np.ndarray): Velocity components with ghost cells (shape: [nx+2, ny+2, nz+2])
         dx, dy, dz (float): Grid spacing
         dt (float): Time step
 

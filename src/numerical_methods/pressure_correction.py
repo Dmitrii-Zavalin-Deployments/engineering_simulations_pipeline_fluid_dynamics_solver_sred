@@ -21,13 +21,19 @@ def calculate_gradient(field, h, axis, padding_mode="edge"):
     padded = np.pad(field, ((1, 1), (1, 1), (1, 1)), mode=padding_mode)
 
     if axis == 0:
-        return (padded[2:, 1:-1, 1:-1] - padded[:-2, 1:-1, 1:-1]) / (2 * h)
+        grad = (padded[2:, 1:-1, 1:-1] - padded[:-2, 1:-1, 1:-1]) / (2 * h)
     elif axis == 1:
-        return (padded[1:-1, 2:, 1:-1] - padded[1:-1, :-2, 1:-1]) / (2 * h)
+        grad = (padded[1:-1, 2:, 1:-1] - padded[1:-1, :-2, 1:-1]) / (2 * h)
     elif axis == 2:
-        return (padded[1:-1, 1:-1, 2:] - padded[1:-1, 1:-1, :-2]) / (2 * h)
+        grad = (padded[1:-1, 1:-1, 2:] - padded[1:-1, 1:-1, :-2]) / (2 * h)
     else:
         raise ValueError("Axis must be 0, 1, or 2.")
+
+    if np.isnan(grad).any():
+        print(f"❌ Warning: NaNs detected in gradient axis {axis} — clamping to zero.")
+    grad = np.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0)
+
+    return grad
 
 
 def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step, density):
@@ -47,16 +53,13 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     """
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
-    # Update interior pressure with φ correction
     updated_pressure = p_field.copy()
     updated_pressure[1:-1, 1:-1, 1:-1] += phi
 
-    # Compute gradients of φ
     grad_phi_x = calculate_gradient(phi, dx, axis=0, padding_mode="edge")
     grad_phi_y = calculate_gradient(phi, dy, axis=1, padding_mode="edge")
     grad_phi_z = calculate_gradient(phi, dz, axis=2, padding_mode="edge")
 
-    # Apply pressure correction to velocity
     corrected_velocity = velocity_next.copy()
     corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density

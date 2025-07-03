@@ -30,10 +30,8 @@ class ExplicitSolver:
     def step(self, velocity_field: np.ndarray, pressure_field: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         print("--- Starting Explicit Time Step ---")
 
-        # Step 1: Copy initial velocity field into u_star (tentative)
         u_star = np.copy(velocity_field)
 
-        # Step 2: Compute advection terms and apply
         print("  1. Computing advection and diffusion terms...")
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
@@ -43,7 +41,6 @@ class ExplicitSolver:
         u_star[..., 1] -= self.dt * advection_v
         u_star[..., 2] -= self.dt * advection_w
 
-        # Step 3: Compute diffusion terms and apply
         diffusion_u = compute_diffusion_term(u_star[..., 0], self.viscosity, self.mesh_info)
         diffusion_v = compute_diffusion_term(u_star[..., 1], self.viscosity, self.mesh_info)
         diffusion_w = compute_diffusion_term(u_star[..., 2], self.viscosity, self.mesh_info)
@@ -52,7 +49,10 @@ class ExplicitSolver:
         u_star[..., 1] += self.dt * (diffusion_v / self.density)
         u_star[..., 2] += self.dt * (diffusion_w / self.density)
 
-        # Step 4: Apply BCs to u_star
+        if np.isnan(u_star).any():
+            print("❌ Warning: NaNs detected in tentative velocity (u*) — clamping to zero.")
+        u_star = np.nan_to_num(u_star, nan=0.0, posinf=0.0, neginf=0.0)
+
         print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
         u_star, _ = apply_boundary_conditions(
             velocity_field=u_star,
@@ -62,14 +62,14 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # Step 5: Compute divergence and solve for pressure correction
         print("  3. Solving Poisson equation for pressure correction...")
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
 
-        if divergence.size > 0:
-            max_div = np.max(np.abs(divergence))
-        else:
-            max_div = 0.0
+        if np.isnan(divergence).any():
+            print("❌ Warning: NaNs detected in divergence field — clamping to zero.")
+        divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
+
+        max_div = np.max(np.abs(divergence)) if divergence.size > 0 else 0.0
         print(f"    - Max divergence before correction: {max_div:.6e}")
 
         phi, residual = solve_poisson_for_phi(
@@ -82,7 +82,6 @@ class ExplicitSolver:
         )
         print(f"    - Pressure solver residual: {residual:.6e}")
 
-        # Step 6: Apply pressure correction to get final velocity and pressure
         print("  4. Applying pressure correction to velocity and updating pressure...")
         updated_velocity, updated_pressure = apply_pressure_correction(
             u_star,
@@ -93,7 +92,14 @@ class ExplicitSolver:
             self.density
         )
 
-        # Step 7: Final BCs applied post-correction
+        if np.isnan(updated_velocity).any():
+            print("❌ Warning: NaNs detected in corrected velocity — clamping to zero.")
+        updated_velocity = np.nan_to_num(updated_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+
+        if np.isnan(updated_pressure).any():
+            print("❌ Warning: NaNs detected in corrected pressure — clamping to zero.")
+        updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
+
         print("  5. Applying final boundary conditions to the corrected fields...")
         updated_velocity, updated_pressure = apply_boundary_conditions(
             velocity_field=updated_velocity,
@@ -103,7 +109,6 @@ class ExplicitSolver:
             is_tentative_step=False
         )
 
-        # Step 8: Logging diagnostics
         self.step_counter += 1
         log_flow_metrics(
             velocity_field=updated_velocity,

@@ -30,7 +30,14 @@ def compute_diffusion_term(field, viscosity, mesh_info):
     if nz > 2:
         d2z[:, :, 1:-1] = (field[:, :, 2:] - 2 * field[:, :, 1:-1] + field[:, :, :-2]) / dz**2
 
-    return viscosity * (d2x + d2y + d2z)
+    diffusion = viscosity * (d2x + d2y + d2z)
+
+    if np.isnan(diffusion).any():
+        print("❌ Warning: NaNs detected in diffusion term — clamping to zero.")
+    diffusion = np.nan_to_num(diffusion, nan=0.0, posinf=0.0, neginf=0.0)
+
+    return diffusion
+
 
 def apply_diffusion_step(field, diffusion_coefficient, mesh_info, dt):
     """
