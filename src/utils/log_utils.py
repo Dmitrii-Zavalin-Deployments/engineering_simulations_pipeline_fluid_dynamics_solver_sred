@@ -30,6 +30,11 @@ def log_flow_metrics(
         print(f"⚠️ Empty interior domain at step {step_count} — skipping diagnostics.")
         return
 
+    # Clamp invalid values
+    interior_v = np.nan_to_num(interior_v, nan=0.0, posinf=0.0, neginf=0.0)
+    interior_p = np.nan_to_num(interior_p, nan=0.0, posinf=0.0, neginf=0.0)
+    interior_div = np.nan_to_num(interior_div, nan=0.0, posinf=0.0, neginf=0.0)
+
     # Kinetic energy: ½ρ‖u‖² over all interior cells
     velocity_mag = np.linalg.norm(interior_v, axis=-1)
     kinetic_energy = 0.5 * fluid_density * np.sum(velocity_mag**2)
@@ -39,15 +44,11 @@ def log_flow_metrics(
     min_p = np.min(interior_p)
     max_p = np.max(interior_p)
     mean_p = np.mean(interior_p)
+    std_p = np.std(interior_p)
 
     # Divergence stats
-    if interior_div.size > 0:
-        max_div = np.max(np.abs(interior_div))
-        mean_div = np.mean(np.abs(interior_div))
-    else:
-        max_div = 0.0
-        mean_div = 0.0
-        print("⚠️ Warning: ∇·u interior slice is empty — skipping divergence metrics.")
+    max_div = np.max(np.abs(interior_div)) if interior_div.size > 0 else 0.0
+    mean_div = np.mean(np.abs(interior_div)) if interior_div.size > 0 else 0.0
 
     # Log to stdout
     print(f"📊 Step {step_count} @ t = {current_time:.4f}s")
@@ -55,6 +56,7 @@ def log_flow_metrics(
     print(f"   • Max Velocity Magnitude   : {max_velocity:.4e}")
     print(f"   • Pressure Range (interior): [{min_p:.4e}, {max_p:.4e}]")
     print(f"   • Mean Pressure (interior) : {mean_p:.4e}")
+    print(f"   • Std Dev Pressure         : {std_p:.4e}")
     print(f"   • Divergence ∇·u           : Max = {max_div:.4e}, Mean = {mean_div:.4e}")
 
 

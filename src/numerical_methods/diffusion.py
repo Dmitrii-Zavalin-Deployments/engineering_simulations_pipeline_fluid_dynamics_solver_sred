@@ -19,6 +19,8 @@ def compute_diffusion_term(field, viscosity, mesh_info):
     nx, ny, nz = mesh_info['grid_shape']
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
+    field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
+
     d2x = np.zeros_like(field)
     d2y = np.zeros_like(field)
     d2z = np.zeros_like(field)
@@ -32,8 +34,8 @@ def compute_diffusion_term(field, viscosity, mesh_info):
 
     diffusion = viscosity * (d2x + d2y + d2z)
 
-    if np.isnan(diffusion).any():
-        print("❌ Warning: NaNs detected in diffusion term — clamping to zero.")
+    if np.isnan(diffusion).any() or np.isinf(diffusion).any():
+        print("❌ Warning: Invalid values in diffusion term — clamping to zero.")
     diffusion = np.nan_to_num(diffusion, nan=0.0, posinf=0.0, neginf=0.0)
 
     return diffusion

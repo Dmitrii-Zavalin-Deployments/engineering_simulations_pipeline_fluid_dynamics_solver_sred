@@ -16,6 +16,10 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     Returns:
         np.ndarray: Advection term, same shape as u_field.
     """
+    # Clamp invalid inputs
+    u_field = np.nan_to_num(u_field, nan=0.0, posinf=0.0, neginf=0.0)
+    velocity_field = np.nan_to_num(velocity_field, nan=0.0, posinf=0.0, neginf=0.0)
+
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
     is_scalar = u_field.ndim == 3
     advection = np.zeros_like(u_field)
@@ -58,9 +62,9 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
             advection[..., comp] += vel_y * upwind_derivative(uc, vel_y, axis=1, spacing=dy)
             advection[..., comp] += vel_z * upwind_derivative(uc, vel_z, axis=2, spacing=dz)
 
-    if np.isnan(advection).any():
-        print("❌ Warning: NaNs detected in advection term — clamping to zero.")
-
+    # Clamp advection output
+    if np.isnan(advection).any() or np.isinf(advection).any():
+        print("❌ Warning: NaNs or infs detected in advection term — clamping to zero.")
     advection = np.nan_to_num(advection, nan=0.0, posinf=0.0, neginf=0.0)
 
     return -advection

@@ -49,9 +49,9 @@ class ExplicitSolver:
         u_star[..., 1] += self.dt * (diffusion_v / self.density)
         u_star[..., 2] += self.dt * (diffusion_w / self.density)
 
-        if np.isnan(u_star).any():
-            print("❌ Warning: NaNs detected in tentative velocity (u*) — clamping to zero.")
-        u_star = np.nan_to_num(u_star, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.isnan(u_star).any() or np.isinf(u_star).any():
+            print("❌ Warning: Invalid values in tentative velocity u_star — clamping to zero.")
+            u_star = np.nan_to_num(u_star, nan=0.0, posinf=0.0, neginf=0.0)
 
         print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
         u_star, _ = apply_boundary_conditions(
@@ -65,9 +65,9 @@ class ExplicitSolver:
         print("  3. Solving Poisson equation for pressure correction...")
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
 
-        if np.isnan(divergence).any():
-            print("❌ Warning: NaNs detected in divergence field — clamping to zero.")
-        divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.isnan(divergence).any() or np.isinf(divergence).any():
+            print("❌ Warning: Invalid values in divergence field — clamping to zero.")
+            divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
 
         max_div = np.max(np.abs(divergence)) if divergence.size > 0 else 0.0
         print(f"    - Max divergence before correction: {max_div:.6e}")
@@ -92,13 +92,13 @@ class ExplicitSolver:
             self.density
         )
 
-        if np.isnan(updated_velocity).any():
-            print("❌ Warning: NaNs detected in corrected velocity — clamping to zero.")
-        updated_velocity = np.nan_to_num(updated_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.isnan(updated_velocity).any() or np.isinf(updated_velocity).any():
+            print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
+            updated_velocity = np.nan_to_num(updated_velocity, nan=0.0, posinf=0.0, neginf=0.0)
 
-        if np.isnan(updated_pressure).any():
-            print("❌ Warning: NaNs detected in corrected pressure — clamping to zero.")
-        updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.isnan(updated_pressure).any() or np.isinf(updated_pressure).any():
+            print("❌ Warning: Invalid values in corrected pressure — clamping to zero.")
+            updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
 
         print("  5. Applying final boundary conditions to the corrected fields...")
         updated_velocity, updated_pressure = apply_boundary_conditions(

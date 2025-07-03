@@ -98,7 +98,6 @@ def apply_ghost_cells(field: np.ndarray, field_name: str):
     DEPRECATED: This function is replaced by apply_boundary_conditions and should not be used.
     """
     print(f"WARNING: apply_ghost_cells() is deprecated. Use apply_boundary_conditions() instead.")
-    gx = 1
     field[0, :, :] = field[1, :, :]
     field[-1, :, :] = field[-2, :, :]
     field[:, 0, :] = field[:, 1, :]

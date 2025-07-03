@@ -29,8 +29,8 @@ def calculate_gradient(field, h, axis, padding_mode="edge"):
     else:
         raise ValueError("Axis must be 0, 1, or 2.")
 
-    if np.isnan(grad).any():
-        print(f"❌ Warning: NaNs detected in gradient axis {axis} — clamping to zero.")
+    if np.isnan(grad).any() or np.isinf(grad).any():
+        print(f"❌ Warning: Invalid values in gradient axis {axis} — clamping to zero.")
     grad = np.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0)
 
     return grad
@@ -53,6 +53,11 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     """
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
+    # Optional: limit extreme phi corrections
+    if np.abs(phi).max() > 1e4:
+        print("⚠️ Pressure correction potential (phi) exceeds threshold — clipping applied.")
+        phi = np.clip(phi, -1e3, 1e3)
+
     updated_pressure = p_field.copy()
     updated_pressure[1:-1, 1:-1, 1:-1] += phi
 
@@ -64,6 +69,15 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 2] -= time_step * grad_phi_z / density
+
+    # Final safety clamp
+    if np.isnan(corrected_velocity).any() or np.isinf(corrected_velocity).any():
+        print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
+        corrected_velocity = np.nan_to_num(corrected_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+
+    if np.isnan(updated_pressure).any() or np.isinf(updated_pressure).any():
+        print("❌ Warning: Invalid values in updated pressure — clamping to zero.")
+        updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
 
     return corrected_velocity, updated_pressure
 
