@@ -19,12 +19,13 @@ except ImportError as e:
 class ExplicitSolver:
     """Performs a single explicit time step for incompressible fluid simulation using a fractional step method."""
 
-    def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float):
+    def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float, output_frequency_steps: float):
         self.density = fluid_properties["density"]
         self.viscosity = fluid_properties["viscosity"]
         self.dt = dt
         self.mesh_info = mesh_info
         self.fluid_properties_dict = fluid_properties
+        self.output_frequency_steps = output_frequency_steps
         self.step_counter = 0
 
     def step(self, velocity_field: np.ndarray, pressure_field: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -116,7 +117,8 @@ class ExplicitSolver:
             divergence_field=divergence,
             fluid_density=self.density,
             step_count=self.step_counter,
-            current_time=self.step_counter * self.dt
+            current_time=self.step_counter * self.dt,
+            output_frequency_steps = self.output_frequency_steps
         )
 
         print("--- Explicit Time Step Complete ---")

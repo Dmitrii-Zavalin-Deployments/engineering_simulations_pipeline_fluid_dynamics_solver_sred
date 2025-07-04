@@ -50,14 +50,17 @@ def log_flow_metrics(
     max_div = np.max(np.abs(interior_div)) if interior_div.size > 0 else 0.0
     mean_div = np.mean(np.abs(interior_div)) if interior_div.size > 0 else 0.0
 
-    # Log to stdout
-    print(f"📊 Step {step_count} @ t = {current_time:.4f}s")
-    print(f"   • Total Kinetic Energy     : {kinetic_energy:.4e}")
-    print(f"   • Max Velocity Magnitude   : {max_velocity:.4e}")
-    print(f"   • Pressure Range (interior): [{min_p:.4e}, {max_p:.4e}]")
-    print(f"   • Mean Pressure (interior) : {mean_p:.4e}")
-    print(f"   • Std Dev Pressure         : {std_p:.4e}")
-    print(f"   • Divergence ∇·u           : Max = {max_div:.4e}, Mean = {mean_div:.4e}")
+    # Output and logging frequency
+    if (self.step_count % self.output_frequency_steps == 0) or \
+       (self.step_count == num_steps and self.step_count != 0):
+        # Log to stdout
+        print(f"📊 Step {step_count} @ t = {current_time:.4f}s")
+        print(f"   • Total Kinetic Energy     : {kinetic_energy:.4e}")
+        print(f"   • Max Velocity Magnitude   : {max_velocity:.4e}")
+        print(f"   • Pressure Range (interior): [{min_p:.4e}, {max_p:.4e}]")
+        print(f"   • Mean Pressure (interior) : {mean_p:.4e}")
+        print(f"   • Std Dev Pressure         : {std_p:.4e}")
+        print(f"   • Divergence ∇·u           : Max = {max_div:.4e}, Mean = {mean_div:.4e}")
 
 
 

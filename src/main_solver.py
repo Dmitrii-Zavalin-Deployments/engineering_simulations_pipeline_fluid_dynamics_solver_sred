@@ -55,7 +55,7 @@ class Simulation:
 
         self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
         self.boundary_conditions = bc_dict
-        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
+        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step, self.output_frequency_steps)
 
         print_initial_setup(self)
 
