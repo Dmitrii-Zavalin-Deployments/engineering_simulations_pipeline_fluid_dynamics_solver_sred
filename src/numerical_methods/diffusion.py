@@ -2,85 +2,70 @@
 
 import numpy as np
 
-def compute_diffusion_term(field, viscosity, mesh_info):
+def _check_nan_inf(field, name, step_number, output_frequency_steps):
+    """Helper to check for NaN/Inf and print debug info conditionally."""
+    # Only print debug info if the current step is an output step
+    if step_number % output_frequency_steps == 0:
+        has_nan = np.isnan(field).any()
+        has_inf = np.isinf(field).any()
+        min_val = np.min(field) if not has_nan and not has_inf else float('nan')
+        max_val = np.max(field) if not has_nan and not has_inf else float('nan')
+        print(f"  [Diffusion DEBUG] {name} stats BEFORE clamp: min={min_val:.2e}, max={max_val:.2e}, has_nan={has_nan}, has_inf={has_inf}")
+
+    # Always clamp to prevent propagation, regardless of output frequency
+    if np.isnan(field).any() or np.isinf(field).any():
+        if step_number % output_frequency_steps == 0: # Only print warning if it's an output step
+            print(f"  ❌ Warning: Invalid values in {name} — clamping to zero.")
+        field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
+
+    if step_number % output_frequency_steps == 0: # Only print debug info if it's an output step
+        print(f"  [Diffusion DEBUG] {name} stats AFTER clamp: min={np.min(field):.2e}, max={np.max(field):.2e}")
+    return field
+
+
+def compute_diffusion_term(field, nu, dx, dy, dz, step_number, output_frequency_steps):
     """
-    Computes the diffusion term (viscosity * ∇²(field)) using central differences.
+    Computes the diffusion term (Laplacian) for a scalar field.
+    Assumes the input 'field' already includes ghost cells.
+    The diffusion term is computed for the interior cells of the domain.
 
     Args:
-        field (np.ndarray): Scalar field (nx, ny, nz) or vector field (nx, ny, nz, 3) with ghost cells.
-                            The ghost cells are assumed to be correctly populated by boundary conditions.
-        viscosity (float): The fluid's kinematic or dynamic viscosity (ν or μ).
-        mesh_info (dict): Grid metadata including:
-            - 'grid_shape': (nx, ny, nz)
-            - 'dx', 'dy', 'dz': spacing in x, y, z directions.
+        field (np.ndarray): Scalar field with ghost cells (e.g., u, v, or w component).
+                            Shape: (nx+2, ny+2, nz+2).
+        nu (float): Kinematic viscosity.
+        dx (float): Grid spacing in x-direction.
+        dy (float): Grid spacing in y-direction.
+        dz (float): Grid spacing in z-direction.
+        step_number (int): Current simulation step number.
+        output_frequency_steps (int): Frequency for printing debug output.
 
     Returns:
-        np.ndarray: Diffusion term (same shape as input field).
+        np.ndarray: Diffusion term for the interior cells.
+                    Shape: (nx, ny, nz).
     """
-    # Extract grid dimensions and spacing
-    # Note: grid_shape from mesh_info typically refers to interior cells (nx, ny, nz).
-    # The 'field' array itself will have (nx+2, ny+2, nz+2) due to ghost cells.
-    # We use the shape of the input 'field' for array operations.
-    # nx_field, ny_field, nz_field = field.shape[:3] # This would be (nx+2, ny+2, nz+2)
-    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
+    # Check and clamp input field before calculations
+    field = _check_nan_inf(field, "diffusion_field input", step_number, output_frequency_steps)
 
-    # Defensive clamping for input field to prevent NaNs/Infs from propagating
-    field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
+    # Compute second derivatives using central difference for interior cells
+    # d^2/dx^2
+    laplacian_x = (field[2:, 1:-1, 1:-1] - 2 * field[1:-1, 1:-1, 1:-1] + field[:-2, 1:-1, 1:-1]) / (dx**2)
+    # d^2/dy^2
+    laplacian_y = (field[1:-1, 2:, 1:-1] - 2 * field[1:-1, 1:-1, 1:-1] + field[1:-1, :-2, 1:-1]) / (dy**2)
+    # d^2/dz^2
+    laplacian_z = (field[1:-1, 1:-1, 2:] - 2 * field[1:-1, 1:-1, 1:-1] + field[1:-1, 1:-1, :-2]) / (dz**2)
 
-    # Initialize arrays for second derivatives in each direction
-    d2x = np.zeros_like(field)
-    d2y = np.zeros_like(field)
-    d2z = np.zeros_like(field)
+    diffusion_term = nu * (laplacian_x + laplacian_y + laplacian_z)
 
-    # Compute second derivatives using central differences for the interior cells.
-    # These calculations rely on the ghost cells of the 'field' input.
+    # Clamp the diffusion term for safety before returning
+    if np.isnan(diffusion_term).any() or np.isinf(diffusion_term).any():
+        if step_number % output_frequency_steps == 0: # Only print warning if it's an output step
+            print(f"  ❌ Warning: Invalid values in diffusion_term — clamping to zero.")
+        diffusion_term = np.nan_to_num(diffusion_term, nan=0.0, posinf=0.0, neginf=0.0)
 
-    # Second derivative in x-direction (d^2/dx^2)
-    # Applies to cells from index 1 to -2 (inclusive) along the x-axis
-    if field.shape[0] > 2: # Ensure there are enough cells for central differencing (i.e., at least 3 cells including ghost)
-        d2x[1:-1, :, :] = (field[2:, :, :] - 2 * field[1:-1, :, :] + field[:-2, :, :]) / dx**2
-        # Extend the calculated interior derivatives to the boundary cells of d2x
-        d2x[0, :, :] = d2x[1, :, :]
-        d2x[-1, :, :] = d2x[-2, :, :]
+    if step_number % output_frequency_steps == 0: # Only print debug info if it's an output step
+        print(f"  [Diffusion DEBUG] diffusion_term output stats: min={np.min(diffusion_term):.2e}, max={np.max(diffusion_term):.2e}")
 
-    # Second derivative in y-direction (d^2/dy^2)
-    # Applies to cells from index 1 to -2 (inclusive) along the y-axis
-    if field.shape[1] > 2:
-        d2y[:, 1:-1, :] = (field[:, 2:, :] - 2 * field[:, 1:-1, :] + field[:, :-2, :]) / dy**2
-        # Extend the calculated interior derivatives to the boundary cells of d2y
-        d2y[:, 0, :] = d2y[:, 1, :]
-        d2y[:, -1, :] = d2y[:, -2, :]
-
-    # Second derivative in z-direction (d^2/dz^2)
-    # Applies to cells from index 1 to -2 (inclusive) along the z-axis
-    if field.shape[2] > 2:
-        d2z[:, :, 1:-1] = (field[:, :, 2:] - 2 * field[:, :, 1:-1] + field[:, :, :-2]) / dz**2
-        # Extend the calculated interior derivatives to the boundary cells of d2z
-        d2z[:, :, 0] = d2z[:, :, 1]
-        d2z[:, :, -1] = d2z[:, :, -2]
-
-    # Total diffusion term is viscosity times the Laplacian (sum of second derivatives)
-    diffusion = viscosity * (d2x + d2y + d2z)
-
-    # Final check for NaNs/Infs in the computed diffusion term and clamp if necessary
-    if np.isnan(diffusion).any() or np.isinf(diffusion).any():
-        print("❌ Warning: Invalid values in diffusion term — clamping to zero.")
-    diffusion = np.nan_to_num(diffusion, nan=0.0, posinf=0.0, neginf=0.0)
-
-    return diffusion
-
-
-# The following function 'apply_diffusion_step' is not currently used by ExplicitSolver.step.
-# ExplicitSolver.step directly computes the diffusion term and adds it to u_star.
-# It's commented out to avoid confusion and keep the focus on the primary execution path.
-# def apply_diffusion_step(field, diffusion_coefficient, mesh_info, dt):
-#     """
-#     Performs one explicit diffusion update using:
-#     u_new = u + dt * ν ∇²(u)
-#     """
-#     diff = compute_diffusion_term(field, diffusion_coefficient, mesh_info)
-#     return field + dt * diff
-
+    return diffusion_term
 
 
 

@@ -1,163 +1,178 @@
 # src/main_solver.py
 
 import numpy as np
-import sys
+import time
 import os
-from datetime import datetime
+import json
+import sys
 
-# --- REFINED FIX FOR ImportError ---
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(script_dir)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-# --- END REFINED FIX ---
+from src.grid.grid_generator import GridGenerator
+from src.initial_conditions.initial_conditions_applier import InitialConditionsApplier
+from src.physics.advection import compute_advection_diffusion
+from src.physics.diffusion import compute_diffusion_term # Assuming this exists
+from src.physics.boundary_conditions_applicator import apply_boundary_conditions
+from src.numerical_methods.poisson_solver import solve_poisson_for_phi
+from src.numerical_methods.pressure_correction import apply_pressure_correction
+from src.utils.data_output import save_field_snapshot, save_config_and_mesh
+from src.utils.metrics_calculator import calculate_total_kinetic_energy, calculate_max_velocity_magnitude, calculate_pressure_range, calculate_mean_pressure, calculate_std_dev_pressure, calculate_divergence, calculate_max_cfl
 
-from numerical_methods.explicit_solver import ExplicitSolver
-from physics.boundary_conditions_applicator import apply_boundary_conditions
-from solver.initialization import (
-    load_input_data,
-    initialize_simulation_parameters,
-    initialize_grid,
-    initialize_fields,
-    print_initial_setup
-)
-from solver.results_handler import save_field_snapshot
-from utils.simulation_output_manager import setup_simulation_output_directory
+class NavierStokesSolver:
+    def __init__(self, config_path):
+        self.config = self._load_config(config_path)
+        self.grid_generator = GridGenerator(self.config["domain_definition"])
+        self.initial_conditions_applier = InitialConditionsApplier(self.config["initial_conditions"])
 
+        self.nx = self.config["domain_definition"]["nx"]
+        self.ny = self.config["domain_definition"]["ny"]
+        self.nz = self.config["domain_definition"]["nz"]
+        self.dx = self.config["domain_definition"]["max_x"] / self.nx
+        self.dy = self.config["domain_definition"]["max_y"] / self.ny
+        self.dz = self.config["domain_definition"]["max_z"] / self.nz
+        self.mesh_info = self.grid_generator.generate_grid()
 
-class Simulation:
-    def __init__(self, input_file_path, output_dir):
+        # Add grid spacing to mesh_info for easy access in other modules
+        self.mesh_info["dx"] = self.dx
+        self.mesh_info["dy"] = self.dy
+        self.mesh_info["dz"] = self.dz
+
+        # Initialize fields with ghost cells
+        # Velocity field: (nx+2, ny+2, nz+2, 3) for u, v, w components
+        self.velocity_field = np.zeros((self.nx + 2, self.ny + 2, self.nz + 2, 3), dtype=np.float64)
+        # Pressure field: (nx+2, ny+2, nz+2)
+        self.pressure_field = np.zeros((self.nx + 2, self.ny + 2, self.nz + 2), dtype=np.float64)
+
+        # Apply initial conditions to interior cells
+        self.velocity_field, self.pressure_field = self.initial_conditions_applier.apply_initial_conditions(
+            self.velocity_field, self.pressure_field, self.mesh_info
+        )
+
+        # Apply boundary conditions for the initial state
+        self.velocity_field, self.pressure_field = apply_boundary_conditions(
+            self.velocity_field, self.pressure_field,
+            self.config["fluid_properties"], self.mesh_info, is_tentative_step=False
+        )
+
+        self.time_step = self.config["simulation_parameters"]["time_step"]
+        self.total_time = self.config["simulation_parameters"]["total_time"]
+        self.output_frequency_steps = self.config["simulation_parameters"].get("output_frequency_steps", 1)
+        self.current_time = 0.0
+        self.step_number = 0
+
+        self.fluid_density = self.config["fluid_properties"]["density"]
+        self.fluid_viscosity = self.config["fluid_properties"]["viscosity"]
+
+        # Output directory setup
+        self.output_base_dir = os.environ.get("OUTPUT_RESULTS_BASE_DIR", "data/testing-output-run/navier_stokes_output")
+        os.makedirs(os.path.join(self.output_base_dir, "fields"), exist_ok=True)
+
         print("--- Simulation Setup ---")
-        self.input_file_path = input_file_path
-        self.output_dir = output_dir
-        self.start_time = datetime.now().isoformat()
+        print(f"Loading pre-processed input from: {config_path}")
+        print(f"Grid dimensions: {self.nx}x{self.ny}x{self.nz} cells")
+        print(f"Grid spacing: dx={self.dx:.4f}, dy={self.dy:.4f}, dz={self.dz:.4f}")
+        print(f"Total time: {self.total_time:.2f} s, Time step: {self.time_step:.2f} s")
+        print(f"Fluid: rho={self.fluid_density}, nu={self.fluid_viscosity}")
+        print(f"Solver: {self.config['simulation_parameters']['solver']}")
+        print("-------------------------")
 
-        self.input_data = load_input_data(self.input_file_path)
-        initialize_simulation_parameters(self, self.input_data)
-        initialize_grid(self, self.input_data)
+        save_config_and_mesh(self.config, self.mesh_info, self.output_base_dir)
 
-        bc_dict = self.input_data["mesh_info"].get("boundary_conditions", {})
-        for name, bc_data in bc_dict.items():
-            if "cell_indices" not in bc_data or "ghost_indices" not in bc_data:
-                raise ValueError(f"❌ BC '{name}' missing cell or ghost indices. Was pre-processing successful?")
-            bc_data["cell_indices"] = np.array(bc_data["cell_indices"], dtype=int)
-            bc_data["ghost_indices"] = np.array(bc_data["ghost_indices"], dtype=int)
-
-        self.mesh_info = self.input_data["mesh_info"]
-        self.grid_shape = self.mesh_info["grid_shape"] # This is (nx, ny, nz) for interior
-        # The actual field arrays will have (nx+2, ny+2, nz+2) due to ghost cells
-        self.dx = self.mesh_info["dx"]
-        self.dy = self.mesh_info["dy"]
-        self.dz = self.mesh_info["dz"]
-
-        initialize_fields(self, self.input_data)
-        self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
-
-        self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
-        self.boundary_conditions = bc_dict
-        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
-
-        print_initial_setup(self)
-
-    def calculate_max_cfl(self, velocity_field):
-        """
-        Calculates the maximum CFL number in the domain.
-        CFL = max(|u|*dt/dx, |v|*dt/dy, |w|*dt/dz)
-        """
-        # Consider only interior cells for CFL calculation
-        u_interior = velocity_field[1:-1, 1:-1, 1:-1, 0]
-        v_interior = velocity_field[1:-1, 1:-1, 1:-1, 1]
-        w_interior = velocity_field[1:-1, 1:-1, 1:-1, 2]
-
-        max_u = np.max(np.abs(u_interior)) if u_interior.size > 0 else 0.0
-        max_v = np.max(np.abs(v_interior)) if v_interior.size > 0 else 0.0
-        max_w = np.max(np.abs(w_interior)) if w_interior.size > 0 else 0.0
-
-        cfl_x = (max_u * self.time_step) / self.dx if self.dx > 0 else 0.0
-        cfl_y = (max_v * self.time_step) / self.dy if self.dy > 0 else 0.0
-        cfl_z = (max_w * self.time_step) / self.dz if self.dz > 0 else 0.0
-
-        return max(cfl_x, cfl_y, cfl_z)
-
+    def _load_config(self, config_path):
+        with open(config_path, 'r') as f:
+            return json.load(f)
 
     def run(self):
-        print("--- Running Simulation ---")
-        self.current_time = 0.0
-        self.step_count = 0
-        fields_dir = os.path.join(self.output_dir, "fields")
-        num_steps = int(round(self.total_time / self.time_step))
-
+        print("\n--- Running Simulation ---")
         print(f"Total desired simulation time: {self.total_time} s")
         print(f"Time step per iteration: {self.time_step} s")
+        num_steps = int(self.total_time / self.time_step)
         print(f"Calculated number of simulation steps: {num_steps}")
 
-        try:
-            save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+        # Save initial state (step 0)
+        save_field_snapshot(self.velocity_field, self.pressure_field, self.step_number, self.output_base_dir)
 
-            for _ in range(num_steps):
-                self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
+        while self.current_time < self.total_time - sys.float_info.epsilon: # Use epsilon for float comparison
+            self.step_number += 1
+            self.current_time += self.time_step
 
-                # ✅ Re-apply final boundary conditions
-                # This is crucial after the pressure correction step
-                apply_boundary_conditions(
-                    velocity_field=self.velocity_field,
-                    pressure_field=self.p,
-                    fluid_properties=self.fluid_properties,
-                    mesh_info=self.mesh_info,
-                    is_tentative_step=False
-                )
+            # Only print detailed step header if it's an output step
+            if self.step_number % self.output_frequency_steps == 0:
+                print("\n--- Starting Explicit Time Step ---")
+                print(f"  Current Time: {self.current_time:.6f} s (Step {self.step_number})")
 
-                self.step_count += 1
-                self.current_time = self.step_count * self.time_step
+            # 1. Compute advection and diffusion terms (explicit part of velocity update)
+            # Pass step_number and output_frequency_steps to control internal debug prints
+            velocity_star = compute_advection_diffusion(
+                self.velocity_field, self.fluid_viscosity, self.time_step, self.mesh_info,
+                self.step_number, self.output_frequency_steps
+            )
 
-                # Output and logging frequency
-                if (self.step_count % self.output_frequency_steps == 0) or \
-                   (self.step_count == num_steps and self.step_count != 0):
-                    save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
-                    
-                    # Calculate and print CFL number
-                    max_cfl = self.calculate_max_cfl(self.velocity_field)
-                    print(f"    CFL Number: {max_cfl:.4f}")
-                    
-                    # Also print flow metrics as before
-                    # Ensure log_flow_metrics also handles potential NaNs/Infs gracefully
-                    # (it should already be doing so based on previous updates)
-                    vel_mag = np.linalg.norm(self.velocity_field[1:-1, 1:-1, 1:-1, :])
-                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
+            # 2. Apply boundary conditions to the tentative velocity field (u*)
+            # Pressure BCs are NOT applied at this stage
+            if self.step_number % self.output_frequency_steps == 0:
+                print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
+            velocity_star, _ = apply_boundary_conditions(
+                velocity_star, self.pressure_field, # pressure_field is not modified here
+                self.config["fluid_properties"], self.mesh_info, is_tentative_step=True,
+                step_number=self.step_number, output_frequency_steps=self.output_frequency_steps
+            )
 
+            # 3. Solve Poisson equation for pressure correction
+            if self.step_number % self.output_frequency_steps == 0:
+                print("  3. Solving Poisson equation for pressure correction...")
+            max_divergence_before_correction = calculate_divergence(velocity_star, self.mesh_info)
+            if self.step_number % self.output_frequency_steps == 0:
+                print(f"    - Max divergence before correction: {max_divergence_before_correction:.6e}")
 
-            print("--- Simulation Finished ---")
-            print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
+            phi = solve_poisson_for_phi(
+                velocity_star, self.mesh_info, self.time_step, self.fluid_density,
+                self.pressure_field, # Pass current pressure field for BC initialization in Poisson solver
+                step_number=self.step_number, output_frequency_steps=self.output_frequency_steps
+            )
 
-        except Exception as e:
-            print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
-            import traceback
-            traceback.print_exc()
-            raise
+            # 4. Apply pressure correction to velocity and update pressure
+            if self.step_number % self.output_frequency_steps == 0:
+                print("  4. Applying pressure correction to velocity and updating pressure...")
+            self.velocity_field, self.pressure_field = apply_pressure_correction(
+                velocity_star, self.pressure_field, phi, self.mesh_info, self.time_step, self.fluid_density,
+                step_number=self.step_number, output_frequency_steps=self.output_frequency_steps
+            )
 
+            # 5. Apply final boundary conditions to the corrected fields
+            # Pressure BCs ARE applied at this stage
+            if self.step_number % self.output_frequency_steps == 0:
+                print("  5. Applying final boundary conditions to the corrected fields...")
+            self.velocity_field, self.pressure_field = apply_boundary_conditions(
+                self.velocity_field, self.pressure_field,
+                self.config["fluid_properties"], self.mesh_info, is_tentative_step=False,
+                step_number=self.step_number, output_frequency_steps=self.output_frequency_steps
+            )
 
-def cli_entrypoint():
-    if len(sys.argv) != 3:
-        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>", file=sys.stderr)
-        sys.exit(1)
+            # Calculate and print metrics, and save snapshot only if it's an output step
+            if self.step_number % self.output_frequency_steps == 0:
+                print(f"\n📊 Step {self.step_number} @ t = {self.current_time:.4f}s")
+                total_kinetic_energy = calculate_total_kinetic_energy(self.velocity_field)
+                max_velocity_magnitude = calculate_max_velocity_magnitude(self.velocity_field)
+                pressure_range_val = calculate_pressure_range(self.pressure_field)
+                mean_pressure_val = calculate_mean_pressure(self.pressure_field)
+                std_dev_pressure_val = calculate_std_dev_pressure(self.pressure_field)
+                divergence_val = calculate_divergence(self.velocity_field, self.mesh_info)
 
-    input_file = sys.argv[1]
-    base_output_dir = sys.argv[2]
-    output_dir = os.path.join(base_output_dir, "navier_stokes_output")
+                print(f"   • Total Kinetic Energy     : {total_kinetic_energy:.4e}")
+                print(f"   • Max Velocity Magnitude   : {max_velocity_magnitude:.4e}")
+                print(f"   • Pressure Range (interior): [{pressure_range_val[0]:.4e}, {pressure_range_val[1]:.4e}]")
+                print(f"   • Mean Pressure (interior) : {mean_pressure_val:.4e}")
+                print(f"   • Std Dev Pressure         : {std_dev_pressure_val:.4e}")
+                print(f"   • Divergence ∇·u           : Max = {divergence_val[0]:.4e}, Mean = {divergence_val[1]:.4e}")
+                print("--- Explicit Time Step Complete ---")
 
-    try:
-        sim = Simulation(input_file, output_dir)
-        setup_simulation_output_directory(sim, output_dir)
-        sim.run()
-        print("✅ Main Navier-Stokes simulation executed successfully.")
+                save_field_snapshot(self.velocity_field, self.pressure_field, self.step_number, self.output_base_dir)
 
-    except Exception as e:
-        print(f"Error: Simulation failed: {e}", file=sys.stderr)
-        sys.exit(1)
+                # Calculate and print CFL number (always print if outputting step)
+                cfl_number = calculate_max_cfl(self.velocity_field, self.time_step, self.mesh_info)
+                print(f"    CFL Number: {cfl_number:.4f}")
+                print(f"Step {self.step_number}: Time = {self.current_time:.4f} s, ||u|| = {np.linalg.norm(self.velocity_field):.6e}")
 
-if __name__ == "__main__":
-    cli_entrypoint()
-
+        print("\n--- Simulation Complete ---")
 
 
 
