@@ -1,104 +1,153 @@
 # src/physics/boundary_conditions_applicator.py
 
 import numpy as np
+import sys
+from typing import Tuple
+
+# TOLERANCE = 1e-6 # This variable is not used in the current implementation, so it can be removed.
 
 def apply_boundary_conditions(
     velocity_field: np.ndarray,
     pressure_field: np.ndarray,
-    fluid_properties: dict,
+    fluid_properties: dict, # Not directly used in this function, but kept for signature consistency
     mesh_info: dict,
-    is_tentative_step: bool,
-    should_log_verbose: bool = False # Added verbose logging flag
-) -> tuple[np.ndarray, np.ndarray]:
+    is_tentative_step: bool
+) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Applies boundary conditions to the velocity and pressure fields.
+    Applies boundary conditions to the velocity and pressure fields by modifying their ghost cells.
 
     Args:
-        velocity_field (np.ndarray): The velocity field with ghost cells (nx+2, ny+2, nz+2, 3).
-        pressure_field (np.ndarray): The pressure field with ghost cells (nx+2, ny+2, nz+2).
-        fluid_properties (dict): Dictionary containing fluid properties (e.g., 'U_LID').
-        mesh_info (dict): Dictionary containing mesh dimensions 'nx', 'ny', 'nz'.
-        is_tentative_step (bool): True if applying BCs after advection/diffusion (u*),
-                                  False if applying final BCs after pressure correction.
-        should_log_verbose (bool): If True, print detailed debug logs.
+        velocity_field (np.ndarray): The velocity field (u, v, w components) with ghost cells.
+                                     Shape: (nx+2, ny+2, nz+2, 3).
+        pressure_field (np.ndarray): The pressure field with ghost cells.
+                                     Shape: (nx+2, ny+2, nz+2).
+        fluid_properties (dict): Dictionary containing fluid properties (e.g., 'density', 'viscosity').
+                                 Not directly used in this function but passed for consistency.
+        mesh_info (dict): Dictionary containing grid and boundary condition information,
+                          including 'boundary_conditions' which holds pre-processed indices.
+        is_tentative_step (bool): True if applying BCs after the tentative velocity step (u*),
+                                  False if applying after the pressure correction step (u_new, p_new).
 
     Returns:
-        tuple[np.ndarray, np.ndarray]: The velocity and pressure fields with BCs applied.
+        Tuple[np.ndarray, np.ndarray]: The velocity and pressure fields with updated ghost cells.
     """
-    nx, ny, nz = mesh_info['nx'], mesh_info['ny'], mesh_info['nz']
-    U_LID = fluid_properties.get('U_LID', 0.0) # Lid velocity for lid-driven cavity
+    print(f"DEBUG: apply_boundary_conditions called. is_tentative_step={is_tentative_step}")
 
-    # --- Apply Velocity Boundary Conditions ---
-    # Velocity ghost cells are set to enforce desired conditions at physical boundaries.
+    # Input validation: Ensure fields are NumPy arrays of float64 type
+    if not isinstance(velocity_field, np.ndarray) or velocity_field.dtype != np.float64:
+        print(f"ERROR: velocity_field invalid. Type: {type(velocity_field)}, Dtype: {velocity_field.dtype}", file=sys.stderr)
+        return velocity_field, pressure_field
+    if not isinstance(pressure_field, np.ndarray) or pressure_field.dtype != np.float64:
+        print(f"ERROR: pressure_field invalid. Type: {type(pressure_field)}, Dtype: {pressure_field.dtype}", file=sys.stderr)
+        return velocity_field, pressure_field
 
-    # 1. Walls (No-slip: u=0, v=0, w=0)
-    # Bottom wall (z=0)
-    velocity_field[:, :, 0, :] = -velocity_field[:, :, 1, :] # Reflective for no-slip
-    # Top wall (z=max) - This is usually the lid for lid-driven cavity
-    if U_LID != 0.0:
-        # For lid-driven cavity, top wall has non-zero tangential velocity
-        # Assuming lid moves in x-direction
-        velocity_field[:, :, nz + 1, 0] = 2 * U_LID - velocity_field[:, :, nz, 0] # U-component
-        velocity_field[:, :, nz + 1, 1] = -velocity_field[:, :, nz, 1] # V-component (0)
-        velocity_field[:, :, nz + 1, 2] = -velocity_field[:, :, nz, 2] # W-component (0)
-    else:
-        # Standard no-slip top wall
-        velocity_field[:, :, nz + 1, :] = -velocity_field[:, :, nz, :]
+    # Retrieve pre-processed boundary conditions from mesh_info
+    processed_bcs = mesh_info.get("boundary_conditions", {})
+    if not processed_bcs:
+        print("WARNING: No boundary_conditions found in mesh_info. Skipping BC application.", file=sys.stderr)
+        return velocity_field, pressure_field
 
+    # Iterate through each defined boundary condition
+    for bc_name, bc in processed_bcs.items():
+        # Ensure necessary indices are present (should be from pre-processing)
+        if "cell_indices" not in bc or "ghost_indices" not in bc:
+            print(f"WARNING: BC '{bc_name}' is missing indices. Skipping. Was pre-processing successful?", file=sys.stderr)
+            continue
 
-    # Front wall (y=0) and Back wall (y=max)
-    velocity_field[:, 0, :, :] = -velocity_field[:, 1, :, :]
-    velocity_field[:, ny + 1, :, :] = -velocity_field[:, ny, :, :]
+        bc_type = bc.get("type")
+        apply_to_fields = bc.get("apply_to", [])
+        # Convert index lists to NumPy arrays for efficient indexing
+        cell_indices = np.array(bc["cell_indices"], dtype=int)
+        ghost_indices = np.array(bc["ghost_indices"], dtype=int)
 
-    # Left wall (x=0) and Right wall (x=max)
-    velocity_field[0, :, :, :] = -velocity_field[1, :, :, :]
-    velocity_field[nx + 1, :, :, :] = -velocity_field[nx, :, :, :]
+        print(f"[BC DEBUG] Processing '{bc_name}': type='{bc_type}', apply_to={apply_to_fields}")
 
-    # --- Apply Pressure Boundary Conditions ---
-    # Pressure ghost cells typically derived from interior values (Neumann conditions, dP/dn = 0)
-    # or fixed (Dirichlet). For incompressible flow, pressure often has Neumann BCs at walls.
+        if bc_type == "dirichlet":
+            # Apply Dirichlet velocity boundary conditions (fixed velocity)
+            if "velocity" in apply_to_fields:
+                if ghost_indices.size > 0:
+                    target_velocity = bc.get("velocity", [0.0, 0.0, 0.0])
+                    # Set ghost cell velocity directly to the target velocity
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = target_velocity
+                    print(f"    -> Applied Dirichlet velocity {target_velocity} to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No ghost cells found for Dirichlet velocity BC '{bc_name}'.")
 
-    # If it's the tentative step, pressure ghost cells are typically set to match
-    # the adjacent interior cells (Neumann/dP/dn=0).
-    # After pressure correction, pressure values at boundaries are also updated.
+            # Apply Dirichlet pressure boundary conditions (fixed pressure)
+            # Pressure BCs are typically applied only after the pressure correction step (final step)
+            if "pressure" in apply_to_fields and not is_tentative_step:
+                if ghost_indices.size > 0:
+                    target_pressure = bc.get("pressure", 0.0)
+                    # Set ghost cell pressure directly to the target pressure
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
+                    print(f"    -> Applied Dirichlet pressure {target_pressure} to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No ghost cells found for Dirichlet pressure BC '{bc_name}'.")
 
-    # Neumann condition (dP/dn = 0) at all boundaries for pressure
-    # This means pressure in ghost cell equals pressure in adjacent interior cell.
-    pressure_field[0, :, :] = pressure_field[1, :, :]      # Left
-    pressure_field[nx + 1, :, :] = pressure_field[nx, :, :]  # Right
-    pressure_field[:, 0, :] = pressure_field[:, 1, :]      # Front
-    pressure_field[:, ny + 1, :] = pressure_field[:, ny, :]  # Back
-    pressure_field[:, :, 0] = pressure_field[:, :, 1]      # Bottom
-    pressure_field[:, :, nz + 1] = pressure_field[:, :, nz]  # Top
+        elif bc_type == "neumann":
+            # Apply Neumann velocity boundary conditions (zero-gradient, i.e., ghost = adjacent interior)
+            if "velocity" in apply_to_fields:
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    # Copy velocity from adjacent interior cells to ghost cells
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = \
+                        velocity_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2], :]
+                    print(f"    -> Applied Neumann velocity (zero-gradient) to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No valid cell/ghost pairs for Neumann velocity BC '{bc_name}'.")
 
-    # An alternative for pressure (common for lid-driven cavity) is to fix
-    # pressure at one point to remove the arbitrary constant.
-    # We will assume that pressure_field is initially normalized or adjusted
-    # elsewhere, or that the Neumann conditions are sufficient.
-    # For now, let's keep pressure ghost cells simply equal to interior.
+            # Apply Neumann pressure boundary conditions (zero-gradient)
+            # Pressure BCs are typically applied only after the pressure correction step (final step)
+            if "pressure" in apply_to_fields and not is_tentative_step:
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    # Copy pressure from adjacent interior cells to ghost cells
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = \
+                        pressure_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2]]
+                    print(f"    -> Applied Neumann pressure (zero-gradient) to ghost cells for '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No valid cell/ghost pairs for Neumann pressure BC '{bc_name}'.")
 
-    # Ensure no NaNs or Infs are introduced, though they shouldn't be by these operations
-    if np.isnan(velocity_field).any() or np.isinf(velocity_field).any():
-        print("❌ Warning: Invalid values detected in velocity_field after BCs. Clamping to zero.")
-        velocity_field = np.nan_to_num(velocity_field, nan=0.0, posinf=0.0, neginf=0.0)
+        elif bc_type == "outflow":
+            # Outflow boundary conditions typically involve zero-gradient for velocity
+            # and a fixed pressure (often zero) or zero-gradient for pressure.
+            # Current implementation uses Dirichlet pressure and Neumann velocity.
+            if "pressure" in apply_to_fields and not is_tentative_step:
+                if ghost_indices.size > 0:
+                    target_pressure = bc.get("pressure", 0.0)
+                    pressure_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2]] = target_pressure
+                    print(f"    -> Applied Dirichlet pressure {target_pressure} for outflow BC '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No ghost cells found for outflow pressure BC '{bc_name}'.")
 
-    if np.isnan(pressure_field).any() or np.isinf(pressure_field).any():
-        print("❌ Warning: Invalid values detected in pressure_field after BCs. Clamping to zero.")
-        pressure_field = np.nan_to_num(pressure_field, nan=0.0, posinf=0.0, neginf=0.0)
+            if "velocity" in apply_to_fields:
+                if cell_indices.size > 0 and ghost_indices.size > 0:
+                    velocity_field[ghost_indices[:, 0], ghost_indices[:, 1], ghost_indices[:, 2], :] = \
+                        velocity_field[cell_indices[:, 0], cell_indices[:, 1], cell_indices[:, 2], :]
+                    print(f"    -> Applied Neumann velocity (zero-gradient) for outflow BC '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No valid cell/ghost pairs for outflow velocity BC '{bc_name}'.")
 
+        else:
+            print(f"WARNING: Unknown BC type '{bc_type}' for '{bc_name}'. Skipping.", file=sys.stderr)
 
-    if should_log_verbose:
-        step_type = "tentative" if is_tentative_step else "final"
-        print(f"    - Boundary Conditions applied for {step_type} step.")
-        # Add more specific checks if needed, e.g., max velocity at lid
-        if U_LID != 0.0 and step_type == "final":
-             # Check u-velocity at the top lid boundary (z=nz+1 ghost cell, corresponding to nz physical)
-             # The average of the ghost cell and physical cell at the boundary should approximate U_LID
-             actual_lid_u_avg = np.mean(velocity_field[1:-1, 1:-1, nz, 0]) # Average u at physical top layer
-             print(f"        • Avg U at physical top (z={nz}): {actual_lid_u_avg:.4e} (Target U_LID: {U_LID:.4e})")
-
-
+    print("DEBUG: apply_boundary_conditions completed.")
     return velocity_field, pressure_field
+
+
+def apply_ghost_cells(field: np.ndarray, field_name: str):
+    """
+    DEPRECATED: This function is replaced by apply_boundary_conditions and should not be used.
+    It performs a simple zero-gradient (Neumann) boundary condition application by copying
+    values from adjacent interior cells to ghost cells.
+    """
+    print(f"WARNING: apply_ghost_cells() is deprecated. Use apply_boundary_conditions() instead.")
+    # Apply zero-gradient to all faces
+    field[0, :, :] = field[1, :, :]
+    field[-1, :, :] = field[-2, :, :]
+    field[:, 0, :] = field[:, 1, :]
+    field[:, -1, :] = field[:, -2, :]
+    field[:, :, 0] = field[:, :, 1]
+    field[:, :, -1] = field[:, :, -2]
+
 
 
 

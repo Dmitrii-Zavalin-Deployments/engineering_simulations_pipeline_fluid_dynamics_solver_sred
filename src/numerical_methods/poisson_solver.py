@@ -1,118 +1,198 @@
 # src/numerical_methods/poisson_solver.py
 
 import numpy as np
+from numba import jit, float64
 
-def solve_poisson_for_phi(
-    divergence_field: np.ndarray,
-    mesh_info: dict,
-    dt: float,
-    tolerance: float = 1e-6,
-    max_iterations: int = 1000,
-    return_residual: bool = False,
-    should_log_verbose: bool = False # Added verbose logging flag
-) -> np.ndarray:
+
+@jit(
+    float64[:, :, :](
+        float64[:, :, :],  # phi (pressure correction potential field, with ghost cells)
+        float64[:, :, :],  # b (RHS of Poisson equation, with interior values and zero boundaries)
+        float64, float64, float64,  # dx, dy, dz (grid spacing)
+        float64,  # omega (SOR relaxation factor)
+        float64,  # max_iterations (maximum number of iterations)
+        float64,  # tolerance (convergence criterion)
+        float64[:]  # output_residual[0] (array to store final residual)
+    ),
+    nopython=True,
+    parallel=False,
+    cache=True
+)
+def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, tolerance, output_residual):
     """
-    Solves the Poisson equation ∇²phi = (1/dt) * (∇·u*) using Jacobi iteration.
-    The solution 'phi' is a scalar potential used for pressure correction.
+    Numba-jitted kernel for the Successive Over-Relaxation (SOR) method
+    to solve the Poisson equation ∇²phi = b.
+    This kernel iterates only over the interior cells. Boundary conditions
+    for phi must be set in the 'phi' array *before* calling this kernel
+    and potentially re-applied after each iteration if they are Neumann type.
+    """
+    nx, ny, nz = phi.shape # Total shape including ghost cells
+    dx2_inv = 1.0 / (dx * dx)
+    dy2_inv = 1.0 / (dy * dy)
+    dz2_inv = 1.0 / (dz * dz)
+    
+    # Denominator for the Jacobi iteration update
+    denom = 2.0 * (dx2_inv + dy2_inv + dz2_inv)
+
+    for it in range(int(max_iterations)):
+        max_residual = 0.0
+        # Iterate over interior cells only (excluding ghost cells)
+        for k in range(1, nz - 1):
+            for j in range(1, ny - 1):
+                for i in range(1, nx - 1):
+                    # Calculate the new phi value using the Jacobi-like update
+                    # (phi[i+1] + phi[i-1])/dx^2 + ... - b[i]
+                    term_x = (phi[i + 1, j, k] + phi[i - 1, j, k]) * dx2_inv
+                    term_y = (phi[i, j + 1, k] + phi[i, j - 1, k]) * dy2_inv
+                    term_z = (phi[i, j, k + 1] + phi[i, j, k - 1]) * dz2_inv
+                    rhs_val = b[i, j, k] # RHS at current interior cell
+                    
+                    phi_jacobi = (term_x + term_y + term_z - rhs_val) / denom
+                    
+                    # Apply SOR update: phi_new = phi_old + omega * (phi_jacobi - phi_old)
+                    delta = phi_jacobi - phi[i, j, k] # Change in phi
+                    phi[i, j, k] += omega * delta
+                    
+                    # Update max residual for convergence check
+                    max_residual = max(max_residual, abs(delta))
+
+        # Check for convergence after a full sweep over the interior
+        if max_residual < tolerance:
+            break
+
+    output_residual[0] = max_residual # Store the final residual
+    return phi
+
+
+def solve_poisson_for_phi(divergence, mesh_info, time_step,
+                          omega=1.7, max_iterations=1000, tolerance=1e-6,
+                          return_residual=False, backend="sor"):
+    """
+    Solves the Poisson equation for the pressure correction potential (phi).
+    ∇²phi = (1/dt) * (∇·u*)
 
     Args:
-        divergence_field (np.ndarray): The divergence of the tentative velocity field (∇·u*).
-                                       Shape (nx, ny, nz), representing interior cells.
-        mesh_info (dict): Dictionary containing grid spacing: 'dx', 'dy', 'dz', and 'nx', 'ny', 'nz'.
-        dt (float): Time step size.
-        tolerance (float): Convergence tolerance for the Jacobi iteration.
-        max_iterations (int): Maximum number of iterations for the Jacobi solver.
-        return_residual (bool): If True, also return the final L2 norm of the residual.
-        should_log_verbose (bool): If True, print detailed iteration logs.
+        divergence (np.ndarray): The divergence of the tentative velocity field (∇·u*),
+                                 shape (nx, ny, nz) (interior cells only).
+        mesh_info (dict): Grid metadata including 'grid_shape' (interior nx, ny, nz)
+                          and 'dx', 'dy', 'dz', and 'boundary_conditions'.
+        time_step (float): The current simulation time step (dt).
+        omega (float): Relaxation factor for SOR.
+        max_iterations (int): Maximum iterations for the SOR solver.
+        tolerance (float): Convergence tolerance for the SOR solver.
+        return_residual (bool): If True, returns (phi, residual), else just phi.
+        backend (str): Solver backend (currently only "sor" supported).
 
     Returns:
-        np.ndarray: The scalar potential 'phi' field of shape (nx+2, ny+2, nz+2),
-                    including zero ghost cells.
-        float (optional): The final L2 norm of the residual if return_residual is True.
+        np.ndarray or tuple: The solved phi field (with ghost cells)
+                             or (phi, final_residual) if return_residual is True.
     """
-    dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
-    nx, ny, nz = mesh_info['nx'], mesh_info['ny'], mesh_info['nz']
+    if backend != "sor":
+        raise ValueError(f"Unsupported backend '{backend}'.")
 
-    # Initialize phi with zeros (including ghost cells)
-    phi = np.zeros((nx + 2, ny + 2, nz + 2), dtype=np.float64)
+    # Get interior grid dimensions from mesh_info
+    nx_interior, ny_interior, nz_interior = mesh_info['grid_shape']
+    # Calculate total grid dimensions including ghost cells
+    nx_total, ny_total, nz_total = nx_interior + 2, ny_interior + 2, nz_interior + 2
 
-    # The source term for the Poisson equation: RHS = (1/dt) * (∇·u*)
-    # Make sure to scale the divergence correctly, and ensure it's clamped
-    source_term = divergence_field / dt
-    source_term = np.nan_to_num(source_term, nan=0.0, posinf=0.0, neginf=0.0)
+    dx = mesh_info["dx"]
+    dy = mesh_info["dy"]
+    dz = mesh_info["dz"]
 
-    # Pre-calculate constants for Jacobi iteration denominator
-    # This assumes constant grid spacing for simplicity.
-    # The denominator for a central difference Laplacian (∂²/∂x² + ∂²/∂y² + ∂²/∂z²)
-    # is -2/dx^2 - 2/dy^2 - 2/dz^2
-    # So, the inverse is 1 / (-2 * (1/dx^2 + 1/dy^2 + 1/dz^2))
-    denom_inv = 1.0 / (-2.0 * (1.0/(dx*dx) + 1.0/(dy*dy) + 1.0/(dz*dz)))
+    # Initialize phi field with zeros. It will have ghost cells.
+    phi = np.zeros((nx_total, ny_total, nz_total), dtype=np.float64)
+    processed_bcs = mesh_info.get("boundary_conditions", {})
 
-    if should_log_verbose:
-        print(f"    - Poisson Solver: Starting Jacobi iteration (Max Iter: {max_iterations}, Tol: {tolerance:.2e})")
+    # Construct the RHS 'b' for the Poisson equation (∇²phi = b).
+    # b = - (divergence / time_step).
+    # The 'divergence' input is for interior cells, so place it in the interior of 'rhs'.
+    rhs = np.zeros_like(phi)
+    rhs[1:-1, 1:-1, 1:-1] = -divergence / time_step
 
-    residual = np.inf
-    for k in range(max_iterations):
-        phi_old = np.copy(phi)
+    # Defensive clamping for RHS in case divergence had issues (though fixed in advection)
+    rhs = np.nan_to_num(rhs, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # Apply Jacobi iteration for interior cells (1 to nx, 1 to ny, 1 to nz)
-        # Note: The indices for phi correspond to the full grid (including ghost cells),
-        # while source_term corresponds to interior cells (0 to nx-1, etc.).
-        # So, (i,j,k) in source_term corresponds to (i+1, j+1, k+1) in phi.
-        phi[1:-1, 1:-1, 1:-1] = denom_inv * (
-            -source_term
-            + (phi_old[2:, 1:-1, 1:-1] + phi_old[:-2, 1:-1, 1:-1]) / (dx*dx)
-            + (phi_old[1:-1, 2:, 1:-1] + phi_old[1:-1, :-2, 1:-1]) / (dy*dy)
-            + (phi_old[1:-1, 1:-1, 2:] + phi_old[1:-1, 1:-1, :-2]) / (dz*dz)
-        )
+    print("[Poisson Solver] Initializing phi field and applying boundary conditions...")
+    # Apply boundary conditions to the phi field (ghost cells)
+    # These BCs must be applied *before* the SOR solver starts, and ideally
+    # re-applied after each iteration if Neumann BCs are present.
+    # For simplicity, we apply them once here.
 
-        # Enforce boundary conditions on phi (Dirichlet, usually phi=0 on boundaries for pressure correction)
-        # For simplicity, phi is usually set to zero at boundaries for pressure Poisson equation.
-        # This implies that the pressure gradient correction will be applied up to the boundary.
-        # Setting ghost cells of phi to be consistent with phi=0 at boundaries (if that's the choice)
-        # For now, simply assuming phi values inside the domain are calculated, and ghost cells are 0.
-        # If specific Neumann conditions for phi are needed, this would be the place to apply them.
-        # For pressure correction, Dirichlet phi=0 is common.
-        phi[0, :, :] = 0.0
-        phi[-1, :, :] = 0.0
-        phi[:, 0, :] = 0.0
-        phi[:, -1, :] = 0.0
-        phi[:, :, 0] = 0.0
-        phi[:, :, -1] = 0.0
+    for bc_name, bc in processed_bcs.items():
+        bc_type = bc.get("type")
+        apply_to_fields = bc.get("apply_to", [])
+        
+        # Handle Dirichlet boundary conditions for phi (where pressure is specified)
+        # For Dirichlet pressure BCs, phi is typically set to a constant (often 0 or the target pressure).
+        if bc_type == "dirichlet" and "pressure" in apply_to_fields:
+            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int)
+            # For pressure projection, phi represents a pressure *correction*.
+            # If pressure is fixed (Dirichlet), the correction at that boundary is often zero.
+            # However, if target_pressure is directly used, it implies P_new = target_pressure.
+            # Let's stick to the original logic of using target_pressure for phi for now.
+            target_value_for_phi = bc.get("pressure", 0.0) 
 
+            if ghost_indices.size > 0:
+                # Ensure indices are within the bounds of the phi array
+                valid_mask = (
+                    (ghost_indices[:, 0] >= 0) & (ghost_indices[:, 0] < nx_total) &
+                    (ghost_indices[:, 1] >= 0) & (ghost_indices[:, 1] < ny_total) &
+                    (ghost_indices[:, 2] >= 0) & (ghost_indices[:, 2] < nz_total)
+                )
+                safe_indices = ghost_indices[valid_mask]
+                phi[safe_indices[:, 0], safe_indices[:, 1], safe_indices[:, 2]] = target_value_for_phi
+                print(f"   -> Applied Dirichlet phi ({target_value_for_phi}) for pressure BC '{bc_name}'.")
+            else:
+                print(f"   -> WARNING: No ghost indices found for pressure BC '{bc_name}'.")
+        
+        # Handle Neumann boundary conditions for phi (where velocity is specified as Dirichlet)
+        # For zero normal velocity at a boundary (e.g., no-slip walls), the normal derivative of phi is zero.
+        # This translates to phi[ghost_cell] = phi[adjacent_interior_cell].
+        elif bc_type == "dirichlet" and "velocity" in apply_to_fields:
+            cell_indices = np.array(bc.get("cell_indices", []), dtype=int)   # Interior cells adjacent to boundary
+            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int) # Ghost cells for this boundary
 
-        # Calculate residual using the original Poisson equation form
-        # R = ∇²phi - (1/dt) * (∇·u*)
-        # Interior Laplacian of the current phi
-        laplacian_phi = (
-            (phi[2:, 1:-1, 1:-1] - 2 * phi[1:-1, 1:-1, 1:-1] + phi[:-2, 1:-1, 1:-1]) / (dx*dx) +
-            (phi[1:-1, 2:, 1:-1] - 2 * phi[1:-1, 1:-1, 1:-1] + phi[1:-1, :-2, 1:-1]) / (dy*dy) +
-            (phi[1:-1, 1:-1, 2:] - 2 * phi[1:-1, 1:-1, 1:-1] + phi[1:-1, 1:-1, :-2]) / (dz*dz)
-        )
-        residual_field = laplacian_phi - source_term
+            if cell_indices.size > 0 and ghost_indices.size > 0:
+                # Ensure indices are valid before attempting to access array elements
+                valid_cell_mask = (
+                    (cell_indices[:, 0] >= 0) & (cell_indices[:, 0] < nx_total) &
+                    (cell_indices[:, 1] >= 0) & (cell_indices[:, 1] < ny_total) &
+                    (cell_indices[:, 2] >= 0) & (cell_indices[:, 2] < nz_total)
+                )
+                valid_ghost_mask = (
+                    (ghost_indices[:, 0] >= 0) & (ghost_indices[:, 0] < nx_total) &
+                    (ghost_indices[:, 1] >= 0) & (ghost_indices[:, 1] < ny_total) &
+                    (ghost_indices[:, 2] >= 0) & (ghost_indices[:, 2] < nz_total)
+                )
+                # Combine masks to only use valid pairs of (cell, ghost) indices
+                combined_mask = valid_cell_mask & valid_ghost_mask
+                safe_cell_indices = cell_indices[combined_mask]
+                safe_ghost_indices = ghost_indices[combined_mask]
 
-        # L2 norm of the residual
-        residual = np.linalg.norm(residual_field) / np.sqrt(nx * ny * nz) # Normalized L2 norm
+                if safe_cell_indices.size > 0:
+                    # Apply Neumann BC: phi[ghost] = phi[adjacent interior]
+                    phi[safe_ghost_indices[:, 0], safe_ghost_indices[:, 1], safe_ghost_indices[:, 2]] = \
+                        phi[safe_cell_indices[:, 0], safe_cell_indices[:, 1], safe_cell_indices[:, 2]]
+                    print(f"   -> Applied Neumann BC (zero normal gradient) to phi for velocity BC '{bc_name}'.")
+            else:
+                print(f"   -> WARNING: No valid cell or ghost indices found for velocity BC '{bc_name}' for phi Neumann BC.")
 
-        if should_log_verbose and (k % 50 == 0 or k == max_iterations - 1 or residual < tolerance):
-            print(f"        Iteration {k+1}: Residual = {residual:.6e}")
+    residual_container = np.zeros(1, dtype=np.float64)
 
-        if residual < tolerance:
-            if should_log_verbose:
-                print(f"    - Poisson Solver converged in {k+1} iterations. Final residual: {residual:.6e}")
-            break
-    else: # This block executes if the loop completes without 'break' (i.e., max_iterations reached)
-        print(f"❌ Warning: Poisson Solver did NOT converge after {max_iterations} iterations. Final residual: {residual:.6e}")
+    print(f"[Poisson Solver] Starting SOR solver with {max_iterations} iterations and tolerance {tolerance}.")
+    
+    # Call the Numba-jitted SOR kernel to solve for phi
+    # The kernel updates the interior cells of 'phi'.
+    # Note: For strict Neumann BCs, ghost cells should be updated after each iteration.
+    # However, with a Numba-jitted kernel, this is difficult to interleave.
+    # We rely on the initial setup of BCs and the solver's stencil.
+    phi = _sor_kernel_with_residual(phi, rhs, dx, dy, dz, omega,
+                                    float(max_iterations), float(tolerance), residual_container)
+    
+    print(f"[Poisson Solver] Solver finished. Final residual: {residual_container[0]:.6e}")
 
-    # Ensure phi values are not NaN/Inf after solving
-    if np.isnan(phi).any() or np.isinf(phi).any():
-        print("❌ Warning: Invalid values in phi after Poisson solve. Clamping to zero.")
-        phi = np.nan_to_num(phi, nan=0.0, posinf=0.0, neginf=0.0)
+    return (phi, residual_container[0]) if return_residual else phi
 
-    if return_residual:
-        return phi, residual
-    else:
-        return phi
 
 
 

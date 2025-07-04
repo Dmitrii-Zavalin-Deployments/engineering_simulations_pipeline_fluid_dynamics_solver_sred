@@ -1,110 +1,163 @@
 # src/main_solver.py
 
 import numpy as np
-import os
 import sys
+import os
+from datetime import datetime
 
-# Add the project root to the sys.path
-script_dir = os.path.dirname(__file__)
-project_root = os.path.abspath(os.path.join(script_dir, '..'))
-sys.path.insert(0, project_root)
+# --- REFINED FIX FOR ImportError ---
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# --- END REFINED FIX ---
 
-from src.mesh_generator import create_mesh
-from src.initial_conditions_generator import create_initial_conditions
-from src.numerical_methods.explicit_solver import ExplicitSolver
-from src.utils.visualization import plot_velocity_field, plot_pressure_field
-from src.utils.io_utils import save_data, load_data
+from numerical_methods.explicit_solver import ExplicitSolver
+from physics.boundary_conditions_applicator import apply_boundary_conditions
+from solver.initialization import (
+    load_input_data,
+    initialize_simulation_parameters,
+    initialize_grid,
+    initialize_fields,
+    print_initial_setup
+)
+from solver.results_handler import save_field_snapshot
+from utils.simulation_output_manager import setup_simulation_output_directory
 
-class MainSolver:
-    """
-    Main solver class for incompressible fluid simulation.
-    Orchestrates mesh generation, initial conditions, time stepping, and output.
-    """
-    def __init__(self, config: dict):
-        self.config = config
-        self.fluid_properties = config["fluid_properties"]
-        self.simulation_params = config["simulation_parameters"]
-        self.output_params = config["output_parameters"]
-        self.mesh_info = create_mesh(config["mesh_parameters"])
 
-        self.dt = self.simulation_params["dt"]
-        self.total_steps = self.simulation_params["total_steps"]
-        # Default to 100 if not specified, ensuring logging every 100 steps
-        self.output_frequency_steps = self.output_params.get("output_frequency_steps", 100)
-        # Default to 0 (no saving by default)
-        self.save_frequency_steps = self.output_params.get("save_frequency_steps", 0)
-        # Default to 0 (no plotting by default)
-        self.plot_frequency_steps = self.output_params.get("plot_frequency_steps", 0)
-        # Default to True for now, can be controlled via config
-        self.verbose_logging = self.output_params.get("verbose_logging", True)
+class Simulation:
+    def __init__(self, input_file_path, output_dir):
+        print("--- Simulation Setup ---")
+        self.input_file_path = input_file_path
+        self.output_dir = output_dir
+        self.start_time = datetime.now().isoformat()
 
-        self.velocity_field, self.pressure_field = create_initial_conditions(
-            self.mesh_info, self.fluid_properties
-        )
+        self.input_data = load_input_data(self.input_file_path)
+        initialize_simulation_parameters(self, self.input_data)
+        initialize_grid(self, self.input_data)
 
-        self.solver = ExplicitSolver(
-            fluid_properties=self.fluid_properties,
-            mesh_info=self.mesh_info,
-            dt=self.dt
-        )
-        self.step_number = 0 # Initialize step_number
-        print("Solver initialized successfully.")
+        bc_dict = self.input_data["mesh_info"].get("boundary_conditions", {})
+        for name, bc_data in bc_dict.items():
+            if "cell_indices" not in bc_data or "ghost_indices" not in bc_data:
+                raise ValueError(f"❌ BC '{name}' missing cell or ghost indices. Was pre-processing successful?")
+            bc_data["cell_indices"] = np.array(bc_data["cell_indices"], dtype=int)
+            bc_data["ghost_indices"] = np.array(bc_data["ghost_indices"], dtype=int)
 
-    def solve(self):
+        self.mesh_info = self.input_data["mesh_info"]
+        self.grid_shape = self.mesh_info["grid_shape"] # This is (nx, ny, nz) for interior
+        # The actual field arrays will have (nx+2, ny+2, nz+2) due to ghost cells
+        self.dx = self.mesh_info["dx"]
+        self.dy = self.mesh_info["dy"]
+        self.dz = self.mesh_info["dz"]
+
+        initialize_fields(self, self.input_data)
+        self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
+
+        self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
+        self.boundary_conditions = bc_dict
+        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
+
+        print_initial_setup(self)
+
+    def calculate_max_cfl(self, velocity_field):
         """
-        Runs the main simulation loop.
+        Calculates the maximum CFL number in the domain.
+        CFL = max(|u|*dt/dx, |v|*dt/dy, |w|*dt/dz)
         """
-        print(f"Starting simulation for {self.total_steps} steps with dt = {self.dt}...")
+        # Consider only interior cells for CFL calculation
+        u_interior = velocity_field[1:-1, 1:-1, 1:-1, 0]
+        v_interior = velocity_field[1:-1, 1:-1, 1:-1, 1]
+        w_interior = velocity_field[1:-1, 1:-1, 1:-1, 2]
 
-        for self.step_number in range(self.total_steps):
-            current_time = self.step_number * self.dt
+        max_u = np.max(np.abs(u_interior)) if u_interior.size > 0 else 0.0
+        max_v = np.max(np.abs(v_interior)) if v_interior.size > 0 else 0.0
+        max_w = np.max(np.abs(w_interior)) if w_interior.size > 0 else 0.0
 
-            # Determine if verbose logging should occur for this specific step
-            # Log verbosely on step 0 and every output_frequency_steps, if verbose_logging is globally enabled
-            should_log_verbose = self.verbose_logging and \
-                                 (self.step_number % self.output_frequency_steps == 0 or self.step_number == 0)
+        cfl_x = (max_u * self.time_step) / self.dx if self.dx > 0 else 0.0
+        cfl_y = (max_v * self.time_step) / self.dy if self.dy > 0 else 0.0
+        cfl_z = (max_w * self.time_step) / self.dz if self.dz > 0 else 0.0
 
-            if should_log_verbose: # Only print this general update if verbose
-                print(f"\n--- Time Step {self.step_number + 1}/{self.total_steps} (Time: {current_time:.4f}s) ---")
-
-            # Perform one explicit time step, passing the logging flag
-            self.velocity_field, self.pressure_field = self.solver.step(
-                self.velocity_field,
-                self.pressure_field,
-                should_log_verbose=should_log_verbose # Pass the logging flag to the solver
-            )
-
-            # Save data if frequency dictates and saving is enabled
-            # (self.step_number + 1) because step_number is 0-indexed for range, but we want 1-indexed for output
-            if self.save_frequency_steps > 0 and \
-               (self.step_number + 1) % self.save_frequency_steps == 0:
-                step_output_dir = os.path.join(self.output_params["output_dir"], f"step_{self.step_number + 1}")
-                os.makedirs(step_output_dir, exist_ok=True)
-                save_data(self.velocity_field, "velocity", step_output_dir, self.step_number + 1)
-                save_data(self.pressure_field, "pressure", step_output_dir, self.step_number + 1)
-                if should_log_verbose: # Only print this saving message if verbose
-                    print(f"Data saved for step {self.step_number + 1} to {step_output_dir}")
+        return max(cfl_x, cfl_y, cfl_z)
 
 
-            # Plotting if frequency dictates and plotting is enabled
-            if self.plot_frequency_steps > 0 and \
-               (self.step_number + 1) % self.plot_frequency_steps == 0:
-                plot_output_dir = os.path.join(self.output_params["output_dir"], "plots")
-                os.makedirs(plot_output_dir, exist_ok=True)
-                if should_log_verbose: # Only print this plotting message if verbose
-                    print(f"Generating plots for step {self.step_number + 1}...")
-                plot_velocity_field(self.velocity_field, self.mesh_info, plot_output_dir, self.step_number + 1)
-                plot_pressure_field(self.pressure_field, self.mesh_info, plot_output_dir, self.step_number + 1)
-                if should_log_verbose:
-                    print(f"Plots saved to {plot_output_dir}")
+    def run(self):
+        print("--- Running Simulation ---")
+        self.current_time = 0.0
+        self.step_count = 0
+        fields_dir = os.path.join(self.output_dir, "fields")
+        num_steps = int(round(self.total_time / self.time_step))
 
-        print(f"\nSimulation finished after {self.total_steps} steps.")
-        print(f"Final simulation time: {self.total_steps * self.dt:.4f}s")
+        print(f"Total desired simulation time: {self.total_time} s")
+        print(f"Time step per iteration: {self.time_step} s")
+        print(f"Calculated number of simulation steps: {num_steps}")
 
-        # Optionally save final state regardless of output frequency
-        if self.output_params.get("save_final_state", True): # Default to True
-            final_output_dir = os.path.join(self.output_params["output_dir"], "final_state")
-            os.makedirs(final_output_dir, exist_ok=True)
-            save_data(self.velocity_field, "velocity_final", final_output_dir)
-            save_data(self.pressure_field, "pressure_final", final_output_dir)
-            print(f"Final state saved to {final_output_dir}")
+        try:
+            save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+
+            for _ in range(num_steps):
+                self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
+
+                # ✅ Re-apply final boundary conditions
+                # This is crucial after the pressure correction step
+                apply_boundary_conditions(
+                    velocity_field=self.velocity_field,
+                    pressure_field=self.p,
+                    fluid_properties=self.fluid_properties,
+                    mesh_info=self.mesh_info,
+                    is_tentative_step=False
+                )
+
+                self.step_count += 1
+                self.current_time = self.step_count * self.time_step
+
+                # Output and logging frequency
+                if (self.step_count % self.output_frequency_steps == 0) or \
+                   (self.step_count == num_steps and self.step_count != 0):
+                    save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+                    
+                    # Calculate and print CFL number
+                    max_cfl = self.calculate_max_cfl(self.velocity_field)
+                    print(f"    CFL Number: {max_cfl:.4f}")
+                    
+                    # Also print flow metrics as before
+                    # Ensure log_flow_metrics also handles potential NaNs/Infs gracefully
+                    # (it should already be doing so based on previous updates)
+                    vel_mag = np.linalg.norm(self.velocity_field[1:-1, 1:-1, 1:-1, :])
+                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
+
+
+            print("--- Simulation Finished ---")
+            print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
+
+        except Exception as e:
+            print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            raise
+
+
+def cli_entrypoint():
+    if len(sys.argv) != 3:
+        print("Usage: python src/main_solver.py <input_json_filepath> <output_directory>", file=sys.stderr)
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    base_output_dir = sys.argv[2]
+    output_dir = os.path.join(base_output_dir, "navier_stokes_output")
+
+    try:
+        sim = Simulation(input_file, output_dir)
+        setup_simulation_output_directory(sim, output_dir)
+        sim.run()
+        print("✅ Main Navier-Stokes simulation executed successfully.")
+
+    except Exception as e:
+        print(f"Error: Simulation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    cli_entrypoint()
+
+
+
+
