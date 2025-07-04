@@ -16,7 +16,13 @@ def calculate_gradient(field, h, axis):
     Returns:
         np.ndarray: Gradient field for the interior cells (shape: [nx, ny, nz]).
     """
-    # Defensive clamping for input field
+    # Check for NaNs/Infs in the input field
+    field_has_nan = np.isnan(field).any()
+    field_has_inf = np.isinf(field).any()
+
+    if field_has_nan or field_has_inf:
+        print(f"    [Gradient DEBUG] Input field stats BEFORE clamp (axis {axis}): min={np.min(field):.2e}, max={np.max(field):.2e}, has_nan={field_has_nan}, has_inf={field_has_inf}")
+
     field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
 
     # Slicing to compute central difference for the interior cells.
@@ -31,8 +37,10 @@ def calculate_gradient(field, h, axis):
         raise ValueError("Axis must be 0, 1, or 2.")
 
     # Final check for NaNs/Infs in the computed gradient and clamp if necessary
-    if np.isnan(grad).any() or np.isinf(grad).any():
-        print(f"❌ Warning: Invalid values in gradient axis {axis} — clamping to zero.")
+    grad_has_nan = np.isnan(grad).any()
+    grad_has_inf = np.isinf(grad).any()
+    if grad_has_nan or grad_has_inf:
+        print(f"❌ Warning: Invalid values in gradient axis {axis} — clamping to zero. Stats: min={np.min(grad):.2e}, max={np.max(grad):.2e}, has_nan={grad_has_nan}, has_inf={grad_has_inf}")
     grad = np.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0)
 
     return grad
@@ -66,10 +74,14 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
     # DEBUG: Inspect phi coming into this function
-    print(f"  [PressureCorr DEBUG] phi input stats: min={np.min(phi):.2e}, max={np.max(phi):.2e}, has_nan={np.isnan(phi).any()}, has_inf={np.isinf(phi).any()}")
+    phi_has_nan = np.isnan(phi).any()
+    phi_has_inf = np.isinf(phi).any()
+    if phi_has_nan or phi_has_inf:
+        print(f"  [PressureCorr DEBUG] phi input stats: min={np.min(phi):.2e}, max={np.max(phi):.2e}, has_nan={phi_has_nan}, has_inf={phi_has_inf}")
     
     # Optional: limit extreme phi corrections to prevent blow-up if solver is unstable
-    if np.abs(phi).max() > 1e4: # Threshold can be tuned
+    phi_exceeds_threshold = np.abs(phi).max() > 1e4
+    if phi_exceeds_threshold:
         print("⚠️ Pressure correction potential (phi) exceeds threshold — clipping applied.")
         phi = np.clip(phi, -1e3, 1e3) # Clip to a reasonable range
         print(f"  [PressureCorr DEBUG] phi after clipping: min={np.min(phi):.2e}, max={np.max(phi):.2e}")
@@ -77,7 +89,10 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     # Initialize updated_pressure with a copy of p_field
     updated_pressure = p_field.copy()
     # DEBUG: Inspect p_field before update
-    print(f"  [PressureCorr DEBUG] p_field BEFORE update: min={np.min(p_field):.2e}, max={np.max(p_field):.2e}, has_nan={np.isnan(p_field).any()}, has_inf={np.isinf(p_field).any()}")
+    p_field_has_nan = np.isnan(p_field).any()
+    p_field_has_inf = np.isinf(p_field).any()
+    if p_field_has_nan or p_field_has_inf:
+        print(f"  [PressureCorr DEBUG] p_field BEFORE update: min={np.min(p_field):.2e}, max={np.max(p_field):.2e}, has_nan={p_field_has_nan}, has_inf={p_field_has_inf}")
 
 
     # Update the pressure field: P_new = P_old + ρ * φ
@@ -86,10 +101,10 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1]
 
     # DEBUG: Inspect updated_pressure after update, before clamping
-    # Added explicit checks for NaN/Inf for more reliable debugging
     nan_check_pressure_after_update = np.isnan(updated_pressure).any()
     inf_check_pressure_after_update = np.isinf(updated_pressure).any()
-    print(f"  [PressureCorr DEBUG] updated_pressure AFTER update (before clamp): min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}, has_nan={nan_check_pressure_after_update}, has_inf={inf_check_pressure_after_update}")
+    if nan_check_pressure_after_update or inf_check_pressure_after_update:
+        print(f"  [PressureCorr DEBUG] updated_pressure AFTER update (before clamp): min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}, has_nan={nan_check_pressure_after_update}, has_inf={inf_check_pressure_after_update}")
 
 
     # Final safety clamp for updated_pressure
@@ -97,6 +112,9 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
         print("❌ Warning: Invalid values in updated pressure — clamping to zero.")
     updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
     # DEBUG: Inspect updated_pressure after clamping
+    # This print will always execute as it's a final sanity check post-clamping.
+    # If the previous check caught NaNs/Infs, this confirms they're gone.
+    # If no NaNs/Infs were present, this just shows the final range.
     print(f"  [PressureCorr DEBUG] updated_pressure AFTER clamp: min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}")
 
 
@@ -107,9 +125,20 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     grad_phi_z = calculate_gradient(phi, dz, axis=2)
 
     # DEBUG: Inspect gradients of phi
-    print(f"  [PressureCorr DEBUG] grad_phi_x stats: min={np.min(grad_phi_x):.2e}, max={np.max(grad_phi_x):.2e}, has_nan={np.isnan(grad_phi_x).any()}, has_inf={np.isinf(grad_phi_x).any()}")
-    print(f"  [PressureCorr DEBUG] grad_phi_y stats: min={np.min(grad_phi_y):.2e}, max={np.max(grad_phi_y):.2e}, has_nan={np.isnan(grad_phi_y).any()}, has_inf={np.isinf(grad_phi_y).any()}")
-    print(f"  [PressureCorr DEBUG] grad_phi_z stats: min={np.min(grad_phi_z):.2e}, max={np.max(grad_phi_z):.2e}, has_nan={np.isnan(grad_phi_z).any()}, has_inf={np.isinf(grad_phi_z).any()}")
+    grad_phi_x_has_nan = np.isnan(grad_phi_x).any()
+    grad_phi_x_has_inf = np.isinf(grad_phi_x).any()
+    if grad_phi_x_has_nan or grad_phi_x_has_inf:
+        print(f"  [PressureCorr DEBUG] grad_phi_x stats: min={np.min(grad_phi_x):.2e}, max={np.max(grad_phi_x):.2e}, has_nan={grad_phi_x_has_nan}, has_inf={grad_phi_x_has_inf}")
+    
+    grad_phi_y_has_nan = np.isnan(grad_phi_y).any()
+    grad_phi_y_has_inf = np.isinf(grad_phi_y).any()
+    if grad_phi_y_has_nan or grad_phi_y_has_inf:
+        print(f"  [PressureCorr DEBUG] grad_phi_y stats: min={np.min(grad_phi_y):.2e}, max={np.max(grad_phi_y):.2e}, has_nan={grad_phi_y_has_nan}, has_inf={grad_phi_y_has_inf}")
+    
+    grad_phi_z_has_nan = np.isnan(grad_phi_z).any()
+    grad_phi_z_has_inf = np.isinf(grad_phi_z).any()
+    if grad_phi_z_has_nan or grad_phi_z_has_inf:
+        print(f"  [PressureCorr DEBUG] grad_phi_z stats: min={np.min(grad_phi_z):.2e}, max={np.max(grad_phi_z):.2e}, has_nan={grad_phi_z_has_nan}, has_inf={grad_phi_z_has_inf}")
 
 
     # Apply the pressure correction to the tentative velocity field:
@@ -123,7 +152,8 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     # DEBUG: Inspect corrected_velocity after update, before clamping
     nan_check_velocity_after_update = np.isnan(corrected_velocity).any()
     inf_check_velocity_after_update = np.isinf(corrected_velocity).any()
-    print(f"  [PressureCorr DEBUG] corrected_velocity AFTER update (before clamp): min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}, has_nan={nan_check_velocity_after_update}, has_inf={inf_check_velocity_after_update}")
+    if nan_check_velocity_after_update or inf_check_velocity_after_update:
+        print(f"  [PressureCorr DEBUG] corrected_velocity AFTER update (before clamp): min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}, has_nan={nan_check_velocity_after_update}, has_inf={inf_check_velocity_after_update}")
 
 
     # Final safety clamp for corrected velocity
@@ -131,11 +161,13 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
         print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
     corrected_velocity = np.nan_to_num(corrected_velocity, nan=0.0, posinf=0.0, neginf=0.0)
     # DEBUG: Inspect corrected_velocity after clamping
+    # This print will always execute as it's a final sanity check post-clamping.
+    # If the previous check caught NaNs/Infs, this confirms they're gone.
+    # If no NaNs/Infs were present, this just shows the final range.
     print(f"  [PressureCorr DEBUG] corrected_velocity AFTER clamp: min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}")
 
 
     return corrected_velocity, updated_pressure
-
 
 
 
