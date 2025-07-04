@@ -14,14 +14,14 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Corrected imports based on your ls -R output
-from src.grid.grid_generator import GridGenerator
-from src.physics.initialization import InitialConditionsApplier # Corrected path
-from src.numerical_methods.advection import compute_advection_diffusion # Corrected path
-from src.numerical_methods.diffusion import compute_diffusion_term # Corrected path
+from src.utils.grid import GridGenerator # Corrected path: GridGenerator is in src/utils/grid.py
+from src.physics.initialization import InitialConditionsApplier
+from src.numerical_methods.advection import compute_advection_diffusion
+from src.numerical_methods.diffusion import compute_diffusion_term
 from src.physics.boundary_conditions_applicator import apply_boundary_conditions
 from src.numerical_methods.poisson_solver import solve_poisson_for_phi
 from src.numerical_methods.pressure_correction import apply_pressure_correction
-from src.utils.io import save_field_snapshot, save_config_and_mesh # Corrected path
+from src.utils.io import save_field_snapshot, save_config_and_mesh
 from src.utils.metrics_calculator import calculate_total_kinetic_energy, calculate_max_velocity_magnitude, calculate_pressure_range, calculate_mean_pressure, calculate_std_dev_pressure, calculate_divergence, calculate_max_cfl
 
 class NavierStokesSolver:
