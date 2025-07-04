@@ -13,16 +13,16 @@ project_root = os.path.abspath(os.path.join(script_dir, os.pardir)) # Parent dir
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# Corrected imports based on your ls -R output
-from src.utils.grid import GridGenerator # Corrected path: GridGenerator is in src/utils/grid.py
-from src.physics.initialization import InitialConditionsApplier
-from src.numerical_methods.advection import compute_advection_diffusion
-from src.numerical_methods.diffusion import compute_diffusion_term
-from src.physics.boundary_conditions_applicator import apply_boundary_conditions
-from src.numerical_methods.poisson_solver import solve_poisson_for_phi
-from src.numerical_methods.pressure_correction import apply_pressure_correction
-from src.utils.io import save_field_snapshot, save_config_and_mesh
-from src.utils.metrics_calculator import calculate_total_kinetic_energy, calculate_max_velocity_magnitude, calculate_pressure_range, calculate_mean_pressure, calculate_std_dev_pressure, calculate_divergence, calculate_max_cfl
+# Corrected imports to use relative paths from 'src' as the base
+from utils.grid import GridGenerator
+from physics.initialization import InitialConditionsApplier
+from numerical_methods.advection import compute_advection_diffusion
+from numerical_methods.diffusion import compute_diffusion_term
+from physics.boundary_conditions_applicator import apply_boundary_conditions
+from numerical_methods.poisson_solver import solve_poisson_for_phi
+from numerical_methods.pressure_correction import apply_pressure_correction
+from utils.io import save_field_snapshot, save_config_and_mesh
+from utils.metrics_calculator import calculate_total_kinetic_energy, calculate_max_velocity_magnitude, calculate_pressure_range, calculate_mean_pressure, calculate_std_dev_pressure, calculate_divergence, calculate_max_cfl
 
 class NavierStokesSolver:
     def __init__(self, config_path):
