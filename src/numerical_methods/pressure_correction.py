@@ -50,7 +50,8 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
                               shape [nx+2, ny+2, nz+2].
         phi (np.ndarray): Pressure correction potential (φ) with ghost cells,
                           shape [nx+2, ny+2, nz+2].
-                          This is the output from solve_poisson_for_phi.
+                          This is the output from solve_poisson_for_phi, where
+                          ∇²φ = (∇·u*) / Δt.
         mesh_info (dict): Grid spacing dictionary: {'dx', 'dy', 'dz'}.
         time_step (float): Time step Δt.
         density (float): Fluid density ρ.
@@ -79,24 +80,20 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     print(f"  [PressureCorr DEBUG] p_field BEFORE update: min={np.min(p_field):.2e}, max={np.max(p_field):.2e}, has_nan={np.isnan(p_field).any()}, has_inf={np.isinf(p_field).any()}")
 
 
-    # Update the pressure field: P_new = P_old + (rho / dt) * phi
-    # The pressure update is applied only to the interior cells.
-    # Assuming phi from Poisson solver is already scaled such that it can be added directly.
-    # If not, you might need `updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1] / time_step`
-    # Let's add the standard scaling for robustness.
-    # The Poisson equation is typically solved for (phi / (rho/dt)), so phi_actual = phi_solver * (rho/dt)
-    # The pressure update is P_new = P_old + phi_actual
-    # So, P_new = P_old + phi_solver * (rho / dt)
-    
-    # Apply pressure update to interior cells
-    # Ensure phi's interior is used for the pressure update
-    updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1] / time_step
+    # Update the pressure field: P_new = P_old + ρ * φ
+    # Since Poisson solver solves ∇²φ = (∇·u*) / Δt, φ already incorporates 1/Δt.
+    # Thus, the pressure update is P_new = P_old + ρ * φ
+    updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1]
 
     # DEBUG: Inspect updated_pressure after update, before clamping
-    print(f"  [PressureCorr DEBUG] updated_pressure AFTER update (before clamp): min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}, has_nan={np.isnan(updated_pressure).any()}, has_inf={np.isinf(updated_pressure).any()}")
+    # Added explicit checks for NaN/Inf for more reliable debugging
+    nan_check_pressure_after_update = np.isnan(updated_pressure).any()
+    inf_check_pressure_after_update = np.isinf(updated_pressure).any()
+    print(f"  [PressureCorr DEBUG] updated_pressure AFTER update (before clamp): min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}, has_nan={nan_check_pressure_after_update}, has_inf={inf_check_pressure_after_update}")
+
 
     # Final safety clamp for updated_pressure
-    if np.isnan(updated_pressure).any() or np.isinf(updated_pressure).any():
+    if nan_check_pressure_after_update or inf_check_pressure_after_update:
         print("❌ Warning: Invalid values in updated pressure — clamping to zero.")
     updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
     # DEBUG: Inspect updated_pressure after clamping
@@ -117,16 +114,20 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
 
     # Apply the pressure correction to the tentative velocity field:
     # u_corrected = u_star - (dt / rho) * grad(phi)
+    # This formula is correct as grad(phi) is based on the potential phi.
     corrected_velocity = velocity_next.copy()
     corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 2] -= time_step * grad_phi_z / density
 
     # DEBUG: Inspect corrected_velocity after update, before clamping
-    print(f"  [PressureCorr DEBUG] corrected_velocity AFTER update (before clamp): min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}, has_nan={np.isnan(corrected_velocity).any()}, has_inf={np.isinf(corrected_velocity).any()}")
+    nan_check_velocity_after_update = np.isnan(corrected_velocity).any()
+    inf_check_velocity_after_update = np.isinf(corrected_velocity).any()
+    print(f"  [PressureCorr DEBUG] corrected_velocity AFTER update (before clamp): min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}, has_nan={nan_check_velocity_after_update}, has_inf={inf_check_velocity_after_update}")
+
 
     # Final safety clamp for corrected velocity
-    if np.isnan(corrected_velocity).any() or np.isinf(corrected_velocity).any():
+    if nan_check_velocity_after_update or inf_check_velocity_after_update:
         print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
     corrected_velocity = np.nan_to_num(corrected_velocity, nan=0.0, posinf=0.0, neginf=0.0)
     # DEBUG: Inspect corrected_velocity after clamping
