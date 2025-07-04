@@ -112,7 +112,7 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
     # Defensive clamping for RHS in case divergence had issues (though fixed in advection)
     rhs = np.nan_to_num(rhs, nan=0.0, posinf=0.0, neginf=0.0)
 
-    print("[Poisson Solver] Initializing phi field and applying boundary conditions...")
+    # print("[Poisson Solver] Initializing phi field and applying boundary conditions...")
     # Apply boundary conditions to the phi field (ghost cells)
     # These BCs must be applied *before* the SOR solver starts, and ideally
     # re-applied after each iteration if Neumann BCs are present.
@@ -141,7 +141,7 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
                 )
                 safe_indices = ghost_indices[valid_mask]
                 phi[safe_indices[:, 0], safe_indices[:, 1], safe_indices[:, 2]] = target_value_for_phi
-                print(f"   -> Applied Dirichlet phi ({target_value_for_phi}) for pressure BC '{bc_name}'.")
+                # print(f"   -> Applied Dirichlet phi ({target_value_for_phi}) for pressure BC '{bc_name}'.")
             else:
                 print(f"   -> WARNING: No ghost indices found for pressure BC '{bc_name}'.")
         
@@ -173,13 +173,13 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
                     # Apply Neumann BC: phi[ghost] = phi[adjacent interior]
                     phi[safe_ghost_indices[:, 0], safe_ghost_indices[:, 1], safe_ghost_indices[:, 2]] = \
                         phi[safe_cell_indices[:, 0], safe_cell_indices[:, 1], safe_cell_indices[:, 2]]
-                    print(f"   -> Applied Neumann BC (zero normal gradient) to phi for velocity BC '{bc_name}'.")
+                    # print(f"   -> Applied Neumann BC (zero normal gradient) to phi for velocity BC '{bc_name}'.")
             else:
                 print(f"   -> WARNING: No valid cell or ghost indices found for velocity BC '{bc_name}' for phi Neumann BC.")
 
     residual_container = np.zeros(1, dtype=np.float64)
 
-    print(f"[Poisson Solver] Starting SOR solver with {max_iterations} iterations and tolerance {tolerance}.")
+    # print(f"[Poisson Solver] Starting SOR solver with {max_iterations} iterations and tolerance {tolerance}.")
     
     # Call the Numba-jitted SOR kernel to solve for phi
     # The kernel updates the interior cells of 'phi'.
