@@ -1,141 +1,77 @@
 # src/numerical_methods/pressure_correction.py
 
 import numpy as np
+# Assuming compute_pressure_gradient is in the same directory or accessible
+from .pressure_divergence import compute_pressure_gradient
 
-def calculate_gradient(field, h, axis):
+def apply_pressure_correction(
+    u_star: np.ndarray,
+    pressure_field: np.ndarray,
+    phi: np.ndarray,
+    mesh_info: dict,
+    dt: float,
+    density: float,
+    should_log_verbose: bool = False # Added verbose logging flag
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    Calculates the central difference gradient of a 3D scalar field.
-    Assumes the input 'field' already includes ghost cells.
-    The gradient is computed for the interior cells of the domain.
+    Applies the pressure correction to the tentative velocity field (u*) and updates
+    the pressure field, ensuring the corrected velocity field is divergence-free.
 
     Args:
-        field (np.ndarray): Scalar field with ghost cells (e.g., shape: [nx+2, ny+2, nz+2]).
-        h (float): Grid spacing along the axis.
-        axis (int): Axis index (0 = x, 1 = y, 2 = z).
+        u_star (np.ndarray): Tentative velocity field (u*) on the full grid
+                             including ghost cells (nx+2, ny+2, nz+2, 3).
+        pressure_field (np.ndarray): Previous pressure field on the full grid
+                                     including ghost cells (nx+2, ny+2, nz+2).
+        phi (np.ndarray): Scalar potential field from the Poisson solver,
+                          on the full grid including ghost cells (nx+2, ny+2, nz+2).
+        mesh_info (dict): Dictionary containing grid spacing: 'dx', 'dy', 'dz'.
+        dt (float): Time step size.
+        density (float): Fluid density.
+        should_log_verbose (bool): If True, print detailed debug logs.
 
     Returns:
-        np.ndarray: Gradient field for the interior cells (shape: [nx, ny, nz]).
+        tuple[np.ndarray, np.ndarray]: A tuple containing:
+            - updated_velocity (np.ndarray): The divergence-free velocity field
+                                             on the full grid (nx+2, ny+2, nz+2, 3).
+            - updated_pressure (np.ndarray): The updated pressure field
+                                              on the full grid (nx+2, ny+2, nz+2).
     """
-    # Defensive clamping for input field
-    field = np.nan_to_num(field, nan=0.0, posinf=0.0, neginf=0.0)
+    # Initialize updated fields by copying the input
+    updated_velocity = np.copy(u_star)
+    updated_pressure = np.copy(pressure_field)
 
-    # Slicing to compute central difference for the interior cells.
-    # The result will have the shape of the interior domain (nx, ny, nz).
-    if axis == 0: # Gradient along x-axis (d/dx)
-        grad = (field[2:, 1:-1, 1:-1] - field[:-2, 1:-1, 1:-1]) / (2 * h)
-    elif axis == 1: # Gradient along y-axis (d/dy)
-        grad = (field[1:-1, 2:, 1:-1] - field[1:-1, :-2, 1:-1]) / (2 * h)
-    elif axis == 2: # Gradient along z-axis (d/dz)
-        grad = (field[1:-1, 1:-1, 2:] - field[1:-1, 1:-1, :-2]) / (2 * h)
-    else:
-        raise ValueError("Axis must be 0, 1, or 2.")
+    # Compute the gradient of phi (∇phi) for the interior cells
+    # The compute_pressure_gradient function expects a field with ghost cells and returns interior gradient
+    gradient_phi = compute_pressure_gradient(phi, mesh_info, should_log_verbose=should_log_verbose)
 
-    # Final check for NaNs/Infs in the computed gradient and clamp if necessary
-    if np.isnan(grad).any() or np.isinf(grad).any():
-        print(f"❌ Warning: Invalid values in gradient axis {axis} — clamping to zero.")
-    grad = np.nan_to_num(grad, nan=0.0, posinf=0.0, neginf=0.0)
+    # Apply pressure correction to the interior velocity field
+    # u_new = u* - (dt / density) * ∇phi
+    # Note: u_star and updated_velocity have ghost cells, gradient_phi does not.
+    # We apply correction to interior cells: updated_velocity[1:-1, 1:-1, 1:-1, :]
+    updated_velocity[1:-1, 1:-1, 1:-1, 0] -= (dt / density) * gradient_phi[..., 0]
+    updated_velocity[1:-1, 1:-1, 1:-1, 1] -= (dt / density) * gradient_phi[..., 1]
+    updated_velocity[1:-1, 1:-1, 1:-1, 2] -= (dt / density) * gradient_phi[..., 2]
 
-    return grad
+    # Update pressure field
+    # p_new = p_old + density * phi / dt
+    # Apply to interior cells. Phi is defined such that its values correspond to cell centers.
+    updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1] / dt
 
+    # Check for NaNs or Infs and handle them in the corrected fields
+    if np.isnan(updated_velocity).any() or np.isinf(updated_velocity).any():
+        print("❌ Warning: Invalid values in updated velocity during pressure correction. Clamping to zero.")
+        updated_velocity = np.nan_to_num(updated_velocity, nan=0.0, posinf=0.0, neginf=0.0)
 
-def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step, density):
-    """
-    Applies pressure correction to the tentative velocity field to enforce incompressibility,
-    and updates the pressure field.
+    if np.isnan(updated_pressure).any() or np.isinf(updated_pressure).any():
+        print("❌ Warning: Invalid values in updated pressure during pressure correction. Clamping to zero.")
+        updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
 
-    Args:
-        velocity_next (np.ndarray): Tentative velocity field (u*) with ghost cells,
-                                    shape [nx+2, ny+2, nz+2, 3].
-        p_field (np.ndarray): Current pressure field with ghost cells,
-                              shape [nx+2, ny+2, nz+2].
-        phi (np.ndarray): Pressure correction potential (φ) with ghost cells,
-                          shape [nx+2, ny+2, nz+2].
-                          This is the output from solve_poisson_for_phi, where
-                          ∇²φ = (∇·u*) / Δt.
-        mesh_info (dict): Grid spacing dictionary: {'dx', 'dy', 'dz'}.
-        time_step (float): Time step Δt.
-        density (float): Fluid density ρ.
+    if should_log_verbose:
+        # These are debug prints, only show if verbose logging is on
+        print(f"    - Pressure Correction: Max Abs Velocity Correction: {np.max(np.abs((dt / density) * gradient_phi)):.4e}")
+        print(f"    - Pressure Correction: Max Abs Pressure Update: {np.max(np.abs(density * phi[1:-1, 1:-1, 1:-1] / dt)):.4e}")
 
-    Returns:
-        (np.ndarray, np.ndarray): Tuple containing:
-            - corrected_velocity (np.ndarray): The updated, divergence-free velocity field
-                                               with ghost cells, shape [nx+2, ny+2, nz+2, 3].
-            - updated_pressure (np.ndarray): The updated pressure field with ghost cells,
-                                             shape [nx+2, ny+2, nz+2].
-    """
-    dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-
-    # DEBUG: Inspect phi coming into this function
-    print(f"  [PressureCorr DEBUG] phi input stats: min={np.min(phi):.2e}, max={np.max(phi):.2e}, has_nan={np.isnan(phi).any()}, has_inf={np.isinf(phi).any()}")
-    
-    # Optional: limit extreme phi corrections to prevent blow-up if solver is unstable
-    if np.abs(phi).max() > 1e4: # Threshold can be tuned
-        print("⚠️ Pressure correction potential (phi) exceeds threshold — clipping applied.")
-        phi = np.clip(phi, -1e3, 1e3) # Clip to a reasonable range
-        print(f"  [PressureCorr DEBUG] phi after clipping: min={np.min(phi):.2e}, max={np.max(phi):.2e}")
-
-    # Initialize updated_pressure with a copy of p_field
-    updated_pressure = p_field.copy()
-    # DEBUG: Inspect p_field before update
-    print(f"  [PressureCorr DEBUG] p_field BEFORE update: min={np.min(p_field):.2e}, max={np.max(p_field):.2e}, has_nan={np.isnan(p_field).any()}, has_inf={np.isinf(p_field).any()}")
-
-
-    # Update the pressure field: P_new = P_old + ρ * φ
-    # Since Poisson solver solves ∇²φ = (∇·u*) / Δt, φ already incorporates 1/Δt.
-    # Thus, the pressure update is P_new = P_old + ρ * φ
-    updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1]
-
-    # DEBUG: Inspect updated_pressure after update, before clamping
-    # Added explicit checks for NaN/Inf for more reliable debugging
-    nan_check_pressure_after_update = np.isnan(updated_pressure).any()
-    inf_check_pressure_after_update = np.isinf(updated_pressure).any()
-    print(f"  [PressureCorr DEBUG] updated_pressure AFTER update (before clamp): min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}, has_nan={nan_check_pressure_after_update}, has_inf={inf_check_pressure_after_update}")
-
-
-    # Final safety clamp for updated_pressure
-    if nan_check_pressure_after_update or inf_check_pressure_after_update:
-        print("❌ Warning: Invalid values in updated pressure — clamping to zero.")
-    updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
-    # DEBUG: Inspect updated_pressure after clamping
-    print(f"  [PressureCorr DEBUG] updated_pressure AFTER clamp: min={np.min(updated_pressure):.2e}, max={np.max(updated_pressure):.2e}")
-
-
-    # Compute the gradient of phi for each direction.
-    # calculate_gradient now correctly takes phi with ghost cells and returns interior gradient.
-    grad_phi_x = calculate_gradient(phi, dx, axis=0)
-    grad_phi_y = calculate_gradient(phi, dy, axis=1)
-    grad_phi_z = calculate_gradient(phi, dz, axis=2)
-
-    # DEBUG: Inspect gradients of phi
-    print(f"  [PressureCorr DEBUG] grad_phi_x stats: min={np.min(grad_phi_x):.2e}, max={np.max(grad_phi_x):.2e}, has_nan={np.isnan(grad_phi_x).any()}, has_inf={np.isinf(grad_phi_x).any()}")
-    print(f"  [PressureCorr DEBUG] grad_phi_y stats: min={np.min(grad_phi_y):.2e}, max={np.max(grad_phi_y):.2e}, has_nan={np.isnan(grad_phi_y).any()}, has_inf={np.isinf(grad_phi_y).any()}")
-    print(f"  [PressureCorr DEBUG] grad_phi_z stats: min={np.min(grad_phi_z):.2e}, max={np.max(grad_phi_z):.2e}, has_nan={np.isnan(grad_phi_z).any()}, has_inf={np.isinf(grad_phi_z).any()}")
-
-
-    # Apply the pressure correction to the tentative velocity field:
-    # u_corrected = u_star - (dt / rho) * grad(phi)
-    # This formula is correct as grad(phi) is based on the potential phi.
-    corrected_velocity = velocity_next.copy()
-    corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
-    corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density
-    corrected_velocity[1:-1, 1:-1, 1:-1, 2] -= time_step * grad_phi_z / density
-
-    # DEBUG: Inspect corrected_velocity after update, before clamping
-    nan_check_velocity_after_update = np.isnan(corrected_velocity).any()
-    inf_check_velocity_after_update = np.isinf(corrected_velocity).any()
-    print(f"  [PressureCorr DEBUG] corrected_velocity AFTER update (before clamp): min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}, has_nan={nan_check_velocity_after_update}, has_inf={inf_check_velocity_after_update}")
-
-
-    # Final safety clamp for corrected velocity
-    if nan_check_velocity_after_update or inf_check_velocity_after_update:
-        print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
-    corrected_velocity = np.nan_to_num(corrected_velocity, nan=0.0, posinf=0.0, neginf=0.0)
-    # DEBUG: Inspect corrected_velocity after clamping
-    print(f"  [PressureCorr DEBUG] corrected_velocity AFTER clamp: min={np.min(corrected_velocity):.2e}, max={np.max(corrected_velocity):.2e}")
-
-
-    return corrected_velocity, updated_pressure
-
+    return updated_velocity, updated_pressure
 
 
 
