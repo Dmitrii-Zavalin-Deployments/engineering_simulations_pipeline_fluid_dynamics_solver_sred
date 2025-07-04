@@ -6,14 +6,22 @@ import os
 import json
 import sys
 
+# Add the project root directory to sys.path to enable 'src' module imports
+# This is crucial when running the script from a subdirectory or via GitHub Actions
+script_dir = os.path.dirname(__file__) # Directory of the current script (src)
+project_root = os.path.abspath(os.path.join(script_dir, os.pardir)) # Parent directory of src
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Corrected imports based on your ls -R output
 from src.grid.grid_generator import GridGenerator
-from src.initial_conditions.initial_conditions_applier import InitialConditionsApplier
-from src.physics.advection import compute_advection_diffusion
-from src.physics.diffusion import compute_diffusion_term # Assuming this exists
+from src.physics.initialization import InitialConditionsApplier # Corrected path
+from src.numerical_methods.advection import compute_advection_diffusion # Corrected path
+from src.numerical_methods.diffusion import compute_diffusion_term # Corrected path
 from src.physics.boundary_conditions_applicator import apply_boundary_conditions
 from src.numerical_methods.poisson_solver import solve_poisson_for_phi
 from src.numerical_methods.pressure_correction import apply_pressure_correction
-from src.utils.data_output import save_field_snapshot, save_config_and_mesh
+from src.utils.io import save_field_snapshot, save_config_and_mesh # Corrected path
 from src.utils.metrics_calculator import calculate_total_kinetic_energy, calculate_max_velocity_magnitude, calculate_pressure_range, calculate_mean_pressure, calculate_std_dev_pressure, calculate_divergence, calculate_max_cfl
 
 class NavierStokesSolver:
@@ -49,7 +57,8 @@ class NavierStokesSolver:
         # Apply boundary conditions for the initial state
         self.velocity_field, self.pressure_field = apply_boundary_conditions(
             self.velocity_field, self.pressure_field,
-            self.config["fluid_properties"], self.mesh_info, is_tentative_step=False
+            self.config["fluid_properties"], self.mesh_info, is_tentative_step=False,
+            step_number=0, output_frequency_steps=self.output_frequency_steps # Pass for initial state logging
         )
 
         self.time_step = self.config["simulation_parameters"]["time_step"]
@@ -69,7 +78,7 @@ class NavierStokesSolver:
         print(f"Loading pre-processed input from: {config_path}")
         print(f"Grid dimensions: {self.nx}x{self.ny}x{self.nz} cells")
         print(f"Grid spacing: dx={self.dx:.4f}, dy={self.dy:.4f}, dz={self.dz:.4f}")
-        print(f"Total time: {self.total_time:.2f} s, Time step: {self.time_step:.2f} s")
+        print(f"Total time: {self.total_time:.2f} s, Time step: {self.time_step:.2e} s") # Changed to .2e for small time steps
         print(f"Fluid: rho={self.fluid_density}, nu={self.fluid_viscosity}")
         print(f"Solver: {self.config['simulation_parameters']['solver']}")
         print("-------------------------")
@@ -96,8 +105,8 @@ class NavierStokesSolver:
 
             # Only print detailed step header if it's an output step
             if self.step_number % self.output_frequency_steps == 0:
-                print("\n--- Starting Explicit Time Step ---")
-                print(f"  Current Time: {self.current_time:.6f} s (Step {self.step_number})")
+                print(f"\n--- Starting Explicit Time Step (Step {self.step_number}) ---") # Combined for clarity
+                print(f"  Current Time: {self.current_time:.6f} s")
 
             # 1. Compute advection and diffusion terms (explicit part of velocity update)
             # Pass step_number and output_frequency_steps to control internal debug prints
