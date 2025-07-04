@@ -11,7 +11,7 @@ try:
     from .poisson_solver import solve_poisson_for_phi
     from .pressure_correction import apply_pressure_correction
     from physics.boundary_conditions_applicator import apply_boundary_conditions
-    from utils.log_utils import log_flow_metrics
+    from utils.log_utils import log_flow_metrics # Keep this import
 except ImportError as e:
     print(f"Error importing components for explicit_solver: {e}", file=sys.stderr)
     sys.exit(1)
@@ -19,16 +19,14 @@ except ImportError as e:
 class ExplicitSolver:
     """Performs a single explicit time step for incompressible fluid simulation using a fractional step method."""
 
-    def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float, output_frequency_steps: float):
+    def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float):
         self.density = fluid_properties["density"]
         self.viscosity = fluid_properties["viscosity"]
         self.dt = dt
         self.mesh_info = mesh_info
         self.fluid_properties_dict = fluid_properties
-        self.output_frequency_steps = output_frequency_steps
-        self.step_counter = 0
 
-    def step(self, velocity_field: np.ndarray, pressure_field: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def step(self, velocity_field: np.ndarray, pressure_field: np.ndarray, step_count: int, current_time: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         print("--- Starting Explicit Time Step ---")
 
         u_star = np.copy(velocity_field)
@@ -109,20 +107,9 @@ class ExplicitSolver:
             mesh_info=self.mesh_info,
             is_tentative_step=False
         )
-
-        self.step_counter += 1
-        log_flow_metrics(
-            velocity_field=updated_velocity,
-            pressure_field=updated_pressure,
-            divergence_field=divergence,
-            fluid_density=self.density,
-            step_count=self.step_counter,
-            current_time=self.step_counter * self.dt,
-            output_frequency_steps = self.output_frequency_steps
-        )
-
+        
         print("--- Explicit Time Step Complete ---")
-        return updated_velocity, updated_pressure
+        return updated_velocity, updated_pressure, divergence # Return divergence as well
 
 
 

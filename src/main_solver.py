@@ -23,6 +23,7 @@ from solver.initialization import (
 )
 from solver.results_handler import save_field_snapshot
 from utils.simulation_output_manager import setup_simulation_output_directory
+from utils.log_utils import log_flow_metrics # Import log_flow_metrics here
 
 
 class Simulation:
@@ -55,7 +56,7 @@ class Simulation:
 
         self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
         self.boundary_conditions = bc_dict
-        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step, self.output_frequency_steps)
+        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
 
         print_initial_setup(self)
 
@@ -93,9 +94,28 @@ class Simulation:
 
         try:
             save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
+            
+            # Initial logging of metrics for step 0
+            # Note: Divergence is not directly available at step 0 from a previous calculation.
+            # We pass a zero array, or you might choose to skip divergence logging for step 0.
+            log_flow_metrics(
+                velocity_field=self.velocity_field,
+                pressure_field=self.p,
+                divergence_field=np.zeros(self.p.shape), # No divergence yet at step 0
+                fluid_density=self.fluid_properties["density"],
+                step_count=self.step_count,
+                current_time=self.current_time,
+                output_frequency_steps=self.output_frequency_steps,
+                num_steps=num_steps # Pass num_steps to log_flow_metrics
+            )
+
 
             for _ in range(num_steps):
-                self.velocity_field, self.p = self.time_stepper.step(self.velocity_field, self.p)
+                self.step_count += 1 # Increment step_count here, before the step calculation
+                self.current_time = self.step_count * self.time_step
+
+                # Pass step_count and current_time to the time_stepper
+                self.velocity_field, self.p, divergence_at_step = self.time_stepper.step(self.velocity_field, self.p, self.step_count, self.current_time)
 
                 # ✅ Re-apply final boundary conditions
                 # This is crucial after the pressure correction step
@@ -107,10 +127,7 @@ class Simulation:
                     is_tentative_step=False
                 )
 
-                self.step_count += 1
-                self.current_time = self.step_count * self.time_step
-
-                # Output and logging frequency
+                # Output and logging frequency for snapshots
                 if (self.step_count % self.output_frequency_steps == 0) or \
                    (self.step_count == num_steps and self.step_count != 0):
                     save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
@@ -119,11 +136,17 @@ class Simulation:
                     max_cfl = self.calculate_max_cfl(self.velocity_field)
                     print(f"    CFL Number: {max_cfl:.4f}")
                     
-                    # Also print flow metrics as before
-                    # Ensure log_flow_metrics also handles potential NaNs/Infs gracefully
-                    # (it should already be doing so based on previous updates)
-                    vel_mag = np.linalg.norm(self.velocity_field[1:-1, 1:-1, 1:-1, :])
-                    print(f"Step {self.step_count}: Time = {self.current_time:.4f} s, ||u|| = {vel_mag:.6e}")
+                # Always call log_flow_metrics, which will internally decide whether to print detailed metrics
+                log_flow_metrics(
+                    velocity_field=self.velocity_field,
+                    pressure_field=self.p,
+                    divergence_field=divergence_at_step, # Use the divergence from the current step
+                    fluid_density=self.fluid_properties["density"],
+                    step_count=self.step_count,
+                    current_time=self.current_time,
+                    output_frequency_steps=self.output_frequency_steps,
+                    num_steps=num_steps # Pass num_steps to log_flow_metrics
+                )
 
 
             print("--- Simulation Finished ---")
@@ -157,8 +180,6 @@ def cli_entrypoint():
 
 if __name__ == "__main__":
     cli_entrypoint()
-
-
 
 
 
