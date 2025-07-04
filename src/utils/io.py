@@ -151,7 +151,7 @@ def write_output_to_vtk(
     try:
         with open(output_filepath, 'w') as f:
             f.write(vtk_xml_content)
-        # print(f"VTK output successfully saved to '{output_filepath}'") # Commented for brevity in loop
+        print(f"VTK output successfully saved to '{output_filepath}'") # Commented for brevity in loop
     except IOError as e:
         print(f"Error writing VTK file '{output_filepath}': {e}", file=sys.stderr)
         raise
@@ -183,7 +183,7 @@ def save_checkpoint(
             pressure=pressure_field,
             current_time=current_time
         )
-        # print(f"Checkpoint successfully saved to '{filepath}'") # Commented for brevity in loop
+        print(f"Checkpoint successfully saved to '{filepath}'") # Commented for brevity in loop
     except Exception as e:
         print(f"Error saving checkpoint to '{filepath}': {e}", file=sys.stderr)
         raise
