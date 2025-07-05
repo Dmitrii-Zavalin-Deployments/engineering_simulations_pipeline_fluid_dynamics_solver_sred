@@ -163,7 +163,7 @@ def apply_pressure_correction(velocity_next, p_field, phi, mesh_info, time_step,
     corrected_velocity = velocity_next.copy()
     corrected_velocity[1:-1, 1:-1, 1:-1, 0] -= time_step * grad_phi_x / density
     corrected_velocity[1:-1, 1:-1, 1:-1, 1] -= time_step * grad_phi_y / density
-    corrected_velocity[1:-1, 1:-1, 1:-1, 2] -= time_step * grad_step * grad_phi_z / density
+    corrected_velocity[1:-1, 1:-1, 1:-1, 2] -= time_step * grad_phi_z / density
 
     # DEBUG: Inspect corrected_velocity after update, before clamping
     nan_check_velocity_after_update = np.isnan(corrected_velocity).any()
