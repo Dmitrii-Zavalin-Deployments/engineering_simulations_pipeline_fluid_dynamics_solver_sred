@@ -161,8 +161,16 @@ class ImplicitSolver:
         
         divergence_after_correction_field = np.zeros_like(current_pressure)
 
+        # --- Initial Input Checks ---
         print(f"[DEBUG] Initial velocity in step(): min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
         print(f"[DEBUG] Initial pressure in step(): min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
+        if np.any(np.isnan(current_velocity)) or np.any(np.isinf(current_velocity)):
+            print("WARNING: NaN or Inf detected in initial velocity_field. Clamping to 0.", file=sys.stderr)
+            current_velocity = np.nan_to_num(current_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+        if np.any(np.isnan(current_pressure)) or np.any(np.isinf(current_pressure)):
+            print("WARNING: NaN or Inf detected in initial pressure_field. Clamping to 0.", file=sys.stderr)
+            current_pressure = np.nan_to_num(current_pressure, nan=0.0, posinf=0.0, neginf=0.0)
+
 
         if self.dt <= 0:
             raise ValueError("Time step (self.dt) is zero or negative. Cannot proceed with simulation.")
@@ -181,20 +189,29 @@ class ImplicitSolver:
             w_flat_interior = w_interior.flatten()
 
             # --- Explicit Advection Term ---
-            # compute_advection_term should return advection for the full grid.
-            # We then slice it to the interior before flattening.
             advection_u_full_grid = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
             advection_v_full_grid = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
             advection_w_full_grid = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
             
+            # --- Advection Output Checks ---
+            print(f"[DEBUG] Advection_u_full_grid stats: min={np.nanmin(advection_u_full_grid):.4e}, max={np.nanmax(advection_u_full_grid):.4e}, has_nan={np.any(np.isnan(advection_u_full_grid))}, has_inf={np.any(np.isinf(advection_u_full_grid))}")
+            print(f"[DEBUG] Advection_v_full_grid stats: min={np.nanmin(advection_v_full_grid):.4e}, max={np.nanmax(advection_v_full_grid):.4e}, has_nan={np.any(np.isnan(advection_v_full_grid))}, has_inf={np.any(np.isinf(advection_v_full_grid))}")
+            print(f"[DEBUG] Advection_w_full_grid stats: min={np.nanmin(advection_w_full_grid):.4e}, max={np.nanmax(advection_w_full_grid):.4e}, has_nan={np.any(np.isnan(advection_w_full_grid))}, has_inf={np.any(np.isinf(advection_w_full_grid))}")
+            
+            if np.any(np.isnan(advection_u_full_grid)) or np.any(np.isinf(advection_u_full_grid)):
+                print("WARNING: NaN or Inf detected in advection_u_full_grid. Clamping to 0.", file=sys.stderr)
+                advection_u_full_grid = np.nan_to_num(advection_u_full_grid, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(advection_v_full_grid)) or np.any(np.isinf(advection_v_full_grid)):
+                print("WARNING: NaN or Inf detected in advection_v_full_grid. Clamping to 0.", file=sys.stderr)
+                advection_v_full_grid = np.nan_to_num(advection_v_full_grid, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(advection_w_full_grid)) or np.any(np.isinf(advection_w_full_grid)):
+                print("WARNING: NaN or Inf detected in advection_w_full_grid. Clamping to 0.", file=sys.stderr)
+                advection_w_full_grid = np.nan_to_num(advection_w_full_grid, nan=0.0, posinf=0.0, neginf=0.0)
+
             # Slice advection terms to interior before flattening
             advection_u_interior = advection_u_full_grid[interior_slice_3d]
             advection_v_interior = advection_v_full_grid[interior_slice_3d]
             advection_w_interior = advection_w_full_grid[interior_slice_3d]
-
-            print(f"[DEBUG] Advection_u stats (interior): min={np.nanmin(advection_u_interior):.4e}, max={np.nanmax(advection_u_interior):.4e}, has_nan={np.any(np.isnan(advection_u_interior))}, has_inf={np.any(np.isinf(advection_u_interior))}")
-            print(f"[DEBUG] Advection_v stats (interior): min={np.nanmin(advection_v_interior):.4e}, max={np.nanmax(advection_v_interior):.4e}, has_nan={np.any(np.isnan(advection_v_interior))}, has_inf={np.any(np.isinf(advection_v_interior))}")
-            print(f"[DEBUG] Advection_w stats (interior): min={np.nanmin(advection_w_interior):.4e}, max={np.nanmax(advection_w_interior):.4e}, has_nan={np.any(np.isnan(advection_w_interior))}, has_inf={np.any(np.isinf(advection_w_interior))}")
 
             # Flatten advection terms for linear system RHS
             advection_u_flat = advection_u_interior.flatten()
@@ -229,9 +246,21 @@ class ImplicitSolver:
                 grad_p_z[1:-1,1:-1,0] = (current_pressure[1:-1,1:-1,1] - current_pressure[1:-1,1:-1,0]) / self.dz
                 grad_p_z[1:-1,1:-1,-1] = (current_pressure[1:-1,1:-1,-1] - current_pressure[1:-1,1:-1,-2]) / self.dz
 
+            # --- Pressure Gradient Output Checks ---
             print(f"[DEBUG] Grad_p_x stats (full grid for debugging): min={np.nanmin(grad_p_x):.4e}, max={np.nanmax(grad_p_x):.4e}, has_nan={np.any(np.isnan(grad_p_x))}, has_inf={np.any(np.isinf(grad_p_x))}")
             print(f"[DEBUG] Grad_p_y stats (full grid for debugging): min={np.nanmin(grad_p_y):.4e}, max={np.nanmax(grad_p_y):.4e}, has_nan={np.any(np.isnan(grad_p_y))}, has_inf={np.any(np.isinf(grad_p_y))}")
             print(f"[DEBUG] Grad_p_z stats (full grid for debugging): min={np.nanmin(grad_p_z):.4e}, max={np.nanmax(grad_p_z):.4e}, has_nan={np.any(np.isnan(grad_p_z))}, has_inf={np.any(np.isinf(grad_p_z))}")
+            
+            if np.any(np.isnan(grad_p_x)) or np.any(np.isinf(grad_p_x)):
+                print("WARNING: NaN or Inf detected in grad_p_x. Clamping to 0.", file=sys.stderr)
+                grad_p_x = np.nan_to_num(grad_p_x, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(grad_p_y)) or np.any(np.isinf(grad_p_y)):
+                print("WARNING: NaN or Inf detected in grad_p_y. Clamping to 0.", file=sys.stderr)
+                grad_p_y = np.nan_to_num(grad_p_y, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(grad_p_z)) or np.any(np.isinf(grad_p_z)):
+                print("WARNING: NaN or Inf detected in grad_p_z. Clamping to 0.", file=sys.stderr)
+                grad_p_z = np.nan_to_num(grad_p_z, nan=0.0, posinf=0.0, neginf=0.0)
+
 
             # Flatten only the interior part of the pressure gradient
             grad_p_x_flat = grad_p_x[interior_slice_3d].flatten()
@@ -247,9 +276,20 @@ class ImplicitSolver:
             b_v = v_flat_interior - self.dt * advection_v_flat - (self.dt / self.density) * grad_p_y_flat
             b_w = w_flat_interior - self.dt * advection_w_flat - (self.dt / self.density) * grad_p_z_flat
 
+            # --- RHS Vector Checks ---
             print(f"[DEBUG] RHS_u stats: min={np.nanmin(b_u):.4e}, max={np.nanmax(b_u):.4e}, has_nan={np.any(np.isnan(b_u))}, has_inf={np.any(np.isinf(b_u))}")
             print(f"[DEBUG] RHS_v stats: min={np.nanmin(b_v):.4e}, max={np.nanmax(b_v):.4e}, has_nan={np.any(np.isnan(b_v))}, has_inf={np.any(np.isinf(b_v))}")
             print(f"[DEBUG] RHS_w stats: min={np.nanmin(b_w):.4e}, max={np.nanmax(b_w):.4e}, has_nan={np.any(np.isnan(b_w))}, has_inf={np.any(np.isinf(b_w))}")
+            
+            if np.any(np.isnan(b_u)) or np.any(np.isinf(b_u)):
+                print("CRITICAL WARNING: NaN or Inf detected in RHS_u before implicit solve. Clamping to 0.", file=sys.stderr)
+                b_u = np.nan_to_num(b_u, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(b_v)) or np.any(np.isinf(b_v)):
+                print("CRITICAL WARNING: NaN or Inf detected in RHS_v before implicit solve. Clamping to 0.", file=sys.stderr)
+                b_v = np.nan_to_num(b_v, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(b_w)) or np.any(np.isinf(b_w)):
+                print("CRITICAL WARNING: NaN or Inf detected in RHS_w before implicit solve. Clamping to 0.", file=sys.stderr)
+                b_w = np.nan_to_num(b_w, nan=0.0, posinf=0.0, neginf=0.0)
 
 
             # --- Solve for Tentative Velocities using Implicit Diffusion Matrix ---
@@ -260,6 +300,22 @@ class ImplicitSolver:
             except Exception as e:
                 print(f"Error solving implicit diffusion system: {e}", file=sys.stderr)
                 raise
+
+            # --- Tentative Velocity Solution Checks ---
+            print(f"[DEBUG] u_new_flat stats: min={np.nanmin(u_new_flat):.4e}, max={np.nanmax(u_new_flat):.4e}, has_nan={np.any(np.isnan(u_new_flat))}, has_inf={np.any(np.isinf(u_new_flat))}")
+            print(f"[DEBUG] v_new_flat stats: min={np.nanmin(v_new_flat):.4e}, max={np.nanmax(v_new_flat):.4e}, has_nan={np.any(np.isnan(v_new_flat))}, has_inf={np.any(np.isinf(v_new_flat))}")
+            print(f"[DEBUG] w_new_flat stats: min={np.nanmin(w_new_flat):.4e}, max={np.nanmax(w_new_flat):.4e}, has_nan={np.any(np.isnan(w_new_flat))}, has_inf={np.any(np.isinf(w_new_flat))}")
+            
+            if np.any(np.isnan(u_new_flat)) or np.any(np.isinf(u_new_flat)):
+                print("WARNING: NaN or Inf detected in u_new_flat after implicit solve. Clamping to 0.", file=sys.stderr)
+                u_new_flat = np.nan_to_num(u_new_flat, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(v_new_flat)) or np.any(np.isinf(v_new_flat)):
+                print("WARNING: NaN or Inf detected in v_new_flat after implicit solve. Clamping to 0.", file=sys.stderr)
+                v_new_flat = np.nan_to_num(v_new_flat, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(w_new_flat)) or np.any(np.isinf(w_new_flat)):
+                print("WARNING: NaN or Inf detected in w_new_flat after implicit solve. Clamping to 0.", file=sys.stderr)
+                w_new_flat = np.nan_to_num(w_new_flat, nan=0.0, posinf=0.0, neginf=0.0)
+
 
             # --- Reshape flattened solutions back to 3D interior arrays ---
             u_new_interior = u_new_flat.reshape((nx_interior, ny_interior, nz_interior))
@@ -288,6 +344,10 @@ class ImplicitSolver:
             # --- Pressure Projection (still explicit in this fractional step) ---
             divergence = compute_pressure_divergence(current_velocity, self.mesh_info)
             print(f"[DEBUG] Divergence stats BEFORE Poisson solve: min={np.nanmin(divergence):.4e}, max={np.nanmax(divergence):.4e}, has_nan={np.any(np.isnan(divergence))}, has_inf={np.any(np.isinf(divergence))}")
+            if np.any(np.isnan(divergence)) or np.any(np.isinf(divergence)):
+                print("CRITICAL WARNING: NaN or Inf detected in divergence before Poisson solve. Clamping to 0.", file=sys.stderr)
+                divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
+
 
             # --- CALLING THE POISSON SOLVER ---
             pressure_correction_phi, poisson_final_residual = solve_poisson_for_phi(
@@ -300,6 +360,8 @@ class ImplicitSolver:
                 backend="bicgstab",
                 preconditioner_type="ilu"
             )
+            
+            # --- Pressure Correction Phi Output Checks ---
             print(f"[DEBUG] Pressure_correction_phi stats: min={np.nanmin(pressure_correction_phi):.4e}, max={np.nanmax(pressure_correction_phi):.4e}, has_nan={np.any(np.isnan(pressure_correction_phi))}, has_inf={np.any(np.isinf(pressure_correction_phi))}")
             print(f"[DEBUG] Poisson Solver Final Residual: {poisson_final_residual:.6e}")
 
@@ -321,8 +383,17 @@ class ImplicitSolver:
                 mesh_info=self.mesh_info # Correctly passing the full mesh_info dictionary
             )
             
+            # --- Velocity and Pressure After Correction Checks ---
             print(f"[DEBUG] Velocity AFTER pressure correction (before final BCs): min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
             print(f"[DEBUG] Pressure AFTER pressure correction (before final BCs): min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
+            
+            if np.any(np.isnan(current_velocity)) or np.any(np.isinf(current_velocity)):
+                print("WARNING: NaN or Inf detected in current_velocity after pressure correction. Clamping to 0.", file=sys.stderr)
+                current_velocity = np.nan_to_num(current_velocity, nan=0.0, posinf=0.0, neginf=0.0)
+            if np.any(np.isnan(current_pressure)) or np.any(np.isinf(current_pressure)):
+                print("WARNING: NaN or Inf detected in current_pressure after pressure correction. Clamping to 0.", file=sys.stderr)
+                current_pressure = np.nan_to_num(current_pressure, nan=0.0, posinf=0.0, neginf=0.0)
+
 
             # After correction, apply BCs again to ensure consistency
             current_velocity, current_pressure = apply_boundary_conditions(
@@ -332,6 +403,7 @@ class ImplicitSolver:
                 self.mesh_info,
                 is_tentative_step=False
             )
+            # --- Velocity and Pressure After Final BCs Checks ---
             print(f"[DEBUG] Velocity AFTER final BCs for pseudo-iteration: min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
             print(f"[DEBUG] Pressure AFTER final BCs for pseudo-iteration: min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
 
