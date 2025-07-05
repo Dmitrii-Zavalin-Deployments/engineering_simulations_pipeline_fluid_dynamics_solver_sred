@@ -217,10 +217,10 @@ def solve_poisson_for_phi(
 
     Args:
         divergence_field (np.ndarray): The divergence of the tentative velocity field,
-                                       including ghost cells. Shape (nx+2, ny+2, nz+2).
-        mesh_info (dict): Dictionary with mesh details including 'grid_shape' (total cells incl. ghost),
+                                       including ghost cells. Shape (nx_total, ny_total, nz_total).
+        mesh_info (dict): Dictionary with mesh details including 'grid_shape' (interior dimensions),
                           'dx', 'dy', 'dz', and boundary condition info.
-                          NOTE: 'grid_shape' here should be the TOTAL grid dimensions (nx_total, ny_total, nz_total).
+                          NOTE: 'grid_shape' here should be the INTERIOR grid dimensions (nx, ny, nz).
         dt (float): Time step size.
         tolerance (float): Solver tolerance.
         max_iterations (int): Maximum number of iterations for iterative solvers.
@@ -229,9 +229,9 @@ def solve_poisson_for_phi(
         return_residual (bool): If True, returns the final residual of the iterative solver.
 
     Returns:
-        tuple[np.ndarray, float]: The pressure correction potential (phi) field
-                                  (shape nx+2, ny+2, nz+2) and the final residual (if return_residual=True).
-                                  If return_residual is False, only phi is returned.
+        np.ndarray: The pressure correction potential (phi) field on the full grid
+                    (shape nx_total, ny_total, nz_total).
+        float: The final residual of the iterative solver (only returned if return_residual=True).
     """
     # Assuming divergence_field's shape is (nx_total, ny_total, nz_total)
     nx_total, ny_total, nz_total = divergence_field.shape
@@ -243,7 +243,7 @@ def solve_poisson_for_phi(
 
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    # Slice for interior cells (from 1 to N-1, assuming 0 and N are ghost cells)
+    # Slice for interior cells (from 1 to N-1, assuming 0 and N-1 are ghost cells)
     interior_slice = (slice(1, nx_total - 1), slice(1, ny_total - 1), slice(1, nz_total - 1))
 
     # Construct RHS vector b = (1/dt) * div_u for interior cells
