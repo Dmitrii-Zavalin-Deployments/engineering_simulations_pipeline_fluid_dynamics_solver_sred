@@ -73,7 +73,6 @@ def _assemble_poisson_matrix(nx_interior, ny_interior, nz_interior, dx, dy, dz, 
                 elif boundary_conditions.get('periodic_x', False):
                     A[current_idx, to_flat_idx(nx_interior - 1, j, k)] = Cx # Wrap around
                 else: # Boundary at x_min
-                    # Handle boundary conditions for the leftmost interior cells (i=0)
                     bc_type = boundary_conditions['x_min']['type']
                     if bc_type == 'neumann':
                         # For Neumann, ∂φ/∂n = 0 implies φ_ghost = φ_interior, so φ_i-1 = φ_i
@@ -136,7 +135,7 @@ def _assemble_poisson_matrix(nx_interior, ny_interior, nz_interior, dx, dy, dz, 
                     bc_type = boundary_conditions['z_max']['type']
                     if bc_type == 'neumann':
                         A[current_idx, current_idx] += Cz
-    
+                
     return A.tocsr() # Convert to CSR for efficient arithmetic operations and solvers
 
 
@@ -289,12 +288,14 @@ def solve_poisson_for_phi(
             raise
     elif backend == SOLVER_BACKEND_BICGSTAB:
         print(f"[Poisson Solver] Starting BiCGSTAB solver with {max_iterations} iterations and tolerance {tolerance:.1e}.")
-        M = None
+        M_inv = None # Initialize M_inv outside try block
+
         if preconditioner_type == PRECONDITIONER_ILU:
             print("[Poisson Solver] Using ILU preconditioner.")
             try:
-                M = spilu(A.tocsc(), drop_tol=1e-5, fill_factor=20) # Convert to CSC for spilu
-                M_inv = LinearOperator(A.shape, matvec=M.solve)
+                # Convert to CSC for spilu for better performance
+                M_ilu = spilu(A.tocsc(), drop_tol=1e-5, fill_factor=20)
+                M_inv = LinearOperator(A.shape, matvec=M_ilu.solve)
             except RuntimeError as e: # spilu can raise RuntimeError if matrix is too ill-conditioned
                 print(f"WARNING: ILU preconditioning failed: {e}. Attempting without preconditioner.", file=sys.stderr)
                 M_inv = None
@@ -338,26 +339,17 @@ def solve_poisson_for_phi(
     phi_field = np.zeros((nx_total, ny_total, nz_total), dtype=phi_interior.dtype)
     phi_field[interior_slice] = phi_interior
 
-    # Apply boundary conditions to phi_field (ghost cells)
-    # For Poisson pressure solver, Neumann BC (dPhi/dn = 0) implies ghost cell = interior cell.
-    # Dirichlet BC implies ghost cell = 2*BC_value - interior cell (if central difference).
-    # This needs to be carefully matched with how A and b were constructed.
-    # If the BCs were incorporated into A and b, then phi_field from the solver
-    # already satisfies the ghost cell relationships implicitly.
-    # For now, let's assume Neumann (zero gradient) implies simple copy for ghost cells
-    # or that the system implicitly handles them.
-    # A more robust approach would be to calculate ghost cells explicitly here based on BCs.
-
+    # Apply boundary conditions to phi_field (ghost cells) for Neumann.
     # For zero Neumann conditions (most common for pressure correction at solid walls)
-    # phi_ghost = phi_interior_adjacent_to_wall
-    # This is implicitly handled if the matrix A enforces these conditions.
-    # For explicit setting:
+    # ∂φ/∂n = 0 implies φ_ghost = φ_interior_adjacent_to_wall.
+    # This is consistent with how the matrix A was constructed for Neumann.
+    
     if not processed_bcs.get('periodic_x', False):
         if processed_bcs['x_min']['type'] == 'neumann':
             phi_field[0, :, :] = phi_field[1, :, :]
         if processed_bcs['x_max']['type'] == 'neumann':
             phi_field[nx_total - 1, :, :] = phi_field[nx_total - 2, :, :]
-    
+            
     if not processed_bcs.get('periodic_y', False):
         if processed_bcs['y_min']['type'] == 'neumann':
             phi_field[:, 0, :] = phi_field[:, 1, :]
@@ -369,10 +361,11 @@ def solve_poisson_for_phi(
             phi_field[:, :, 0] = phi_field[:, :, 1]
         if processed_bcs['z_max']['type'] == 'neumann':
             phi_field[:, :, nz_total - 1] = phi_field[:, :, nz_total - 2]
-    
-    # For periodic boundaries, ghost cells are set by `apply_boundary_conditions` later
-    # based on the opposite side.
-    
+            
+    # For periodic boundaries, ghost cells are handled by the main solver's `apply_boundary_conditions`
+    # or implicitly by the matrix construction if the periodic conditions are directly encoded in A.
+    # Here, we only explicitly set Neumann BCs on the ghost cells for consistency.
+            
     if return_residual:
         return phi_field, final_residual
     else:

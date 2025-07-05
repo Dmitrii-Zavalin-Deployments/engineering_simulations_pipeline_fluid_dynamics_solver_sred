@@ -42,7 +42,11 @@ class ImplicitSolver:
         self.mesh_info = mesh_info
         self.dt = dt # This dt will be the maximum allowed, actual dt will be dynamic
 
-        self.nx_int, self.ny_int, self.nz_int = self.mesh_info['grid_shape']
+        # Note: self.nx_int, self.ny_int, self.nz_int from mesh_info['grid_shape']
+        # should be the *total* dimensions (including ghost cells) if that's how
+        # the mesh is defined consistently across the project.
+        # Based on previous debugging, it seems mesh_info['grid_shape'] is the total grid size.
+        self.nx_total, self.ny_total, self.nz_total = self.mesh_info['grid_shape']
         self.dx = self.mesh_info['dx']
         self.dy = self.mesh_info['dy']
         self.dz = self.mesh_info['dz']
@@ -64,7 +68,14 @@ class ImplicitSolver:
 
         So, the LHS matrix is (I - nu * dt * Laplacian)
         """
-        N = self.nx_int * self.ny_int * self.nz_int
+        # For the diffusion matrix, we are solving for the interior velocities.
+        # So, the matrix dimensions should correspond to the number of interior cells.
+        # Assuming 1 ghost cell layer on each side, interior dimensions are total - 2.
+        nx_interior = self.nx_total - 2
+        ny_interior = self.ny_total - 2
+        nz_interior = self.nz_total - 2
+
+        N = nx_interior * ny_interior * nz_interior
         LHS_matrix = lil_matrix((N, N))
 
         # Identity matrix part (for the u_new term)
@@ -74,23 +85,18 @@ class ImplicitSolver:
         nu_dt = self.viscosity * self.dt 
 
         # Coefficients for finite difference Laplacian (negative for diffusion operator)
-        # The Laplacian operator is (d2/dx2 + d2/dy2 + d2/dz2)
-        # For central difference, d2u/dx2 approx (u_i+1 - 2u_i + u_i-1) / dx^2
-        # So, the Laplacian term is nu * dt * ( (u_i+1 - 2u_i + u_i-1)/dx^2 + ... )
-        # When moved to LHS: -nu*dt*Laplacian, so +2*nu*dt/dx^2 on diagonal, -nu*dt/dx^2 on off-diagonals.
-        
         coeff_x = nu_dt / (self.dx ** 2)
         coeff_y = nu_dt / (self.dy ** 2)
         coeff_z = nu_dt / (self.dz ** 2)
 
         # Map (i, j, k) interior index to a single flattened index
         def to_flat_idx(i, j, k):
-            return i + j * self.nx_int + k * self.nx_int * self.ny_int
+            return i + j * nx_interior + k * nx_interior * ny_interior
 
         # Iterate over all interior cells to build the matrix
-        for k in range(self.nz_int):
-            for j in range(self.ny_int):
-                for i in range(self.nx_int):
+        for k in range(nz_interior):
+            for j in range(ny_interior):
+                for i in range(nx_interior):
                     idx = to_flat_idx(i, j, k)
 
                     # Diagonal term: 1 (from Identity) + 2*coeff_x + 2*coeff_y + 2*coeff_z (from -nu*dt*Laplacian)
@@ -100,31 +106,21 @@ class ImplicitSolver:
                     # x-direction neighbors
                     if i > 0:
                         LHS_matrix[idx, to_flat_idx(i - 1, j, k)] = -coeff_x
-                    if i < self.nx_int - 1:
+                    if i < nx_interior - 1:
                         LHS_matrix[idx, to_flat_idx(i + 1, j, k)] = -coeff_x
 
                     # y-direction neighbors
                     if j > 0:
                         LHS_matrix[idx, to_flat_idx(i, j - 1, k)] = -coeff_y
-                    if j < self.ny_int - 1:
+                    if j < ny_interior - 1:
                         LHS_matrix[idx, to_flat_idx(i, j + 1, k)] = -coeff_y
 
                     # z-direction neighbors
                     if k > 0:
                         LHS_matrix[idx, to_flat_idx(i, j, k - 1)] = -coeff_z
-                    if k < self.nz_int - 1:
+                    if k < nz_interior - 1:
                         LHS_matrix[idx, to_flat_idx(i, j, k + 1)] = -coeff_z
-        
-        # Note: Boundary conditions for diffusion are typically applied by modifying
-        # the rows of this matrix or the RHS vector. However, in a fractional
-        # step method, the boundary conditions for velocity are often applied
-        # *after* the implicit diffusion solve (as done in `step` below).
-        # If the diffusion matrix needs to incorporate specific BCs (e.g., zero-flux),
-        # this `_build_diffusion_matrix` would need more complex logic similar to
-        # `_assemble_poisson_matrix` in `poisson_solver.py`.
-        # For now, it assumes a standard stencil for interior cells and relies on
-        # `apply_boundary_conditions` for ghost cell updates.
-
+                
         return LHS_matrix.tocsr() # Convert to CSR for efficient sparse solve
 
 
@@ -138,8 +134,8 @@ class ImplicitSolver:
 
         Args:
             velocity_field (np.ndarray): Current velocity field (U, V, W components).
-                                         Shape: (nx+2, ny+2, nz+2, 3).
-            pressure_field (np.ndarray): Current pressure field. Shape: (nx+2, ny+2, nz+2).
+                                         Shape: (nx_total, ny_total, nz_total, 3).
+            pressure_field (np.ndarray): Current pressure field. Shape: (nx_total, ny_total, nz_total).
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: Updated velocity_field, pressure_field, and the divergence field after correction.
@@ -150,29 +146,29 @@ class ImplicitSolver:
         current_pressure = np.copy(pressure_field)
         
         num_pseudo_iterations = 2 # Or 1, depending on desired accuracy vs. performance
-        # These default values are also defined in poisson_solver.py, but can be overridden here.
-        poisson_tolerance = 1e-6 
-        poisson_max_iter = 1000 
+        poisson_tolerance = 1e-6  # Default tolerance for Poisson solver
+        poisson_max_iter = 1000   # Default max iterations for Poisson solver
 
-        nx_int, ny_int, nz_int = self.mesh_info['grid_shape']
+        # Derive interior dimensions from total dimensions (total - 2 ghost cells on each side)
+        nx_interior = self.nx_total - 2
+        ny_interior = self.ny_total - 2
+        nz_interior = self.nz_total - 2
         
         # Define slice for interior cells (excluding ghost cells)
-        interior_slice_3d = (slice(1, nx_int + 1), slice(1, ny_int + 1), slice(1, nz_int + 1))
+        interior_slice_3d = (slice(1, self.nx_total - 1), slice(1, self.ny_total - 1), slice(1, self.nz_total - 1))
         
         divergence_after_correction_field = np.zeros_like(current_pressure)
 
         print(f"[DEBUG] Initial velocity in step(): min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
         print(f"[DEBUG] Initial pressure in step(): min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
 
-        # --- Dynamic Time Step Calculation (if implemented in main_solver, this self.dt might be updated) ---
         if self.dt <= 0:
             raise ValueError("Time step (self.dt) is zero or negative. Cannot proceed with simulation.")
 
         for pseudo_iter in range(num_pseudo_iterations):
             print(f"\n--- Implicit Solver Pseudo-Iteration {pseudo_iter + 1}/{num_pseudo_iterations} ---")
             
-            # --- IMPORTANT: Extract INTERIOR velocity components for operations ---
-            # The advection and pressure gradient terms are calculated for interior cells.
+            # --- Extract INTERIOR velocity components for operations ---
             u_interior = current_velocity[interior_slice_3d + (0,)]
             v_interior = current_velocity[interior_slice_3d + (1,)]
             w_interior = current_velocity[interior_slice_3d + (2,)]
@@ -182,7 +178,6 @@ class ImplicitSolver:
             w_flat_interior = w_interior.flatten()
 
             # --- Explicit Advection Term ---
-            # compute_advection_term now returns the advection term for interior cells only
             advection_u_interior = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
             advection_v_interior = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
             advection_w_interior = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
@@ -197,7 +192,6 @@ class ImplicitSolver:
             advection_w_flat = advection_w_interior.flatten()
 
             # --- Pressure Gradient Term (Explicit) ---
-            # Calculate pressure gradients over the full grid, then slice to interior for RHS
             grad_p_x = np.zeros_like(current_pressure)
             grad_p_y = np.zeros_like(current_pressure)
             grad_p_z = np.zeros_like(current_pressure)
@@ -208,8 +202,6 @@ class ImplicitSolver:
             grad_p_z[1:-1, 1:-1, 1:-1] = (current_pressure[1:-1, 1:-1, 2:] - current_pressure[1:-1, 1:-1, :-2]) / (2 * self.dz)
 
             # Boundary handling for pressure gradient (using one-sided differences at boundaries)
-            # This logic assumes non-periodic boundaries for simplicity.
-            # If your mesh can be periodic, these conditions need to be more robust.
             if not self.mesh_info.get('is_periodic_x', False):
                 grad_p_x[0,1:-1,1:-1] = (current_pressure[1,1:-1,1:-1] - current_pressure[0,1:-1,1:-1]) / self.dx
                 grad_p_x[-1,1:-1,1:-1] = (current_pressure[-1,1:-1,1:-1] - current_pressure[-2,1:-1,1:-1]) / self.dx
@@ -237,14 +229,13 @@ class ImplicitSolver:
 
 
             # --- Construct RHS for Implicit Diffusion Solver (Momentum Equation) ---
-            # All operands here MUST now have the same shape (nx_int * ny_int * nz_int)
             b_u = u_flat_interior - self.dt * advection_u_flat - (self.dt / self.density) * grad_p_x_flat
             b_v = v_flat_interior - self.dt * advection_v_flat - (self.dt / self.density) * grad_p_y_flat
             b_w = w_flat_interior - self.dt * advection_w_flat - (self.dt / self.density) * grad_p_z_flat
 
             print(f"[DEBUG] RHS_u stats: min={np.nanmin(b_u):.4e}, max={np.nanmax(b_u):.4e}, has_nan={np.any(np.isnan(b_u))}, has_inf={np.any(np.isinf(b_u))}")
             print(f"[DEBUG] RHS_v stats: min={np.nanmin(b_v):.4e}, max={np.nanmax(b_v):.4e}, has_nan={np.any(np.isnan(b_v))}, has_inf={np.any(np.isinf(b_v))}")
-            print(f"[DEBUG] RHS_w stats: min={np.nanmin(b_w):.4e}, max={np.nanmax(b_w):.4e}, has_nan={np.any(np.isnan(b_w))}, has_inf={np.any(np.isinf(b_w))}")
+            print(f"[DEBUG] RHS_w stats: min={np.nanmin(b_w):.4e}, max={np.nanmax(b_w):.4e}, has_nan={np.any(np.isinf(b_w))}, has_inf={np.any(np.isinf(b_w))}")
 
 
             # --- Solve for Tentative Velocities using Implicit Diffusion Matrix ---
@@ -257,9 +248,9 @@ class ImplicitSolver:
                 raise
 
             # --- Reshape flattened solutions back to 3D interior arrays ---
-            u_new_interior = u_new_flat.reshape((nx_int, ny_int, nz_int))
-            v_new_interior = v_new_flat.reshape((nx_int, ny_int, nz_int))
-            w_new_interior = w_new_flat.reshape((nx_int, ny_int, nz_int))
+            u_new_interior = u_new_flat.reshape((nx_interior, ny_interior, nz_interior))
+            v_new_interior = v_new_flat.reshape((nx_interior, ny_interior, nz_interior))
+            w_new_interior = w_new_flat.reshape((nx_interior, ny_interior, nz_interior))
 
             # --- Update the interior of current_velocity with the new tentative velocities ---
             current_velocity[interior_slice_3d + (0,)] = u_new_interior
@@ -270,7 +261,6 @@ class ImplicitSolver:
 
 
             # --- Apply Boundary Conditions to the tentative velocity field ---
-            # This applies BCs to the ghost cells of current_velocity based on its interior.
             current_velocity, _ = apply_boundary_conditions(
                 current_velocity,
                 current_pressure, # Pressure is passed, but often not used for tentative velocity BCs
@@ -282,25 +272,23 @@ class ImplicitSolver:
 
 
             # --- Pressure Projection (still explicit in this fractional step) ---
-            # Divergence should be computed from the current_velocity (which now has updated interior and BCs)
             divergence = compute_pressure_divergence(current_velocity, self.mesh_info)
             print(f"[DEBUG] Divergence stats BEFORE Poisson solve: min={np.nanmin(divergence):.4e}, max={np.nanmax(divergence):.4e}, has_nan={np.any(np.isnan(divergence))}, has_inf={np.any(np.isinf(divergence))}")
 
-            # --- CALLING THE NEW POISSON SOLVER WITH BICGSTAB AND ILU ---
+            # --- CALLING THE POISSON SOLVER ---
             pressure_correction_phi, poisson_final_residual = solve_poisson_for_phi(
                 divergence,
                 self.mesh_info,
-                self.dt, # Use the current dt for Poisson RHS
+                self.dt,
                 tolerance=poisson_tolerance,
                 max_iterations=poisson_max_iter,
-                return_residual=True, # Request residual for logging
-                backend="bicgstab", # <--- IMPORTANT CHANGE: Use the new robust solver
-                preconditioner_type="ilu" # <--- IMPORTANT CHANGE: Use ILU preconditioning
+                return_residual=True,
+                backend="bicgstab",
+                preconditioner_type="ilu"
             )
             print(f"[DEBUG] Pressure_correction_phi stats: min={np.nanmin(pressure_correction_phi):.4e}, max={np.nanmax(pressure_correction_phi):.4e}, has_nan={np.any(np.isnan(pressure_correction_phi))}, has_inf={np.any(np.isinf(pressure_correction_phi))}")
             print(f"[DEBUG] Poisson Solver Final Residual: {poisson_final_residual:.6e}")
 
-            # The clamping here is a defensive measure. Ideally, with stable advection and dt, it won't be needed.
             if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
                 print("WARNING: NaN or Inf detected in pressure_correction_phi. Clamping/Erroring out.", file=sys.stderr)
                 max_phi_val = np.finfo(np.float64).max / 10 # Prevent overflow for extremely large numbers
@@ -308,13 +296,14 @@ class ImplicitSolver:
 
 
             # Apply pressure correction to velocity and update pressure
-            current_velocity, current_pressure = apply_pressure_correction(
-                current_velocity,
-                current_pressure,
-                pressure_correction_phi,
-                self.mesh_info,
-                self.dt, # Pass the current dt to pressure correction
-                self.density
+            # Unpack all 6 return values from apply_pressure_correction
+            current_velocity, current_pressure, _, _, _, divergence_after_correction_field = apply_pressure_correction(
+                tentative_velocity_field=current_velocity,
+                current_pressure_field=current_pressure,
+                phi=pressure_correction_phi,
+                dt=self.dt,
+                density=self.density,
+                mesh_info=self.mesh_info # <--- CORRECTED: Passing the full mesh_info dictionary
             )
             
             print(f"[DEBUG] Velocity AFTER pressure correction (before final BCs): min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
@@ -332,12 +321,11 @@ class ImplicitSolver:
             print(f"[DEBUG] Pressure AFTER final BCs for pseudo-iteration: min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
 
             # Recalculate divergence after correction and BCs for logging/next pseudo-iteration
-            divergence_after_correction_field = compute_pressure_divergence(current_velocity, self.mesh_info)
+            # This line is now redundant as divergence_after_correction_field is returned by apply_pressure_correction
+            # divergence_after_correction_field = compute_pressure_divergence(current_velocity, self.mesh_info)
             print(f"[DEBUG] Final divergence for pseudo-iteration: min={np.nanmin(divergence_after_correction_field):.4e}, max={np.nanmax(divergence_after_correction_field):.4e}, has_nan={np.any(np.isnan(divergence_after_correction_field))}, has_inf={np.any(np.isinf(divergence_after_correction_field))}")
 
         # Final application of BCs after all pseudo-iterations
-        # This is redundant if the last pseudo-iteration already applied final BCs,
-        # but harmless as a final safeguard before returning.
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
             current_velocity,
             current_pressure,
