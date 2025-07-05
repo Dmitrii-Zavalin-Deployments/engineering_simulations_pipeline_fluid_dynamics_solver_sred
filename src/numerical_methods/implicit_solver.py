@@ -31,8 +31,8 @@ class ImplicitSolver:
 
         Args:
             fluid_properties (dict): Dictionary with fluid density ('rho') and viscosity ('nu').
-            mesh_info (dict): Dictionary with mesh details including 'grid_shape', 'dx', 'dy', 'dz',
-                              and boundary condition indices.
+            mesh_info (dict): Dictionary with mesh details including 'grid_shape' (assumed to be interior dimensions),
+                              'dx', 'dy', 'dz', and boundary condition indices.
             dt (float): Time step size.
         """
         print("Initializing ImplicitSolver...")
@@ -42,9 +42,13 @@ class ImplicitSolver:
         self.mesh_info = mesh_info
         self.dt = dt # This dt will be the maximum allowed, actual dt will be dynamic
 
-        # Note: self.nx_total, self.ny_total, self.nz_total from mesh_info['grid_shape']
-        # are the *total* dimensions including ghost cells.
-        self.nx_total, self.ny_total, self.nz_total = self.mesh_info['grid_shape']
+        # IMPORTANT FIX: Derive total dimensions (including ghost cells) from the interior grid_shape
+        # Assuming mesh_info['grid_shape'] provides the interior dimensions (e.g., 21x21x5)
+        nx_interior_from_mesh, ny_interior_from_mesh, nz_interior_from_mesh = self.mesh_info['grid_shape']
+        self.nx_total = nx_interior_from_mesh + 2 # Add 2 for ghost cells (1 on each side)
+        self.ny_total = ny_interior_from_mesh + 2
+        self.nz_total = nz_interior_from_mesh + 2
+
         self.dx = self.mesh_info['dx']
         self.dy = self.mesh_info['dy']
         self.dz = self.mesh_info['dz']
@@ -68,7 +72,7 @@ class ImplicitSolver:
         """
         # For the diffusion matrix, we are solving for the interior velocities.
         # So, the matrix dimensions should correspond to the number of interior cells.
-        # Assuming 1 ghost cell layer on each side, interior dimensions are total - 2.
+        # These interior dimensions are derived from self.nx_total, etc.
         nx_interior = self.nx_total - 2
         ny_interior = self.ny_total - 2
         nz_interior = self.nz_total - 2
@@ -128,9 +132,6 @@ class ImplicitSolver:
         pressure_field: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Turns out the previous update didn't fix the core issue, it was just pushing it around.
-        The issue lies in the shapes of the flattened arrays for the implicit solve.
-
         Performs one semi-implicit time step, using implicit diffusion.
 
         Args:
@@ -180,13 +181,13 @@ class ImplicitSolver:
             w_flat_interior = w_interior.flatten()
 
             # --- Explicit Advection Term ---
-            # compute_advection_term should return advection for the interior cells.
-            # If it returns for the full grid, we must slice it here.
+            # compute_advection_term should return advection for the full grid.
+            # We then slice it to the interior before flattening.
             advection_u_full_grid = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
             advection_v_full_grid = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
             advection_w_full_grid = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
             
-            # **IMPORTANT FIX**: Slice advection terms to interior before flattening
+            # Slice advection terms to interior before flattening
             advection_u_interior = advection_u_full_grid[interior_slice_3d]
             advection_v_interior = advection_v_full_grid[interior_slice_3d]
             advection_w_interior = advection_w_full_grid[interior_slice_3d]
@@ -201,16 +202,18 @@ class ImplicitSolver:
             advection_w_flat = advection_w_interior.flatten()
 
             # --- Pressure Gradient Term (Explicit) ---
-            # Pressure gradient calculations here are already correctly sliced to interior
-            # or calculated on the full grid and then sliced.
             grad_p_x = np.zeros_like(current_pressure)
             grad_p_y = np.zeros_like(current_pressure)
             grad_p_z = np.zeros_like(current_pressure)
 
             # Central difference for interior cells
-            grad_p_x[1:-1, 1:-1, 1:-1] = (current_pressure[2:, 1:-1, 1:-1] - current_pressure[:-2, 1:-1, 1:-1]) / (2 * self.dx)
-            grad_p_y[1:-1, 1:-1, 1:-1] = (current_pressure[1:-1, 2:, 1:-1] - current_pressure[1:-1, :-2, 1:-1]) / (2 * self.dy)
-            grad_p_z[1:-1, 1:-1, 1:-1] = (current_pressure[1:-1, 1:-1, 2:] - current_pressure[1:-1, 1:-1, :-2]) / (2 * self.dz)
+            grad_p_x[interior_slice_3d] = (current_pressure[interior_slice_3d[0].start + 1 : interior_slice_3d[0].stop + 1, interior_slice_3d[1], interior_slice_3d[2]] -
+                                          current_pressure[interior_slice_3d[0].start - 1 : interior_slice_3d[0].stop - 1, interior_slice_3d[1], interior_slice_3d[2]]) / (2 * self.dx)
+            grad_p_y[interior_slice_3d] = (current_pressure[interior_slice_3d[0], interior_slice_3d[1].start + 1 : interior_slice_3d[1].stop + 1, interior_slice_3d[2]] -
+                                          current_pressure[interior_slice_3d[0], interior_slice_3d[1].start - 1 : interior_slice_3d[1].stop - 1, interior_slice_3d[2]]) / (2 * self.dy)
+            grad_p_z[interior_slice_3d] = (current_pressure[interior_slice_3d[0], interior_slice_3d[1], interior_slice_3d[2].start + 1 : interior_slice_3d[2].stop + 1] -
+                                          current_pressure[interior_slice_3d[0], interior_slice_3d[1], interior_slice_3d[2].start - 1 : interior_slice_3d[2].stop - 1]) / (2 * self.dz)
+
 
             # Boundary handling for pressure gradient (using one-sided differences at boundaries)
             # This part fills ghost cells, but then we take interior slice.
@@ -236,11 +239,10 @@ class ImplicitSolver:
             grad_p_z_flat = grad_p_z[interior_slice_3d].flatten()
 
             print(f"[DEBUG ImplicitSolver] u_flat_interior shape: {u_flat_interior.shape}")
-            print(f"[DEBUG ImplicitSolver] advection_u_flat shape: {advection_u_flat.shape}") # Should now be (1083,)
+            print(f"[DEBUG ImplicitSolver] advection_u_flat shape: {advection_u_flat.shape}")
             print(f"[DEBUG ImplicitSolver] grad_p_x_flat shape: {grad_p_x_flat.shape}")
 
             # --- Construct RHS for Implicit Diffusion Solver (Momentum Equation) ---
-            # All operands here MUST now have the same shape (nx_interior * ny_interior * nz_interior)
             b_u = u_flat_interior - self.dt * advection_u_flat - (self.dt / self.density) * grad_p_x_flat
             b_v = v_flat_interior - self.dt * advection_v_flat - (self.dt / self.density) * grad_p_y_flat
             b_w = w_flat_interior - self.dt * advection_w_flat - (self.dt / self.density) * grad_p_z_flat
