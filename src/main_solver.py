@@ -32,7 +32,7 @@ class Simulation:
     def __init__(self, input_file_path, output_dir):
         print("--- Simulation Setup ---")
         self.input_file_path = input_file_path
-        self.output_dir = output_dir
+        self.output_dir = output_dir # This will be the full 'base_output_dir/navier_stokes_output'
         self.start_time = datetime.now().isoformat()
 
         self.input_data = load_input_data(self.input_file_path)
@@ -208,17 +208,13 @@ def cli_entrypoint():
 
     input_file = sys.argv[1]
     base_output_dir = sys.argv[2]
-    # Assuming setup_simulation_output_directory creates the 'navier_stokes_output' subdirectory
-    # or takes care of naming. Let's pass base_output_dir and let it handle the full path.
-    # The Simulation class's output_dir will then be the base, and fields will be relative to it.
-    
-    # Corrected: setup_simulation_output_directory should return the actual final output_dir
-    # that the Simulation class should use.
-    
+    # Reverted this line to your original structure
+    output_dir = os.path.join(base_output_dir, "navier_stokes_output") 
+
     try:
-        # Create a unique output directory first
-        final_output_dir = setup_simulation_output_directory(base_output_dir)
-        sim = Simulation(input_file, final_output_dir) # Pass the full output_dir to Simulation
+        sim = Simulation(input_file, output_dir)
+        # Reverted this line to your original call signature
+        setup_simulation_output_directory(sim, output_dir) 
         sim.run()
         print("✅ Main Navier-Stokes simulation executed successfully.")
 
