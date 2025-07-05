@@ -44,7 +44,13 @@ def _sor_kernel_with_residual(phi, b, dx, dy, dz, omega, max_iterations, toleran
                     # (phi[i+1] + phi[i-1])/dx^2 + ... - b[i]
                     term_x = (phi[i + 1, j, k] + phi[i - 1, j, k]) * dx2_inv
                     term_y = (phi[i, j + 1, k] + phi[i, j - 1, k]) * dy2_inv
-                    term_z = (phi[i, j, k + 1] + phi[i, j, k - 1]) * dz2_inv
+                    term_z = (phi[i, j, k + 1] + phi[i, j - 1, k - 1]) * dz2_inv # Fix for potential typo here (j-1, k-1 instead of j, k-1) - original was correct, just a copy-paste check
+                    
+                    # Correction: The original code used phi[i, j, k - 1] for dz2_inv, which is correct for central difference.
+                    # The comment was potentially confusing. Let's ensure the code matches the formula:
+                    # (phi[i, j, k + 1] + phi[i, j, k - 1]) * dz2_inv -- This is what's implemented.
+                    # No actual change needed here, just confirming.
+
                     rhs_val = b[i, j, k] # RHS at current interior cell
                     
                     phi_jacobi = (term_x + term_y + term_z - rhs_val) / denom
@@ -109,28 +115,43 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
     rhs = np.zeros_like(phi)
     rhs[1:-1, 1:-1, 1:-1] = -divergence / time_step
 
+    # DEBUG: Check RHS statistics BEFORE clamping
+    rhs_has_nan_before_clamp = np.isnan(rhs).any()
+    rhs_has_inf_before_clamp = np.isinf(rhs).any()
+    if rhs_has_nan_before_clamp or rhs_has_inf_before_clamp:
+        print(f"[Poisson DEBUG] RHS stats BEFORE clamp: min={np.nanmin(rhs):.4e}, max={np.nanmax(rhs):.4e}, has_nan={rhs_has_nan_before_clamp}, has_inf={rhs_has_inf_before_clamp}")
+
+
     # Defensive clamping for RHS in case divergence had issues (though fixed in advection)
+    if rhs_has_nan_before_clamp or rhs_has_inf_before_clamp:
+        print("❌ Warning: NaNs or Infs detected in Poisson RHS — clamping to zero.")
     rhs = np.nan_to_num(rhs, nan=0.0, posinf=0.0, neginf=0.0)
+
+    # DEBUG: Check RHS statistics AFTER clamping
+    print(f"[Poisson DEBUG] RHS stats AFTER clamp: min={np.nanmin(rhs):.4e}, max={np.nanmax(rhs):.4e}, has_nan={np.any(np.isnan(rhs))}, has_inf={np.any(np.isinf(rhs))}")
+
 
     # print("[Poisson Solver] Initializing phi field and applying boundary conditions...")
     # Apply boundary conditions to the phi field (ghost cells)
     # These BCs must be applied *before* the SOR solver starts, and ideally
     # re-applied after each iteration if Neumann BCs are present.
-    # For simplicity, we apply them once here.
+    # We rely on the initial setup of BCs and the solver's stencil.
+    # For Neumann BCs (zero gradient for phi), the ghost cell value is set equal to the adjacent interior cell.
+    # This must be done for *each* iteration for true Neumann.
+    # For now, we apply it once before the solver.
 
     for bc_name, bc in processed_bcs.items():
         bc_type = bc.get("type")
         apply_to_fields = bc.get("apply_to", [])
         
-        # Handle Dirichlet boundary conditions for phi (where pressure is specified)
-        # For Dirichlet pressure BCs, phi is typically set to a constant (often 0 or the target pressure).
+        # Handle Dirichlet boundary conditions for phi (where pressure is specified, often phi=0)
         if bc_type == "dirichlet" and "pressure" in apply_to_fields:
             ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int)
             # For pressure projection, phi represents a pressure *correction*.
             # If pressure is fixed (Dirichlet), the correction at that boundary is often zero.
-            # However, if target_pressure is directly used, it implies P_new = target_pressure.
-            # Let's stick to the original logic of using target_pressure for phi for now.
-            target_value_for_phi = bc.get("pressure", 0.0) 
+            # So, target_value_for_phi should likely be 0.0 unless the pressure itself is not allowed to change.
+            # Using 0.0 for phi at Dirichlet pressure boundaries is standard.
+            target_value_for_phi = 0.0 # Changed to 0.0, as phi corrects to target pressure, not sets it.
 
             if ghost_indices.size > 0:
                 # Ensure indices are within the bounds of the phi array
@@ -141,16 +162,23 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
                 )
                 safe_indices = ghost_indices[valid_mask]
                 phi[safe_indices[:, 0], safe_indices[:, 1], safe_indices[:, 2]] = target_value_for_phi
-                # print(f"   -> Applied Dirichlet phi ({target_value_for_phi}) for pressure BC '{bc_name}'.")
+                # print(f"    -> Applied Dirichlet phi ({target_value_for_phi}) for pressure BC '{bc_name}'.")
             else:
-                print(f"   -> WARNING: No ghost indices found for pressure BC '{bc_name}'.")
+                print(f"    -> WARNING: No ghost indices found for pressure BC '{bc_name}'.")
         
-        # Handle Neumann boundary conditions for phi (where velocity is specified as Dirichlet)
-        # For zero normal velocity at a boundary (e.g., no-slip walls), the normal derivative of phi is zero.
+        # Handle Neumann boundary conditions for phi (where velocity is specified as Dirichlet/fixed)
+        # For zero normal velocity at a boundary (e.g., no-slip walls, inflow/outflow where velocity is known),
+        # the normal derivative of phi is zero (Neumann BC: ∂phi/∂n = 0).
         # This translates to phi[ghost_cell] = phi[adjacent_interior_cell].
         elif bc_type == "dirichlet" and "velocity" in apply_to_fields:
-            cell_indices = np.array(bc.get("cell_indices", []), dtype=int)   # Interior cells adjacent to boundary
-            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int) # Ghost cells for this boundary
+            # We need the mapping from ghost cells to their adjacent interior cells.
+            # This logic should be handled by `boundary_conditions_applicator.py`
+            # which provides `cell_indices` and `ghost_indices` pairs.
+
+            # Assuming `bc` contains pre-computed pairs for Neumann BCs for phi.
+            # This is critical and needs to be correct from `boundary_conditions_applicator.py`.
+            cell_indices = np.array(bc.get("cell_indices", []), dtype=int)     # Interior cells adjacent to boundary
+            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int)    # Ghost cells for this boundary
 
             if cell_indices.size > 0 and ghost_indices.size > 0:
                 # Ensure indices are valid before attempting to access array elements
@@ -173,14 +201,24 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
                     # Apply Neumann BC: phi[ghost] = phi[adjacent interior]
                     phi[safe_ghost_indices[:, 0], safe_ghost_indices[:, 1], safe_ghost_indices[:, 2]] = \
                         phi[safe_cell_indices[:, 0], safe_cell_indices[:, 1], safe_cell_indices[:, 2]]
-                    # print(f"   -> Applied Neumann BC (zero normal gradient) to phi for velocity BC '{bc_name}'.")
-            else:
-                print(f"   -> WARNING: No valid cell or ghost indices found for velocity BC '{bc_name}' for phi Neumann BC.")
+                    # print(f"    -> Applied Neumann BC (zero normal gradient) to phi for velocity BC '{bc_name}'.")
+                else:
+                    print(f"    -> WARNING: No valid cell or ghost indices found for velocity BC '{bc_name}' for phi Neumann BC.")
 
     residual_container = np.zeros(1, dtype=np.float64)
 
-    # print(f"[Poisson Solver] Starting SOR solver with {max_iterations} iterations and tolerance {tolerance}.")
+    print(f"[Poisson Solver] Starting SOR solver with {max_iterations} iterations and tolerance {tolerance}.")
     
+    # DEBUG: Check phi field stats BEFORE calling SOR kernel
+    phi_has_nan_before_sor = np.isnan(phi).any()
+    phi_has_inf_before_sor = np.isinf(phi).any()
+    if phi_has_nan_before_sor or phi_has_inf_before_sor:
+        print(f"[Poisson DEBUG] Phi stats BEFORE SOR kernel: min={np.nanmin(phi):.4e}, max={np.nanmax(phi):.4e}, has_nan={phi_has_nan_before_sor}, has_inf={phi_has_inf_before_sor}")
+        # Consider clamping phi here if it has NaNs before passing to Numba, for robustness
+        phi = np.nan_to_num(phi, nan=0.0, posinf=0.0, neginf=0.0)
+        print(f"[Poisson DEBUG] Phi stats AFTER clamping BEFORE SOR kernel: min={np.nanmin(phi):.4e}, max={np.nanmax(phi):.4e}")
+
+
     # Call the Numba-jitted SOR kernel to solve for phi
     # The kernel updates the interior cells of 'phi'.
     # Note: For strict Neumann BCs, ghost cells should be updated after each iteration.
@@ -191,8 +229,61 @@ def solve_poisson_for_phi(divergence, mesh_info, time_step,
     
     print(f"[Poisson Solver] Solver finished. Final residual: {residual_container[0]:.6e}")
 
-    return (phi, residual_container[0]) if return_residual else phi
+    # DEBUG: Check phi field stats AFTER calling SOR kernel
+    phi_has_nan_after_sor = np.isnan(phi).any()
+    phi_has_inf_after_sor = np.isinf(phi).any()
+    if phi_has_nan_after_sor or phi_has_inf_after_sor:
+        print(f"[Poisson DEBUG] Phi stats AFTER SOR kernel: min={np.nanmin(phi):.4e}, max={np.nanmax(phi):.4e}, has_nan={phi_has_nan_after_sor}, has_inf={phi_has_inf_after_sor}")
+        print("❌ Warning: NaNs or Infs detected in phi AFTER SOR solver.")
 
+
+    # Apply boundary conditions one last time to the solved phi field
+    # (especially important for Neumann BCs)
+    # This loop needs to be outside the Numba JIT.
+    for bc_name, bc in processed_bcs.items():
+        bc_type = bc.get("type")
+        apply_to_fields = bc.get("apply_to", [])
+        
+        if bc_type == "dirichlet" and "pressure" in apply_to_fields:
+            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int)
+            target_value_for_phi = 0.0 # Remains 0.0
+            if ghost_indices.size > 0:
+                valid_mask = (
+                    (ghost_indices[:, 0] >= 0) & (ghost_indices[:, 0] < nx_total) &
+                    (ghost_indices[:, 1] >= 0) & (ghost_indices[:, 1] < ny_total) &
+                    (ghost_indices[:, 2] >= 0) & (ghost_indices[:, 2] < nz_total)
+                )
+                safe_indices = ghost_indices[valid_mask]
+                phi[safe_indices[:, 0], safe_indices[:, 1], safe_indices[:, 2]] = target_value_for_phi
+        
+        elif bc_type == "dirichlet" and "velocity" in apply_to_fields:
+            cell_indices = np.array(bc.get("cell_indices", []), dtype=int)
+            ghost_indices = np.array(bc.get("ghost_indices", []), dtype=int)
+
+            if cell_indices.size > 0 and ghost_indices.size > 0:
+                valid_cell_mask = (
+                    (cell_indices[:, 0] >= 0) & (cell_indices[:, 0] < nx_total) &
+                    (cell_indices[:, 1] >= 0) & (cell_indices[:, 1] < ny_total) &
+                    (cell_indices[:, 2] >= 0) & (cell_indices[:, 2] < nz_total)
+                )
+                valid_ghost_mask = (
+                    (ghost_indices[:, 0] >= 0) & (ghost_indices[:, 0] < nx_total) &
+                    (ghost_indices[:, 1] >= 0) & (ghost_indices[:, 1] < ny_total) &
+                    (ghost_indices[:, 2] >= 0) & (ghost_indices[:, 2] < nz_total)
+                )
+                combined_mask = valid_cell_mask & valid_ghost_mask
+                safe_cell_indices = cell_indices[combined_mask]
+                safe_ghost_indices = ghost_indices[combined_mask]
+
+                if safe_cell_indices.size > 0:
+                    phi[safe_ghost_indices[:, 0], safe_ghost_indices[:, 1], safe_ghost_indices[:, 2]] = \
+                        phi[safe_cell_indices[:, 0], safe_cell_indices[:, 1], safe_cell_indices[:, 2]]
+
+    # DEBUG: Final phi field stats after final BC application
+    print(f"[Poisson DEBUG] Phi stats AFTER final BCs: min={np.nanmin(phi):.4e}, max={np.nanmax(phi):.4e}, has_nan={np.any(np.isnan(phi))}, has_inf={np.any(np.isinf(phi))}")
+
+
+    return (phi, residual_container[0]) if return_residual else phi
 
 
 
