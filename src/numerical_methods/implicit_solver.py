@@ -131,7 +131,7 @@ class ImplicitSolver:
         self,
         velocity_field: np.ndarray,
         pressure_field: np.ndarray
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: # Added np.ndarray for divergence
         """
         Performs one semi-implicit time step, using implicit diffusion.
 
@@ -141,10 +141,10 @@ class ImplicitSolver:
             pressure_field (np.ndarray): Current pressure field. Shape: (nx, ny, nz).
 
         Returns:
-            tuple[np.ndarray, np.ndarray]: Updated velocity_field and pressure_field after one time step.
+            tuple[np.ndarray, np.ndarray, np.ndarray]: Updated velocity_field, pressure_field, and the divergence field after correction.
         """
 
-        print(f"Running semi-implicit solver step (dt={self.dt}).")
+        # print(f"Running semi-implicit solver step (dt={self.dt}).") # Commented out, log_flow_metrics will handle progress printing
         
         current_velocity = np.copy(velocity_field)
         current_pressure = np.copy(pressure_field)
@@ -163,8 +163,11 @@ class ImplicitSolver:
         v_flat = current_velocity[..., 1].flatten()
         w_flat = current_velocity[..., 2].flatten() # Even if 2D, this is fine, nz=1
 
+        # Initialize divergence_after_correction_field for return
+        divergence_after_correction_field = np.zeros_like(current_pressure)
+
         for pseudo_iter in range(num_pseudo_iterations):
-            print(f"  Pseudo-iteration {pseudo_iter + 1}/{num_pseudo_iterations}")
+            # print(f"  Pseudo-iteration {pseudo_iter + 1}/{num_pseudo_iterations}") # Commented out for cleaner main output
 
             # --- Explicit Advection Term ---
             # Advection is still explicit, calculated from the current 'tentative' velocity.
@@ -193,14 +196,7 @@ class ImplicitSolver:
             # Boundary handling for pressure gradient (e.g., for Neumann walls, dp/dn=0)
             # This part should be consistent with how pressure boundary conditions are handled in pressure_divergence
             # For simplicity here, we're extending the gradient from inside.
-            # A more robust way would involve specific boundary stencils or ghost cells.
-            # For Dirichlet boundaries (pressure specified), gradient might be known.
-            # For Neumann boundaries (velocity normal specified), gradient at boundary can be zero or inferred.
-            
-            # Simple boundary approximation for gradient (forward/backward difference at edges)
             # Note: This is a simplified boundary treatment for pressure gradient.
-            # For inlet/outlet pressure BCs, the gradient at the boundary would be influenced by that BC.
-            # For solid wall (no-slip), pressure gradient normal to wall is often zero.
             if not self.mesh_info['is_periodic_x']:
                 grad_p_x[0,:,:] = (current_pressure[1,:,:] - current_pressure[0,:,:]) / self.mesh_info['dx'] # Forward diff
                 grad_p_x[-1,:,:] = (current_pressure[-1,:,:] - current_pressure[-2,:,:]) / self.mesh_info['dx'] # Backward diff
@@ -240,7 +236,6 @@ class ImplicitSolver:
             except Exception as e:
                 print(f"Error solving implicit diffusion system: {e}", file=sys.stderr)
                 # Fallback to current velocity or raise error depending on robustness needs
-                # For now, let's raise to stop early and investigate
                 raise
 
             # Reshape solved velocities back to 3D grid
@@ -262,8 +257,7 @@ class ImplicitSolver:
             # --- Pressure Projection (still explicit in this fractional step) ---
             # Calculate divergence of the *tentative* velocity field
             divergence = compute_pressure_divergence(current_velocity, self.mesh_info)
-            max_divergence_before_correction = np.max(np.abs(divergence))
-            print(f"    Max divergence before correction: {max_divergence_before_correction:.2e}")
+            # max_divergence_before_correction = np.max(np.abs(divergence)) # Not used directly for logging here
 
             # Solve Poisson equation for pressure correction (phi)
             pressure_correction_phi = solve_poisson_for_phi(
@@ -277,8 +271,6 @@ class ImplicitSolver:
             # Check for NaN/Inf in phi
             if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
                 print("WARNING: NaN or Inf detected in pressure_correction_phi. Clamping/Erroring out.", file=sys.stderr)
-                # You might want to clamp or raise an error here if this happens frequently
-                # For now, let's try to clamp to avoid complete explosion, though it indicates an underlying issue.
                 max_phi_val = np.finfo(np.float64).max / 10 # A large but not infinite number
                 pressure_correction_phi = np.clip(pressure_correction_phi, -max_phi_val, max_phi_val)
 
@@ -303,9 +295,8 @@ class ImplicitSolver:
             )
             
             # Recalculate divergence after correction and BCs
-            divergence_after_correction = compute_pressure_divergence(current_velocity, self.mesh_info)
-            max_divergence_after_correction = np.max(np.abs(divergence_after_correction))
-            print(f"    Max divergence after correction: {max_divergence_after_correction:.2e}")
+            divergence_after_correction_field = compute_pressure_divergence(current_velocity, self.mesh_info) # Store for return
+            # max_divergence_after_correction = np.max(np.abs(divergence_after_correction_field)) # Not used directly for logging here
 
         # Final application of BCs after all pseudo-iterations
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
@@ -316,7 +307,6 @@ class ImplicitSolver:
             is_tentative_step=False
         )
 
-        return updated_velocity_field, updated_pressure_field
-
+        return updated_velocity_field, updated_pressure_field, divergence_after_correction_field
 
 
