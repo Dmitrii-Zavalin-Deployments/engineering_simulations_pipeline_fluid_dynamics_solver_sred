@@ -9,7 +9,7 @@ from numba import jit, float64, intc # Import intc for integer types
         float64[:, :, :],  # phi_field (e.g., u_x, u_y, u_z component)
         float64[:, :, :],  # vel_comp_field (advecting velocity component along axis)
         float64,           # spacing (dx, dy, or dz)
-        intc               # axis (0, 1, or 2) -- CHANGED FROM 'int' to 'intc'
+        intc               # axis (0, 1, or 2)
     ),
     nopython=True,
     parallel=False,
@@ -19,14 +19,17 @@ def _upwind_derivative_kernel(phi_field, vel_comp_field, spacing, axis):
     """
     Numba-jitted kernel to compute the first-order upwind derivative of phi_field
     along a given axis, based on the sign of vel_comp_field.
-    Operates on the interior cells of the output array.
+    
+    This function expects phi_field and vel_comp_field to be the *full* grid (including ghost cells).
+    It computes the derivative only for the interior cells and returns an array of interior size.
     """
     
-    # Get interior dimensions for the output array
+    # Get interior dimensions based on the input full grid's shape
     nx_interior = phi_field.shape[0] - 2
     ny_interior = phi_field.shape[1] - 2
     nz_interior = phi_field.shape[2] - 2
     
+    # The output derivative array will only contain the interior values.
     deriv_interior = np.empty((nx_interior, ny_interior, nz_interior), dtype=phi_field.dtype)
 
     # Manual iteration for Numba compatibility and performance
@@ -36,8 +39,8 @@ def _upwind_derivative_kernel(phi_field, vel_comp_field, spacing, axis):
                 # Map interior indices (i,j,k) to global indices (i+1, j+1, k+1)
                 gi, gj, gk = i + 1, j + 1, k + 1
 
-                vel = vel_comp_field[gi, gj, gk]
-                phi_current = phi_field[gi, gj, gk]
+                vel = vel_comp_field[gi, gj, gk] # Advecting velocity component at the current interior cell
+                phi_current = phi_field[gi, gj, gk] # Value of the field being advected at current interior cell
 
                 if axis == 0: # Derivative with respect to x
                     if vel >= 0: # Upwind from left (i-1)
@@ -69,15 +72,14 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
                                      including ghost cells. Used to determine the advecting
                                      velocity components (u_x, u_y, u_z).
         mesh_info (dict): Dictionary with:
-            - 'grid_shape': (nx_interior, ny_interior, nz_interior)
+            - 'grid_shape': (nx_interior, ny_interior, nz_interior) - **This is the interior grid shape**
             - 'dx', 'dy', 'dz': Grid spacing in each direction.
 
     Returns:
-        np.ndarray: The advection term, same shape as the interior of u_field (nx_interior, ny_interior, nz_interior).
-                    This represents -(u · ∇)u.
+        np.ndarray: The advection term, with the *same full grid shape as u_field* (nx_total, ny_total, nz_total).
+                    The interior cells contain -(u · ∇)u, and ghost cells are typically zeroed.
     """
     # Defensive clamping at the start to handle any incoming NaNs/Infs from previous steps.
-    # While we aim to eliminate NaNs at their source, this acts as a safeguard.
     u_field_has_nan = np.isnan(u_field).any()
     u_field_has_inf = np.isinf(u_field).any()
     velocity_field_has_nan = np.isnan(velocity_field).any()
@@ -107,43 +109,54 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     vel_y_advecting = velocity_field[..., 1] # u_y component
     vel_z_advecting = velocity_field[..., 2] # u_z component
     
-    # Get interior dimensions for the output advection term
-    nx_interior, ny_interior, nz_interior = mesh_info['grid_shape']
+    # Get total grid dimensions from the input u_field's shape (which includes ghost cells)
+    nx_total, ny_total, nz_total = u_field.shape
 
-    # Initialize the advection term for the interior cells
-    advection_term_interior = np.zeros((nx_interior, ny_interior, nz_interior), dtype=u_field.dtype)
+    # Initialize the full advection term array with the same shape as u_field.
+    # We will compute advection for the interior and place it here. Ghost cells will remain zero.
+    full_advection_term_array = np.zeros_like(u_field)
 
-    # Slices for the interior of the advecting velocity components to match derivative output shape
-    vel_x_interior = vel_x_advecting[1:-1, 1:-1, 1:-1]
-    vel_y_interior = vel_y_advecting[1:-1, 1:-1, 1:-1]
-    vel_z_interior = vel_z_advecting[1:-1, 1:-1, 1:-1]
+    # Define slice for interior cells for the full grid arrays
+    interior_slice_global = (slice(1, nx_total - 1), slice(1, ny_total - 1), slice(1, nz_total - 1))
+
+    # Get interior views of the advecting velocity components.
+    # These are used for element-wise multiplication with the derivative kernels' output.
+    vel_x_interior = vel_x_advecting[interior_slice_global]
+    vel_y_interior = vel_y_advecting[interior_slice_global]
+    vel_z_interior = vel_z_advecting[interior_slice_global]
 
     # Calculate the advection term (u · ∇)u
-    # This involves summing the contributions from each direction (x, y, z)
-    # for the current component (u_field) being advected.
+    # The _upwind_derivative_kernel returns an array of (nx_interior, ny_interior, nz_interior) shape.
+    # We multiply it by the interior part of the advecting velocity component (e.g., vel_x_interior),
+    # which also has (nx_interior, ny_interior, nz_interior) shape, and then assign the result
+    # to the interior of the 'full_advection_term_array'.
 
     # Advection contribution from x-direction velocity (vel_x)
-    advection_term_interior += vel_x_interior * _upwind_derivative_kernel(u_field, vel_x_advecting, dx, 0)
+    full_advection_term_array[interior_slice_global] += \
+        vel_x_interior * _upwind_derivative_kernel(u_field, vel_x_advecting, dx, 0)
     
     # Advection contribution from y-direction velocity (vel_y)
-    advection_term_interior += vel_y_interior * _upwind_derivative_kernel(u_field, vel_y_advecting, dy, 1)
+    full_advection_term_array[interior_slice_global] += \
+        vel_y_interior * _upwind_derivative_kernel(u_field, vel_y_advecting, dy, 1)
     
     # Advection contribution from z-direction velocity (vel_z)
-    advection_term_interior += vel_z_interior * _upwind_derivative_kernel(u_field, vel_z_advecting, dz, 2)
+    full_advection_term_array[interior_slice_global] += \
+        vel_z_interior * _upwind_derivative_kernel(u_field, vel_z_advecting, dz, 2)
 
     # Final check for NaNs/Infs in the computed advection term.
-    advection_final_has_nan = np.isnan(advection_term_interior).any()
-    advection_final_has_inf = np.isinf(advection_term_interior).any()
+    advection_final_has_nan = np.isnan(full_advection_term_array[interior_slice_global]).any()
+    advection_final_has_inf = np.isinf(full_advection_term_array[interior_slice_global]).any()
 
     if advection_final_has_nan or advection_final_has_inf:
-        print(f"    Advection stats before final output (interior): min={np.nanmin(advection_term_interior):.2e}, max={np.nanmax(advection_term_interior):.2e}, has_nan={advection_final_has_nan}, has_inf={advection_final_has_inf}")
+        print(f"    Advection stats before final output (interior): min={np.nanmin(full_advection_term_array[interior_slice_global]):.2e}, max={np.nanmax(full_advection_term_array[interior_slice_global]):.2e}, has_nan={advection_final_has_nan}, has_inf={advection_final_has_inf}")
         # Clamping here is a safeguard. Ideally, previous steps should prevent these.
-        advection_term_interior = np.nan_to_num(advection_term_interior, nan=0.0, posinf=0.0, neginf=0.0)
-        print(f"    Advection stats AFTER final output clamp (interior): min={np.min(advection_term_interior):.2e}, max={np.max(advection_term_interior):.2e}")
+        # Apply nan_to_num to the entire array to handle ghost cells too if they somehow got NaNs/Infs
+        full_advection_term_array = np.nan_to_num(full_advection_term_array, nan=0.0, posinf=0.0, neginf=0.0)
+        print(f"    Advection stats AFTER final output clamp (full grid): min={np.min(full_advection_term_array):.2e}, max={np.max(full_advection_term_array):.2e}")
 
     # In Navier-Stokes, the advection term (u · ∇)u is typically subtracted in the momentum equation.
     # So, if this function computes (u · ∇)u, we return -(u · ∇)u for the RHS.
-    return -advection_term_interior
+    return -full_advection_term_array
 
 
 
