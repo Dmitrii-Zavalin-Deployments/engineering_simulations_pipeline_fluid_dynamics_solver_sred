@@ -131,6 +131,7 @@ class ImplicitSolver:
         self,
         velocity_field: np.ndarray,
         pressure_field: np.ndarray
+        # Removed step_count and current_time
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: # Added np.ndarray for divergence
         """
         Performs one semi-implicit time step, using implicit diffusion.
@@ -205,7 +206,7 @@ class ImplicitSolver:
                 grad_p_y[:,-1,:] = (current_pressure[:,-1,:] - current_pressure[:,-2,:]) / self.mesh_info['dy']
             if not self.mesh_info['is_periodic_z']:
                 grad_p_z[:,:,0] = (current_pressure[:,:,1] - current_pressure[:,:,0]) / self.mesh_info['dz']
-                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,:,-2]) / self.mesh_info['dz']
+                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,-2,:]) / self.mesh_info['dz']
 
             grad_p_x_flat = grad_p_x.flatten()
             grad_p_y_flat = grad_p_y.flatten()
@@ -308,5 +309,6 @@ class ImplicitSolver:
         )
 
         return updated_velocity_field, updated_pressure_field, divergence_after_correction_field
+
 
 

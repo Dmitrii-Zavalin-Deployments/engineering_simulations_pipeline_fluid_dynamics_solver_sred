@@ -3,7 +3,6 @@
 import numpy as np
 import sys
 
-# Import numerical method components
 try:
     from .advection import compute_advection_term
     from .diffusion import compute_diffusion_term
@@ -11,105 +10,153 @@ try:
     from .poisson_solver import solve_poisson_for_phi
     from .pressure_correction import apply_pressure_correction
     from physics.boundary_conditions_applicator import apply_boundary_conditions
-    from utils.log_utils import log_flow_metrics # Keep this import
 except ImportError as e:
     print(f"Error importing components for explicit_solver: {e}", file=sys.stderr)
+    print("Please ensure all necessary files exist in their respective directories "
+          "and contain the expected functions.", file=sys.stderr)
     sys.exit(1)
 
 class ExplicitSolver:
-    """Performs a single explicit time step for incompressible fluid simulation using a fractional step method."""
+    """
+    An explicit solver for the incompressible Navier-Stokes equations
+    using a fractional step (Projection) method.
+    """
 
     def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float):
-        self.density = fluid_properties["density"]
-        self.viscosity = fluid_properties["viscosity"]
+        """
+        Initializes the explicit solver.
+
+        Args:
+            fluid_properties (dict): Dictionary with 'density' and 'viscosity'.
+            mesh_info (dict): Dictionary containing structured grid information and
+                              pre-processed boundary condition data.
+            dt (float): Time step size.
+        """
+        self.density = fluid_properties['density']
+        self.viscosity = fluid_properties['viscosity']
         self.dt = dt
         self.mesh_info = mesh_info
+
+        # This dictionary is created once in the constructor for BC application
         self.fluid_properties_dict = fluid_properties
 
-    def step(self, velocity_field: np.ndarray, pressure_field: np.ndarray, step_count: int, current_time: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        print("--- Starting Explicit Time Step ---")
+    def step(
+        self,
+        velocity_field: np.ndarray,
+        pressure_field: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: # Keep the return type consistent
+        """
+        Performs one explicit time step using the fractional step method.
 
-        u_star = np.copy(velocity_field)
+        Args:
+            velocity_field (np.ndarray): Current velocity field (U, V, W components).
+                                         Shape: (nx+2, ny+2, nz+2, 3).
+            pressure_field (np.ndarray): Current pressure field. Shape: (nx+2, ny+2, nz+2).
+            # Removed step_count and current_time
 
-        # print("  1. Computing advection and diffusion terms...")
+        Returns:
+            tuple[np.ndarray, np.ndarray, np.ndarray]: Updated velocity_field, pressure_field, and the divergence field after correction.
+        """
+        
+        # print(f"Running explicit solver step (dt={self.dt}).") # Commented out, log_flow_metrics will handle progress printing
+
+        # 1. Apply boundary conditions to current fields
+        # This ensures that any initial conditions or previous step's results
+        # are consistent with BCs before computing derivatives.
+        velocity_field, pressure_field = apply_boundary_conditions(
+            velocity_field,
+            pressure_field,
+            self.fluid_properties_dict,
+            self.mesh_info,
+            is_tentative_step=False # Initial application
+        )
+
+        # 2. Compute advection and diffusion terms using current velocity
+        # These terms use the values at 'n' to compute u_star.
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
         advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, self.mesh_info)
 
-        u_star[..., 0] -= self.dt * advection_u
-        u_star[..., 1] -= self.dt * advection_v
-        u_star[..., 2] -= self.dt * advection_w
+        diffusion_u = compute_diffusion_term(velocity_field[..., 0], self.viscosity, self.density, self.mesh_info)
+        diffusion_v = compute_diffusion_term(velocity_field[..., 1], self.viscosity, self.density, self.mesh_info)
+        diffusion_w = compute_diffusion_term(velocity_field[..., 2], self.viscosity, self.density, self.mesh_info)
 
-        diffusion_u = compute_diffusion_term(u_star[..., 0], self.viscosity, self.mesh_info)
-        diffusion_v = compute_diffusion_term(u_star[..., 1], self.viscosity, self.mesh_info)
-        diffusion_w = compute_diffusion_term(u_star[..., 2], self.viscosity, self.mesh_info)
+        # 3. Predict an intermediate (tentative) velocity field (u_star)
+        # This step does NOT include the pressure gradient term.
+        # u_star = u_n + dt * [-(u_n . grad)u_n + nu * Laplacian(u_n)]
+        
+        # Initialize u_star, v_star, w_star with current velocity values (u_n)
+        u_star = np.copy(velocity_field[..., 0])
+        v_star = np.copy(velocity_field[..., 1])
+        w_star = np.copy(velocity_field[..., 2])
 
-        u_star[..., 0] += self.dt * (diffusion_u / self.density)
-        u_star[..., 1] += self.dt * (diffusion_v / self.density)
-        u_star[..., 2] += self.dt * (diffusion_w / self.density)
+        # Update u_star, v_star, w_star with advection and diffusion terms
+        u_star += self.dt * (-advection_u + diffusion_u)
+        v_star += self.dt * (-advection_v + diffusion_v)
+        w_star += self.dt * (-advection_w + diffusion_w)
+        
+        # Stack u_star, v_star, w_star into a tentative_velocity_field
+        tentative_velocity_field = np.stack((u_star, v_star, w_star), axis=-1)
 
-        if np.isnan(u_star).any() or np.isinf(u_star).any():
-            print("❌ Warning: Invalid values in tentative velocity u_star — clamping to zero.")
-            u_star = np.nan_to_num(u_star, nan=0.0, posinf=0.0, neginf=0.0)
-
-        # print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
-        u_star, _ = apply_boundary_conditions(
-            velocity_field=u_star,
-            pressure_field=pressure_field,
-            fluid_properties=self.fluid_properties_dict,
-            mesh_info=self.mesh_info,
+        # 4. Apply boundary conditions to the tentative velocity field
+        # For tentative velocity, typically only kinematic (velocity) BCs are applied.
+        # Pressure BCs are typically applied during the pressure solve/correction.
+        tentative_velocity_field, _ = apply_boundary_conditions(
+            tentative_velocity_field,
+            pressure_field, # Pressure not modified, just passed for signature compatibility
+            self.fluid_properties_dict,
+            self.mesh_info,
             is_tentative_step=True
         )
 
-        # print("  3. Solving Poisson equation for pressure correction...")
-        divergence = compute_pressure_divergence(u_star, self.mesh_info)
+        # 5. Solve for pressure correction (Poisson equation)
+        # Calculate divergence of the tentative velocity field
+        divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
 
-        if np.isnan(divergence).any() or np.isinf(divergence).any():
-            print("❌ Warning: Invalid values in divergence field — clamping to zero.")
-            divergence = np.nan_to_num(divergence, nan=0.0, posinf=0.0, neginf=0.0)
-
-        max_div = np.max(np.abs(divergence)) if divergence.size > 0 else 0.0
-        print(f"    - Max divergence before correction: {max_div:.6e}")
-
-        phi, residual = solve_poisson_for_phi(
+        # Solve Poisson equation for phi (pressure correction potential)
+        # Laplacian(phi) = (1/dt) * divergence(u_star)
+        # phi = dt * pressure_correction / rho
+        pressure_correction_phi = solve_poisson_for_phi(
             divergence,
             self.mesh_info,
             self.dt,
-            tolerance=1e-6,
-            max_iterations=1000,
-            return_residual=True
+            tolerance=1e-6, # Example tolerance
+            max_iterations=1000 # Example max iterations
         )
-        print(f"    - Pressure solver residual: {residual:.6e}")
+        
+        # Check for NaN/Inf in phi
+        if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
+            print("WARNING: NaN or Inf detected in pressure_correction_phi. Clamping/Erroring out.", file=sys.stderr)
+            max_phi_val = np.finfo(np.float64).max / 10 # A large but not infinite number
+            pressure_correction_phi = np.clip(pressure_correction_phi, -max_phi_val, max_phi_val)
 
-        # print("  4. Applying pressure correction to velocity and updating pressure...")
-        updated_velocity, updated_pressure = apply_pressure_correction(
-            u_star,
+
+        # 6. Correct the tentative velocity field and update pressure
+        # u_n+1 = u_star - dt * (1/rho) * grad(p_correction)
+        # p_n+1 = p_n + p_correction
+        updated_velocity_field, updated_pressure_field = apply_pressure_correction(
+            tentative_velocity_field,
             pressure_field,
-            phi,
+            pressure_correction_phi,
             self.mesh_info,
             self.dt,
             self.density
         )
 
-        if np.isnan(updated_velocity).any() or np.isinf(updated_velocity).any():
-            print("❌ Warning: Invalid values in corrected velocity — clamping to zero.")
-            updated_velocity = np.nan_to_num(updated_velocity, nan=0.0, posinf=0.0, neginf=0.0)
-
-        if np.isnan(updated_pressure).any() or np.isinf(updated_pressure).any():
-            print("❌ Warning: Invalid values in corrected pressure — clamping to zero.")
-            updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
-
-        # print("  5. Applying final boundary conditions to the corrected fields...")
-        updated_velocity, updated_pressure = apply_boundary_conditions(
-            velocity_field=updated_velocity,
-            pressure_field=updated_pressure,
-            fluid_properties=self.fluid_properties_dict,
-            mesh_info=self.mesh_info,
+        # 7. Apply final boundary conditions to the corrected fields
+        # This step ensures that the final velocity and pressure fields
+        # strictly adhere to all boundary conditions for the next time step.
+        updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
+            updated_velocity_field,
+            updated_pressure_field,
+            self.fluid_properties_dict,
+            self.mesh_info,
             is_tentative_step=False
         )
-        
-        # print("--- Explicit Time Step Complete ---")
-        return updated_velocity, updated_pressure, divergence # Return divergence as well
 
+        # Calculate final divergence for logging purposes
+        divergence_after_correction_field = compute_pressure_divergence(updated_velocity_field, self.mesh_info)
+
+        return updated_velocity_field, updated_pressure_field, divergence_after_correction_field
 
 
