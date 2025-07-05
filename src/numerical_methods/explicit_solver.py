@@ -31,7 +31,7 @@ class ExplicitSolver:
 
         u_star = np.copy(velocity_field)
 
-        print("  1. Computing advection and diffusion terms...")
+        # print("  1. Computing advection and diffusion terms...")
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
         advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, self.mesh_info)
@@ -52,7 +52,7 @@ class ExplicitSolver:
             print("❌ Warning: Invalid values in tentative velocity u_star — clamping to zero.")
             u_star = np.nan_to_num(u_star, nan=0.0, posinf=0.0, neginf=0.0)
 
-        print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
+        # print("  2. Applying boundary conditions to the tentative velocity field (u*)...")
         u_star, _ = apply_boundary_conditions(
             velocity_field=u_star,
             pressure_field=pressure_field,
@@ -61,7 +61,7 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        print("  3. Solving Poisson equation for pressure correction...")
+        # print("  3. Solving Poisson equation for pressure correction...")
         divergence = compute_pressure_divergence(u_star, self.mesh_info)
 
         if np.isnan(divergence).any() or np.isinf(divergence).any():
@@ -81,7 +81,7 @@ class ExplicitSolver:
         )
         print(f"    - Pressure solver residual: {residual:.6e}")
 
-        print("  4. Applying pressure correction to velocity and updating pressure...")
+        # print("  4. Applying pressure correction to velocity and updating pressure...")
         updated_velocity, updated_pressure = apply_pressure_correction(
             u_star,
             pressure_field,
@@ -99,7 +99,7 @@ class ExplicitSolver:
             print("❌ Warning: Invalid values in corrected pressure — clamping to zero.")
             updated_pressure = np.nan_to_num(updated_pressure, nan=0.0, posinf=0.0, neginf=0.0)
 
-        print("  5. Applying final boundary conditions to the corrected fields...")
+        # print("  5. Applying final boundary conditions to the corrected fields...")
         updated_velocity, updated_pressure = apply_boundary_conditions(
             velocity_field=updated_velocity,
             pressure_field=updated_pressure,
@@ -108,7 +108,7 @@ class ExplicitSolver:
             is_tentative_step=False
         )
         
-        print("--- Explicit Time Step Complete ---")
+        # print("--- Explicit Time Step Complete ---")
         return updated_velocity, updated_pressure, divergence # Return divergence as well
 
 
