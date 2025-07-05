@@ -13,6 +13,7 @@ if project_root not in sys.path:
 # --- END REFINED FIX ---
 
 from numerical_methods.explicit_solver import ExplicitSolver
+from numerical_methods.implicit_solver import ImplicitSolver # NEW: Import ImplicitSolver
 from physics.boundary_conditions_applicator import apply_boundary_conditions
 from solver.initialization import (
     load_input_data,
@@ -24,6 +25,7 @@ from solver.initialization import (
 from solver.results_handler import save_field_snapshot
 from utils.simulation_output_manager import setup_simulation_output_directory
 from utils.log_utils import log_flow_metrics # Import log_flow_metrics here
+from numerical_methods.pressure_divergence import compute_pressure_divergence # Needed for initial divergence
 
 
 class Simulation:
@@ -56,7 +58,18 @@ class Simulation:
 
         self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
         self.boundary_conditions = bc_dict
-        self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
+        
+        # --- NEW: Select solver based on input data ---
+        solver_type = self.input_data["simulation_parameters"].get("solver", "explicit").lower()
+        if solver_type == "explicit":
+            self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
+            print("Using Explicit Solver.")
+        elif solver_type == "implicit":
+            self.time_stepper = ImplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
+            print("Using Implicit (Semi-Implicit) Solver.")
+        else:
+            raise ValueError(f"Unknown solver type specified: '{solver_type}'. Must be 'explicit' or 'implicit'.")
+        # --- END NEW ---
 
         print_initial_setup(self)
 
@@ -70,6 +83,7 @@ class Simulation:
         v_interior = velocity_field[1:-1, 1:-1, 1:-1, 1]
         w_interior = velocity_field[1:-1, 1:-1, 1:-1, 2]
 
+        # Handle empty arrays if dimensions are 0 (e.g., for nx, ny, nz = 1 cases, which are not typical for CFD)
         max_u = np.max(np.abs(u_interior)) if u_interior.size > 0 else 0.0
         max_v = np.max(np.abs(v_interior)) if v_interior.size > 0 else 0.0
         max_w = np.max(np.abs(w_interior)) if w_interior.size > 0 else 0.0
@@ -93,32 +107,39 @@ class Simulation:
         print(f"Calculated number of simulation steps: {num_steps}")
 
         try:
+            # Calculate initial divergence (at step 0) for logging
+            initial_divergence_field = compute_pressure_divergence(self.velocity_field, self.mesh_info)
+            
             save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
             
             # Initial logging of metrics for step 0
-            # Note: Divergence is not directly available at step 0 from a previous calculation.
-            # We pass a zero array, or you might choose to skip divergence logging for step 0.
             log_flow_metrics(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
-                divergence_field=np.zeros(self.p.shape), # No divergence yet at step 0
+                divergence_field=initial_divergence_field, # Use computed divergence at step 0
                 fluid_density=self.fluid_properties["density"],
                 step_count=self.step_count,
                 current_time=self.current_time,
                 output_frequency_steps=self.output_frequency_steps,
-                num_steps=num_steps # Pass num_steps to log_flow_metrics
+                num_steps=num_steps
             )
-
 
             for _ in range(num_steps):
                 self.step_count += 1 # Increment step_count here, before the step calculation
                 self.current_time = self.step_count * self.time_step
 
-                # Pass step_count and current_time to the time_stepper
-                self.velocity_field, self.p, divergence_at_step = self.time_stepper.step(self.velocity_field, self.p, self.step_count, self.current_time)
+                # --- Update: Call the selected time_stepper and get divergence ---
+                # Both ExplicitSolver and ImplicitSolver.step are expected to return (velocity, pressure, divergence_field)
+                self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
+                    self.velocity_field, self.p
+                )
 
                 # ✅ Re-apply final boundary conditions
-                # This is crucial after the pressure correction step
+                # This is crucial after the pressure correction step.
+                # Note: The 'step' method of the solver *should* already apply BCs internally
+                # to its intermediate velocity and pressure fields. This final call here
+                # ensures that the BCs are rigorously enforced on the final fields
+                # before saving or further computations, providing a consistent state.
                 apply_boundary_conditions(
                     velocity_field=self.velocity_field,
                     pressure_field=self.p,
@@ -140,14 +161,13 @@ class Simulation:
                 log_flow_metrics(
                     velocity_field=self.velocity_field,
                     pressure_field=self.p,
-                    divergence_field=divergence_at_step, # Use the divergence from the current step
+                    divergence_field=divergence_at_step_field, # Use the divergence from the current step
                     fluid_density=self.fluid_properties["density"],
                     step_count=self.step_count,
                     current_time=self.current_time,
                     output_frequency_steps=self.output_frequency_steps,
-                    num_steps=num_steps # Pass num_steps to log_flow_metrics
+                    num_steps=num_steps
                 )
-
 
             print("--- Simulation Finished ---")
             print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
