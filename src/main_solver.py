@@ -13,7 +13,7 @@ if project_root not in sys.path:
 # --- END REFINED FIX ---
 
 from numerical_methods.explicit_solver import ExplicitSolver
-from numerical_methods.implicit_solver import ImplicitSolver # NEW: Import ImplicitSolver
+from numerical_methods.implicit_solver import ImplicitSolver # Import ImplicitSolver
 from physics.boundary_conditions_applicator import apply_boundary_conditions
 from solver.initialization import (
     load_input_data,
@@ -65,6 +65,7 @@ class Simulation:
             self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
             print("Using Explicit Solver.")
         elif solver_type == "implicit":
+            # THIS IS THE CRUCIAL FIX for the "takes no arguments" error:
             self.time_stepper = ImplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
             print("Using Implicit (Semi-Implicit) Solver.")
         else:
@@ -128,11 +129,22 @@ class Simulation:
                 self.step_count += 1 # Increment step_count here, before the step calculation
                 self.current_time = self.step_count * self.time_step
 
+                # --- Debugging: Check fields before time step ---
+                print(f"[DEBUG @ Step {self.step_count}] Velocity BEFORE step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}, has_nan={np.any(np.isnan(self.velocity_field))}, has_inf={np.any(np.isinf(self.velocity_field))}")
+                print(f"[DEBUG @ Step {self.step_count}] Pressure BEFORE step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}, has_nan={np.any(np.isnan(self.p))}, has_inf={np.any(np.isinf(self.p))}")
+
+
                 # --- Update: Call the selected time_stepper and get divergence ---
                 # Both ExplicitSolver and ImplicitSolver.step are expected to return (velocity, pressure, divergence_field)
                 self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
                     self.velocity_field, self.p
                 )
+
+                # --- Debugging: Check fields AFTER time step ---
+                print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}, has_nan={np.any(np.isnan(self.velocity_field))}, has_inf={np.any(np.isinf(self.velocity_field))}")
+                print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}, has_nan={np.any(np.isnan(self.p))}, has_inf={np.any(np.isinf(self.p))}")
+                print(f"[DEBUG @ Step {self.step_count}] Divergence AFTER step: min={np.nanmin(divergence_at_step_field):.4e}, max={np.nanmax(divergence_at_step_field):.4e}, has_nan={np.any(np.isnan(divergence_at_step_field))}, has_inf={np.any(np.isinf(divergence_at_step_field))}")
+
 
                 # ✅ Re-apply final boundary conditions
                 # This is crucial after the pressure correction step.
@@ -147,6 +159,10 @@ class Simulation:
                     mesh_info=self.mesh_info,
                     is_tentative_step=False
                 )
+                # --- Debugging: Check fields AFTER final BCs for the step ---
+                print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER final BCs: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}, has_nan={np.any(np.isnan(self.velocity_field))}, has_inf={np.any(np.isinf(self.velocity_field))}")
+                print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER final BCs: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}, has_nan={np.any(np.isnan(self.p))}, has_inf={np.any(np.isinf(self.p))}")
+
 
                 # Output and logging frequency for snapshots
                 if (self.step_count % self.output_frequency_steps == 0) or \
@@ -169,6 +185,12 @@ class Simulation:
                     num_steps=num_steps
                 )
 
+                # Check for numerical stability (NaN/Inf) at the end of each step
+                if np.any(np.isnan(self.velocity_field)) or np.any(np.isinf(self.velocity_field)) or \
+                   np.any(np.isnan(self.p)) or np.any(np.isinf(self.p)):
+                    raise RuntimeError(f"NaN or Inf detected in fields at step {self.step_count}, time {self.current_time:.4e}s. Simulation aborted.")
+
+
             print("--- Simulation Finished ---")
             print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
 
@@ -186,11 +208,17 @@ def cli_entrypoint():
 
     input_file = sys.argv[1]
     base_output_dir = sys.argv[2]
-    output_dir = os.path.join(base_output_dir, "navier_stokes_output")
-
+    # Assuming setup_simulation_output_directory creates the 'navier_stokes_output' subdirectory
+    # or takes care of naming. Let's pass base_output_dir and let it handle the full path.
+    # The Simulation class's output_dir will then be the base, and fields will be relative to it.
+    
+    # Corrected: setup_simulation_output_directory should return the actual final output_dir
+    # that the Simulation class should use.
+    
     try:
-        sim = Simulation(input_file, output_dir)
-        setup_simulation_output_directory(sim, output_dir)
+        # Create a unique output directory first
+        final_output_dir = setup_simulation_output_directory(base_output_dir)
+        sim = Simulation(input_file, final_output_dir) # Pass the full output_dir to Simulation
         sim.run()
         print("✅ Main Navier-Stokes simulation executed successfully.")
 
