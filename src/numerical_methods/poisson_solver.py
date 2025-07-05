@@ -314,7 +314,7 @@ def solve_poisson_for_phi(
 
         try:
             # bicgstab returns (x, info) where info = 0 if successful
-            phi_flat, info = bicgstab(A, b_flat, tol=tolerance, maxiter=max_iterations, M=M_inv)
+            phi_flat, info = bicgstab(A, b_flat, rtol=tolerance, maxiter=max_iterations, M=M_inv) # Changed 'tol' to 'rtol'
             
             if info > 0:
                 print(f"WARNING: BiCGSTAB did not converge after {info} iterations. Final residual might be high.", file=sys.stderr)
@@ -354,16 +354,6 @@ def solve_poisson_for_phi(
 
     # Simple ghost cell update for phi based on interior.
     # For zero Neumann gradient at a wall, phi_ghost = phi_interior_adjacent_to_wall
-    # For Dirichlet, phi_ghost values might be explicitly set or derived.
-    # If your `apply_boundary_conditions` can handle `phi` as a scalar field, use it.
-    # For Poisson, pressure BCs are typically on the gradient, linking to velocity BCs.
-    # For a free surface, P=0 Dirichlet can be set. For walls, dP/dn = 0 (Neumann).
-    # Since this is a pressure *correction* potential, its BCs are derived from velocity BCs.
-    # E.g., if velocity is no-slip at a wall, dP/dn = rho * a_n. For zero velocity divergence, dP/dn = 0.
-    # So, zero Neumann for phi is a common assumption.
-
-    # For zero Neumann conditions (most common for pressure correction at solid walls)
-    # phi_ghost = phi_interior_adjacent_to_wall
     # This is implicitly handled if the matrix A enforces these conditions.
     # For explicit setting:
     if not processed_bcs.get('periodic_x', False):
