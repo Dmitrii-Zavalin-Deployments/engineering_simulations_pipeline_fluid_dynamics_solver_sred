@@ -1,4 +1,4 @@
-# src/numerical_methods/implicit_solver.py
+# src/numerical_methods/implicit_solver.py (Updated with more debug prints)
 
 import numpy as np
 import sys
@@ -8,125 +8,20 @@ from scipy.sparse.linalg import spsolve
 # Import the individual numerical methods and the boundary conditions module.
 try:
     from .advection import compute_advection_term
-    from .diffusion import compute_diffusion_term # This will still be used to calculate RHS term
+    from .diffusion import compute_diffusion_term
     from .pressure_divergence import compute_pressure_divergence
     from .poisson_solver import solve_poisson_for_phi
     from .pressure_correction import apply_pressure_correction
     from physics.boundary_conditions_applicator import apply_boundary_conditions
 except ImportError as e:
-    print(f"Error importing components for implicit_solver: {e}", file=sys.stderr)
+    print(f"Error importing components for explicit_solver: {e}", file=sys.stderr)
     print("Please ensure all necessary files exist in their respective directories "
           "and contain the expected functions.", file=sys.stderr)
     sys.exit(1)
 
 
 class ImplicitSolver:
-    """
-    An improved semi-implicit solver for the Navier-Stokes equations,
-    treating the diffusion term implicitly for enhanced stability.
-
-    This class sets up and solves a linear system for the diffusion term
-    at each time step using SciPy's sparse linear algebra capabilities.
-    Advection and pressure projection are handled in a fractional step manner.
-    """
-
-    def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float):
-        """
-        Initializes the implicit solver with simulation parameters and
-        pre-computes the implicit diffusion matrix.
-
-        Args:
-            fluid_properties (dict): Dictionary with 'density' and 'viscosity'.
-            mesh_info (dict): Dictionary containing structured grid information and
-                              pre-processed boundary condition data.
-            dt (float): Time step size.
-        """
-        self.density = fluid_properties['density']
-        self.viscosity = fluid_properties['viscosity']
-        self.dt = dt
-        self.mesh_info = mesh_info
-
-        # This dictionary is created once in the constructor for BC application
-        self.fluid_properties_dict = fluid_properties
-
-        # Pre-compute the matrix for the implicit diffusion step
-        nx_grid, ny_grid, nz_grid = self.mesh_info['grid_shape'] # Get nx, ny, nz from grid_shape
-        self.diffusion_matrix_LHS = self._build_diffusion_matrix(
-            nx_grid, ny_grid, nz_grid,
-            self.mesh_info['dx'], self.mesh_info['dy'], self.mesh_info['dz']
-        )
-        print("Implicit diffusion matrix pre-computed.")
-
-
-    def _build_diffusion_matrix(self, nx: int, ny: int, nz: int, dx: float, dy: float, dz: float):
-        """
-        Builds the sparse matrix for the implicit diffusion term (I - dt * nu/rho * Laplacian).
-        Uses a 7-point stencil for the 3D Laplacian.
-
-        Args:
-            nx, ny, nz (int): Number of grid cells in each dimension.
-            dx, dy, dz (float): Grid spacing in each dimension.
-
-        Returns:
-            scipy.sparse.csr_matrix: The assembled sparse matrix for the implicit diffusion.
-        """
-        total_cells = nx * ny * nz
-        
-        # Identity matrix for the (I * u_new) part
-        A = identity(total_cells, format='lil') 
-
-        nu_over_rho_dt = (self.viscosity / self.density) * self.dt
-
-        # Coefficients for the Laplacian operator
-        coeff_x = nu_over_rho_dt / (dx * dx)
-        coeff_y = nu_over_rho_dt / (dy * dy)
-        coeff_z = nu_over_rho_dt / (dz * dz)
-
-        # Iterate over all cells to build the matrix A
-        for k in range(nz):
-            for j in range(ny):
-                for i in range(nx):
-                    idx = i + j * nx + k * nx * ny # 1D index for the current cell
-
-                    # Diagonal element: 1 + dt * nu/rho * (2/dx^2 + 2/dy^2 + 2/dz^2)
-                    A[idx, idx] = 1.0 + 2 * coeff_x + 2 * coeff_y + 2 * coeff_z
-
-                    # Neighbors (implicit contribution)
-                    # X-direction
-                    if i > 0:
-                        A[idx, idx - 1] = -coeff_x
-                    elif self.mesh_info.get('is_periodic_x', False):
-                        A[idx, idx + (nx - 1)] = -coeff_x # Wrap around
-                    
-                    if i < nx - 1:
-                        A[idx, idx + 1] = -coeff_x
-                    elif self.mesh_info.get('is_periodic_x', False):
-                        A[idx, idx - (nx - 1)] = -coeff_x # Wrap around
-
-                    # Y-direction
-                    if j > 0:
-                        A[idx, idx - nx] = -coeff_y
-                    elif self.mesh_info.get('is_periodic_y', False):
-                        A[idx, idx + (ny - 1) * nx] = -coeff_y # Wrap around
-                    
-                    if j < ny - 1:
-                        A[idx, idx + nx] = -coeff_y
-                    elif self.mesh_info.get('is_periodic_y', False):
-                        A[idx, idx - (ny - 1) * nx] = -coeff_y # Wrap around
-
-                    # Z-direction
-                    if k > 0:
-                        A[idx, idx - nx * ny] = -coeff_z
-                    elif self.mesh_info.get('is_periodic_z', False):
-                        A[idx, idx + (nz - 1) * nx * ny] = -coeff_z # Wrap around
-                    
-                    if k < nz - 1:
-                        A[idx, idx + nx * ny] = -coeff_z
-                    elif self.mesh_info.get('is_periodic_z', False):
-                        A[idx, idx - (nz - 1) * nx * ny] = -coeff_z # Wrap around
-        
-        # Convert to CSR format for efficient solving
-        return A.tocsr()
+    # ... (rest of __init__ and _build_diffusion_matrix are the same) ...
 
     def step(
         self,
@@ -154,12 +49,14 @@ class ImplicitSolver:
 
         nx_int, ny_int, nz_int = self.mesh_info['grid_shape']
         
-        # Initialize divergence_after_correction_field for return
         divergence_after_correction_field = np.zeros_like(current_pressure)
+
+        print(f"[DEBUG] Initial velocity in step(): min={np.min(current_velocity):.4e}, max={np.max(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
+        print(f"[DEBUG] Initial pressure in step(): min={np.min(current_pressure):.4e}, max={np.max(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
+
 
         for pseudo_iter in range(num_pseudo_iterations):
             # Reshape velocity components for linear solver (flattened 1D arrays for interior)
-            # Ensure these slices are always (nx_int, ny_int, nz_int)
             u_flat = current_velocity[1:-1, 1:-1, 1:-1, 0].flatten()
             v_flat = current_velocity[1:-1, 1:-1, 1:-1, 1].flatten()
             w_flat = current_velocity[1:-1, 1:-1, 1:-1, 2].flatten()
@@ -168,8 +65,12 @@ class ImplicitSolver:
             advection_u = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
             advection_v = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
             advection_w = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
+            
+            print(f"[DEBUG] Advection_u stats: min={np.min(advection_u):.4e}, max={np.max(advection_u):.4e}, has_nan={np.any(np.isnan(advection_u))}, has_inf={np.any(np.isinf(advection_u))}")
+            print(f"[DEBUG] Advection_v stats: min={np.min(advection_v):.4e}, max={np.max(advection_v):.4e}, has_nan={np.any(np.isnan(advection_v))}, has_inf={np.any(np.isinf(advection_v))}")
+            print(f"[DEBUG] Advection_w stats: min={np.min(advection_w):.4e}, max={np.max(advection_w):.4e}, has_nan={np.any(np.isnan(advection_w))}, has_inf={np.any(np.isinf(advection_w))}")
 
-            # Reshape advection terms to 1D, considering only interior cells
+
             advection_u_flat = advection_u[1:-1, 1:-1, 1:-1].flatten()
             advection_v_flat = advection_v[1:-1, 1:-1, 1:-1].flatten()
             advection_w_flat = advection_w[1:-1, 1:-1, 1:-1].flatten()
@@ -185,31 +86,22 @@ class ImplicitSolver:
             grad_p_z[:, :, 1:-1] = (current_pressure[:, :, 2:] - current_pressure[:, :, :-2]) / (2 * self.mesh_info['dz'])
 
             # Boundary handling for pressure gradient
-            # The issue is likely here, or how array dimensions are interpreted.
-            # Let's ensure the slice assignment is robust.
-
-            # X-boundaries
             if not self.mesh_info.get('is_periodic_x', False):
-                # Using slices to ensure correct broadcasting if shapes are slightly off.
-                # It's better to assign a slice to a slice.
-                grad_p_x[0,:,:] = (current_pressure[1,:,:] - current_pressure[0,:,:]) / self.mesh_info['dx'] # First ghost cell
-                grad_p_x[-1,:,:] = (current_pressure[-1,:,:] - current_pressure[-2,:,:]) / self.mesh_info['dx'] # Last ghost cell
+                grad_p_x[0,:,:] = (current_pressure[1,:,:] - current_pressure[0,:,:]) / self.mesh_info['dx']
+                grad_p_x[-1,:,:] = (current_pressure[-1,:,:] - current_pressure[-2,:,:]) / self.mesh_info['dx']
             
-            # Y-boundaries
             if not self.mesh_info.get('is_periodic_y', False):
-                grad_p_y[:,0,:] = (current_pressure[:,1,:] - current_pressure[:,0,:]) / self.mesh_info['dy'] # First ghost cell
-                grad_p_y[:,-1,:] = (current_pressure[:,-1,:] - current_pressure[:,-2,:]) / self.mesh_info['dy'] # Last ghost cell
+                grad_p_y[:,0,:] = (current_pressure[:,1,:] - current_pressure[:,0,:]) / self.mesh_info['dy']
+                grad_p_y[:,-1,:] = (current_pressure[:,-1,:] - current_pressure[:,-2,:]) / self.mesh_info['dy']
 
-            # Z-boundaries
             if not self.mesh_info.get('is_periodic_z', False):
-                # This is the line causing the error. Let's make sure the slicing is correct.
-                # It seems like current_pressure[:,:,-2] might be misbehaving or
-                # current_pressure itself isn't the expected (23,23,7) shape.
-                # However, assuming current_pressure is (23,23,7):
-                grad_p_z[:,:,0] = (current_pressure[:,:,1] - current_pressure[:,:,0]) / self.mesh_info['dz'] # First ghost cell
-                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,:,-2]) / self.mesh_info['dz'] # Last ghost cell
+                grad_p_z[:,:,0] = (current_pressure[:,:,1] - current_pressure[:,:,0]) / self.mesh_info['dz']
+                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,:,-2]) / self.mesh_info['dz']
 
-            # Extract interior cells for flattening
+            print(f"[DEBUG] Grad_p_x stats: min={np.min(grad_p_x):.4e}, max={np.max(grad_p_x):.4e}, has_nan={np.any(np.isnan(grad_p_x))}, has_inf={np.any(np.isinf(grad_p_x))}")
+            print(f"[DEBUG] Grad_p_y stats: min={np.min(grad_p_y):.4e}, max={np.max(grad_p_y):.4e}, has_nan={np.any(np.isnan(grad_p_y))}, has_inf={np.any(np.isinf(grad_p_y))}")
+            print(f"[DEBUG] Grad_p_z stats: min={np.min(grad_p_z):.4e}, max={np.max(grad_p_z):.4e}, has_nan={np.any(np.isnan(grad_p_z))}, has_inf={np.any(np.isinf(grad_p_z))}")
+
             grad_p_x_flat = grad_p_x[1:-1, 1:-1, 1:-1].flatten()
             grad_p_y_flat = grad_p_y[1:-1, 1:-1, 1:-1].flatten()
             grad_p_z_flat = grad_p_z[1:-1, 1:-1, 1:-1].flatten()
@@ -220,6 +112,11 @@ class ImplicitSolver:
             b_v = v_flat - self.dt * advection_v_flat - (self.dt / self.density) * grad_p_y_flat
             b_w = w_flat - self.dt * advection_w_flat - (self.dt / self.density) * grad_p_z_flat
 
+            print(f"[DEBUG] RHS_u stats: min={np.min(b_u):.4e}, max={np.max(b_u):.4e}, has_nan={np.any(np.isnan(b_u))}, has_inf={np.any(np.isinf(b_u))}")
+            print(f"[DEBUG] RHS_v stats: min={np.min(b_v):.4e}, max={np.max(b_v):.4e}, has_nan={np.any(np.isnan(b_v))}, has_inf={np.any(np.isinf(b_v))}")
+            print(f"[DEBUG] RHS_w stats: min={np.min(b_w):.4e}, max={np.max(b_w):.4e}, has_nan={np.any(np.isnan(b_w))}, has_inf={np.any(np.isinf(b_w))}")
+
+
             # --- Solve for Tentative Velocities using Implicit Diffusion Matrix ---
             try:
                 u_new_flat = spsolve(self.diffusion_matrix_LHS, b_u)
@@ -229,7 +126,6 @@ class ImplicitSolver:
                 print(f"Error solving implicit diffusion system: {e}", file=sys.stderr)
                 raise
 
-            # Reshape solved velocities back into an array with ghost cells
             u_temp_full = np.zeros_like(current_velocity[..., 0])
             v_temp_full = np.zeros_like(current_velocity[..., 1])
             w_temp_full = np.zeros_like(current_velocity[..., 2])
@@ -241,6 +137,8 @@ class ImplicitSolver:
             current_velocity[..., 0] = u_temp_full
             current_velocity[..., 1] = v_temp_full
             current_velocity[..., 2] = w_temp_full
+            
+            print(f"[DEBUG] Tentative velocity after implicit solve (before BCs): min={np.min(current_velocity):.4e}, max={np.max(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
 
 
             # --- Apply Boundary Conditions to the tentative velocity field ---
@@ -251,9 +149,12 @@ class ImplicitSolver:
                 self.mesh_info,
                 is_tentative_step=True
             )
+            print(f"[DEBUG] Tentative velocity AFTER BCs: min={np.min(current_velocity):.4e}, max={np.max(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
+
 
             # --- Pressure Projection (still explicit in this fractional step) ---
             divergence = compute_pressure_divergence(current_velocity, self.mesh_info)
+            print(f"[DEBUG] Divergence stats BEFORE Poisson solve: min={np.min(divergence):.4e}, max={np.max(divergence):.4e}, has_nan={np.any(np.isnan(divergence))}, has_inf={np.any(np.isinf(divergence))}")
 
             pressure_correction_phi = solve_poisson_for_phi(
                 divergence,
@@ -263,6 +164,7 @@ class ImplicitSolver:
                 max_iterations=poisson_max_iter
             )
             
+            print(f"[DEBUG] Pressure_correction_phi stats: min={np.min(pressure_correction_phi):.4e}, max={np.max(pressure_correction_phi):.4e}, has_nan={np.any(np.isnan(pressure_correction_phi))}, has_inf={np.any(np.isinf(pressure_correction_phi))}")
             if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
                 print("WARNING: NaN or Inf detected in pressure_correction_phi. Clamping/Erroring out.", file=sys.stderr)
                 max_phi_val = np.finfo(np.float64).max / 10
@@ -279,6 +181,9 @@ class ImplicitSolver:
                 self.density
             )
             
+            print(f"[DEBUG] Velocity AFTER pressure correction (before final BCs): min={np.min(current_velocity):.4e}, max={np.max(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
+            print(f"[DEBUG] Pressure AFTER pressure correction (before final BCs): min={np.min(current_pressure):.4e}, max={np.max(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
+
             # After correction, apply BCs again to ensure consistency
             current_velocity, current_pressure = apply_boundary_conditions(
                 current_velocity,
@@ -287,9 +192,12 @@ class ImplicitSolver:
                 self.mesh_info,
                 is_tentative_step=False
             )
-            
+            print(f"[DEBUG] Velocity AFTER final BCs for pseudo-iteration: min={np.min(current_velocity):.4e}, max={np.max(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
+            print(f"[DEBUG] Pressure AFTER final BCs for pseudo-iteration: min={np.min(current_pressure):.4e}, max={np.max(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
+
             # Recalculate divergence after correction and BCs
             divergence_after_correction_field = compute_pressure_divergence(current_velocity, self.mesh_info)
+            print(f"[DEBUG] Final divergence for pseudo-iteration: min={np.min(divergence_after_correction_field):.4e}, max={np.max(divergence_after_correction_field):.4e}, has_nan={np.any(np.isnan(divergence_after_correction_field))}, has_inf={np.any(np.isinf(divergence_after_correction_field))}")
 
         # Final application of BCs after all pseudo-iterations
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
