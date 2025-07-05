@@ -7,28 +7,29 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
     Computes the advection term - (u · ∇)u using a first-order upwind scheme.
 
     Args:
-        u_field (np.ndarray): Scalar (nx, ny, nz) or vector (nx, ny, nz, 3) field to advect.
-                              This is the field being advected (e.g., u, v, or w component).
-        velocity_field (np.ndarray): The full velocity vector field of shape (nx, ny, nz, 3).
-                                     Used to determine the advecting velocity components (u_x, u_y, u_z).
+        u_field (np.ndarray): The specific scalar field (e.g., u_x, u_y, or u_z component)
+                              being advected, including ghost cells. Shape (nx, ny, nz).
+        velocity_field (np.ndarray): The full velocity vector field of shape (nx, ny, nz, 3),
+                                     including ghost cells. Used to determine the advecting
+                                     velocity components (u_x, u_y, u_z).
         mesh_info (dict): Dictionary with:
             - 'grid_shape': (nx, ny, nz)
             - 'dx', 'dy', 'dz': Grid spacing in each direction.
 
     Returns:
-        np.ndarray: Advection term, same shape as u_field.
+        np.ndarray: The advection term, same shape as the interior of u_field (nx-2, ny-2, nz-2).
+                    This represents -(u · ∇)u.
     """
-    # Defensive clamping at the start to handle any incoming NaNs/Infs from previous steps
-    
-    # Check for NaNs/Infs and print debug info if present
+    # Defensive clamping at the start to handle any incoming NaNs/Infs from previous steps.
+    # While we aim to eliminate NaNs at their source, this acts as a safeguard.
     u_field_has_nan = np.isnan(u_field).any()
     u_field_has_inf = np.isinf(u_field).any()
     velocity_field_has_nan = np.isnan(velocity_field).any()
     velocity_field_has_inf = np.isinf(velocity_field).any()
 
     if u_field_has_nan or u_field_has_inf or velocity_field_has_nan or velocity_field_has_inf:
-        print(f"    [Advection DEBUG] u_field input stats BEFORE clamp: min={np.min(u_field):.2e}, max={np.max(u_field):.2e}, has_nan={u_field_has_nan}, has_inf={u_field_has_inf}")
-        print(f"    [Advection DEBUG] velocity_field input stats BEFORE clamp: min={np.min(velocity_field):.2e}, max={np.max(velocity_field):.2e}, has_nan={velocity_field_has_nan}, has_inf={velocity_field_has_inf}")
+        print(f"    [Advection DEBUG] u_field input stats BEFORE clamp: min={np.nanmin(u_field):.2e}, max={np.nanmax(u_field):.2e}, has_nan={u_field_has_nan}, has_inf={u_field_has_inf}")
+        print(f"    [Advection DEBUG] velocity_field input stats BEFORE clamp: min={np.nanmin(velocity_field):.2e}, max={np.nanmax(velocity_field):.2e}, has_nan={velocity_field_has_nan}, has_inf={velocity_field_has_inf}")
 
     u_field = np.nan_to_num(u_field, nan=0.0, posinf=0.0, neginf=0.0)
     velocity_field = np.nan_to_num(velocity_field, nan=0.0, posinf=0.0, neginf=0.0)
@@ -37,150 +38,135 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
         print(f"    [Advection DEBUG] u_field input stats AFTER clamp: min={np.min(u_field):.2e}, max={np.max(u_field):.2e}")
         print(f"    [Advection DEBUG] velocity_field input stats AFTER clamp: min={np.min(velocity_field):.2e}, max={np.max(velocity_field):.2e}")
 
-
-    if not np.all(u_field.shape == velocity_field[..., 0].shape):
-        print("⚠️ Shape mismatch between scalar/vector field and velocity components.")
+    # Ensure u_field is 3D (scalar component)
+    if u_field.ndim != 3:
+        raise ValueError("u_field must be a 3D scalar array (e.g., u_x component) including ghost cells.")
+    if velocity_field.ndim != 4 or velocity_field.shape[-1] != 3:
+        raise ValueError("velocity_field must be a 4D vector array (nx, ny, nz, 3) including ghost cells.")
 
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-    is_scalar = u_field.ndim == 3
-    advection = np.zeros_like(u_field)
 
-    # Extract advecting velocity components
-    vel_x = velocity_field[..., 0] # u_x component for advection in x-direction
-    vel_y = velocity_field[..., 1] # u_y component for advection in y-direction
-    vel_z = velocity_field[..., 2] # u_z component for advection in z-direction
+    # Extract advecting velocity components (these are the velocities that are doing the advecting)
+    # These are extracted from the full velocity_field.
+    vel_x_advecting = velocity_field[..., 0] # u_x component
+    vel_y_advecting = velocity_field[..., 1] # u_y component
+    vel_z_advecting = velocity_field[..., 2] # u_z component
 
-    def upwind_derivative(phi, vel_comp, axis, spacing):
+    # Initialize the advection term for the interior cells
+    # This result will be of shape (nx-2, ny-2, nz-2)
+    advection_term_interior = np.zeros(u_field[1:-1, 1:-1, 1:-1].shape, dtype=u_field.dtype)
+
+    def upwind_derivative(phi_field, vel_comp_field, axis, spacing):
         """
-        Computes the first-order upwind derivative of phi along a given axis,
-        based on the sign of vel_comp.
+        Computes the first-order upwind derivative of phi_field along a given axis,
+        based on the sign of vel_comp_field.
 
         Args:
-            phi (np.ndarray): The scalar field (e.g., u, v, or w component) for which to compute the derivative.
-                              Assumed to include ghost cells.
-            vel_comp (np.ndarray): The velocity component along the 'axis' direction.
-                                   Used to determine the upwind direction.
+            phi_field (np.ndarray): The scalar field (e.g., u, v, or w component) for which to
+                                    compute the derivative. Assumed to include ghost cells.
+            vel_comp_field (np.ndarray): The velocity component along the 'axis' direction
+                                         used to determine the upwind direction. Assumed to
+                                         include ghost cells.
             axis (int): The axis along which to compute the derivative (0 for x, 1 for y, 2 for z).
             spacing (float): The grid spacing (dx, dy, or dz) for the given axis.
 
         Returns:
-            np.ndarray: The upwind derivative of phi, same shape as phi.
+            np.ndarray: The upwind derivative of phi_field for the interior cells,
+                        shape (nx-2, ny-2, nz-2).
         """
-        deriv = np.zeros_like(phi)
+        # Slices for interior cells (where derivative is computed)
+        interior_slice = [slice(1, -1)] * phi_field.ndim
+        # Slices for neighbor cells (relative to interior_slice along the 'axis')
+        prev_slice = list(interior_slice) # slice(0, -2) for 'i-1'
+        prev_slice[axis] = slice(0, -2)
+        next_slice = list(interior_slice) # slice(2, None) for 'i+1'
+        next_slice[axis] = slice(2, None)
 
-        # Slices for interior cells where the derivative is computed (index 'i')
-        interior_slice = [slice(None)] * phi.ndim
-        interior_slice[axis] = slice(1, -1) # Represents index 'i'
+        # Get views of the relevant parts of the fields for interior calculations
+        phi_interior = phi_field[tuple(interior_slice)]
+        vel_comp_interior = vel_comp_field[tuple(interior_slice)]
 
-        # Slices for neighbor cells
-        prev_slice = [slice(None)] * phi.ndim
-        prev_slice[axis] = slice(0, -2) # Represents index 'i-1'
+        # Backward difference (phi_i - phi_{i-1}) / spacing; used when vel_comp >= 0 (flow from i-1 to i)
+        backward_diff = (phi_interior - phi_field[tuple(prev_slice)]) / spacing
 
-        next_slice = [slice(None)] * phi.ndim
-        next_slice[axis] = slice(2, None) # Represents index 'i+1'
-
-        # Calculate backward difference: (phi_i - phi_{i-1}) / spacing
-        # Used when vel_comp >= 0 (flow from i-1 to i)
-        backward_diff = (phi[tuple(interior_slice)] - phi[tuple(prev_slice)]) / spacing
-
-        # Calculate forward difference: (phi_{i+1} - phi_i) / spacing
-        # Used when vel_comp < 0 (flow from i+1 to i)
-        forward_diff = (phi[tuple(next_slice)] - phi[tuple(interior_slice)]) / spacing
+        # Forward difference (phi_{i+1} - phi_i) / spacing; used when vel_comp < 0 (flow from i+1 to i)
+        forward_diff = (phi_field[tuple(next_slice)] - phi_interior) / spacing
 
         # Determine the upwind direction based on the velocity component's sign
-        pos_vel_mask = vel_comp[tuple(interior_slice)] >= 0
+        pos_vel_mask = vel_comp_interior >= 0
 
         # Apply upwinding:
-        deriv[tuple(interior_slice)] = np.where(
+        deriv_interior = np.where(
             pos_vel_mask,
             backward_diff,
             forward_diff
         )
-        
-        # Check for NaNs/Infs in intermediate derivative results and print if present
-        deriv_interior_has_nan = np.isnan(deriv[tuple(interior_slice)]).any()
-        deriv_interior_has_inf = np.isinf(deriv[tuple(interior_slice)]).any()
+
+        # DEBUG: Check for NaNs/Infs in intermediate derivative results
+        deriv_interior_has_nan = np.isnan(deriv_interior).any()
+        deriv_interior_has_inf = np.isinf(deriv_interior).any()
 
         if deriv_interior_has_nan or deriv_interior_has_inf:
-            if phi[tuple(interior_slice)].size > 0:
-                print(f"      [Upwind DEBUG] Axis {axis}, phi[interior_slice] min={np.min(phi[tuple(interior_slice)]):.2e}, max={np.max(phi[tuple(interior_slice)]):.2e}")
-            if phi[tuple(prev_slice)].size > 0:
-                print(f"      [Upwind DEBUG] Axis {axis}, phi[prev_slice] min={np.min(phi[tuple(prev_slice)]):.2e}, max={np.max(phi[tuple(prev_slice)]):.2e}")
-            if phi[tuple(next_slice)].size > 0:
-                print(f"      [Upwind DEBUG] Axis {axis}, phi[next_slice] min={np.min(phi[tuple(next_slice)]):.2e}, max={np.max(phi[tuple(next_slice)]):.2e}")
-            if vel_comp[tuple(interior_slice)].size > 0:
-                print(f"      [Upwind DEBUG] Axis {axis}, vel_comp[interior_slice] min={np.min(vel_comp[tuple(interior_slice)]):.2e}, max={np.max(vel_comp[tuple(interior_slice)]):.2e}")
-            
-            print(f"      [Upwind DEBUG] Axis {axis}, backward_diff stats: min={np.min(backward_diff):.2e}, max={np.max(backward_diff):.2e}, has_nan={np.isnan(backward_diff).any()}, has_inf={np.isinf(backward_diff).any()}")
-            print(f"      [Upwind DEBUG] Axis {axis}, forward_diff stats: min={np.min(forward_diff):.2e}, max={np.max(forward_diff):.2e}, has_nan={np.isnan(forward_diff).any()}, has_inf={np.isinf(forward_diff).any()}")
-            print(f"      [Upwind DEBUG] Axis {axis}, deriv (interior) after upwind: min={np.min(deriv[tuple(interior_slice)]):.2e}, max={np.max(deriv[tuple(interior_slice)]):.2e}, has_nan={deriv_interior_has_nan}, has_inf={deriv_interior_has_inf}")
+            print(f"      [Upwind DEBUG] Axis {axis}, phi_field interior min={np.nanmin(phi_interior):.2e}, max={np.nanmax(phi_interior):.2e}")
+            print(f"      [Upwind DEBUG] Axis {axis}, vel_comp_field interior min={np.nanmin(vel_comp_interior):.2e}, max={np.nanmax(vel_comp_interior):.2e}")
+            print(f"      [Upwind DEBUG] Axis {axis}, backward_diff stats: min={np.nanmin(backward_diff):.2e}, max={np.nanmax(backward_diff):.2e}, has_nan={np.isnan(backward_diff).any()}, has_inf={np.isinf(backward_diff).any()}")
+            print(f"      [Upwind DEBUG] Axis {axis}, forward_diff stats: min={np.nanmin(forward_diff):.2e}, max={np.nanmax(forward_diff):.2e}, has_nan={np.isnan(forward_diff).any()}, has_inf={np.isinf(forward_diff).any()}")
+            print(f"      [Upwind DEBUG] Axis {axis}, deriv (interior) after upwind: min={np.nanmin(deriv_interior):.2e}, max={np.nanmax(deriv_interior):.2e}, has_nan={deriv_interior_has_nan}, has_inf={deriv_interior_has_inf}")
+
+        # Return only the interior part of the derivative
+        return deriv_interior
+
+    # Slices for the interior of the advecting velocity components to match derivative output shape
+    vel_x_interior = vel_x_advecting[1:-1, 1:-1, 1:-1]
+    vel_y_interior = vel_y_advecting[1:-1, 1:-1, 1:-1]
+    vel_z_interior = vel_z_advecting[1:-1, 1:-1, 1:-1]
 
 
-        # --- Boundary Handling for the 'deriv' array itself ---
-        # The above calculation only fills the interior of 'deriv'.
-        # The outermost layers of 'deriv' (corresponding to ghost cells of 'phi')
-        # need to be handled. For simplicity, we extend the nearest interior value.
-        
-        # Fill the first slice with the value from the second slice along the axis
-        if phi.shape[axis] > 1: # Ensure there's more than one cell to copy from
-            first_deriv_slice = [slice(None)] * phi.ndim
-            first_deriv_slice[axis] = 0
-            second_deriv_slice = [slice(None)] * phi.ndim
-            second_deriv_slice[axis] = 1
-            deriv[tuple(first_deriv_slice)] = deriv[tuple(second_deriv_slice)]
-        
-        # Fill the last slice with the value from the second-to-last slice along the axis
-        if phi.shape[axis] > 1:
-            last_deriv_slice = [slice(None)] * phi.ndim
-            last_deriv_slice[axis] = -1
-            second_last_deriv_slice = [slice(None)] * phi.ndim
-            second_last_deriv_slice[axis] = -2
-            deriv[tuple(last_deriv_slice)] = deriv[tuple(second_last_deriv_slice)]
-        
-        deriv_full_has_nan = np.isnan(deriv).any()
-        deriv_full_has_inf = np.isinf(deriv).any()
-        if deriv_full_has_nan or deriv_full_has_inf:
-            print(f"      [Upwind DEBUG] Axis {axis}, deriv (full) after boundary fill: min={np.min(deriv):.2e}, max={np.max(deriv):.2e}, has_nan={deriv_full_has_nan}, has_inf={deriv_full_has_inf}")
+    # If u_field is a scalar (e.g., for advecting a scalar quantity like temperature)
+    # This path is actually for advecting a *component* of velocity, not a generic scalar.
+    # The original intent of 'u_field' being a scalar or vector was confusing.
+    # In Navier-Stokes, we advect u_x by (u_x, u_y, u_z), u_y by (u_x, u_y, u_z), etc.
+    # So u_field should always be a 3D component.
 
-        return deriv
-    # --- END CORRECTED UPWIND DERIVATIVE FUNCTION ---
+    # We assume u_field represents one of the velocity components (u_x, u_y, or u_z)
+    # The loop below handles the case where u_field is part of a 4D velocity array
+    # and compute_advection_term is called for each component.
 
     # Calculate the advection term (u · ∇)u
     # This involves summing the contributions from each direction (x, y, z)
-    # for each component of the advected field (u_x, u_y, u_z for momentum equations).
-    if is_scalar:
-        advection += vel_x * upwind_derivative(u_field, vel_x, axis=0, spacing=dx)
-        advection += vel_y * upwind_derivative(u_field, vel_y, axis=1, spacing=dy)
-        advection += vel_z * upwind_derivative(u_field, vel_z, axis=2, spacing=dz)
-    else:
-        for comp in range(3):
-            uc = u_field[..., comp] # Get the specific velocity component (u_x, u_y, or u_z) being advected
-            
-            # Advection contribution from x-direction velocity (vel_x)
-            advection[..., comp] += vel_x * upwind_derivative(uc, vel_x, axis=0, spacing=dx)
-            
-            # Advection contribution from y-direction velocity (vel_y)
-            advection[..., comp] += vel_y * upwind_derivative(uc, vel_y, axis=1, spacing=dy)
-            
-            # Advection contribution from z-direction velocity (vel_z)
-            advection[..., comp] += vel_z * upwind_derivative(uc, vel_z, axis=2, spacing=dz)
+    # for the current component (u_field) being advected.
 
-    # Final check for NaNs/Infs in the computed advection term and clamp if necessary
-    if np.isnan(advection).any() or np.isinf(advection).any():
-        print(f"    Advection stats before clamp: min={np.min(advection):.2e}, max={np.max(advection):.2e}")
-        print("❌ Warning: NaNs or infs detected in advection term — clamping to zero.")
-    advection = np.nan_to_num(advection, nan=0.0, posinf=0.0, neginf=0.0)
-
-    # In Navier-Stokes, the advection term is typically subtracted from the velocity update.
-    # So, if 'advection' computes (u . grad)u, we return -(u . grad)u.
-    return -advection
+    # Advection contribution from x-direction velocity (vel_x)
+    advection_term_interior += vel_x_interior * upwind_derivative(u_field, vel_x_advecting, axis=0, spacing=dx)
+    
+    # Advection contribution from y-direction velocity (vel_y)
+    advection_term_interior += vel_y_interior * upwind_derivative(u_field, vel_y_advecting, axis=1, spacing=dy)
+    
+    # Advection contribution from z-direction velocity (vel_z)
+    advection_term_interior += vel_z_interior * upwind_derivative(u_field, vel_z_advecting, axis=2, spacing=dz)
 
 
-# The following function 'advect_velocity' is not currently used by ExplicitSolver.step
-# and appears to be for a different grid setup (staggered MAC grid).
-# It's commented out to avoid confusion and keep the focus on the primary execution path.
-# If you intend to use a MAC grid or this function later, it will need to be re-evaluated
-# and potentially adapted to the new upwind_derivative logic and your overall solver structure.
+    # Final check for NaNs/Infs in the computed advection term.
+    # For a stable scheme, these should ideally not appear here.
+    advection_final_has_nan = np.isnan(advection_term_interior).any()
+    advection_final_has_inf = np.isinf(advection_term_interior).any()
+
+    if advection_final_has_nan or advection_final_has_inf:
+        print(f"    Advection stats before final output (interior): min={np.nanmin(advection_term_interior):.2e}, max={np.nanmax(advection_term_interior):.2e}, has_nan={advection_final_has_nan}, has_inf={advection_final_has_inf}")
+        # If you truly want to remove all clamping, comment out the line below.
+        # However, for robustness against extreme edge cases, keeping it might be safer initially.
+        advection_term_interior = np.nan_to_num(advection_term_interior, nan=0.0, posinf=0.0, neginf=0.0)
+        print(f"    Advection stats AFTER final output clamp (interior): min={np.min(advection_term_interior):.2e}, max={np.max(advection_term_interior):.2e}")
+
+
+    # In Navier-Stokes, the advection term (u · ∇)u is typically subtracted in the momentum equation.
+    # So, if this function computes (u · ∇)u, we return -(u · ∇)u for the RHS.
+    return -advection_term_interior
+
+
+# The following function 'advect_velocity' is for a different purpose/structure
+# and is commented out to avoid confusion and keep the focus on the primary execution path
+# used by your main solver.
 # def advect_velocity(u, v, w, dx, dy, dz, dt):
 #     """
 #     Performs forward Euler advection of velocity components using a staggered MAC grid.
