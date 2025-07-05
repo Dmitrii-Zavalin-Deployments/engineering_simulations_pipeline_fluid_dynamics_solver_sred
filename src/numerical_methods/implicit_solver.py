@@ -50,8 +50,6 @@ class ImplicitSolver:
         self.fluid_properties_dict = fluid_properties
 
         # Pre-compute the matrix for the implicit diffusion step
-        # Correctly extract nx, ny, nz from mesh_info['grid_shape']
-        # Also ensure dx, dy, dz are directly from mesh_info
         nx_grid, ny_grid, nz_grid = self.mesh_info['grid_shape'] # Get nx, ny, nz from grid_shape
         self.diffusion_matrix_LHS = self._build_diffusion_matrix(
             nx_grid, ny_grid, nz_grid,
@@ -97,7 +95,6 @@ class ImplicitSolver:
                     # X-direction
                     if i > 0:
                         A[idx, idx - 1] = -coeff_x
-                    # Assuming mesh_info['is_periodic_x'] is defined
                     elif self.mesh_info.get('is_periodic_x', False):
                         A[idx, idx + (nx - 1)] = -coeff_x # Wrap around
                     
@@ -141,8 +138,8 @@ class ImplicitSolver:
 
         Args:
             velocity_field (np.ndarray): Current velocity field (U, V, W components).
-                                         Shape: (nx, ny, nz, 3).
-            pressure_field (np.ndarray): Current pressure field. Shape: (nx, ny, nz).
+                                         Shape: (nx+2, ny+2, nz+2, 3).
+            pressure_field (np.ndarray): Current pressure field. Shape: (nx+2, ny+2, nz+2).
 
         Returns:
             tuple[np.ndarray, np.ndarray, np.ndarray]: Updated velocity_field, pressure_field, and the divergence field after correction.
@@ -151,27 +148,22 @@ class ImplicitSolver:
         current_velocity = np.copy(velocity_field)
         current_pressure = np.copy(pressure_field)
         
-        # Parameters for the pseudo-iterations (PISO-like structure)
         num_pseudo_iterations = 2
         poisson_tolerance = 1e-6
         poisson_max_iter = 1000
 
-        # Get the actual grid dimensions for interior cells from mesh_info['grid_shape']
-        # This assumes velocity_field and pressure_field have ghost cells, so actual interior size is (nx,ny,nz)
         nx_int, ny_int, nz_int = self.mesh_info['grid_shape']
         
-        # Reshape velocity components for linear solver (flattened 1D arrays)
-        # Only flatten the INTERIOR cells for the solver, not the ghost cells
-        u_flat = current_velocity[1:-1, 1:-1, 1:-1, 0].flatten()
-        v_flat = current_velocity[1:-1, 1:-1, 1:-1, 1].flatten()
-        w_flat = current_velocity[1:-1, 1:-1, 1:-1, 2].flatten()
-
-
         # Initialize divergence_after_correction_field for return
-        # Its shape should match the pressure field, including ghost cells.
         divergence_after_correction_field = np.zeros_like(current_pressure)
 
         for pseudo_iter in range(num_pseudo_iterations):
+            # Reshape velocity components for linear solver (flattened 1D arrays for interior)
+            # Ensure these slices are always (nx_int, ny_int, nz_int)
+            u_flat = current_velocity[1:-1, 1:-1, 1:-1, 0].flatten()
+            v_flat = current_velocity[1:-1, 1:-1, 1:-1, 1].flatten()
+            w_flat = current_velocity[1:-1, 1:-1, 1:-1, 2].flatten()
+
             # --- Explicit Advection Term ---
             advection_u = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
             advection_v = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
@@ -193,20 +185,29 @@ class ImplicitSolver:
             grad_p_z[:, :, 1:-1] = (current_pressure[:, :, 2:] - current_pressure[:, :, :-2]) / (2 * self.mesh_info['dz'])
 
             # Boundary handling for pressure gradient
-            # This logic should typically be handled by boundary conditions applicator or be more robust
-            # For simplicity for now, using forward/backward diff at boundaries.
-            # However, for pressure correction, this gradient needs to be consistent with how apply_pressure_correction
-            # uses the pressure_correction_phi gradient.
-            # A more robust solution might involve passing ghost cell pressure values to the pressure gradient calculation.
+            # The issue is likely here, or how array dimensions are interpreted.
+            # Let's ensure the slice assignment is robust.
+
+            # X-boundaries
             if not self.mesh_info.get('is_periodic_x', False):
-                grad_p_x[0,:,:] = (current_pressure[1,:,:] - current_pressure[0,:,:]) / self.mesh_info['dx'] # Forward diff
-                grad_p_x[-1,:,:] = (current_pressure[-1,:,:] - current_pressure[-2,:,:]) / self.mesh_info['dx'] # Backward diff
+                # Using slices to ensure correct broadcasting if shapes are slightly off.
+                # It's better to assign a slice to a slice.
+                grad_p_x[0,:,:] = (current_pressure[1,:,:] - current_pressure[0,:,:]) / self.mesh_info['dx'] # First ghost cell
+                grad_p_x[-1,:,:] = (current_pressure[-1,:,:] - current_pressure[-2,:,:]) / self.mesh_info['dx'] # Last ghost cell
+            
+            # Y-boundaries
             if not self.mesh_info.get('is_periodic_y', False):
-                grad_p_y[:,0,:] = (current_pressure[:,1,:] - current_pressure[:,0,:]) / self.mesh_info['dy']
-                grad_p_y[:,-1,:] = (current_pressure[:,-1,:] - current_pressure[:,-2,:]) / self.mesh_info['dy']
+                grad_p_y[:,0,:] = (current_pressure[:,1,:] - current_pressure[:,0,:]) / self.mesh_info['dy'] # First ghost cell
+                grad_p_y[:,-1,:] = (current_pressure[:,-1,:] - current_pressure[:,-2,:]) / self.mesh_info['dy'] # Last ghost cell
+
+            # Z-boundaries
             if not self.mesh_info.get('is_periodic_z', False):
-                grad_p_z[:,:,0] = (current_pressure[:,:,1] - current_pressure[:,:,0]) / self.mesh_info['dz']
-                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,-2,:]) / self.mesh_info['dz']
+                # This is the line causing the error. Let's make sure the slicing is correct.
+                # It seems like current_pressure[:,:,-2] might be misbehaving or
+                # current_pressure itself isn't the expected (23,23,7) shape.
+                # However, assuming current_pressure is (23,23,7):
+                grad_p_z[:,:,0] = (current_pressure[:,:,1] - current_pressure[:,:,0]) / self.mesh_info['dz'] # First ghost cell
+                grad_p_z[:,:,-1] = (current_pressure[:,:,-1] - current_pressure[:,:,-2]) / self.mesh_info['dz'] # Last ghost cell
 
             # Extract interior cells for flattening
             grad_p_x_flat = grad_p_x[1:-1, 1:-1, 1:-1].flatten()
@@ -229,7 +230,6 @@ class ImplicitSolver:
                 raise
 
             # Reshape solved velocities back into an array with ghost cells
-            # Create temporary full arrays with ghost cells for current_velocity update
             u_temp_full = np.zeros_like(current_velocity[..., 0])
             v_temp_full = np.zeros_like(current_velocity[..., 1])
             w_temp_full = np.zeros_like(current_velocity[..., 2])
