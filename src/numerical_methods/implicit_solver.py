@@ -42,10 +42,8 @@ class ImplicitSolver:
         self.mesh_info = mesh_info
         self.dt = dt # This dt will be the maximum allowed, actual dt will be dynamic
 
-        # Note: self.nx_int, self.ny_int, self.nz_int from mesh_info['grid_shape']
-        # should be the *total* dimensions (including ghost cells) if that's how
-        # the mesh is defined consistently across the project.
-        # Based on previous debugging, it seems mesh_info['grid_shape'] is the total grid size.
+        # Note: self.nx_total, self.ny_total, self.nz_total from mesh_info['grid_shape']
+        # are the *total* dimensions including ghost cells.
         self.nx_total, self.ny_total, self.nz_total = self.mesh_info['grid_shape']
         self.dx = self.mesh_info['dx']
         self.dy = self.mesh_info['dy']
@@ -130,6 +128,9 @@ class ImplicitSolver:
         pressure_field: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
+        Turns out the previous update didn't fix the core issue, it was just pushing it around.
+        The issue lies in the shapes of the flattened arrays for the implicit solve.
+
         Performs one semi-implicit time step, using implicit diffusion.
 
         Args:
@@ -169,6 +170,7 @@ class ImplicitSolver:
             print(f"\n--- Implicit Solver Pseudo-Iteration {pseudo_iter + 1}/{num_pseudo_iterations} ---")
             
             # --- Extract INTERIOR velocity components for operations ---
+            # These are the u_old values for the implicit solve RHS
             u_interior = current_velocity[interior_slice_3d + (0,)]
             v_interior = current_velocity[interior_slice_3d + (1,)]
             w_interior = current_velocity[interior_slice_3d + (2,)]
@@ -178,13 +180,20 @@ class ImplicitSolver:
             w_flat_interior = w_interior.flatten()
 
             # --- Explicit Advection Term ---
-            advection_u_interior = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
-            advection_v_interior = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
-            advection_w_interior = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
+            # compute_advection_term should return advection for the interior cells.
+            # If it returns for the full grid, we must slice it here.
+            advection_u_full_grid = compute_advection_term(current_velocity[..., 0], current_velocity, self.mesh_info)
+            advection_v_full_grid = compute_advection_term(current_velocity[..., 1], current_velocity, self.mesh_info)
+            advection_w_full_grid = compute_advection_term(current_velocity[..., 2], current_velocity, self.mesh_info)
             
-            print(f"[DEBUG] Advection_u stats: min={np.nanmin(advection_u_interior):.4e}, max={np.nanmax(advection_u_interior):.4e}, has_nan={np.any(np.isnan(advection_u_interior))}, has_inf={np.any(np.isinf(advection_u_interior))}")
-            print(f"[DEBUG] Advection_v stats: min={np.nanmin(advection_v_interior):.4e}, max={np.nanmax(advection_v_interior):.4e}, has_nan={np.any(np.isnan(advection_v_interior))}, has_inf={np.any(np.isinf(advection_v_interior))}")
-            print(f"[DEBUG] Advection_w stats: min={np.nanmin(advection_w_interior):.4e}, max={np.nanmax(advection_w_interior):.4e}, has_nan={np.any(np.isnan(advection_w_interior))}, has_inf={np.any(np.isinf(advection_w_interior))}")
+            # **IMPORTANT FIX**: Slice advection terms to interior before flattening
+            advection_u_interior = advection_u_full_grid[interior_slice_3d]
+            advection_v_interior = advection_v_full_grid[interior_slice_3d]
+            advection_w_interior = advection_w_full_grid[interior_slice_3d]
+
+            print(f"[DEBUG] Advection_u stats (interior): min={np.nanmin(advection_u_interior):.4e}, max={np.nanmax(advection_u_interior):.4e}, has_nan={np.any(np.isnan(advection_u_interior))}, has_inf={np.any(np.isinf(advection_u_interior))}")
+            print(f"[DEBUG] Advection_v stats (interior): min={np.nanmin(advection_v_interior):.4e}, max={np.nanmax(advection_v_interior):.4e}, has_nan={np.any(np.isnan(advection_v_interior))}, has_inf={np.any(np.isinf(advection_v_interior))}")
+            print(f"[DEBUG] Advection_w stats (interior): min={np.nanmin(advection_w_interior):.4e}, max={np.nanmax(advection_w_interior):.4e}, has_nan={np.any(np.isnan(advection_w_interior))}, has_inf={np.any(np.isinf(advection_w_interior))}")
 
             # Flatten advection terms for linear system RHS
             advection_u_flat = advection_u_interior.flatten()
@@ -192,6 +201,8 @@ class ImplicitSolver:
             advection_w_flat = advection_w_interior.flatten()
 
             # --- Pressure Gradient Term (Explicit) ---
+            # Pressure gradient calculations here are already correctly sliced to interior
+            # or calculated on the full grid and then sliced.
             grad_p_x = np.zeros_like(current_pressure)
             grad_p_y = np.zeros_like(current_pressure)
             grad_p_z = np.zeros_like(current_pressure)
@@ -202,6 +213,7 @@ class ImplicitSolver:
             grad_p_z[1:-1, 1:-1, 1:-1] = (current_pressure[1:-1, 1:-1, 2:] - current_pressure[1:-1, 1:-1, :-2]) / (2 * self.dz)
 
             # Boundary handling for pressure gradient (using one-sided differences at boundaries)
+            # This part fills ghost cells, but then we take interior slice.
             if not self.mesh_info.get('is_periodic_x', False):
                 grad_p_x[0,1:-1,1:-1] = (current_pressure[1,1:-1,1:-1] - current_pressure[0,1:-1,1:-1]) / self.dx
                 grad_p_x[-1,1:-1,1:-1] = (current_pressure[-1,1:-1,1:-1] - current_pressure[-2,1:-1,1:-1]) / self.dx
@@ -214,9 +226,9 @@ class ImplicitSolver:
                 grad_p_z[1:-1,1:-1,0] = (current_pressure[1:-1,1:-1,1] - current_pressure[1:-1,1:-1,0]) / self.dz
                 grad_p_z[1:-1,1:-1,-1] = (current_pressure[1:-1,1:-1,-1] - current_pressure[1:-1,1:-1,-2]) / self.dz
 
-            print(f"[DEBUG] Grad_p_x stats: min={np.nanmin(grad_p_x):.4e}, max={np.nanmax(grad_p_x):.4e}, has_nan={np.any(np.isnan(grad_p_x))}, has_inf={np.any(np.isinf(grad_p_x))}")
-            print(f"[DEBUG] Grad_p_y stats: min={np.nanmin(grad_p_y):.4e}, max={np.nanmax(grad_p_y):.4e}, has_nan={np.any(np.isnan(grad_p_y))}, has_inf={np.any(np.isinf(grad_p_y))}")
-            print(f"[DEBUG] Grad_p_z stats: min={np.nanmin(grad_p_z):.4e}, max={np.nanmax(grad_p_z):.4e}, has_nan={np.any(np.isnan(grad_p_z))}, has_inf={np.any(np.isinf(grad_p_z))}")
+            print(f"[DEBUG] Grad_p_x stats (full grid for debugging): min={np.nanmin(grad_p_x):.4e}, max={np.nanmax(grad_p_x):.4e}, has_nan={np.any(np.isnan(grad_p_x))}, has_inf={np.any(np.isinf(grad_p_x))}")
+            print(f"[DEBUG] Grad_p_y stats (full grid for debugging): min={np.nanmin(grad_p_y):.4e}, max={np.nanmax(grad_p_y):.4e}, has_nan={np.any(np.isnan(grad_p_y))}, has_inf={np.any(np.isinf(grad_p_y))}")
+            print(f"[DEBUG] Grad_p_z stats (full grid for debugging): min={np.nanmin(grad_p_z):.4e}, max={np.nanmax(grad_p_z):.4e}, has_nan={np.any(np.isnan(grad_p_z))}, has_inf={np.any(np.isinf(grad_p_z))}")
 
             # Flatten only the interior part of the pressure gradient
             grad_p_x_flat = grad_p_x[interior_slice_3d].flatten()
@@ -224,18 +236,18 @@ class ImplicitSolver:
             grad_p_z_flat = grad_p_z[interior_slice_3d].flatten()
 
             print(f"[DEBUG ImplicitSolver] u_flat_interior shape: {u_flat_interior.shape}")
-            print(f"[DEBUG ImplicitSolver] advection_u_flat shape: {advection_u_flat.shape}")
+            print(f"[DEBUG ImplicitSolver] advection_u_flat shape: {advection_u_flat.shape}") # Should now be (1083,)
             print(f"[DEBUG ImplicitSolver] grad_p_x_flat shape: {grad_p_x_flat.shape}")
 
-
             # --- Construct RHS for Implicit Diffusion Solver (Momentum Equation) ---
+            # All operands here MUST now have the same shape (nx_interior * ny_interior * nz_interior)
             b_u = u_flat_interior - self.dt * advection_u_flat - (self.dt / self.density) * grad_p_x_flat
             b_v = v_flat_interior - self.dt * advection_v_flat - (self.dt / self.density) * grad_p_y_flat
             b_w = w_flat_interior - self.dt * advection_w_flat - (self.dt / self.density) * grad_p_z_flat
 
             print(f"[DEBUG] RHS_u stats: min={np.nanmin(b_u):.4e}, max={np.nanmax(b_u):.4e}, has_nan={np.any(np.isnan(b_u))}, has_inf={np.any(np.isinf(b_u))}")
             print(f"[DEBUG] RHS_v stats: min={np.nanmin(b_v):.4e}, max={np.nanmax(b_v):.4e}, has_nan={np.any(np.isnan(b_v))}, has_inf={np.any(np.isinf(b_v))}")
-            print(f"[DEBUG] RHS_w stats: min={np.nanmin(b_w):.4e}, max={np.nanmax(b_w):.4e}, has_nan={np.any(np.isinf(b_w))}, has_inf={np.any(np.isinf(b_w))}")
+            print(f"[DEBUG] RHS_w stats: min={np.nanmin(b_w):.4e}, max={np.nanmax(b_w):.4e}, has_nan={np.any(np.isnan(b_w))}, has_inf={np.any(np.isinf(b_w))}")
 
 
             # --- Solve for Tentative Velocities using Implicit Diffusion Matrix ---
@@ -297,13 +309,14 @@ class ImplicitSolver:
 
             # Apply pressure correction to velocity and update pressure
             # Unpack all 6 return values from apply_pressure_correction
+            # The last return value is divergence_after_correction_field, which is useful for the main loop.
             current_velocity, current_pressure, _, _, _, divergence_after_correction_field = apply_pressure_correction(
                 tentative_velocity_field=current_velocity,
                 current_pressure_field=current_pressure,
                 phi=pressure_correction_phi,
                 dt=self.dt,
                 density=self.density,
-                mesh_info=self.mesh_info # <--- CORRECTED: Passing the full mesh_info dictionary
+                mesh_info=self.mesh_info # Correctly passing the full mesh_info dictionary
             )
             
             print(f"[DEBUG] Velocity AFTER pressure correction (before final BCs): min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
@@ -320,9 +333,8 @@ class ImplicitSolver:
             print(f"[DEBUG] Velocity AFTER final BCs for pseudo-iteration: min={np.nanmin(current_velocity):.4e}, max={np.nanmax(current_velocity):.4e}, has_nan={np.any(np.isnan(current_velocity))}, has_inf={np.any(np.isinf(current_velocity))}")
             print(f"[DEBUG] Pressure AFTER final BCs for pseudo-iteration: min={np.nanmin(current_pressure):.4e}, max={np.nanmax(current_pressure):.4e}, has_nan={np.any(np.isnan(current_pressure))}, has_inf={np.any(np.isinf(current_pressure))}")
 
-            # Recalculate divergence after correction and BCs for logging/next pseudo-iteration
-            # This line is now redundant as divergence_after_correction_field is returned by apply_pressure_correction
-            # divergence_after_correction_field = compute_pressure_divergence(current_velocity, self.mesh_info)
+            # The divergence_after_correction_field is already updated by apply_pressure_correction
+            # and should represent the divergence of the corrected velocity field.
             print(f"[DEBUG] Final divergence for pseudo-iteration: min={np.nanmin(divergence_after_correction_field):.4e}, max={np.nanmax(divergence_after_correction_field):.4e}, has_nan={np.any(np.isnan(divergence_after_correction_field))}, has_inf={np.any(np.isinf(divergence_after_correction_field))}")
 
         # Final application of BCs after all pseudo-iterations
