@@ -219,8 +219,9 @@ def solve_poisson_for_phi(
     Args:
         divergence_field (np.ndarray): The divergence of the tentative velocity field,
                                        including ghost cells. Shape (nx+2, ny+2, nz+2).
-        mesh_info (dict): Dictionary with mesh details including 'grid_shape', 'dx', 'dy', 'dz',
-                          and boundary condition info.
+        mesh_info (dict): Dictionary with mesh details including 'grid_shape' (total cells incl. ghost),
+                          'dx', 'dy', 'dz', and boundary condition info.
+                          NOTE: 'grid_shape' here should be the TOTAL grid dimensions (nx_total, ny_total, nz_total).
         dt (float): Time step size.
         tolerance (float): Solver tolerance.
         max_iterations (int): Maximum number of iterations for iterative solvers.
@@ -233,27 +234,20 @@ def solve_poisson_for_phi(
                                   (shape nx+2, ny+2, nz+2) and the final residual (if return_residual=True).
                                   If return_residual is False, only phi is returned.
     """
+    # Assuming divergence_field's shape is (nx_total, ny_total, nz_total)
     nx_total, ny_total, nz_total = divergence_field.shape
-    nx_interior, ny_interior, nz_interior = mesh_info['grid_shape'] # This should be (nx, ny, nz) without ghost cells
+
+    # Derive interior dimensions from total dimensions (total - 2 ghost cells on each side)
+    nx_interior = nx_total - 2
+    ny_interior = ny_total - 2
+    nz_interior = nz_total - 2
 
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
-    # Slice for interior cells
-    interior_slice = (slice(1, nx_interior + 1), slice(1, ny_interior + 1), slice(1, nz_interior + 1))
+    # Slice for interior cells (from 1 to N-1, assuming 0 and N are ghost cells)
+    interior_slice = (slice(1, nx_total - 1), slice(1, ny_total - 1), slice(1, nz_total - 1))
 
-    # Construct RHS vector b = (rho / dt) * div_u for interior cells
-    # Note: density is typically absorbed into the pressure, so P_new = P_old + phi
-    # If the velocity correction is -dt/rho * grad(phi), then the Poisson equation is div(grad(phi)) = (rho/dt) * div(u_star)
-    # So, RHS = (rho/dt) * divergence_field_interior
-    # For simplicity, we are solving for phi, such that the final pressure P = P_old + phi.
-    # The pressure correction step then involves P_new = P_old + phi.
-    # The velocity correction will be (v_star - grad_phi*dt). No rho. This means phi has units of pressure.
-    # If using the standard projection method ( Chorin's method), the Poisson equation is:
-    # ∇²φ = (1/Δt) * ∇·u*
-    # So, the RHS is (1/dt) * divergence_field_interior
-    
-    # We will use RHS = divergence_field_interior / dt, assuming phi directly relates to pressure change.
-    # The density factor is typically handled in `apply_pressure_correction`.
+    # Construct RHS vector b = (1/dt) * div_u for interior cells
     rhs_interior = divergence_field[interior_slice] / dt
     b_flat = rhs_interior.flatten() # Flatten for solver
 
@@ -275,9 +269,11 @@ def solve_poisson_for_phi(
     }
 
     # Assemble the Poisson matrix A for interior cells
+    # Pass the *derived* interior dimensions here
     A = _assemble_poisson_matrix(nx_interior, ny_interior, nz_interior, dx, dy, dz, processed_bcs)
 
     # Apply Dirichlet boundary conditions to the RHS vector 'b'
+    # Pass the *derived* interior dimensions here
     b_flat = _apply_poisson_rhs_bcs(b_flat, nx_interior, ny_interior, nz_interior, dx, dy, dz, processed_bcs)
 
     phi_flat = None
@@ -314,7 +310,7 @@ def solve_poisson_for_phi(
 
         try:
             # bicgstab returns (x, info) where info = 0 if successful
-            phi_flat, info = bicgstab(A, b_flat, rtol=tolerance, maxiter=max_iterations, M=M_inv) # Changed 'tol' to 'rtol'
+            phi_flat, info = bicgstab(A, b_flat, rtol=tolerance, maxiter=max_iterations, M=M_inv)
             
             if info > 0:
                 print(f"WARNING: BiCGSTAB did not converge after {info} iterations. Final residual might be high.", file=sys.stderr)
@@ -352,8 +348,8 @@ def solve_poisson_for_phi(
     # or that the system implicitly handles them.
     # A more robust approach would be to calculate ghost cells explicitly here based on BCs.
 
-    # Simple ghost cell update for phi based on interior.
-    # For zero Neumann gradient at a wall, phi_ghost = phi_interior_adjacent_to_wall
+    # For zero Neumann conditions (most common for pressure correction at solid walls)
+    # phi_ghost = phi_interior_adjacent_to_wall
     # This is implicitly handled if the matrix A enforces these conditions.
     # For explicit setting:
     if not processed_bcs.get('periodic_x', False):
