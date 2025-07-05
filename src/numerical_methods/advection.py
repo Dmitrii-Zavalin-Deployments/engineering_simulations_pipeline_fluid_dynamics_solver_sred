@@ -1,7 +1,7 @@
 # src/numerical_methods/advection.py
 
 import numpy as np
-from numba import jit, float64
+from numba import jit, float64, intc # Import intc for integer types
 
 # --- Numba-jitted helper for upwind derivative ---
 @jit(
@@ -9,7 +9,7 @@ from numba import jit, float64
         float64[:, :, :],  # phi_field (e.g., u_x, u_y, u_z component)
         float64[:, :, :],  # vel_comp_field (advecting velocity component along axis)
         float64,           # spacing (dx, dy, or dz)
-        int                # axis (0, 1, or 2)
+        intc               # axis (0, 1, or 2) -- CHANGED FROM 'int' to 'intc'
     ),
     nopython=True,
     parallel=False,
