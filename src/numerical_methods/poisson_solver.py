@@ -218,9 +218,10 @@ def solve_poisson_for_phi(
     Args:
         divergence_field (np.ndarray): The divergence of the tentative velocity field,
                                        including ghost cells. Shape (nx_total, ny_total, nz_total).
-        mesh_info (dict): Dictionary with mesh details including 'grid_shape' (interior dimensions),
-                          'dx', 'dy', 'dz', and boundary condition info.
-                          NOTE: 'grid_shape' here should be the INTERIOR grid dimensions (nx, ny, nz).
+        mesh_info (dict): Dictionary with mesh details including 'dx', 'dy', 'dz',
+                          and boundary condition info.
+                          NOTE: 'grid_shape' is *not* used directly here for interior dimensions
+                          as they are derived from divergence_field.shape.
         dt (float): Time step size.
         tolerance (float): Solver tolerance.
         max_iterations (int): Maximum number of iterations for iterative solvers.
@@ -237,9 +238,14 @@ def solve_poisson_for_phi(
     nx_total, ny_total, nz_total = divergence_field.shape
 
     # Derive interior dimensions from total dimensions (total - 2 ghost cells on each side)
+    # This is the crucial part to ensure phi_interior matches the problem solved by A
     nx_interior = nx_total - 2
     ny_interior = ny_total - 2
     nz_interior = nz_total - 2
+
+    # Debug print to confirm derived interior dimensions
+    print(f"[Poisson Solver DEBUG] Derived interior dimensions: {nx_interior}x{ny_interior}x{nz_interior}")
+
 
     dx, dy, dz = mesh_info['dx'], mesh_info['dy'], mesh_info['dz']
 
