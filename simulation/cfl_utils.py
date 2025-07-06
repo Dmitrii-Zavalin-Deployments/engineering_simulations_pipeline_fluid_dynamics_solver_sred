@@ -14,7 +14,10 @@ def calculate_max_cfl(sim):
         float: Maximum CFL number observed across all components.
     """
     field = sim.velocity_field
-    dt, dx, dy, dz = sim.time_step, sim.dx, sim.dy, sim.dz
+    dt = sim.time_step
+    dx = sim.dx if hasattr(sim, "dx") else sim.mesh_info.get("dx", 1.0)
+    dy = sim.dy if hasattr(sim, "dy") else sim.mesh_info.get("dy", 1.0)
+    dz = sim.dz if hasattr(sim, "dz") else sim.mesh_info.get("dz", 1.0)
 
     # Interior slice to avoid ghost zones
     u = field[1:-1, 1:-1, 1:-1, 0]
@@ -31,6 +34,7 @@ def calculate_max_cfl(sim):
     cfl_z = np.abs(w) * dt / dz if dz > 0 else 0.0
 
     max_cfl = np.max(np.maximum(np.maximum(cfl_x, cfl_y), cfl_z))
+    print(f"🔄 Max CFL: {max_cfl:.4e} (dx={dx:.4e}, dy={dy:.4e}, dz={dz:.4e}, dt={dt:.4e})")
     return max_cfl
 
 

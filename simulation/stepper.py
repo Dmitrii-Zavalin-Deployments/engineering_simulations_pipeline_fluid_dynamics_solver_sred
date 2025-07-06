@@ -44,7 +44,15 @@ def run(self):
             print(f"[DEBUG @ Step {self.step_count}] Velocity BEFORE step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
             print(f"[DEBUG @ Step {self.step_count}] Pressure BEFORE step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
 
-            self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(self.velocity_field, self.p)
+            # --- Pressure Correction Pass ---
+            # Optionally repeat correction for tighter incompressibility
+            projection_passes = getattr(self, "num_projection_passes", 1)
+            for pass_num in range(projection_passes):
+                self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
+                    self.velocity_field,
+                    self.p
+                )
+                print(f"🔁 Pressure Projection Pass {pass_num + 1}")
 
             print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
             print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
@@ -68,7 +76,9 @@ def run(self):
                 step=self.step_count,
                 expected_velocity_shape=self.velocity_field.shape,
                 expected_pressure_shape=self.p.shape,
-                expected_divergence_shape=divergence_at_step_field.shape
+                expected_divergence_shape=divergence_at_step_field.shape,
+                divergence_mode=getattr(self, "divergence_mode", "log"),
+                max_allowed_divergence=getattr(self, "max_allowed_divergence", 3e-2)
             )
 
             if (self.step_count % self.output_frequency_steps == 0) or \

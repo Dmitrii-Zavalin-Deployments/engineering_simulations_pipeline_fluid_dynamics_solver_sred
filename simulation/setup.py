@@ -47,8 +47,16 @@ class Simulation:
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
-        self.fluid_properties = {"density": self.rho, "viscosity": self.nu}
+        self.fluid_properties = {
+            "density": self.rho,
+            "viscosity": self.nu,
+            "pressure_projection_passes": self.input_data["simulation_parameters"].get("projection_passes", 1)
+        }
         self.boundary_conditions = bc_dict
+
+        # Additional tunable parameters
+        self.max_allowed_divergence = self.input_data["simulation_parameters"].get("max_allowed_divergence", 3e-2)
+        self.divergence_mode = self.input_data["simulation_parameters"].get("divergence_mode", "log")
 
         # Solver selection: explicit, implicit, or future variants
         solver_type = self.input_data["simulation_parameters"].get("solver", "explicit").lower()

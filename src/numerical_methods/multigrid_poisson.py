@@ -62,14 +62,10 @@ def prolong(coarse, target_shape=None):
     return fine
 
 
-def v_cycle(phi, rhs, dx, dy, dz, levels):
-    if levels == 1:
-        return red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=20)
-
-    # Pre-smoothing
-    phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=3)
-
-    # Compute residual
+def compute_residual(phi, rhs, dx):
+    """
+    Computes the residual ∇²phi - rhs for diagnostic purposes.
+    """
     residual = np.zeros_like(rhs)
     residual[1:-1, 1:-1, 1:-1] = rhs[1:-1, 1:-1, 1:-1] - (
         -6 * phi[1:-1, 1:-1, 1:-1]
@@ -77,6 +73,22 @@ def v_cycle(phi, rhs, dx, dy, dz, levels):
         + phi[1:-1, 2:, 1:-1] + phi[1:-1, :-2, 1:-1]
         + phi[1:-1, 1:-1, 2:] + phi[1:-1, 1:-1, :-2]
     ) / dx**2
+    return residual
+
+
+def v_cycle(phi, rhs, dx, dy, dz, levels):
+    if levels == 1:
+        phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=20)
+        return phi
+
+    # Pre-smoothing
+    phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=3)
+
+    # Compute residual and log diagnostics
+    residual = compute_residual(phi, rhs, dx)
+    max_residual = np.max(np.abs(residual))
+    mean_residual = np.mean(np.abs(residual))
+    print(f"📉 V-cycle residual: max={max_residual:.4e}, mean={mean_residual:.4e}, shape={residual.shape}")
 
     # Restrict residual
     coarse_rhs = restrict(residual)
@@ -125,5 +137,6 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3):
     phi[:, :, -1] = phi[:, :, -2]
 
     return phi
+
 
 

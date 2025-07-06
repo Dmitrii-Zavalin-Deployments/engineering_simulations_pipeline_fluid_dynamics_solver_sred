@@ -9,10 +9,12 @@ def apply_pressure_correction(
     phi: np.ndarray,
     mesh_info: dict,
     dt: float,
-    density: float
-) -> tuple[np.ndarray, np.ndarray]:
+    density: float,
+    return_residual: bool = False
+) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, float]:
     """
     Applies the pressure correction to the tentative velocity field and updates the pressure.
+    Optionally returns an estimate of the residual divergence after correction.
 
     Args:
         tentative_velocity_field (np.ndarray): Velocity field after advection and diffusion.
@@ -21,14 +23,13 @@ def apply_pressure_correction(
         mesh_info (dict): Mesh parameters including dx, dy, dz.
         dt (float): Time step size.
         density (float): Fluid density.
+        return_residual (bool): Whether to compute and return residual divergence.
 
     Returns:
-        tuple: (updated_velocity_field, updated_pressure_field)
+        tuple: (updated_velocity_field, updated_pressure_field [, divergence_residual])
     """
-    # Extract mesh spacing
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
-    # Clone fields
     updated_velocity = tentative_velocity_field.copy()
     updated_pressure = current_pressure_field.copy()
 
@@ -48,7 +49,17 @@ def apply_pressure_correction(
     # Apply pressure correction
     updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1]
 
-    return updated_velocity, updated_pressure
+    if not return_residual:
+        return updated_velocity, updated_pressure
+
+    # Estimate residual divergence ∇·u (optional)
+    dudx = (updated_velocity[2:, 1:-1, 1:-1, 0] - updated_velocity[1:-1, 1:-1, 1:-1, 0]) / dx
+    dvdy = (updated_velocity[1:-1, 2:, 1:-1, 1] - updated_velocity[1:-1, 1:-1, 1:-1, 1]) / dy
+    dwdz = (updated_velocity[1:-1, 1:-1, 2:, 2] - updated_velocity[1:-1, 1:-1, 1:-1, 2]) / dz
+    div_u = dudx + dvdy + dwdz
+    max_residual = np.max(np.abs(div_u))
+
+    return updated_velocity, updated_pressure, max_residual
 
 
 

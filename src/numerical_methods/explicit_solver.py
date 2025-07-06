@@ -28,6 +28,7 @@ class ExplicitSolver:
         self.dt = dt
         self.mesh_info = mesh_info
         self.fluid_properties_dict = fluid_properties
+        self.pressure_projection_passes = fluid_properties.get("pressure_projection_passes", 1)
 
     def step(
         self,
@@ -67,35 +68,36 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # 5. Compute divergence and solve for φ using multigrid
-        divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
+        # 5–6. Dual pressure projection loop
+        for pass_num in range(self.pressure_projection_passes):
+            print(f"🔁 Pressure Projection Iteration {pass_num + 1}")
+            divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
 
-        pressure_correction_phi = solve_poisson_multigrid(
-            divergence,
-            self.mesh_info,
-            self.dt,
-            levels=3
-        )
+            pressure_correction_phi = solve_poisson_multigrid(
+                divergence,
+                self.mesh_info,
+                self.dt,
+                levels=3
+            )
 
-        if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
-            print("⚠️ Warning: NaN or Inf in pressure correction φ — clamping.")
-            max_val = np.finfo(np.float64).max / 10
-            pressure_correction_phi = np.clip(pressure_correction_phi, -max_val, max_val)
+            if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
+                print("⚠️ Warning: NaN or Inf in pressure correction φ — clamping.")
+                max_val = np.finfo(np.float64).max / 10
+                pressure_correction_phi = np.clip(pressure_correction_phi, -max_val, max_val)
 
-        # 6. Apply pressure correction and update fields
-        updated_velocity_field, updated_pressure_field = apply_pressure_correction(
-            tentative_velocity_field,
-            pressure_field,
-            pressure_correction_phi,
-            self.mesh_info,
-            self.dt,
-            self.density
-        )
+            tentative_velocity_field, pressure_field = apply_pressure_correction(
+                tentative_velocity_field,
+                pressure_field,
+                pressure_correction_phi,
+                self.mesh_info,
+                self.dt,
+                self.density
+            )
 
         # 7. Final BC enforcement
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
-            updated_velocity_field,
-            updated_pressure_field,
+            tentative_velocity_field,
+            pressure_field,
             self.fluid_properties_dict,
             self.mesh_info,
             is_tentative_step=False

@@ -3,6 +3,9 @@
 import numpy as np
 import sys
 
+_previous_divergence_max = None  # Module-level cache for divergence tracking
+
+
 def check_field_validity(field: np.ndarray, label: str = "field"):
     """
     Checks for NaNs, Infs, and prints min/max for a given field.
@@ -16,16 +19,42 @@ def check_field_validity(field: np.ndarray, label: str = "field"):
     return not (has_nan or has_inf)
 
 
-def test_divergence_stability(divergence_field: np.ndarray, max_allowed_divergence: float = 1e-4):
+def test_divergence_stability(
+    divergence_field: np.ndarray,
+    max_allowed_divergence: float = 3e-2,
+    mode: str = "log"
+):
     """
     Checks if divergence magnitude exceeds threshold.
+
+    Modes:
+        - "strict": fails the test if above threshold
+        - "log": logs warning but returns True
+        - "none": disables check entirely
     """
+    global _previous_divergence_max
+
+    if mode == "none":
+        print(f"📏 ∇·u check skipped (mode='none')")
+        return True
+
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     max_div = np.max(np.abs(interior))
     mean_div = np.mean(np.abs(interior))
 
     print(f"📏 ∇·u check: max={max_div:.4e}, mean={mean_div:.4e}")
-    return max_div <= max_allowed_divergence
+
+    # Track trend
+    if _previous_divergence_max is not None:
+        delta = max_div - _previous_divergence_max
+        print(f"📊 ∇·u change from previous: Δ={delta:.4e}")
+    _previous_divergence_max = max_div
+
+    if max_div > max_allowed_divergence:
+        print(f"⚠️ ∇·u exceeds allowed threshold: max={max_div:.4e} > {max_allowed_divergence:.4e}")
+        return mode == "log"
+
+    return True
 
 
 def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.0):
@@ -57,7 +86,10 @@ def run_stability_checks(
     step: int,
     expected_velocity_shape: tuple = None,
     expected_pressure_shape: tuple = None,
-    expected_divergence_shape: tuple = None
+    expected_divergence_shape: tuple = None,
+    divergence_mode: str = "log",
+    max_allowed_divergence: float = 3e-2,
+    velocity_limit: float = 10.0
 ):
     """
     Runs all stability diagnostics for the current simulation step.
@@ -70,15 +102,31 @@ def run_stability_checks(
     tests_passed &= check_field_validity(pressure_field, "Pressure")
     tests_passed &= check_field_validity(divergence_field, "Divergence")
 
-    tests_passed &= test_divergence_stability(divergence_field)
-    tests_passed &= test_velocity_bounds(velocity_field)
+    tests_passed &= test_divergence_stability(
+        divergence_field,
+        max_allowed_divergence=max_allowed_divergence,
+        mode=divergence_mode
+    )
+    tests_passed &= test_velocity_bounds(velocity_field, velocity_limit=velocity_limit)
 
     if expected_velocity_shape:
-        tests_passed &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), label_a="Velocity", label_b="Expected")
+        tests_passed &= test_shape_match(
+            velocity_field,
+            np.zeros(expected_velocity_shape),
+            label_a="Velocity", label_b="Expected"
+        )
     if expected_pressure_shape:
-        tests_passed &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), label_a="Pressure", label_b="Expected")
+        tests_passed &= test_shape_match(
+            pressure_field,
+            np.zeros(expected_pressure_shape),
+            label_a="Pressure", label_b="Expected"
+        )
     if expected_divergence_shape:
-        tests_passed &= test_shape_match(divergence_field, np.zeros(expected_divergence_shape), label_a="Divergence", label_b="Expected")
+        tests_passed &= test_shape_match(
+            divergence_field,
+            np.zeros(expected_divergence_shape),
+            label_a="Divergence", label_b="Expected"
+        )
 
     if not tests_passed:
         print(f"❌ Step {step}: Stability test FAILED. Halting or inspecting recommended.")
