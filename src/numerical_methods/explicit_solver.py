@@ -7,7 +7,7 @@ try:
     from .advection import compute_advection_term
     from .diffusion import compute_diffusion_term
     from .pressure_divergence import compute_pressure_divergence
-    from .poisson_solver import solve_poisson_for_phi
+    from .multigrid_poisson import solve_poisson_multigrid  # ⬅️ Use multigrid instead of BiCGSTAB
     from .pressure_correction import apply_pressure_correction
     from physics.boundary_conditions_applicator import apply_boundary_conditions
 except ImportError as e:
@@ -67,15 +67,14 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # 5. Compute divergence and solve for φ
+        # 5. Compute divergence and solve for φ using multigrid
         divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
 
-        pressure_correction_phi = solve_poisson_for_phi(
+        pressure_correction_phi = solve_poisson_multigrid(
             divergence,
             self.mesh_info,
             self.dt,
-            tolerance=1e-6,
-            max_iterations=1000
+            levels=3  # You can increase if resolution supports it
         )
 
         if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
