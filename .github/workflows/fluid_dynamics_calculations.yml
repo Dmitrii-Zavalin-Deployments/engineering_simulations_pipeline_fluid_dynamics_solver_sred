@@ -80,16 +80,16 @@ jobs:
           echo "ℹ️ No initial snapshot found (may be expected for short runs)."
         fi
 
-    #- name: Run Tests
-    #  run: |
-    #    ACTUAL_OUTPUT_DIR="$OUTPUT_RESULTS_BASE_DIR/navier_stokes_output"
-    #    echo "🔍 FULL_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
-    #    echo "🔍 RESTARTED_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
+    - name: Run Tests
+      run: |
+        ACTUAL_OUTPUT_DIR="$OUTPUT_RESULTS_BASE_DIR/navier_stokes_output"
+        echo "🔍 FULL_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
+        echo "🔍 RESTARTED_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
 
-    #    FULL_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
-    #    RESTARTED_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
-    #    PYTHONPATH=src \
-    #    pytest tests/ --verbose -ra
+        FULL_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
+        RESTARTED_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
+        PYTHONPATH=src \
+        pytest tests/ --verbose -ra
 
     - name: Upload Results to Dropbox
       env:

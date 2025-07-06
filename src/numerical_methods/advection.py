@@ -156,6 +156,11 @@ def compute_advection_term(u_field, velocity_field, mesh_info):
 
     # In Navier-Stokes, the advection term (u · ∇)u is typically subtracted in the momentum equation.
     # So, if this function computes (u · ∇)u, we return -(u · ∇)u for the RHS.
+    
+    # Diagnostic: Log maximum advection magnitude
+    max_adv = np.max(np.abs(full_advection_term_array[interior_slice_global]))
+    print(f"📈 Max advection magnitude: {max_adv:.4e}")
+    
     return -full_advection_term_array
 
 
