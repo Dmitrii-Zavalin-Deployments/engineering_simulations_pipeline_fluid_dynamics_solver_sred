@@ -70,17 +70,5 @@ def compute_diffusion_term(field, viscosity, mesh_info):
     return diffusion
 
 
-# The following function 'apply_diffusion_step' is not currently used by ExplicitSolver.step.
-# ExplicitSolver.step directly computes the diffusion term and adds it to u_star.
-# It's commented out to avoid confusion and keep the focus on the primary execution path.
-# def apply_diffusion_step(field, diffusion_coefficient, mesh_info, dt):
-#     """
-#     Performs one explicit diffusion update using:
-#     u_new = u + dt * ν ∇²(u)
-#     """
-#     diff = compute_diffusion_term(field, diffusion_coefficient, mesh_info)
-#     return field + dt * diff
-
-
 
 
