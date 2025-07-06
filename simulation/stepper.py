@@ -57,6 +57,9 @@ def run(self):
                 is_tentative_step=False
             )
 
+            print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER final BCs: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
+            print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER final BCs: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
+
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)

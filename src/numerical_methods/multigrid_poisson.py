@@ -114,4 +114,3 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3):
     return phi
 
 
-

@@ -41,14 +41,27 @@ def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.
     return max_vel < velocity_limit
 
 
+def test_shape_match(field_a: np.ndarray, field_b: np.ndarray, label_a="A", label_b="B"):
+    """
+    Ensures two fields have matching shapes. Useful for prolongation safety.
+    """
+    match = field_a.shape == field_b.shape
+    print(f"📐 Shape match check: {label_a} shape={field_a.shape}, {label_b} shape={field_b.shape}, match={match}")
+    return match
+
+
 def run_stability_checks(
     velocity_field: np.ndarray,
     pressure_field: np.ndarray,
     divergence_field: np.ndarray,
-    step: int
+    step: int,
+    expected_velocity_shape: tuple = None,
+    expected_pressure_shape: tuple = None
 ):
     """
     Runs all stability diagnostics for the current simulation step.
+
+    Optionally verifies that velocity and pressure shapes match expectation.
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
     tests_passed = True
@@ -59,6 +72,12 @@ def run_stability_checks(
 
     tests_passed &= test_divergence_stability(divergence_field)
     tests_passed &= test_velocity_bounds(velocity_field)
+
+    if expected_velocity_shape:
+        tests_passed &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), label_a="Velocity", label_b="Expected")
+
+    if expected_pressure_shape:
+        tests_passed &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), label_a="Pressure", label_b="Expected")
 
     if not tests_passed:
         print(f"❌ Step {step}: Stability test FAILED. Halting or inspecting recommended.")
