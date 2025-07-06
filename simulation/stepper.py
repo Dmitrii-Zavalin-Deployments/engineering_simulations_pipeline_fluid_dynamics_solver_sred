@@ -8,6 +8,7 @@ from physics.boundary_conditions_applicator import apply_boundary_conditions
 from numerical_methods.pressure_divergence import compute_pressure_divergence
 from solver.results_handler import save_field_snapshot
 from utils.log_utils import log_flow_metrics
+from tests.stability_tests import run_stability_checks
 
 
 def run(self):
@@ -59,6 +60,16 @@ def run(self):
 
             print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER final BCs: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
             print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER final BCs: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
+
+            run_stability_checks(
+                velocity_field=self.velocity_field,
+                pressure_field=self.p,
+                divergence_field=divergence_at_step_field,
+                step=self.step_count,
+                expected_velocity_shape=self.velocity_field.shape,
+                expected_pressure_shape=self.p.shape,
+                expected_divergence_shape=divergence_at_step_field.shape
+            )
 
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):

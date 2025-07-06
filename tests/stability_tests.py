@@ -56,12 +56,12 @@ def run_stability_checks(
     divergence_field: np.ndarray,
     step: int,
     expected_velocity_shape: tuple = None,
-    expected_pressure_shape: tuple = None
+    expected_pressure_shape: tuple = None,
+    expected_divergence_shape: tuple = None
 ):
     """
     Runs all stability diagnostics for the current simulation step.
-
-    Optionally verifies that velocity and pressure shapes match expectation.
+    Optionally verifies that fields match expected shapes.
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
     tests_passed = True
@@ -75,9 +75,10 @@ def run_stability_checks(
 
     if expected_velocity_shape:
         tests_passed &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), label_a="Velocity", label_b="Expected")
-
     if expected_pressure_shape:
         tests_passed &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), label_a="Pressure", label_b="Expected")
+    if expected_divergence_shape:
+        tests_passed &= test_shape_match(divergence_field, np.zeros(expected_divergence_shape), label_a="Divergence", label_b="Expected")
 
     if not tests_passed:
         print(f"❌ Step {step}: Stability test FAILED. Halting or inspecting recommended.")

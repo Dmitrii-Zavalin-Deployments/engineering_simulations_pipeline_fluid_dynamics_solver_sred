@@ -28,24 +28,37 @@ def restrict(field):
     return field[::2, ::2, ::2]
 
 
-def prolong(coarse):
-    """Prolong to finer grid via trilinear interpolation"""
+def prolong(coarse, target_shape=None):
+    """
+    Prolong to finer grid via trilinear interpolation.
+
+    Args:
+        coarse (np.ndarray): Coarse grid correction.
+        target_shape (tuple): Desired output shape to match fine grid interior.
+    
+    Returns:
+        np.ndarray: Prolonged correction matching fine grid interior shape.
+    """
     nx, ny, nz = coarse.shape
-    fine = np.zeros((2*nx, 2*ny, 2*nz))
+    fine = np.zeros((2 * nx, 2 * ny, 2 * nz))
 
     for i in range(nx):
         for j in range(ny):
             for k in range(nz):
                 base = coarse[i, j, k]
-                fine[2*i  , 2*j  , 2*k  ] += base
-                fine[2*i+1, 2*j  , 2*k  ] += base
-                fine[2*i  , 2*j+1, 2*k  ] += base
-                fine[2*i  , 2*j  , 2*k+1] += base
-                fine[2*i+1, 2*j+1, 2*k  ] += base
-                fine[2*i+1, 2*j  , 2*k+1] += base
-                fine[2*i  , 2*j+1, 2*k+1] += base
-                fine[2*i+1, 2*j+1, 2*k+1] += base
+                fi, fj, fk = 2 * i, 2 * j, 2 * k
+                for di in [0, 1]:
+                    for dj in [0, 1]:
+                        for dk in [0, 1]:
+                            ii, jj, kk = fi + di, fj + dj, fk + dk
+                            if ii < fine.shape[0] and jj < fine.shape[1] and kk < fine.shape[2]:
+                                fine[ii, jj, kk] += base
     fine /= 8
+
+    if target_shape is not None:
+        sx, sy, sz = target_shape
+        fine = fine[:sx, :sy, :sz]
+
     return fine
 
 
@@ -73,7 +86,7 @@ def v_cycle(phi, rhs, dx, dy, dz, levels):
     coarse_phi = v_cycle(coarse_phi, coarse_rhs, 2*dx, 2*dy, 2*dz, levels - 1)
 
     # Prolongate and correct
-    correction = prolong(coarse_phi)
+    correction = prolong(coarse_phi, target_shape=phi.shape)
     phi += correction
 
     # Post-smoothing

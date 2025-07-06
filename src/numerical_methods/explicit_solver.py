@@ -7,7 +7,7 @@ try:
     from .advection import compute_advection_term
     from .diffusion import compute_diffusion_term
     from .pressure_divergence import compute_pressure_divergence
-    from .multigrid_poisson import solve_poisson_multigrid  # ⬅️ Use multigrid instead of BiCGSTAB
+    from .multigrid_poisson import solve_poisson_multigrid
     from .pressure_correction import apply_pressure_correction
     from physics.boundary_conditions_applicator import apply_boundary_conditions
 except ImportError as e:
@@ -74,7 +74,7 @@ class ExplicitSolver:
             divergence,
             self.mesh_info,
             self.dt,
-            levels=3  # You can increase if resolution supports it
+            levels=3
         )
 
         if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
