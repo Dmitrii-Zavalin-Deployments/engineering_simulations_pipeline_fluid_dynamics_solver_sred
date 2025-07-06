@@ -46,25 +46,25 @@ def setup_simulation_output_directory(simulation_instance, output_dir):
 
 def log_divergence_snapshot(divergence_field, step_count, output_dir, additional_meta=None):
     """
-    Logs the divergence field metrics to a structured JSON file for post-analysis.
-    Only summary stats are saved to avoid large disk writes.
+    Logs divergence metrics at each simulation step.
+    Also includes recovery and solver health metadata if provided.
 
     Args:
         divergence_field (np.ndarray): Full divergence field including ghost zones.
         step_count (int): Simulation step number.
         output_dir (str): Root output directory path.
-        additional_meta (dict): Optional additional metadata to include.
+        additional_meta (dict): Optional metadata, e.g., {dt, solver_name, recovery_triggered}
     """
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
 
     stats = {
         "step": step_count,
+        "timestamp": datetime.now().isoformat(),
         "max_divergence": float(np.max(np.abs(interior))),
         "mean_divergence": float(np.mean(np.abs(interior))),
         "min_divergence": float(np.min(interior)),
-        "std_divergence": float(np.std(interior)),
-        "timestamp": datetime.now().isoformat()
+        "std_divergence": float(np.std(interior))
     }
 
     if additional_meta:

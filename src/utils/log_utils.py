@@ -25,23 +25,27 @@ def log_flow_metrics(
     num_steps: int,
     dt: float = None,
     cfl: float = None,
-    residual_divergence: float = None
+    residual_divergence: float = None,
+    event_tag: str = None,
+    recovery_triggered: bool = False
 ):
     """
-    Logs diagnostic metrics to structured output for GitHub Actions and runtime monitoring.
+    Logs diagnostic metrics for fluid stability tracking and simulation monitoring.
 
     Args:
-        velocity_field (np.ndarray): Full velocity field [nx+2, ny+2, nz+2, 3]
-        pressure_field (np.ndarray): Full pressure field [nx+2, ny+2, nz+2]
-        divergence_field (np.ndarray): Computed ∇·u field [nx+2, ny+2, nz+2]
-        fluid_density (float): Fluid density value
-        step_count (int): Current step number
-        current_time (float): Current simulation time
-        output_frequency_steps (int): How often to output full metrics.
-        num_steps (int): Total number of simulation steps.
-        dt (float): Optional time step value for context
-        cfl (float): Optional CFL value for context
-        residual_divergence (float): Optional residual ∇·u after correction
+        velocity_field (np.ndarray): Velocity grid [nx+2, ny+2, nz+2, 3]
+        pressure_field (np.ndarray): Pressure grid [nx+2, ny+2, nz+2]
+        divergence_field (np.ndarray): ∇·u field [nx+2, ny+2, nz+2]
+        fluid_density (float): Fluid density
+        step_count (int): Current simulation step
+        current_time (float): Simulation time (s)
+        output_frequency_steps (int): How often to log full metrics
+        num_steps (int): Total number of steps
+        dt (float): Current time step value
+        cfl (float): CFL number
+        residual_divergence (float): Residual ∇·u after pressure correction
+        event_tag (str): Optional label describing triggered event
+        recovery_triggered (bool): Whether adaptive recovery was applied
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]
@@ -84,6 +88,10 @@ def log_flow_metrics(
             logger.info(f"    • CFL Number                 : {cfl:.4e}")
         if residual_divergence is not None:
             logger.info(f"    • Post-Correction Residual ∇·u : {residual_divergence:.4e}")
+        if event_tag:
+            logger.info(f"🛠 Event Triggered               : {event_tag}")
+        if recovery_triggered:
+            logger.info(f"🔧 Adaptive Recovery Applied     : ✅ dt halved, projection clamped")
 
 
 

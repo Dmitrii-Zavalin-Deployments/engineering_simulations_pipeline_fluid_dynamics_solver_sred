@@ -66,6 +66,7 @@ class Simulation:
         self.max_allowed_divergence = sim_params.get("max_allowed_divergence", 3e-2)
         self.divergence_mode = sim_params.get("divergence_mode", "log")
         self.num_projection_passes = sim_params.get("projection_passes", 1)
+        self.divergence_spike_factor = sim_params.get("divergence_spike_factor", 100.0)
 
         # Fluid properties + projection passes
         self.fluid_properties = {

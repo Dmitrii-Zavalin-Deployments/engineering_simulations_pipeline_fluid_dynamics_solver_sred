@@ -2,22 +2,36 @@
   "simulation_parameters": {
     "solver": "explicit",
     "projection_passes": 2,
+    "projection_passes_max": 3,
     "max_allowed_divergence": 0.03,
+    "divergence_spike_factor": 100.0,
     "divergence_mode": "log",
+    "adaptive_dt_enabled": true,
     "time_step": 0.01,
     "total_time": 1.0,
     "output_frequency_steps": 10,
     "cfl_threshold": 0.8,
+    "velocity_limit": 10.0,
+
     "solver_backend": "bicgstab",
     "preconditioner": "ilu",
     "tolerance": 1e-6,
-    "max_iterations": 1000
+    "max_iterations": 1000,
+    "residual_kill_threshold": 1e4,
+    "fallback_solver": "direct",
+
+    "smoother_sweeps": 5,
+    "multigrid_levels": 3
   },
+
   "logging": {
     "enable_structured_logs": true,
     "log_directory": "./logs/",
-    "log_level": "info"
+    "log_level": "info",
+    "log_cfl_every_step": true,
+    "log_residual_every_pass": true
   }
 }
+
 
 

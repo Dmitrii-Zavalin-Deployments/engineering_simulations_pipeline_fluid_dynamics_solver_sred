@@ -5,7 +5,6 @@ import sys
 
 _previous_divergence_max = None  # Module-level cache for divergence tracking
 
-
 def check_field_validity(field: np.ndarray, label: str = "field"):
     """
     Checks for NaNs, Infs, and prints min/max for a given field.
@@ -22,10 +21,12 @@ def check_field_validity(field: np.ndarray, label: str = "field"):
 def test_divergence_stability(
     divergence_field: np.ndarray,
     max_allowed_divergence: float = 3e-2,
-    mode: str = "log"
+    mode: str = "log",
+    step: int = 0,
+    spike_factor: float = 100.0
 ):
     """
-    Checks if divergence magnitude exceeds threshold.
+    Checks if divergence magnitude exceeds threshold and detects growth spikes.
 
     Modes:
         - "strict": fails the test if above threshold
@@ -47,14 +48,20 @@ def test_divergence_stability(
     # Track trend
     if _previous_divergence_max is not None:
         delta = max_div - _previous_divergence_max
-        print(f"📊 ∇·u change from previous: Δ={delta:.4e}")
+        rate = delta / max(1, step)
+        print(f"📊 ∇·u change from previous: Δ={delta:.4e}, Δ/step={rate:.4e}")
         if delta > 0 and mode == "strict":
             print("📈 ∇·u is increasing — consider inspecting projection or reducing dt.")
+
     _previous_divergence_max = max_div
+
+    if max_div > spike_factor * max_allowed_divergence:
+        print(f"🚨 ∇·u spike detected: max={max_div:.4e} > {spike_factor:.1f}×{max_allowed_divergence:.4e}")
+        return mode != "strict"
 
     if max_div > max_allowed_divergence:
         print(f"⚠️ ∇·u exceeds allowed threshold: max={max_div:.4e} > {max_allowed_divergence:.4e}")
-        return mode == "log"
+        return mode != "strict"
 
     return True
 
@@ -74,7 +81,7 @@ def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.
 
 def test_shape_match(field_a: np.ndarray, field_b: np.ndarray, label_a="A", label_b="B"):
     """
-    Ensures two fields have matching shapes. Useful for prolongation safety.
+    Ensures two fields have matching shapes.
     """
     match = field_a.shape == field_b.shape
     print(f"📐 Shape match check: {label_a} shape={field_a.shape}, {label_b} shape={field_b.shape}, match={match}")
@@ -91,11 +98,15 @@ def run_stability_checks(
     expected_divergence_shape: tuple = None,
     divergence_mode: str = "log",
     max_allowed_divergence: float = 3e-2,
-    velocity_limit: float = 10.0
+    velocity_limit: float = 10.0,
+    spike_factor: float = 100.0
 ):
     """
     Runs all stability diagnostics for the current simulation step.
-    Optionally verifies that fields match expected shapes.
+    Optionally verifies that fields match expected shapes and padding.
+
+    Returns:
+        bool: True if all checks pass, False if any fail.
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
     tests_passed = True
@@ -107,8 +118,11 @@ def run_stability_checks(
     tests_passed &= test_divergence_stability(
         divergence_field,
         max_allowed_divergence=max_allowed_divergence,
-        mode=divergence_mode
+        mode=divergence_mode,
+        step=step,
+        spike_factor=spike_factor
     )
+
     tests_passed &= test_velocity_bounds(velocity_field, velocity_limit=velocity_limit)
 
     if expected_velocity_shape:

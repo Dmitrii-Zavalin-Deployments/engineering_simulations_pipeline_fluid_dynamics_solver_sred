@@ -18,7 +18,7 @@ except ImportError as e:
 
 class ExplicitSolver:
     """
-    An explicit solver for the incompressible Navier-Stokes equations
+    An explicit solver for the incompressible Navier–Stokes equations
     using a fractional step (Projection) method.
     """
 
@@ -29,6 +29,7 @@ class ExplicitSolver:
         self.mesh_info = mesh_info
         self.fluid_properties_dict = fluid_properties
         self.pressure_projection_passes = fluid_properties.get("pressure_projection_passes", 1)
+        self.last_pressure_residual = None
 
     def step(
         self,
@@ -73,26 +74,30 @@ class ExplicitSolver:
             print(f"🔁 Pressure Projection Iteration {pass_num + 1}")
             divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
 
-            pressure_correction_phi = solve_poisson_multigrid(
+            phi = solve_poisson_multigrid(
                 divergence,
                 self.mesh_info,
                 self.dt,
                 levels=3
             )
 
-            if np.any(np.isnan(pressure_correction_phi)) or np.any(np.isinf(pressure_correction_phi)):
-                print("⚠️ Warning: NaN or Inf in pressure correction φ — clamping.")
+            if np.any(np.isnan(phi)) or np.any(np.isinf(phi)):
+                print("⚠️ NaN or Inf in pressure correction φ — clamping.")
                 max_val = np.finfo(np.float64).max / 10
-                pressure_correction_phi = np.clip(pressure_correction_phi, -max_val, max_val)
+                phi = np.clip(phi, -max_val, max_val)
 
-            tentative_velocity_field, pressure_field = apply_pressure_correction(
+            tentative_velocity_field, pressure_field, max_div_residual = apply_pressure_correction(
                 tentative_velocity_field,
                 pressure_field,
-                pressure_correction_phi,
+                phi,
                 self.mesh_info,
                 self.dt,
-                self.density
+                self.density,
+                return_residual=True
             )
+
+            print(f"📏 ∇·u residual after correction: max={max_div_residual:.4e}")
+            self.last_pressure_residual = max_div_residual
 
         # 7. Final BC enforcement
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(

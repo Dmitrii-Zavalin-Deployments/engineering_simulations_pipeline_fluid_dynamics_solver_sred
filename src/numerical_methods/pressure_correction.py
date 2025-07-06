@@ -33,10 +33,14 @@ def apply_pressure_correction(
     updated_velocity = tentative_velocity_field.copy()
     updated_pressure = current_pressure_field.copy()
 
-    # Interior slice (exclude ghost cells)
-    interior = (slice(1, -1), slice(1, -1), slice(1, -1)
+    interior = (slice(1, -1), slice(1, -1), slice(1, -1))
 
-    )
+    # Sanitize phi to avoid instability
+    if np.any(np.isnan(phi)) or np.any(np.isinf(phi)):
+        print("⚠️ Detected NaN or Inf in pressure correction potential φ — clamping.")
+        max_val = np.finfo(np.float64).max / 10
+        phi = np.nan_to_num(phi, nan=0.0, posinf=max_val, neginf=-max_val)
+        phi = np.clip(phi, -max_val, max_val)
 
     # Compute gradient of phi using central differences
     grad_phi_x = (phi[2:, 1:-1, 1:-1] - phi[1:-1, 1:-1, 1:-1]) / dx
@@ -59,7 +63,7 @@ def apply_pressure_correction(
     dvdy = (updated_velocity[1:-1, 2:, 1:-1, 1] - updated_velocity[1:-1, 1:-1, 1:-1, 1]) / dy
     dwdz = (updated_velocity[1:-1, 1:-1, 2:, 2] - updated_velocity[1:-1, 1:-1, 1:-1, 2]) / dz
     div_u = dudx + dvdy + dwdz
-    max_residual = np.max(np.abs(div_u))
+    max_residual = float(np.max(np.abs(div_u)))
 
     return updated_velocity, updated_pressure, max_residual
 
