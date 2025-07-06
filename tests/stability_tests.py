@@ -48,6 +48,8 @@ def test_divergence_stability(
     if _previous_divergence_max is not None:
         delta = max_div - _previous_divergence_max
         print(f"📊 ∇·u change from previous: Δ={delta:.4e}")
+        if delta > 0 and mode == "strict":
+            print("📈 ∇·u is increasing — consider inspecting projection or reducing dt.")
     _previous_divergence_max = max_div
 
     if max_div > max_allowed_divergence:

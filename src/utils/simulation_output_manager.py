@@ -23,6 +23,7 @@ def setup_simulation_output_directory(simulation_instance, output_dir):
         "fluid_properties": simulation_instance.input_data.get("fluid_properties"),
         "initial_conditions": simulation_instance.input_data.get("initial_conditions"),
         "simulation_parameters": simulation_instance.input_data.get("simulation_parameters"),
+        "start_time": simulation_instance.start_time
     }
     save_json(config_data, config_filepath)
     print(f"Saved simulation config to: {config_filepath}")
@@ -43,10 +44,16 @@ def setup_simulation_output_directory(simulation_instance, output_dir):
     print(f"Saved mesh definition to: {mesh_filepath}")
 
 
-def log_divergence_snapshot(divergence_field, step_count, output_dir):
+def log_divergence_snapshot(divergence_field, step_count, output_dir, additional_meta=None):
     """
     Logs the divergence field metrics to a structured JSON file for post-analysis.
     Only summary stats are saved to avoid large disk writes.
+
+    Args:
+        divergence_field (np.ndarray): Full divergence field including ghost zones.
+        step_count (int): Simulation step number.
+        output_dir (str): Root output directory path.
+        additional_meta (dict): Optional additional metadata to include.
     """
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
@@ -59,6 +66,9 @@ def log_divergence_snapshot(divergence_field, step_count, output_dir):
         "std_divergence": float(np.std(interior)),
         "timestamp": datetime.now().isoformat()
     }
+
+    if additional_meta:
+        stats.update(additional_meta)
 
     log_path = os.path.join(output_dir, "logs", f"divergence_step_{step_count:04d}.json")
     save_json(stats, log_path)

@@ -68,7 +68,7 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # 5–6. Dual pressure projection loop
+        # 5–6. Pressure projection loop
         for pass_num in range(self.pressure_projection_passes):
             print(f"🔁 Pressure Projection Iteration {pass_num + 1}")
             divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)

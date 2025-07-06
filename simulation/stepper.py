@@ -8,8 +8,9 @@ from physics.boundary_conditions_applicator import apply_boundary_conditions
 from numerical_methods.pressure_divergence import compute_pressure_divergence
 from solver.results_handler import save_field_snapshot
 from utils.log_utils import log_flow_metrics
+from utils.simulation_output_manager import log_divergence_snapshot
 from tests.stability_tests import run_stability_checks
-
+from simulation.cfl_utils import calculate_max_cfl  # ✅ fix call context
 
 def run(self):
     print("--- Running Simulation ---")
@@ -37,6 +38,8 @@ def run(self):
             num_steps=num_steps
         )
 
+        log_divergence_snapshot(initial_divergence_field, self.step_count, self.output_dir)
+
         for _ in range(num_steps):
             self.step_count += 1
             self.current_time = self.step_count * self.time_step
@@ -45,7 +48,6 @@ def run(self):
             print(f"[DEBUG @ Step {self.step_count}] Pressure BEFORE step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
 
             # --- Pressure Correction Pass ---
-            # Optionally repeat correction for tighter incompressibility
             projection_passes = getattr(self, "num_projection_passes", 1)
             for pass_num in range(projection_passes):
                 self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
@@ -81,10 +83,12 @@ def run(self):
                 max_allowed_divergence=getattr(self, "max_allowed_divergence", 3e-2)
             )
 
+            log_divergence_snapshot(divergence_at_step_field, self.step_count, self.output_dir)
+
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
-                max_cfl = self.calculate_max_cfl(self.velocity_field)
+                max_cfl = calculate_max_cfl(self)  # ✅ correct call to utility
                 print(f"    CFL Number: {max_cfl:.4f}")
 
             log_flow_metrics(

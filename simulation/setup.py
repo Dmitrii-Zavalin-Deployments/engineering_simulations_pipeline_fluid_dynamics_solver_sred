@@ -3,7 +3,9 @@
 import numpy as np
 import sys
 import os
+import json
 from datetime import datetime
+from pathlib import Path
 
 from numerical_methods.explicit_solver import ExplicitSolver
 from numerical_methods.implicit_solver import ImplicitSolver
@@ -16,6 +18,14 @@ from solver.initialization import (
     print_initial_setup
 )
 
+def load_config_overrides(config_path: str = "src/config.json"):
+    if Path(config_path).exists():
+        with open(config_path) as f:
+            config_data = json.load(f)
+        print(f"✅ Loaded override config from: {config_path}")
+        return config_data.get("simulation_parameters", {})
+    return {}
+
 class Simulation:
     def __init__(self, input_file_path: str, output_dir: str):
         print("--- Simulation Setup ---")
@@ -27,6 +37,11 @@ class Simulation:
         self.input_data = load_input_data(self.input_file_path)
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data)
+
+        # Optional override from config.json
+        override_params = load_config_overrides()
+        sim_params = self.input_data.get("simulation_parameters", {})
+        sim_params.update(override_params)  # config.json takes precedence
 
         # Preprocess boundary condition indices into NumPy arrays
         bc_dict = self.input_data["mesh_info"].get("boundary_conditions", {})
@@ -47,19 +62,22 @@ class Simulation:
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
+        # Extract simulation-level tuning parameters
+        self.max_allowed_divergence = sim_params.get("max_allowed_divergence", 3e-2)
+        self.divergence_mode = sim_params.get("divergence_mode", "log")
+        self.num_projection_passes = sim_params.get("projection_passes", 1)
+
+        # Fluid properties + projection passes
         self.fluid_properties = {
             "density": self.rho,
             "viscosity": self.nu,
-            "pressure_projection_passes": self.input_data["simulation_parameters"].get("projection_passes", 1)
+            "pressure_projection_passes": self.num_projection_passes
         }
+
         self.boundary_conditions = bc_dict
 
-        # Additional tunable parameters
-        self.max_allowed_divergence = self.input_data["simulation_parameters"].get("max_allowed_divergence", 3e-2)
-        self.divergence_mode = self.input_data["simulation_parameters"].get("divergence_mode", "log")
-
-        # Solver selection: explicit, implicit, or future variants
-        solver_type = self.input_data["simulation_parameters"].get("solver", "explicit").lower()
+        # Solver selection
+        solver_type = sim_params.get("solver", "explicit").lower()
         if solver_type == "explicit":
             self.time_stepper = ExplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
             print("Using Explicit Solver.")

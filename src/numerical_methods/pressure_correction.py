@@ -34,7 +34,9 @@ def apply_pressure_correction(
     updated_pressure = current_pressure_field.copy()
 
     # Interior slice (exclude ghost cells)
-    interior = (slice(1, -1), slice(1, -1), slice(1, -1))
+    interior = (slice(1, -1), slice(1, -1), slice(1, -1)
+
+    )
 
     # Compute gradient of phi using central differences
     grad_phi_x = (phi[2:, 1:-1, 1:-1] - phi[1:-1, 1:-1, 1:-1]) / dx

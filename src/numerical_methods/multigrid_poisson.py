@@ -62,17 +62,19 @@ def prolong(coarse, target_shape=None):
     return fine
 
 
-def compute_residual(phi, rhs, dx):
+def compute_residual(phi, rhs, dx, dy, dz):
     """
     Computes the residual ∇²phi - rhs for diagnostic purposes.
     """
-    residual = np.zeros_like(rhs)
-    residual[1:-1, 1:-1, 1:-1] = rhs[1:-1, 1:-1, 1:-1] - (
+    laplacian = (
         -6 * phi[1:-1, 1:-1, 1:-1]
         + phi[2:, 1:-1, 1:-1] + phi[:-2, 1:-1, 1:-1]
         + phi[1:-1, 2:, 1:-1] + phi[1:-1, :-2, 1:-1]
         + phi[1:-1, 1:-1, 2:] + phi[1:-1, 1:-1, :-2]
-    ) / dx**2
+    ) / dx**2  # assuming uniform spacing for simplicity
+
+    residual = np.zeros_like(rhs)
+    residual[1:-1, 1:-1, 1:-1] = rhs[1:-1, 1:-1, 1:-1] - laplacian
     return residual
 
 
@@ -84,8 +86,8 @@ def v_cycle(phi, rhs, dx, dy, dz, levels):
     # Pre-smoothing
     phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=3)
 
-    # Compute residual and log diagnostics
-    residual = compute_residual(phi, rhs, dx)
+    # Compute residual
+    residual = compute_residual(phi, rhs, dx, dy, dz)
     max_residual = np.max(np.abs(residual))
     mean_residual = np.mean(np.abs(residual))
     print(f"📉 V-cycle residual: max={max_residual:.4e}, mean={mean_residual:.4e}, shape={residual.shape}")
@@ -94,10 +96,10 @@ def v_cycle(phi, rhs, dx, dy, dz, levels):
     coarse_rhs = restrict(residual)
     coarse_phi = np.zeros_like(coarse_rhs)
 
-    # Recursive V-cycle
+    # Recursive call
     coarse_phi = v_cycle(coarse_phi, coarse_rhs, 2*dx, 2*dy, 2*dz, levels - 1)
 
-    # Prolongate and correct
+    # Prolong and correct
     correction = prolong(coarse_phi, target_shape=phi.shape)
     phi += correction
 
@@ -112,23 +114,22 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3):
     Solves ∇²φ = ∇·u/dt using multigrid V-cycle.
 
     Args:
-        divergence (np.ndarray): Divergence field (ghost-padded).
+        divergence (np.ndarray): Divergence field with ghost padding.
         mesh_info (dict): Contains dx, dy, dz.
         dt (float): Time step.
-        levels (int): Number of multigrid levels (powers of 2)
+        levels (int): Number of multigrid levels
 
     Returns:
         np.ndarray: Full phi field (with ghost cells)
     """
     phi = np.zeros_like(divergence)
     rhs = divergence / dt
-
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
 
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
     phi[interior] = v_cycle(phi[interior], rhs[interior], dx, dy, dz, levels)
 
-    # Apply zero Neumann ghost padding
+    # Apply Neumann zero-gradient ghost padding
     phi[0, :, :] = phi[1, :, :]
     phi[-1, :, :] = phi[-2, :, :]
     phi[:, 0, :] = phi[:, 1, :]

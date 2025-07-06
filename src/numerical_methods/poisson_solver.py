@@ -1,9 +1,8 @@
 # src/numerical_methods/poisson_solver.py
 
 import numpy as np
-from scipy.sparse import lil_matrix, identity
 from scipy.sparse.linalg import spsolve, bicgstab, LinearOperator, spilu
-import sys
+from .matrix_assembly import assemble_poisson_matrix, apply_poisson_rhs_bcs
 
 # Solver options
 SOLVER_BACKEND_DIRECT = "direct"
@@ -11,95 +10,6 @@ SOLVER_BACKEND_BICGSTAB = "bicgstab"
 
 PRECONDITIONER_NONE = "none"
 PRECONDITIONER_ILU = "ilu"
-
-
-def _assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
-    N = nx * ny * nz
-    A = lil_matrix((N, N))
-
-    C0 = -2.0 / dx**2 - 2.0 / dy**2 - 2.0 / dz**2
-    Cx, Cy, Cz = 1.0 / dx**2, 1.0 / dy**2, 1.0 / dz**2
-
-    def idx(i, j, k):
-        return i + j * nx + k * nx * ny
-
-    for k in range(nz):
-        for j in range(ny):
-            for i in range(nx):
-                center = idx(i, j, k)
-                A[center, center] = C0
-
-                # X neighbors
-                if i > 0:
-                    A[center, idx(i - 1, j, k)] = Cx
-                elif bc.get("periodic_x"):
-                    A[center, idx(nx - 1, j, k)] = Cx
-                elif bc["x_min"]["type"] == "neumann":
-                    A[center, center] += Cx
-
-                if i < nx - 1:
-                    A[center, idx(i + 1, j, k)] = Cx
-                elif bc.get("periodic_x"):
-                    A[center, idx(0, j, k)] = Cx
-                elif bc["x_max"]["type"] == "neumann":
-                    A[center, center] += Cx
-
-                # Y neighbors
-                if j > 0:
-                    A[center, idx(i, j - 1, k)] = Cy
-                elif bc.get("periodic_y"):
-                    A[center, idx(i, ny - 1, k)] = Cy
-                elif bc["y_min"]["type"] == "neumann":
-                    A[center, center] += Cy
-
-                if j < ny - 1:
-                    A[center, idx(i, j + 1, k)] = Cy
-                elif bc.get("periodic_y"):
-                    A[center, idx(i, 0, k)] = Cy
-                elif bc["y_max"]["type"] == "neumann":
-                    A[center, center] += Cy
-
-                # Z neighbors
-                if k > 0:
-                    A[center, idx(i, j, k - 1)] = Cz
-                elif bc.get("periodic_z"):
-                    A[center, idx(i, j, nz - 1)] = Cz
-                elif bc["z_min"]["type"] == "neumann":
-                    A[center, center] += Cz
-
-                if k < nz - 1:
-                    A[center, idx(i, j, k + 1)] = Cz
-                elif bc.get("periodic_z"):
-                    A[center, idx(i, j, 0)] = Cz
-                elif bc["z_max"]["type"] == "neumann":
-                    A[center, center] += Cz
-
-    return A.tocsr()
-
-
-def _apply_poisson_rhs_bcs(b, nx, ny, nz, dx, dy, dz, bc):
-    Cx, Cy, Cz = 1.0 / dx**2, 1.0 / dy**2, 1.0 / dz**2
-
-    def idx(i, j, k):
-        return i + j * nx + k * nx * ny
-
-    for k in range(nz):
-        for j in range(ny):
-            for i in range(nx):
-                center = idx(i, j, k)
-                if i == 0 and not bc.get("periodic_x") and bc["x_min"]["type"] == "dirichlet":
-                    b[center] -= Cx * bc["x_min"]["value"]
-                if i == nx - 1 and not bc.get("periodic_x") and bc["x_max"]["type"] == "dirichlet":
-                    b[center] -= Cx * bc["x_max"]["value"]
-                if j == 0 and not bc.get("periodic_y") and bc["y_min"]["type"] == "dirichlet":
-                    b[center] -= Cy * bc["y_min"]["value"]
-                if j == ny - 1 and not bc.get("periodic_y") and bc["y_max"]["type"] == "dirichlet":
-                    b[center] -= Cy * bc["y_max"]["value"]
-                if k == 0 and not bc.get("periodic_z") and bc["z_min"]["type"] == "dirichlet":
-                    b[center] -= Cz * bc["z_min"]["value"]
-                if k == nz - 1 and not bc.get("periodic_z") and bc["z_max"]["type"] == "dirichlet":
-                    b[center] -= Cz * bc["z_max"]["value"]
-    return b
 
 
 def solve_poisson_for_phi(
@@ -112,6 +22,23 @@ def solve_poisson_for_phi(
     preconditioner_type=PRECONDITIONER_ILU,
     return_residual=False
 ):
+    """
+    Solves ∇²φ = ∇·u/dt using linear system and returns phi (ghost-padded).
+
+    Args:
+        divergence_field (np.ndarray): Full field [nx+2, ny+2, nz+2] including ghost zones.
+        mesh_info (dict): Contains dx, dy, dz and boundary_conditions.
+        dt (float): Time step size.
+        tolerance (float): Solver convergence tolerance.
+        max_iterations (int): Max iterations for iterative solvers.
+        backend (str): "direct" or "bicgstab".
+        preconditioner_type (str): "none" or "ilu".
+        return_residual (bool): If True, return ||Ax - b|| after solving.
+
+    Returns:
+        phi (np.ndarray): Pressure potential (ghost-padded).
+        residual (float): Norm of linear solve residual (if requested).
+    """
     nx_total, ny_total, nz_total = divergence_field.shape
     nx, ny, nz = nx_total - 2, ny_total - 2, nz_total - 2
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
@@ -119,6 +46,7 @@ def solve_poisson_for_phi(
 
     rhs = (divergence_field[interior] / dt).flatten()
 
+    # Prepare BC config
     default_bc = {"type": "neumann", "value": 0.0}
     bc_raw = mesh_info.get("boundary_conditions", {})
     bc = {
@@ -133,8 +61,9 @@ def solve_poisson_for_phi(
         "periodic_z": bc_raw.get("periodic_z", False),
     }
 
-    A = _assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc)
-    rhs = _apply_poisson_rhs_bcs(rhs, nx, ny, nz, dx, dy, dz, bc)
+    # Assemble matrix and RHS
+    A = assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc)
+    rhs = apply_poisson_rhs_bcs(rhs, nx, ny, nz, dx, dy, dz, bc)
 
     phi_flat, residual = None, np.nan
 
@@ -159,10 +88,12 @@ def solve_poisson_for_phi(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
+    # Reshape and ghost-pad result
     phi_interior = phi_flat.reshape((nx, ny, nz))
     phi = np.zeros_like(divergence_field)
     phi[interior] = phi_interior
 
+    # Apply Neumann ghost extrapolation
     if not bc["periodic_x"]:
         if bc["x_min"]["type"] == "neumann":
             phi[0, :, :] = phi[1, :, :]

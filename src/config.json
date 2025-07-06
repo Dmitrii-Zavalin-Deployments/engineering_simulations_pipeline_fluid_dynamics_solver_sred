@@ -1,0 +1,23 @@
+{
+  "simulation_parameters": {
+    "solver": "explicit",
+    "projection_passes": 2,
+    "max_allowed_divergence": 0.03,
+    "divergence_mode": "log",
+    "time_step": 0.01,
+    "total_time": 1.0,
+    "output_frequency_steps": 10,
+    "cfl_threshold": 0.8,
+    "solver_backend": "bicgstab",
+    "preconditioner": "ilu",
+    "tolerance": 1e-6,
+    "max_iterations": 1000
+  },
+  "logging": {
+    "enable_structured_logs": true,
+    "log_directory": "./logs/",
+    "log_level": "info"
+  }
+}
+
+

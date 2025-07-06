@@ -1,4 +1,4 @@
-# utils/log_utils.py
+# src/utils/log_utils.py
 
 import numpy as np
 import logging
@@ -22,7 +22,10 @@ def log_flow_metrics(
     step_count: int,
     current_time: float,
     output_frequency_steps: int,
-    num_steps: int
+    num_steps: int,
+    dt: float = None,
+    cfl: float = None,
+    residual_divergence: float = None
 ):
     """
     Logs diagnostic metrics to structured output for GitHub Actions and runtime monitoring.
@@ -36,6 +39,9 @@ def log_flow_metrics(
         current_time (float): Current simulation time
         output_frequency_steps (int): How often to output full metrics.
         num_steps (int): Total number of simulation steps.
+        dt (float): Optional time step value for context
+        cfl (float): Optional CFL value for context
+        residual_divergence (float): Optional residual ∇·u after correction
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]
@@ -71,6 +77,13 @@ def log_flow_metrics(
         logger.info(f"    • Mean Pressure (interior)   : {mean_p:.4e}")
         logger.info(f"    • Std Dev Pressure           : {std_p:.4e}")
         logger.info(f"    • Divergence ∇·u             : Max = {max_div:.4e}, Mean = {mean_div:.4e}")
+
+        if dt is not None:
+            logger.info(f"    • Time Step (dt)             : {dt:.4e}")
+        if cfl is not None:
+            logger.info(f"    • CFL Number                 : {cfl:.4e}")
+        if residual_divergence is not None:
+            logger.info(f"    • Post-Correction Residual ∇·u : {residual_divergence:.4e}")
 
 
 
