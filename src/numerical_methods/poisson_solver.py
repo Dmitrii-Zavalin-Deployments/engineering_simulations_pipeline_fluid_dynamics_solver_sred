@@ -69,6 +69,7 @@ def solve_poisson_for_phi(
         if backend == SOLVER_BACKEND_DIRECT:
             phi_flat = spsolve(A, rhs)
             residual = np.linalg.norm(A @ phi_flat - rhs)
+            print(f"✅ Direct solve residual: {residual:.4e}")
 
         elif backend == SOLVER_BACKEND_BICGSTAB:
             M = None
@@ -77,29 +78,32 @@ def solve_poisson_for_phi(
                     ilu = spilu(A.tocsc(), drop_tol=1e-5, fill_factor=20)
                     M = LinearOperator(A.shape, ilu.solve)
                 except Exception as e:
-                    print(f"⚠️ ILU preconditioner failed: {e}")
+                    print(f"⚠️ ILU preconditioner setup failed: {e}")
                     M = None
 
             phi_flat, info = bicgstab(A, rhs, rtol=tolerance, maxiter=max_iterations, M=M)
             if info != 0:
-                print(f"⚠️ BiCGSTAB failed (info={info})")
+                print(f"⚠️ BiCGSTAB did not converge (info={info})")
                 if fallback_on_failure:
-                    print("🔄 Falling back to direct solve with spsolve...")
+                    print("🔄 Fallback: switching to direct solve...")
                     phi_flat = spsolve(A, rhs)
                     residual = np.linalg.norm(A @ phi_flat - rhs)
+                    print(f"✅ Direct solve residual (fallback): {residual:.4e}")
                 else:
-                    raise RuntimeError(f"BiCGSTAB did not converge. Info={info}")
+                    raise RuntimeError(f"BiCGSTAB failed with info={info}")
             else:
                 residual = np.linalg.norm(A @ phi_flat - rhs)
+                print(f"✅ BiCGSTAB residual: {residual:.4e}")
         else:
-            raise ValueError(f"Unknown solver backend: {backend}")
+            raise ValueError(f"Unknown solver backend: '{backend}'")
 
     except Exception as e:
-        print(f"❌ Linear solve exception: {e}")
+        print(f"❌ Linear solve error: {e}")
         if fallback_on_failure:
-            print("🔄 Attempting recovery with spsolve...")
+            print("🔄 Recovery attempt: direct solve...")
             phi_flat = spsolve(A, rhs)
             residual = np.linalg.norm(A @ phi_flat - rhs)
+            print(f"✅ Direct solve residual (recovery): {residual:.4e}")
         else:
             raise
 
@@ -107,7 +111,7 @@ def solve_poisson_for_phi(
     phi = np.zeros_like(divergence_field)
     phi[interior] = phi_interior
 
-    # Apply Neumann ghost padding
+    # Ghost zone padding for Neumann BCs
     if not bc["periodic_x"]:
         if bc["x_min"]["type"] == "neumann":
             phi[0, :, :] = phi[1, :, :]

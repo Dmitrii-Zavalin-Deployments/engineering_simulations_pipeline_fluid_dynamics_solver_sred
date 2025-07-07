@@ -3,7 +3,8 @@
 import numpy as np
 import sys
 
-_previous_divergence_max = None  # Module-level cache for divergence tracking
+_previous_divergence_max = None  # Global tracker for divergence spike analysis
+
 
 def check_field_validity(field: np.ndarray, label: str = "field"):
     """
@@ -26,65 +27,70 @@ def test_divergence_stability(
     spike_factor: float = 100.0
 ):
     """
-    Checks if divergence magnitude exceeds threshold and detects growth spikes.
+    Checks for excessive divergence and logs trend metrics.
 
-    Modes:
-        - "strict": fails the test if above threshold
-        - "log": logs warning but returns True
-        - "none": disables check entirely
+    Returns:
+        (bool, dict): pass/fail flag and trend metrics (delta, slope, spike_triggered)
     """
     global _previous_divergence_max
 
-    if mode == "none":
-        print(f"📏 ∇·u check skipped (mode='none')")
-        return True
-
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
-    max_div = np.max(np.abs(interior))
-    mean_div = np.mean(np.abs(interior))
+
+    max_div = float(np.max(np.abs(interior)))
+    mean_div = float(np.mean(np.abs(interior)))
 
     print(f"📏 ∇·u check: max={max_div:.4e}, mean={mean_div:.4e}")
 
+    metrics = {
+        "max": max_div,
+        "mean": mean_div,
+        "delta": None,
+        "slope": None,
+        "spike_triggered": False
+    }
+
     if _previous_divergence_max is not None:
         delta = max_div - _previous_divergence_max
-        rate = delta / max(1, step)
-        print(f"📊 ∇·u change from previous: Δ={delta:.4e}, Δ/step={rate:.4e}")
+        slope = delta / max(1, step)
+        metrics["delta"] = delta
+        metrics["slope"] = slope
+
+        print(f"📊 ∇·u trend: Δ={delta:.4e}, Δ/step={slope:.4e}")
         if delta > 0 and mode == "strict":
-            print("📈 ∇·u is increasing — consider inspecting projection or reducing dt.")
+            print("📈 ∇·u growing — consider additional projection or smaller dt.")
 
     _previous_divergence_max = max_div
 
     if max_div > spike_factor * max_allowed_divergence:
-        print(f"🚨 ∇·u spike detected: max={max_div:.4e} > {spike_factor:.1f}×{max_allowed_divergence:.4e}")
-        return mode != "strict"
+        print(f"🚨 ∇·u spike: {max_div:.4e} > {spike_factor:.1f}×{max_allowed_divergence:.4e}")
+        metrics["spike_triggered"] = True
+        return mode != "strict", metrics
 
     if max_div > max_allowed_divergence:
-        print(f"⚠️ ∇·u exceeds allowed threshold: max={max_div:.4e} > {max_allowed_divergence:.4e}")
-        return mode != "strict"
+        print(f"⚠️ ∇·u above threshold: {max_div:.4e} > {max_allowed_divergence:.4e}")
+        return mode != "strict", metrics
 
-    return True
+    return True, metrics
 
 
 def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.0):
     """
-    Ensures velocity magnitudes stay within physical bounds.
+    Validates physical velocity bounds.
     """
-    interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
-    velocity_mag = np.linalg.norm(np.nan_to_num(interior_v), axis=-1)
-
-    max_vel = np.max(velocity_mag)
+    interior = velocity_field[1:-1, 1:-1, 1:-1, :]
+    magnitude = np.linalg.norm(np.nan_to_num(interior), axis=-1)
+    max_vel = float(np.max(magnitude))
     print(f"⚡ Velocity magnitude: max={max_vel:.4e}")
-
     return max_vel < velocity_limit
 
 
 def test_shape_match(field_a: np.ndarray, field_b: np.ndarray, label_a="A", label_b="B"):
     """
-    Ensures two fields have matching shapes.
+    Verifies shape consistency between fields.
     """
     match = field_a.shape == field_b.shape
-    print(f"📐 Shape match check: {label_a} shape={field_a.shape}, {label_b} shape={field_b.shape}, match={match}")
+    print(f"📐 Shape match: {label_a}={field_a.shape}, {label_b}={field_b.shape}, match={match}")
     return match
 
 
@@ -102,54 +108,42 @@ def run_stability_checks(
     spike_factor: float = 100.0
 ):
     """
-    Runs all stability diagnostics for the current simulation step.
-    Optionally verifies that fields match expected shapes and padding.
+    Composite stability diagnostics with trend analysis.
 
     Returns:
-        bool: True if all checks pass, False if any fail.
+        (bool, dict): status flag, divergence diagnostics
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
-    tests_passed = True
+    pass_flag = True
 
-    tests_passed &= check_field_validity(velocity_field, "Velocity")
-    tests_passed &= check_field_validity(pressure_field, "Pressure")
-    tests_passed &= check_field_validity(divergence_field, "Divergence")
+    pass_flag &= check_field_validity(velocity_field, "Velocity")
+    pass_flag &= check_field_validity(pressure_field, "Pressure")
+    pass_flag &= check_field_validity(divergence_field, "Divergence")
 
-    tests_passed &= test_divergence_stability(
+    div_check, div_metrics = test_divergence_stability(
         divergence_field,
-        max_allowed_divergence=max_allowed_divergence,
-        mode=divergence_mode,
-        step=step,
-        spike_factor=spike_factor
+        max_allowed_divergence,
+        divergence_mode,
+        step,
+        spike_factor
     )
+    pass_flag &= div_check
 
-    tests_passed &= test_velocity_bounds(velocity_field, velocity_limit=velocity_limit)
+    pass_flag &= test_velocity_bounds(velocity_field, velocity_limit)
 
     if expected_velocity_shape:
-        tests_passed &= test_shape_match(
-            velocity_field,
-            np.zeros(expected_velocity_shape),
-            label_a="Velocity", label_b="Expected"
-        )
+        pass_flag &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), "Velocity", "Expected")
     if expected_pressure_shape:
-        tests_passed &= test_shape_match(
-            pressure_field,
-            np.zeros(expected_pressure_shape),
-            label_a="Pressure", label_b="Expected"
-        )
+        pass_flag &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), "Pressure", "Expected")
     if expected_divergence_shape:
-        tests_passed &= test_shape_match(
-            divergence_field,
-            np.zeros(expected_divergence_shape),
-            label_a="Divergence", label_b="Expected"
-        )
+        pass_flag &= test_shape_match(divergence_field, np.zeros(expected_divergence_shape), "Divergence", "Expected")
 
-    if not tests_passed:
-        print(f"❌ Step {step}: Stability test FAILED. Halting or inspecting recommended.")
+    if not pass_flag:
+        print(f"❌ Step {step}: Stability FAILED. Diagnostic review advised.")
     else:
-        print(f"✅ Step {step}: Stability test PASSED.")
+        print(f"✅ Step {step}: Stability PASSED.")
 
-    return tests_passed
+    return pass_flag, div_metrics
 
 
 

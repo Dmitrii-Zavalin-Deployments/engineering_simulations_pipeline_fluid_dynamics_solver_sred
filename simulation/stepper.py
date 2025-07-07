@@ -12,15 +12,14 @@ from utils.simulation_output_manager import log_divergence_snapshot
 from tests.stability_tests import run_stability_checks
 from simulation.cfl_utils import calculate_max_cfl
 
-# 🛡️ Embedded watchdog for step-wise health diagnostics
 def step_health_monitor(step, max_div, residual, kill_threshold, divergence_tolerance, sim_instance):
     if residual > kill_threshold or max_div > 100 * divergence_tolerance:
         print(f"⚠️ Stability compromised at step {step}. Reducing dt and clamping projection passes.")
-        sim_instance.time_step *= 0.25
+        sim_instance.time_step *= sim_instance.dt_reduction_factor
+        sim_instance.time_step = max(sim_instance.dt_min, sim_instance.time_step)
         sim_instance.num_projection_passes = 1
         return True
     return False
-
 
 def run(self):
     print("--- Running Simulation ---")
@@ -85,7 +84,7 @@ def run(self):
             print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER final BCs: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
             print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER final BCs: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
 
-            run_stability_checks(
+            passed, div_metrics = run_stability_checks(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
                 divergence_field=divergence_at_step_field,
@@ -94,10 +93,12 @@ def run(self):
                 expected_pressure_shape=self.p.shape,
                 expected_divergence_shape=divergence_at_step_field.shape,
                 divergence_mode=getattr(self, "divergence_mode", "log"),
-                max_allowed_divergence=getattr(self, "max_allowed_divergence", 3e-2)
+                max_allowed_divergence=getattr(self, "max_allowed_divergence", 3e-2),
+                velocity_limit=getattr(self, "velocity_limit", 10.0),
+                spike_factor=getattr(self, "divergence_spike_factor", 100.0)
             )
 
-            max_div = np.max(np.abs(divergence_at_step_field[1:-1, 1:-1, 1:-1]))
+            max_div = div_metrics["max"]
             residual = getattr(self.time_stepper, "last_pressure_residual", 0.0)
             recovery_triggered = step_health_monitor(
                 step=self.step_count,
@@ -114,24 +115,33 @@ def run(self):
                 current_divergence=max_div
             )
 
+            self.scheduler.monitor_divergence_and_escalate(
+                sim_instance=self,
+                divergence_field=divergence_at_step_field,
+                step=self.step_count
+            )
+
             log_divergence_snapshot(
                 divergence_at_step_field,
                 self.step_count,
                 self.output_dir,
                 additional_meta={
-                    "max_divergence": float(max_div),
-                    "pressure_residual": float(residual),
+                    "max_divergence": max_div,
+                    "pressure_residual": residual,
                     "adaptive_recovery": recovery_triggered,
                     "dt": self.time_step,
-                    "projection_passes": self.num_projection_passes
+                    "projection_passes": self.num_projection_passes,
+                    "divergence_delta": div_metrics.get("delta"),
+                    "divergence_slope": div_metrics.get("slope"),
+                    "divergence_spike": div_metrics.get("spike_triggered")
                 }
             )
 
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
-                max_cfl = calculate_max_cfl(self)
-                print(f"    CFL Number: {max_cfl:.4f}")
+                cfl_metrics = calculate_max_cfl(self)
+                print(f"    CFL Number: {cfl_metrics['global_max']:.4f}")
 
             log_flow_metrics(
                 velocity_field=self.velocity_field,
@@ -144,8 +154,15 @@ def run(self):
                 num_steps=num_steps,
                 dt=self.time_step,
                 residual_divergence=residual,
+                divergence_delta=div_metrics.get("delta"),
+                divergence_slope=div_metrics.get("slope"),
+                effectiveness_score=getattr(self.time_stepper, "effectiveness_score", None),
                 event_tag="adaptive_recovery" if recovery_triggered else None,
-                recovery_triggered=recovery_triggered
+                recovery_triggered=recovery_triggered,
+                projection_passes=self.num_projection_passes,
+                damping_applied=self.damping_enabled,
+                smoother_iterations=smoother_depth,
+                vcycle_residuals=None
             )
 
             if np.any(np.isnan(self.velocity_field)) or np.any(np.isinf(self.velocity_field)) or \

@@ -88,7 +88,7 @@ def compute_residual(phi, rhs, dx, dy, dz):
         + phi[2:, 1:-1, 1:-1] + phi[:-2, 1:-1, 1:-1]
         + phi[1:-1, 2:, 1:-1] + phi[1:-1, :-2, 1:-1]
         + phi[1:-1, 1:-1, 2:] + phi[1:-1, 1:-1, :-2]
-    ) / dx**2  # Uniform spacing assumed
+    ) / dx**2  # Assumes uniform spacing
 
     residual = np.zeros_like(rhs)
     residual[1:-1, 1:-1, 1:-1] = rhs[1:-1, 1:-1, 1:-1] - laplacian
@@ -117,19 +117,19 @@ def v_cycle(phi, rhs, dx, dy, dz, levels, smoother_iterations=3, verbose=True):
     # Pre-smoothing
     phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=smoother_iterations)
 
-    # Compute residual and report
+    # Residual diagnostics
     residual = compute_residual(phi, rhs, dx, dy, dz)
     if verbose:
         max_r = np.max(np.abs(residual))
         mean_r = np.mean(np.abs(residual))
         print(f"📉 V-cycle residual: max={max_r:.4e}, mean={mean_r:.4e}, shape={residual.shape}")
 
-    # Restrict and recurse
+    # Restriction and recursion
     coarse_rhs = restrict(residual)
     coarse_phi = np.zeros_like(coarse_rhs)
     coarse_phi = v_cycle(coarse_phi, coarse_rhs, 2*dx, 2*dy, 2*dz, levels - 1, smoother_iterations, verbose)
 
-    # Prolong and correct
+    # Prolongation and correction
     correction = prolong(coarse_phi, target_shape=phi.shape)
     phi += correction
 
@@ -145,24 +145,23 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3, smoother_iterat
 
     Args:
         divergence (np.ndarray): Divergence field with ghost padding.
-        mesh_info (dict): Mesh config containing dx, dy, dz.
+        mesh_info (dict): Contains dx, dy, dz.
         dt (float): Time step.
-        levels (int): Depth of multigrid recursion.
+        levels (int): Multigrid depth.
         smoother_iterations (int): Gauss–Seidel sweeps per level.
         verbose (bool): Whether to print residual diagnostics.
 
     Returns:
-        np.ndarray: Pressure correction φ with ghost padding.
+        np.ndarray: Pressure correction field φ with ghost padding.
     """
     phi = np.zeros_like(divergence)
     rhs = divergence / dt
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
 
-    # V-cycle correction
     phi[interior] = v_cycle(phi[interior], rhs[interior], dx, dy, dz, levels, smoother_iterations, verbose)
 
-    # Enforce ghost cell consistency
+    # Ghost zone padding
     phi[0, :, :] = phi[1, :, :]
     phi[-1, :, :] = phi[-2, :, :]
     phi[:, 0, :] = phi[:, 1, :]

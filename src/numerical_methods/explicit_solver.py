@@ -16,6 +16,7 @@ except ImportError as e:
           "and contain the expected functions.", file=sys.stderr)
     sys.exit(1)
 
+
 class ExplicitSolver:
     """
     Explicit fractional-step solver for incompressible Navier–Stokes equations.
@@ -23,15 +24,18 @@ class ExplicitSolver:
     """
 
     def __init__(self, fluid_properties: dict, mesh_info: dict, dt: float):
-        self.density = fluid_properties['density']
-        self.viscosity = fluid_properties['viscosity']
+        self.density = fluid_properties["density"]
+        self.viscosity = fluid_properties["viscosity"]
         self.dt = dt
         self.mesh_info = mesh_info
         self.fluid_properties_dict = fluid_properties
         self.pressure_projection_passes = fluid_properties.get("pressure_projection_passes", 1)
+
+        # Runtime health metrics
         self.last_pressure_residual = None
         self.total_divergence_before = 0.0
         self.total_divergence_after = 0.0
+        self.effectiveness_score = 0.0
 
     def step(
         self,
@@ -39,7 +43,7 @@ class ExplicitSolver:
         pressure_field: np.ndarray,
         smoother_iterations: int = 3
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        # 1. Apply boundary conditions
+        # 1. Apply BCs before velocity update
         velocity_field, pressure_field = apply_boundary_conditions(
             velocity_field,
             pressure_field,
@@ -48,7 +52,7 @@ class ExplicitSolver:
             is_tentative_step=False
         )
 
-        # 2. Compute advection and diffusion
+        # 2. Advection and diffusion
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
         advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, self.mesh_info)
@@ -72,7 +76,7 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # 5–6. Projection loop with effectiveness logging
+        # 5. Projection Passes + Logging
         for pass_num in range(self.pressure_projection_passes):
             print(f"🔁 Pressure Projection Iteration {pass_num + 1}")
             divergence_before = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
@@ -83,14 +87,17 @@ class ExplicitSolver:
                 self.mesh_info,
                 self.dt,
                 levels=3,
-                smoother_iterations=smoother_iterations
+                smoother_iterations=smoother_iterations,
+                verbose=True
             )
 
-            if np.any(np.isnan(phi)) or np.any(np.isinf(phi)):
-                print("⚠️ NaN/Inf detected in φ — clamping.")
-                max_val = np.finfo(np.float64).max / 10
-                phi = np.clip(phi, -max_val, max_val)
+            # Clamp φ if needed
+            if np.isnan(phi).any() or np.isinf(phi).any():
+                print("⚠️ NaN/Inf in φ — clamping applied.")
+                safe_max = np.finfo(np.float64).max / 10
+                phi = np.clip(np.nan_to_num(phi, nan=0.0, posinf=safe_max, neginf=-safe_max), -safe_max, safe_max)
 
+            # Apply correction
             tentative_velocity_field, pressure_field, max_div_residual = apply_pressure_correction(
                 tentative_velocity_field,
                 pressure_field,
@@ -101,15 +108,18 @@ class ExplicitSolver:
                 return_residual=True
             )
 
+            # Measure effectiveness
             divergence_after = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
             self.total_divergence_after = float(np.max(np.abs(divergence_after)))
+            self.effectiveness_score = 100.0 * (
+                1.0 - self.total_divergence_after / max(self.total_divergence_before, 1e-8)
+            )
 
-            effectiveness = 100.0 * (1.0 - self.total_divergence_after / max(self.total_divergence_before, 1e-8))
-            print(f"📉 ∇·u effectiveness: {effectiveness:.2f}% reduction")
+            print(f"📉 ∇·u effectiveness: {self.effectiveness_score:.2f}% reduction")
             print(f"📏 ∇·u residual after correction: max = {max_div_residual:.4e}")
             self.last_pressure_residual = max_div_residual
 
-        # 7. Final boundary conditions
+        # 6. Final BC enforcement
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
             tentative_velocity_field,
             pressure_field,
@@ -118,13 +128,10 @@ class ExplicitSolver:
             is_tentative_step=False
         )
 
-        # 8. Final divergence audit
-        divergence_after_correction_field = compute_pressure_divergence(
-            updated_velocity_field,
-            self.mesh_info
-        )
+        # 7. Final divergence field for monitoring
+        divergence_field_final = compute_pressure_divergence(updated_velocity_field, self.mesh_info)
 
-        return updated_velocity_field, updated_pressure_field, divergence_after_correction_field
+        return updated_velocity_field, updated_pressure_field, divergence_field_final
 
 
 

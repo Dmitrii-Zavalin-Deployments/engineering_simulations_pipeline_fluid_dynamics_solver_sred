@@ -3,11 +3,19 @@
     "solver": "explicit",
     "projection_passes": 2,
     "projection_passes_max": 3,
+    "projection_pass_decay": false,
+    "enable_projection_ramp": true,
+
     "max_allowed_divergence": 0.03,
     "divergence_spike_factor": 100.0,
     "divergence_mode": "log",
+    "residual_kill_threshold": 1e4,
+    "max_consecutive_failures": 3,
+
     "adaptive_dt_enabled": true,
     "time_step": 0.01,
+    "dt_min": 1e-5,
+    "dt_reduction_factor": 0.5,
     "total_time": 1.0,
     "output_frequency_steps": 10,
     "cfl_threshold": 0.8,
@@ -17,18 +25,15 @@
     "preconditioner": "ilu",
     "tolerance": 1e-6,
     "max_iterations": 1000,
-    "residual_kill_threshold": 1e4,
     "fallback_solver": "direct",
 
     "smoother_sweeps": 5,
     "multigrid_levels": 3,
+    "smoother_adaptive_enabled": true,
 
     "damping_enabled": true,
     "damping_factor": 0.05,
-    "projection_pass_decay": false,
-    "enable_projection_ramp": true,
-    "energy_threshold": 1e6,
-    "smoother_adaptive_enabled": true
+    "energy_threshold": 1e6
   },
 
   "logging": {

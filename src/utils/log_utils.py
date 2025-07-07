@@ -31,7 +31,10 @@ def log_flow_metrics(
     projection_passes: int = None,
     damping_applied: bool = False,
     smoother_iterations: int = None,
-    vcycle_residuals: list = None
+    vcycle_residuals: list = None,
+    divergence_slope: float = None,
+    divergence_delta: float = None,
+    effectiveness_score: float = None
 ):
     """
     Logs diagnostic metrics for simulation stability and runtime behavior.
@@ -54,6 +57,9 @@ def log_flow_metrics(
         damping_applied (bool): Whether velocity damping was applied
         smoother_iterations (int): Gauss–Seidel sweeps per multigrid level
         vcycle_residuals (list): List of residuals per V-cycle level
+        divergence_slope (float): Change in divergence per step
+        divergence_delta (float): Absolute divergence change from previous
+        effectiveness_score (float): ∇·u reduction effectiveness (%)
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]
@@ -63,13 +69,11 @@ def log_flow_metrics(
         logger.warning(f"Empty interior domain @ step {step_count} — diagnostics skipped.")
         return
 
-    # 🧼 Sanitize for safety
     interior_v = np.nan_to_num(interior_v, nan=0.0, posinf=0.0, neginf=0.0)
     interior_p = np.nan_to_num(interior_p, nan=0.0, posinf=0.0, neginf=0.0)
     interior_div = np.nan_to_num(interior_div, nan=0.0, posinf=0.0, neginf=0.0)
 
-    if (step_count % output_frequency_steps == 0) or \
-       (step_count == num_steps and step_count != 0):
+    if (step_count % output_frequency_steps == 0) or (step_count == num_steps and step_count != 0):
 
         velocity_mag = np.linalg.norm(interior_v, axis=-1)
         kinetic_energy = 0.5 * fluid_density * np.sum(velocity_mag ** 2)
@@ -97,6 +101,12 @@ def log_flow_metrics(
             logger.info(f"    • CFL Number                  : {cfl:.4e}")
         if residual_divergence is not None:
             logger.info(f"    • Post-Correction Residual ∇·u: {residual_divergence:.4e}")
+        if effectiveness_score is not None:
+            logger.info(f"    • Projection Effectiveness    : {effectiveness_score:.2f}%")
+        if divergence_delta is not None:
+            logger.info(f"    • Divergence Change Δ         : {divergence_delta:.4e}")
+        if divergence_slope is not None:
+            logger.info(f"    • Divergence Slope Δ/step     : {divergence_slope:.4e}")
         if smoother_iterations is not None:
             logger.info(f"    • Smoother Iterations         : {smoother_iterations}")
         if projection_passes is not None:

@@ -44,13 +44,14 @@ def setup_simulation_output_directory(simulation_instance, output_dir):
 
 def log_divergence_snapshot(divergence_field, step_count, output_dir, additional_meta=None):
     """
-    Logs divergence metrics, solver health, and runtime events per step.
+    Logs divergence metrics and solver state per time step.
+    Includes diagnostic metadata: dt, projection passes, damping, smoother, energy, residuals.
 
     Args:
-        divergence_field (np.ndarray): Full divergence field with ghost zones.
-        step_count (int): Current simulation step.
-        output_dir (str): Path to root simulation output folder.
-        additional_meta (dict): Optional metadata (e.g., dt, residual, recovery_triggered, projection_passes, damping_applied, smoother_iterations)
+        divergence_field (np.ndarray): Full ∇·u field [nx+2, ny+2, nz+2]
+        step_count (int): Current step
+        output_dir (str): Simulation output folder
+        additional_meta (dict): Optional metadata
     """
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
