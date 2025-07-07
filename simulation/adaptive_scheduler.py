@@ -29,7 +29,7 @@ class AdaptiveScheduler:
 
         ramp = sim_instance.num_projection_passes
 
-        if current_residual > sim_instance.residual_kill_threshold or \
+        if current_residual is not None and current_residual > sim_instance.residual_kill_threshold or \
            current_divergence > sim_instance.divergence_spike_factor * sim_instance.max_allowed_divergence:
             ramp = min(ramp + 1, self.max_passes)
             self.stability_counter = 0
@@ -44,7 +44,7 @@ class AdaptiveScheduler:
         sim_instance.num_projection_passes = ramp
 
     def get_smoother_iterations(self, last_residual):
-        if not self.smoother_adaptive_enabled:
+        if not self.smoother_adaptive_enabled or last_residual is None:
             return 3
         if last_residual > 5e+04:
             return 8
