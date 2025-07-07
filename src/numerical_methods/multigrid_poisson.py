@@ -16,13 +16,14 @@ def red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=3):
         np.ndarray: Smoothed phi field.
     """
     nx, ny, nz = phi.shape
+    denom = 2/dx**2 + 2/dy**2 + 2/dz**2
     for _ in range(iterations):
         for color in [0, 1]:
             for i in range(1, nx - 1):
                 for j in range(1, ny - 1):
                     for k in range(1, nz - 1):
                         if (i + j + k) % 2 == color:
-                            phi[i, j, k] = (1 / (2/dx**2 + 2/dy**2 + 2/dz**2)) * (
+                            phi[i, j, k] = (1 / denom) * (
                                 rhs[i, j, k]
                                 + (phi[i+1, j, k] + phi[i-1, j, k]) / dx**2
                                 + (phi[i, j+1, k] + phi[i, j-1, k]) / dy**2
@@ -113,22 +114,26 @@ def v_cycle(phi, rhs, dx, dy, dz, levels, smoother_iterations=3, verbose=True):
         phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=max(20, smoother_iterations))
         return phi
 
+    # Pre-smoothing
     phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=smoother_iterations)
 
+    # Compute residual and report
     residual = compute_residual(phi, rhs, dx, dy, dz)
-    max_residual = np.max(np.abs(residual))
-    mean_residual = np.mean(np.abs(residual))
     if verbose:
-        print(f"📉 V-cycle residual: max={max_residual:.4e}, mean={mean_residual:.4e}, shape={residual.shape}")
+        max_r = np.max(np.abs(residual))
+        mean_r = np.mean(np.abs(residual))
+        print(f"📉 V-cycle residual: max={max_r:.4e}, mean={mean_r:.4e}, shape={residual.shape}")
 
+    # Restrict and recurse
     coarse_rhs = restrict(residual)
     coarse_phi = np.zeros_like(coarse_rhs)
-
     coarse_phi = v_cycle(coarse_phi, coarse_rhs, 2*dx, 2*dy, 2*dz, levels - 1, smoother_iterations, verbose)
 
+    # Prolong and correct
     correction = prolong(coarse_phi, target_shape=phi.shape)
     phi += correction
 
+    # Post-smoothing
     phi = red_black_gauss_seidel(phi, rhs, dx, dy, dz, iterations=smoother_iterations)
 
     return phi
@@ -143,19 +148,21 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3, smoother_iterat
         mesh_info (dict): Mesh config containing dx, dy, dz.
         dt (float): Time step.
         levels (int): Depth of multigrid recursion.
-        smoother_iterations (int): Number of Gauss–Seidel passes per cycle.
-        verbose (bool): If True, print residual diagnostics.
+        smoother_iterations (int): Gauss–Seidel sweeps per level.
+        verbose (bool): Whether to print residual diagnostics.
 
     Returns:
-        np.ndarray: Solution field φ padded with ghost cells.
+        np.ndarray: Pressure correction φ with ghost padding.
     """
     phi = np.zeros_like(divergence)
     rhs = divergence / dt
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
 
+    # V-cycle correction
     phi[interior] = v_cycle(phi[interior], rhs[interior], dx, dy, dz, levels, smoother_iterations, verbose)
 
+    # Enforce ghost cell consistency
     phi[0, :, :] = phi[1, :, :]
     phi[-1, :, :] = phi[-2, :, :]
     phi[:, 0, :] = phi[:, 1, :]
@@ -164,5 +171,6 @@ def solve_poisson_multigrid(divergence, mesh_info, dt, levels=3, smoother_iterat
     phi[:, :, -1] = phi[:, :, -2]
 
     return phi
+
 
 

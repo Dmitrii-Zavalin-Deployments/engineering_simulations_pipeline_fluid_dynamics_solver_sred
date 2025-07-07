@@ -5,8 +5,8 @@ from scipy.sparse import lil_matrix
 
 def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
     """
-    Assembles the sparse matrix A for the discrete Poisson equation ∇²φ = b
-    with boundary conditions, periodic support, and optional stencil weighting.
+    Assembles sparse matrix A for discrete Poisson equation ∇²φ = b.
+    Supports stencil weights and periodic/neumann boundary encoding.
 
     Returns:
         A (scipy.sparse.csr_matrix): System matrix A in CSR format.
@@ -14,17 +14,15 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
     N = nx * ny * nz
     A = lil_matrix((N, N))
 
-    # Base weights
     Cx, Cy, Cz = 1.0 / dx**2, 1.0 / dy**2, 1.0 / dz**2
     C0 = -2.0 * (Cx + Cy + Cz)
 
     def idx(i, j, k):
         return i + j * nx + k * nx * ny
 
-    # Helper to get weight for Neumann stencil adjustment
-    def get_weighted_value(bc_dict, key, default_value):
-        bc_entry = bc_dict.get(key, {})
-        return bc_entry.get("weight", 1.0) * default_value
+    def get_weighted_value(bc_dict, key, base_value):
+        entry = bc_dict.get(key, {})
+        return entry.get("weight", 1.0) * base_value
 
     for k in range(nz):
         for j in range(ny):
@@ -32,7 +30,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 center = idx(i, j, k)
                 A[center, center] = C0
 
-                # --- X Neighbors ---
+                # --- X-axis neighbors ---
                 if i > 0:
                     A[center, idx(i - 1, j, k)] = Cx
                 elif bc.get("periodic_x"):
@@ -47,7 +45,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 elif bc["x_max"]["type"] == "neumann":
                     A[center, center] += get_weighted_value(bc, "x_max", Cx)
 
-                # --- Y Neighbors ---
+                # --- Y-axis neighbors ---
                 if j > 0:
                     A[center, idx(i, j - 1, k)] = Cy
                 elif bc.get("periodic_y"):
@@ -62,7 +60,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 elif bc["y_max"]["type"] == "neumann":
                     A[center, center] += get_weighted_value(bc, "y_max", Cy)
 
-                # --- Z Neighbors ---
+                # --- Z-axis neighbors ---
                 if k > 0:
                     A[center, idx(i, j, k - 1)] = Cz
                 elif bc.get("periodic_z"):
@@ -82,19 +80,19 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
 
 def apply_poisson_rhs_bcs(rhs, nx, ny, nz, dx, dy, dz, bc):
     """
-    Modifies the RHS vector b based on Dirichlet boundary conditions.
+    Modifies RHS vector b for Dirichlet boundary conditions.
 
     Returns:
-        Modified rhs vector as NumPy array.
+        np.ndarray: Modified rhs vector
     """
     Cx, Cy, Cz = 1.0 / dx**2, 1.0 / dy**2, 1.0 / dz**2
 
     def idx(i, j, k):
         return i + j * nx + k * nx * ny
 
-    def get_weighted_value(bc_dict, key, default_value):
-        bc_entry = bc_dict.get(key, {})
-        return bc_entry.get("weight", 1.0) * default_value
+    def get_weighted_value(bc_dict, key, base_value):
+        entry = bc_dict.get(key, {})
+        return entry.get("weight", 1.0) * base_value
 
     for k in range(nz):
         for j in range(ny):

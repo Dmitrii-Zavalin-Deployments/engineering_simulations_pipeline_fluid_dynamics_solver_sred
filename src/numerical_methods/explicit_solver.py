@@ -36,7 +36,7 @@ class ExplicitSolver:
         velocity_field: np.ndarray,
         pressure_field: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        # 1. Apply initial BCs
+        # 1. Apply initial boundary conditions
         velocity_field, pressure_field = apply_boundary_conditions(
             velocity_field,
             pressure_field,
@@ -45,7 +45,7 @@ class ExplicitSolver:
             is_tentative_step=False
         )
 
-        # 2. Compute advection + diffusion
+        # 2. Compute advection and diffusion terms
         advection_u = compute_advection_term(velocity_field[..., 0], velocity_field, self.mesh_info)
         advection_v = compute_advection_term(velocity_field[..., 1], velocity_field, self.mesh_info)
         advection_w = compute_advection_term(velocity_field[..., 2], velocity_field, self.mesh_info)
@@ -54,13 +54,13 @@ class ExplicitSolver:
         diffusion_v = compute_diffusion_term(velocity_field[..., 1], self.viscosity, self.mesh_info)
         diffusion_w = compute_diffusion_term(velocity_field[..., 2], self.viscosity, self.mesh_info)
 
-        # 3. Predict tentative velocity (u_star)
+        # 3. Predict tentative velocity
         u_star = velocity_field[..., 0] + self.dt * (-advection_u + diffusion_u)
         v_star = velocity_field[..., 1] + self.dt * (-advection_v + diffusion_v)
         w_star = velocity_field[..., 2] + self.dt * (-advection_w + diffusion_w)
         tentative_velocity_field = np.stack((u_star, v_star, w_star), axis=-1)
 
-        # 4. Apply BCs to tentative velocity
+        # 4. Apply tentative velocity boundary conditions
         tentative_velocity_field, _ = apply_boundary_conditions(
             tentative_velocity_field,
             pressure_field,
@@ -69,7 +69,7 @@ class ExplicitSolver:
             is_tentative_step=True
         )
 
-        # 5–6. Pressure projection loop
+        # 5–6. Pressure projection and correction
         for pass_num in range(self.pressure_projection_passes):
             print(f"🔁 Pressure Projection Iteration {pass_num + 1}")
             divergence = compute_pressure_divergence(tentative_velocity_field, self.mesh_info)
@@ -82,7 +82,7 @@ class ExplicitSolver:
             )
 
             if np.any(np.isnan(phi)) or np.any(np.isinf(phi)):
-                print("⚠️ NaN or Inf in pressure correction φ — clamping.")
+                print("⚠️ NaN or Inf detected in pressure correction φ. Clamping extremes.")
                 max_val = np.finfo(np.float64).max / 10
                 phi = np.clip(phi, -max_val, max_val)
 
@@ -96,10 +96,10 @@ class ExplicitSolver:
                 return_residual=True
             )
 
-            print(f"📏 ∇·u residual after correction: max={max_div_residual:.4e}")
+            print(f"📏 ∇·u residual after correction: max = {max_div_residual:.4e}")
             self.last_pressure_residual = max_div_residual
 
-        # 7. Final BC enforcement
+        # 7. Apply final boundary conditions
         updated_velocity_field, updated_pressure_field = apply_boundary_conditions(
             tentative_velocity_field,
             pressure_field,
@@ -108,7 +108,7 @@ class ExplicitSolver:
             is_tentative_step=False
         )
 
-        # 8. Divergence audit
+        # 8. Audit divergence after projection
         divergence_after_correction_field = compute_pressure_divergence(
             updated_velocity_field,
             self.mesh_info

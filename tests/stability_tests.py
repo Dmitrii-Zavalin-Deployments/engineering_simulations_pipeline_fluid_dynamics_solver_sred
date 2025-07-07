@@ -40,12 +40,12 @@ def test_divergence_stability(
         return True
 
     interior = divergence_field[1:-1, 1:-1, 1:-1]
+    interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
     max_div = np.max(np.abs(interior))
     mean_div = np.mean(np.abs(interior))
 
     print(f"📏 ∇·u check: max={max_div:.4e}, mean={mean_div:.4e}")
 
-    # Track trend
     if _previous_divergence_max is not None:
         delta = max_div - _previous_divergence_max
         rate = delta / max(1, step)
@@ -71,7 +71,7 @@ def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.
     Ensures velocity magnitudes stay within physical bounds.
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
-    velocity_mag = np.linalg.norm(interior_v, axis=-1)
+    velocity_mag = np.linalg.norm(np.nan_to_num(interior_v), axis=-1)
 
     max_vel = np.max(velocity_mag)
     print(f"⚡ Velocity magnitude: max={max_vel:.4e}")

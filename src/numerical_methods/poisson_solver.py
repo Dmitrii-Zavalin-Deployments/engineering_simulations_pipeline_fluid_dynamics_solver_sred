@@ -11,7 +11,6 @@ SOLVER_BACKEND_BICGSTAB = "bicgstab"
 PRECONDITIONER_NONE = "none"
 PRECONDITIONER_ILU = "ilu"
 
-
 def solve_poisson_for_phi(
     divergence_field,
     mesh_info,
@@ -77,13 +76,15 @@ def solve_poisson_for_phi(
                 try:
                     ilu = spilu(A.tocsc(), drop_tol=1e-5, fill_factor=20)
                     M = LinearOperator(A.shape, ilu.solve)
-                except Exception:
+                except Exception as e:
+                    print(f"⚠️ ILU preconditioner failed: {e}")
                     M = None
 
             phi_flat, info = bicgstab(A, rhs, rtol=tolerance, maxiter=max_iterations, M=M)
             if info != 0:
+                print(f"⚠️ BiCGSTAB failed (info={info})")
                 if fallback_on_failure:
-                    print(f"⚠️ BiCGSTAB failed (info={info}) — falling back to spsolve.")
+                    print("🔄 Falling back to direct solve with spsolve...")
                     phi_flat = spsolve(A, rhs)
                     residual = np.linalg.norm(A @ phi_flat - rhs)
                 else:
@@ -91,12 +92,12 @@ def solve_poisson_for_phi(
             else:
                 residual = np.linalg.norm(A @ phi_flat - rhs)
         else:
-            raise ValueError(f"Unknown backend: {backend}")
+            raise ValueError(f"Unknown solver backend: {backend}")
 
     except Exception as e:
-        print(f"❌ Linear solver exception: {e}")
+        print(f"❌ Linear solve exception: {e}")
         if fallback_on_failure:
-            print("🔄 Attempting fallback with direct solve...")
+            print("🔄 Attempting recovery with spsolve...")
             phi_flat = spsolve(A, rhs)
             residual = np.linalg.norm(A @ phi_flat - rhs)
         else:
@@ -106,6 +107,7 @@ def solve_poisson_for_phi(
     phi = np.zeros_like(divergence_field)
     phi[interior] = phi_interior
 
+    # Apply Neumann ghost padding
     if not bc["periodic_x"]:
         if bc["x_min"]["type"] == "neumann":
             phi[0, :, :] = phi[1, :, :]

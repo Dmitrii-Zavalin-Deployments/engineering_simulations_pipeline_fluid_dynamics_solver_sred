@@ -64,9 +64,14 @@ class Simulation:
 
         # Extract simulation-level tuning parameters
         self.max_allowed_divergence = sim_params.get("max_allowed_divergence", 3e-2)
+        self.divergence_spike_factor = sim_params.get("divergence_spike_factor", 100.0)
         self.divergence_mode = sim_params.get("divergence_mode", "log")
         self.num_projection_passes = sim_params.get("projection_passes", 1)
-        self.divergence_spike_factor = sim_params.get("divergence_spike_factor", 100.0)
+        self.projection_passes_max = sim_params.get("projection_passes_max", self.num_projection_passes)
+        self.residual_kill_threshold = sim_params.get("residual_kill_threshold", 1e4)
+        self.smoother_sweeps = sim_params.get("smoother_sweeps", 5)
+        self.fallback_solver = sim_params.get("fallback_solver", "direct")
+        self.adaptive_dt_enabled = sim_params.get("adaptive_dt_enabled", True)
 
         # Fluid properties + projection passes
         self.fluid_properties = {
