@@ -55,14 +55,18 @@ def run(self):
             self.step_count += 1
             self.current_time = self.step_count * self.time_step
 
+            self.scheduler.check_energy_and_dampen(self)
+
             print(f"[DEBUG @ Step {self.step_count}] Velocity BEFORE step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
             print(f"[DEBUG @ Step {self.step_count}] Pressure BEFORE step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
 
             projection_passes = getattr(self, "num_projection_passes", 1)
             for pass_num in range(projection_passes):
+                smoother_depth = self.scheduler.get_smoother_iterations(getattr(self.time_stepper, "last_pressure_residual", 0.0))
                 self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
                     self.velocity_field,
-                    self.p
+                    self.p,
+                    smoother_iterations=smoother_depth
                 )
                 print(f"🔁 Pressure Projection Pass {pass_num + 1}")
 
@@ -104,6 +108,12 @@ def run(self):
                 sim_instance=self
             )
 
+            self.scheduler.update_projection_passes(
+                sim_instance=self,
+                current_residual=residual,
+                current_divergence=max_div
+            )
+
             log_divergence_snapshot(
                 divergence_at_step_field,
                 self.step_count,
@@ -112,7 +122,8 @@ def run(self):
                     "max_divergence": float(max_div),
                     "pressure_residual": float(residual),
                     "adaptive_recovery": recovery_triggered,
-                    "dt": self.time_step
+                    "dt": self.time_step,
+                    "projection_passes": self.num_projection_passes
                 }
             )
 

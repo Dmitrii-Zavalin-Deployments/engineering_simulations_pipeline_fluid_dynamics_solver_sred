@@ -50,7 +50,7 @@ def log_divergence_snapshot(divergence_field, step_count, output_dir, additional
         divergence_field (np.ndarray): Full divergence field with ghost zones.
         step_count (int): Current simulation step.
         output_dir (str): Path to root simulation output folder.
-        additional_meta (dict): Optional metadata (e.g., dt, residual, recovery_triggered)
+        additional_meta (dict): Optional metadata (e.g., dt, residual, recovery_triggered, projection_passes, damping_applied, smoother_iterations)
     """
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
@@ -66,7 +66,12 @@ def log_divergence_snapshot(divergence_field, step_count, output_dir, additional
 
     if additional_meta:
         for key, val in additional_meta.items():
-            stats[key] = float(val) if isinstance(val, (np.float32, np.float64)) else val
+            if isinstance(val, (np.float32, np.float64)):
+                stats[key] = float(val)
+            elif isinstance(val, (np.ndarray, list)):
+                stats[key] = convert_numpy_to_list(val)
+            else:
+                stats[key] = val
 
     log_path = os.path.join(output_dir, "logs", f"divergence_step_{step_count:04d}.json")
     save_json(stats, log_path)

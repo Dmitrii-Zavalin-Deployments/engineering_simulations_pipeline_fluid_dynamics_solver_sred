@@ -13,51 +13,50 @@ def apply_pressure_correction(
     return_residual: bool = False
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, float]:
     """
-    Applies pressure correction to the tentative velocity field and updates pressure.
+    Applies pressure correction to tentative velocity and updates pressure.
     Optionally returns the residual divergence magnitude after correction.
 
     Args:
-        tentative_velocity_field (np.ndarray): Velocity field after advection/diffusion.
-        current_pressure_field (np.ndarray): Current pressure estimate.
-        phi (np.ndarray): Pressure correction potential from Poisson solve.
-        mesh_info (dict): Mesh configuration with grid spacing.
-        dt (float): Simulation time step.
+        tentative_velocity_field (np.ndarray): Velocity after advection/diffusion.
+        current_pressure_field (np.ndarray): Pressure field before correction.
+        phi (np.ndarray): Pressure correction potential.
+        mesh_info (dict): Contains grid spacing dx, dy, dz.
+        dt (float): Time step size.
         density (float): Fluid density.
-        return_residual (bool): Whether to return max ∇·u residual post correction.
+        return_residual (bool): Whether to return post-correction ∇·u magnitude.
 
     Returns:
-        Tuple: (updated_velocity_field, updated_pressure_field [, max_div_residual])
+        Tuple: (corrected_velocity, corrected_pressure [, max_divergence])
     """
     dx, dy, dz = mesh_info["dx"], mesh_info["dy"], mesh_info["dz"]
-
     updated_velocity = tentative_velocity_field.copy()
     updated_pressure = current_pressure_field.copy()
     interior = (slice(1, -1), slice(1, -1), slice(1, -1))
 
-    # 🛡️ Clamp φ for safety
+    # 🛡️ Clamp correction potential for safety
     if np.any(np.isnan(phi)) or np.any(np.isinf(phi)):
-        print("⚠️ Detected NaN or Inf in φ — clamping correction potential.")
+        print("⚠️ Detected NaN/Inf in φ — clamping.")
         max_val = np.finfo(np.float64).max / 10
         phi = np.nan_to_num(phi, nan=0.0, posinf=max_val, neginf=-max_val)
         phi = np.clip(phi, -max_val, max_val)
 
-    # 🎯 Compute gradients of φ
+    # 🎯 Compute gradient of φ via central differences
     grad_phi_x = (phi[2:, 1:-1, 1:-1] - phi[1:-1, 1:-1, 1:-1]) / dx
     grad_phi_y = (phi[1:-1, 2:, 1:-1] - phi[1:-1, 1:-1, 1:-1]) / dy
     grad_phi_z = (phi[1:-1, 1:-1, 2:] - phi[1:-1, 1:-1, 1:-1]) / dz
 
-    # ⛓️ Apply velocity corrections
-    updated_velocity[1:-1, 1:-1, 1:-1, 0] -= (dt / density) * grad_phi_x
-    updated_velocity[1:-1, 1:-1, 1:-1, 1] -= (dt / density) * grad_phi_y
-    updated_velocity[1:-1, 1:-1, 1:-1, 2] -= (dt / density) * grad_phi_z
+    # 🔄 Correct velocity field
+    updated_velocity[interior + (0,)] -= (dt / density) * grad_phi_x
+    updated_velocity[interior + (1,)] -= (dt / density) * grad_phi_y
+    updated_velocity[interior + (2,)] -= (dt / density) * grad_phi_z
 
-    # 📏 Update pressure field
-    updated_pressure[1:-1, 1:-1, 1:-1] += density * phi[1:-1, 1:-1, 1:-1]
+    # ⛓️ Update pressure field
+    updated_pressure[interior] += density * phi[interior]
 
     if not return_residual:
         return updated_velocity, updated_pressure
 
-    # 📉 Estimate residual ∇·u
+    # 📉 Compute residual divergence ∇·u
     dudx = (updated_velocity[2:, 1:-1, 1:-1, 0] - updated_velocity[1:-1, 1:-1, 1:-1, 0]) / dx
     dvdy = (updated_velocity[1:-1, 2:, 1:-1, 1] - updated_velocity[1:-1, 1:-1, 1:-1, 1]) / dy
     dwdz = (updated_velocity[1:-1, 1:-1, 2:, 2] - updated_velocity[1:-1, 1:-1, 1:-1, 2]) / dz

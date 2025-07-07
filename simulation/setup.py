@@ -17,6 +17,7 @@ from solver.initialization import (
     initialize_fields,
     print_initial_setup
 )
+from simulation.adaptive_scheduler import AdaptiveScheduler  # 🧠 Add adaptive scheduler
 
 def load_config_overrides(config_path: str = "src/config.json"):
     if Path(config_path).exists():
@@ -73,6 +74,15 @@ class Simulation:
         self.fallback_solver = sim_params.get("fallback_solver", "direct")
         self.adaptive_dt_enabled = sim_params.get("adaptive_dt_enabled", True)
 
+        # 🚦 Additional adaptive controls
+        self.damping_enabled = sim_params.get("damping_enabled", True)
+        self.damping_factor = sim_params.get("damping_factor", 0.05)
+        self.enable_projection_ramp = sim_params.get("enable_projection_ramp", True)
+        self.projection_pass_decay = sim_params.get("projection_pass_decay", False)
+        self.energy_threshold = sim_params.get("energy_threshold", 1e6)
+        self.smoother_adaptive_enabled = sim_params.get("smoother_adaptive_enabled", True)
+        self.stabilization_window = sim_params.get("stabilization_window", 5)
+
         # Fluid properties + projection passes
         self.fluid_properties = {
             "density": self.rho,
@@ -81,6 +91,9 @@ class Simulation:
         }
 
         self.boundary_conditions = bc_dict
+
+        # 📌 Instantiate AdaptiveScheduler
+        self.scheduler = AdaptiveScheduler(sim_params)
 
         # Solver selection
         solver_type = sim_params.get("solver", "explicit").lower()

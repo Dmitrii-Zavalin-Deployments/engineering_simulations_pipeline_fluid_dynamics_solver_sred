@@ -21,7 +21,14 @@
     "fallback_solver": "direct",
 
     "smoother_sweeps": 5,
-    "multigrid_levels": 3
+    "multigrid_levels": 3,
+
+    "damping_enabled": true,
+    "damping_factor": 0.05,
+    "projection_pass_decay": false,
+    "enable_projection_ramp": true,
+    "energy_threshold": 1e6,
+    "smoother_adaptive_enabled": true
   },
 
   "logging": {
@@ -32,9 +39,6 @@
     "log_residual_every_pass": true
   }
 }
-
-
-
 
 
 

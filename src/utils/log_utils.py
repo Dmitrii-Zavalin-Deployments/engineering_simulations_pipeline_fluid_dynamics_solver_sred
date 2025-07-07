@@ -27,7 +27,11 @@ def log_flow_metrics(
     cfl: float = None,
     residual_divergence: float = None,
     event_tag: str = None,
-    recovery_triggered: bool = False
+    recovery_triggered: bool = False,
+    projection_passes: int = None,
+    damping_applied: bool = False,
+    smoother_iterations: int = None,
+    vcycle_residuals: list = None
 ):
     """
     Logs diagnostic metrics for simulation stability and runtime behavior.
@@ -46,6 +50,10 @@ def log_flow_metrics(
         residual_divergence (float): Post-correction divergence residual
         event_tag (str): Optional event label
         recovery_triggered (bool): Whether recovery logic was applied
+        projection_passes (int): Number of pressure projection passes used
+        damping_applied (bool): Whether velocity damping was applied
+        smoother_iterations (int): Gauss–Seidel sweeps per multigrid level
+        vcycle_residuals (list): List of residuals per V-cycle level
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]
@@ -89,6 +97,15 @@ def log_flow_metrics(
             logger.info(f"    • CFL Number                  : {cfl:.4e}")
         if residual_divergence is not None:
             logger.info(f"    • Post-Correction Residual ∇·u: {residual_divergence:.4e}")
+        if smoother_iterations is not None:
+            logger.info(f"    • Smoother Iterations         : {smoother_iterations}")
+        if projection_passes is not None:
+            logger.info(f"    • Projection Passes Used      : {projection_passes}")
+        if damping_applied:
+            logger.info(f"🛑 Velocity Damping Applied       : ✅")
+        if vcycle_residuals:
+            for i, r in enumerate(vcycle_residuals):
+                logger.info(f"    • V-cycle Residual [Level {i}] : {r:.4e}")
         if event_tag:
             logger.info(f"🛠 Event Triggered                : {event_tag}")
         if recovery_triggered:

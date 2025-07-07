@@ -30,7 +30,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 center = idx(i, j, k)
                 A[center, center] = C0
 
-                # --- X-axis neighbors ---
+                # X neighbors
                 if i > 0:
                     A[center, idx(i - 1, j, k)] = Cx
                 elif bc.get("periodic_x"):
@@ -45,7 +45,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 elif bc["x_max"]["type"] == "neumann":
                     A[center, center] += get_weighted_value(bc, "x_max", Cx)
 
-                # --- Y-axis neighbors ---
+                # Y neighbors
                 if j > 0:
                     A[center, idx(i, j - 1, k)] = Cy
                 elif bc.get("periodic_y"):
@@ -60,7 +60,7 @@ def assemble_poisson_matrix(nx, ny, nz, dx, dy, dz, bc):
                 elif bc["y_max"]["type"] == "neumann":
                     A[center, center] += get_weighted_value(bc, "y_max", Cy)
 
-                # --- Z-axis neighbors ---
+                # Z neighbors
                 if k > 0:
                     A[center, idx(i, j, k - 1)] = Cz
                 elif bc.get("periodic_z"):
