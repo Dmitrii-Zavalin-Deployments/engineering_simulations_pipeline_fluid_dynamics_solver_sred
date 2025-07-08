@@ -22,6 +22,11 @@ class AdaptiveScheduler:
         self.dt_reduction_factor = config.get("dt_reduction_factor", 0.5)
         self.dt_min = config.get("dt_min", 1e-5)
 
+        # Termination thresholds
+        self.abort_divergence_threshold = config.get("abort_divergence_threshold", 1e6)
+        self.abort_velocity_threshold = config.get("abort_velocity_threshold", 1e6)
+        self.abort_cfl_threshold = config.get("abort_cfl_threshold", 1e6)
+
         # Internal tracking state
         self.stability_counter = 0
         self.last_divergence_max = None
@@ -117,6 +122,18 @@ class AdaptiveScheduler:
             print(f"⏬ Timestep reduced → {new_dt:.4e}")
 
         self.consecutive_spike_count = 0
+
+    def check_extreme_instability(self, sim_instance, max_divergence, max_velocity, global_cfl):
+        """
+        Abort trigger for unrecoverable instability (NaN, Inf, or absurdly large values).
+        """
+        if (
+            max_divergence > self.abort_divergence_threshold or
+            max_velocity > self.abort_velocity_threshold or
+            global_cfl > self.abort_cfl_threshold
+        ):
+            print("🛑 Critical instability detected — simulation will abort.")
+            raise RuntimeError("Simulation aborted due to extreme instability.")
 
 
 
