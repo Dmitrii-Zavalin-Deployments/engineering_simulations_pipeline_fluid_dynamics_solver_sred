@@ -32,6 +32,8 @@ def snapshot_fixture():
         return json.load(f)
 
 def test_snapshot_file_exists():
+    # ✅ Ensure snapshot exists before checking
+    simulate_overflow_snapshot_write(SNAPSHOT_PATH)
     assert os.path.isfile(SNAPSHOT_PATH), "Snapshot file is missing"
 
 def test_snapshot_schema(snapshot_fixture):

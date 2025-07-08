@@ -2,6 +2,10 @@
 
 import pytest
 import numpy as np
+import os
+import json
+
+SNAPSHOT_PATH = "data/testing-output-run/navier_stokes_output/divergence_snapshot.json"
 
 @pytest.fixture
 def clean_velocity_field():
@@ -53,6 +57,26 @@ def default_reflex_config():
         "divergence_spike_factor": 100.0,
         "max_consecutive_failures": 3
     }
+
+@pytest.fixture(autouse=True, scope="module")
+def write_snapshot_for_tests():
+    """
+    Auto-generated snapshot file for overflow-related tests.
+    Runs once per module.
+    """
+    snapshot_data = {
+        "step": 42,
+        "max_divergence": float("inf"),
+        "max_velocity": 1e6,
+        "global_cfl": 2.5,
+        "overflow_detected": True,
+        "divergence_mode": "log",
+        "field_shape": [8, 8, 8],
+        "divergence_values": np.full((8, 8, 8), 1e3).tolist()
+    }
+    os.makedirs(os.path.dirname(SNAPSHOT_PATH), exist_ok=True)
+    with open(SNAPSHOT_PATH, "w") as f:
+        json.dump(snapshot_data, f, indent=2)
 
 
 

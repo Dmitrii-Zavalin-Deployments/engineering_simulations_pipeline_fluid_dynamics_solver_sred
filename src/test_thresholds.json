@@ -12,11 +12,12 @@
     "max_projection_passes": 4
   },
   "volatility_tests": {
+    "warning_threshold": 5.0,
     "max_slope_per_step": 15.0,
     "delta_threshold": 50.0
   },
   "residual_tests": {
-    "max_residual_allowed": 1e-3
+    "max_residual_allowed": 0.001
   },
   "pressure_tests": {
     "max_pressure_difference": 1000.0
