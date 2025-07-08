@@ -1,5 +1,5 @@
 # poisson_solver.py
-def pass(): pass
+pass
 
 
 
