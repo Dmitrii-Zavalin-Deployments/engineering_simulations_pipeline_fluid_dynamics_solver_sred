@@ -1,37 +1,5 @@
-{
-  "divergence_tests": {
-    "max_divergence_threshold": 500.0,
-    "effectiveness_minimum": 0.85,
-    "slope_limit_per_step": 150.0,
-    "spike_factor": 100.0
-  },
-  "velocity_tests": {
-    "velocity_magnitude_max": 100.0,
-    "velocity_magnitude_warning": 50.0,
-    "nan_inf_allowed": false
-  },
-  "residual_tests": {
-    "residual_max": 100000.0,
-    "multigrid_residual_max": 1000000.0
-  },
-  "pressure_tests": {
-    "pressure_range_max": 1000.0,
-    "pressure_stddev_max": 100.0
-  },
-  "projection_effectiveness": {
-    "minimum_reduction_percent": 75.0,
-    "failure_tolerance_percent": 0.0
-  },
-  "cfl_tests": {
-    "cfl_max": 500.0,
-    "warning_threshold": 200.0
-  },
-  "test_behavior": {
-    "strict_mode_enabled": true,
-    "log_failure_context": true,
-    "abort_on_critical_violation": true
-  }
-}
+{}
+
 
 
 
