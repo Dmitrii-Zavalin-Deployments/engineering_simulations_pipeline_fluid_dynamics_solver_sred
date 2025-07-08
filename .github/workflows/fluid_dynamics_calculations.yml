@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      PYTHONPATH: ${{ github.workspace }}/src  # ✅ Ensures imports from src work globally
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run 
       TEMP_SOLVER_INPUT_FILE: ${{ github.workspace }}/temp/solver_input.json
@@ -39,7 +40,6 @@ jobs:
     - name: Run Pre-processor (Generate cell_indices and structured input)
       run: |
         mkdir -p "$(dirname "$TEMP_SOLVER_INPUT_FILE")"
-        PYTHONPATH="${GITHUB_WORKSPACE}/src" \
         python "${GITHUB_WORKSPACE}/src/pre_process_input.py" "$ORIGINAL_INPUT_FILE" "$TEMP_SOLVER_INPUT_FILE"
 
         # Verify the pre-processed file exists
@@ -56,7 +56,6 @@ jobs:
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        PYTHONPATH="${GITHUB_WORKSPACE}/src" \
         python "${GITHUB_WORKSPACE}/src/main_solver.py" "$TEMP_SOLVER_INPUT_FILE" "$OUTPUT_RESULTS_BASE_DIR"
         echo "✅ Main solver executed."
 
@@ -86,9 +85,6 @@ jobs:
         echo "🔍 FULL_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
         echo "🔍 RESTARTED_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
 
-        FULL_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
-        RESTARTED_OUTPUT_DIR="$ACTUAL_OUTPUT_DIR" \
-        PYTHONPATH=src \
         pytest tests/ --verbose -ra
 
     - name: Upload Results to Dropbox

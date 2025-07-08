@@ -11,7 +11,7 @@ if project_root not in sys.path:
 
 from simulation import Simulation
 from utils.simulation_output_manager import setup_simulation_output_directory
-
+from stability_utils import run_stability_checks  # ✅ Moved from tests module
 
 def cli_entrypoint():
     if len(sys.argv) != 3:
@@ -26,11 +26,30 @@ def cli_entrypoint():
         sim = Simulation(input_file, output_dir)
         setup_simulation_output_directory(sim, output_dir)
         sim.run()
+
+        # 🔍 Optional: Run stability diagnostics post-simulation
+        passed, metrics = run_stability_checks(
+            velocity_field=sim.velocity_field,
+            pressure_field=sim.pressure_field,
+            divergence_field=sim.divergence_field,
+            step=sim.step_count,
+            expected_velocity_shape=sim.velocity_field.shape,
+            expected_pressure_shape=sim.pressure_field.shape,
+            expected_divergence_shape=sim.divergence_field.shape,
+            divergence_mode=sim.divergence_mode,
+            max_allowed_divergence=sim.max_allowed_divergence,
+            velocity_limit=sim.velocity_limit,
+            spike_factor=sim.divergence_spike_factor
+        )
+
+        if not passed:
+            print("⚠️ Stability check failed after solver run.")
+            # Optional: exit or trigger recovery
+
         print("✅ Main Navier-Stokes simulation executed successfully.")
     except Exception as e:
         print(f"Error: Simulation failed: {e}", file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     cli_entrypoint()

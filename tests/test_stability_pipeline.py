@@ -1,4 +1,4 @@
-# tests/stability_pipeline.py
+# tests/test_stability_pipeline.py
 
 """
 Stability Pipeline Tests:
@@ -10,6 +10,8 @@ import os
 import json
 import numpy as np
 import pytest
+
+from stability_utils import run_stability_checks  # ✅ Import shared diagnostic logic
 
 # Load threshold config
 with open(os.path.join("src", "test_thresholds.json")) as f:
@@ -65,10 +67,28 @@ def test_nan_inf_safety():
         assert not np.isinf(field).any(), f"{label} field contains Inf"
 
 def test_config_integrity():
-    # Confirm test config includes required sections
     required_keys = ["divergence_tests", "velocity_tests", "residual_tests", "pressure_tests", "projection_effectiveness"]
     for key in required_keys:
         assert key in thresholds, f"Missing config section: {key}"
+
+@pytest.mark.integration
+def test_run_stability_checks_output_shape():
+    velocity, pressure, divergence = generate_synthetic_fields()
+    passed, metrics = run_stability_checks(
+        velocity_field=velocity,
+        pressure_field=pressure,
+        divergence_field=divergence,
+        step=1,
+        expected_velocity_shape=velocity.shape,
+        expected_pressure_shape=pressure.shape,
+        expected_divergence_shape=divergence.shape,
+        divergence_mode="log",
+        max_allowed_divergence=thresholds["divergence_tests"]["max_divergence_threshold"],
+        velocity_limit=thresholds["velocity_tests"]["velocity_magnitude_max"],
+        spike_factor=thresholds["divergence_tests"]["spike_factor"]
+    )
+    assert isinstance(passed, bool), "Stability check did not return a boolean status"
+    assert "max" in metrics and "mean" in metrics, "Metrics missing expected keys"
 
 
 
