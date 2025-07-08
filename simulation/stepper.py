@@ -80,7 +80,7 @@ def run(self):
 
             passed, div_metrics = run_stability_checks(
                 velocity_field=self.velocity_field,
-                pressure_field=self.p,
+                pressure_field=self.p,  # ✅ Correct reference, not .pressure_field
                 divergence_field=divergence_at_step_field,
                 step=self.step_count,
                 expected_velocity_shape=self.velocity_field.shape,

@@ -30,11 +30,11 @@ def cli_entrypoint():
         # 🔍 Optional: Run stability diagnostics post-simulation
         passed, metrics = run_stability_checks(
             velocity_field=sim.velocity_field,
-            pressure_field=sim.pressure_field,
+            pressure_field=sim.p,  # ✅ Corrected from sim.pressure_field
             divergence_field=sim.divergence_field,
             step=sim.step_count,
             expected_velocity_shape=sim.velocity_field.shape,
-            expected_pressure_shape=sim.pressure_field.shape,
+            expected_pressure_shape=sim.p.shape,
             expected_divergence_shape=sim.divergence_field.shape,
             divergence_mode=sim.divergence_mode,
             max_allowed_divergence=sim.max_allowed_divergence,
