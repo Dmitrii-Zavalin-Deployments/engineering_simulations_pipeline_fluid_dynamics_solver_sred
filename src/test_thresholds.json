@@ -1,0 +1,33 @@
+{
+  "divergence_tests": {
+    "max_divergence_threshold": 1e3,
+    "effectiveness_minimum": 0.85,
+    "slope_limit_per_step": 200.0,
+    "spike_factor": 100.0
+  },
+  "velocity_tests": {
+    "velocity_magnitude_max": 1e2,
+    "velocity_magnitude_warning": 50.0,
+    "nan_inf_allowed": false
+  },
+  "residual_tests": {
+    "residual_max": 1e5,
+    "multigrid_residual_max": 1e6
+  },
+  "pressure_tests": {
+    "pressure_range_max": 1e3,
+    "pressure_stddev_max": 100.0
+  },
+  "projection_effectiveness": {
+    "minimum_reduction_percent": 75.0,
+    "failure_tolerance_percent": 0.0
+  },
+  "test_behavior": {
+    "strict_mode_enabled": true,
+    "log_failure_context": true,
+    "abort_on_critical_violation": true
+  }
+}
+
+
+
