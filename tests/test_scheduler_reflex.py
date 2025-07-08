@@ -2,7 +2,6 @@
 
 import pytest
 import numpy as np
-# Fix: Change 'AdaptiveScheduler' to 'adaptive_scheduler' to match the actual class name
 from simulation.adaptive_scheduler import adaptive_scheduler
 
 class DummySim:
