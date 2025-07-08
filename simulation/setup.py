@@ -1,5 +1,5 @@
 # setup.py
-def pass(): pass
+pass
 
 
 

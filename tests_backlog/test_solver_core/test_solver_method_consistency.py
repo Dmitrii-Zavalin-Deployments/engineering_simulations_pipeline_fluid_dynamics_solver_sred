@@ -51,7 +51,7 @@ def test_poisson_solution_reduces_divergence_of_random_field():
     assert ratio < 0.8, (
         f"Divergence was only reduced by {(1 - ratio):.1%} in one step. "
         f"Expected at least 20% reduction (ratio < 0.8). "
-        f"Pressure projection may need multiple passes or tighter solver convergence."
+        f"Pressure projection may need multiplepasses or tighter solver convergence."
     )
 
 

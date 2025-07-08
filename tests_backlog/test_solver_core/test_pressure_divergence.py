@@ -82,7 +82,7 @@ def test_divergence_of_pressure_gradient_mimics_laplacian():
     grad = compute_pressure_gradient(pressure, mesh)
     div = compute_divergence(grad, mesh)
 
-    # Use safer slicing to avoid shrinking past zero with double-stencil passes
+    # Use safer slicing to avoid shrinking past zero with double-stencilpasses
     interior = div[1:-1, 1:-1, 1:-1]
 
     assert interior.size > 0, "Divergence field has no valid interior"

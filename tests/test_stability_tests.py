@@ -29,7 +29,7 @@ def test_divergence_stability(
     Checks for excessive divergence and tracks instability metrics.
 
     Returns:
-        (bool, dict): stability pass flag, divergence trend diagnostics
+        (bool, dict): stabilitypass flag, divergence trend diagnostics
     """
     global _previous_divergence_max
 
@@ -110,11 +110,11 @@ def run_stability_checks(
         (bool, dict): status flag and divergence metrics
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
-    pass_flag = True
+   pass_flag = True
 
-    pass_flag &= check_field_validity(velocity_field, "Velocity")
-    pass_flag &= check_field_validity(pressure_field, "Pressure")
-    pass_flag &= check_field_validity(divergence_field, "Divergence")
+   pass_flag &= check_field_validity(velocity_field, "Velocity")
+   pass_flag &= check_field_validity(pressure_field, "Pressure")
+   pass_flag &= check_field_validity(divergence_field, "Divergence")
 
     div_check, div_metrics = test_divergence_stability(
         divergence_field,
@@ -123,23 +123,23 @@ def run_stability_checks(
         step,
         spike_factor
     )
-    pass_flag &= div_check
+   pass_flag &= div_check
 
-    pass_flag &= test_velocity_bounds(velocity_field, velocity_limit)
+   pass_flag &= test_velocity_bounds(velocity_field, velocity_limit)
 
     if expected_velocity_shape:
-        pass_flag &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), "Velocity", "Expected")
+       pass_flag &= test_shape_match(velocity_field, np.zeros(expected_velocity_shape), "Velocity", "Expected")
     if expected_pressure_shape:
-        pass_flag &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), "Pressure", "Expected")
+       pass_flag &= test_shape_match(pressure_field, np.zeros(expected_pressure_shape), "Pressure", "Expected")
     if expected_divergence_shape:
-        pass_flag &= test_shape_match(divergence_field, np.zeros(expected_divergence_shape), "Divergence", "Expected")
+       pass_flag &= test_shape_match(divergence_field, np.zeros(expected_divergence_shape), "Divergence", "Expected")
 
-    if not pass_flag:
+    if notpass_flag:
         print(f"❌ Step {step}: Stability FAILED. Diagnostic review advised.")
     else:
-        print(f"✅ Step {step}: Stability PASSED.")
+        print(f"✅ Step {step}: StabilitypassED.")
 
-    return pass_flag, div_metrics
+    returnpass_flag, div_metrics
 
 
 

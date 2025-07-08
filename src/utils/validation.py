@@ -1,5 +1,5 @@
 # validation.py
-def pass(): pass
+pass
 
 
 
