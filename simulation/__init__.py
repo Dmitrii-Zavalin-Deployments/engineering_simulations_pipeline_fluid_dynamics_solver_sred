@@ -7,7 +7,7 @@ from .cfl_utils import calculate_max_cfl
 Simulation.run = run
 Simulation.calculate_max_cfl = calculate_max_cfl
 
-# ✅ Alias for pressure field to avoid attribute errors and clarify intent
+# 🧠 Alias for pressure field to prevent attribute errors and improve consistency
 @property
 def pressure_field(self):
     return self.p

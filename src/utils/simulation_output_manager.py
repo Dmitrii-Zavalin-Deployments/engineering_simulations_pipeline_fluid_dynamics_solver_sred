@@ -5,7 +5,7 @@ from datetime import datetime
 from utils.io_utils import save_json, convert_numpy_to_list
 import numpy as np
 
-# Set NumPy to raise errors on overflow
+# Raise errors on overflow during diagnostics
 np.seterr(over='raise', invalid='raise')
 
 def setup_simulation_output_directory(simulation_instance, output_dir):
@@ -49,25 +49,20 @@ def log_divergence_snapshot(divergence_field, step_count, output_dir, additional
     """
     Logs divergence metrics and solver state per time step.
     Includes diagnostic metadata: dt, projection passes, damping, smoother, energy, residuals.
-
-    Args:
-        divergence_field (np.ndarray): Full ∇·u field [nx+2, ny+2, nz+2]
-        step_count (int): Current step
-        output_dir (str): Simulation output folder
-        additional_meta (dict): Optional metadata
     """
     interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
 
     try:
-        stats = {
-            "step": step_count,
-            "timestamp": datetime.now().isoformat(),
-            "max_divergence": float(np.max(np.abs(interior))),
-            "mean_divergence": float(np.mean(np.abs(interior))),
-            "min_divergence": float(np.min(interior)),
-            "std_divergence": float(np.std(interior))
-        }
+        with np.errstate(over='raise', invalid='raise'):
+            stats = {
+                "step": step_count,
+                "timestamp": datetime.now().isoformat(),
+                "max_divergence": float(np.max(np.abs(interior))),
+                "mean_divergence": float(np.mean(np.abs(interior))),
+                "min_divergence": float(np.min(interior)),
+                "std_divergence": float(np.std(interior))
+            }
     except FloatingPointError as e:
         print(f"❌ Overflow during divergence stats: {e}")
         stats = {
@@ -78,6 +73,7 @@ def log_divergence_snapshot(divergence_field, step_count, output_dir, additional
             "min_divergence": float("inf"),
             "std_divergence": float("inf"),
             "overflow_flag": True,
+            "error_type": "FloatingPointError",
             "overflow_message": str(e)
         }
 

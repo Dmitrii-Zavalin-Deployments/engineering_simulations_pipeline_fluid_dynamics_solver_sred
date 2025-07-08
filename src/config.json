@@ -21,6 +21,10 @@
     "cfl_threshold": 0.8,
     "velocity_limit": 10.0,
 
+    "abort_divergence_threshold": 1000000.0,
+    "abort_velocity_threshold": 1000000.0,
+    "abort_cfl_threshold": 1000000.0,
+
     "solver_backend": "bicgstab",
     "preconditioner": "ilu",
     "tolerance": 1e-6,

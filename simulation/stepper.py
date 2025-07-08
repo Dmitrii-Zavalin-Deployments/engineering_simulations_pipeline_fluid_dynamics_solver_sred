@@ -9,14 +9,10 @@ from numerical_methods.pressure_divergence import compute_pressure_divergence
 from solver.results_handler import save_field_snapshot
 from utils.log_utils import log_flow_metrics
 from utils.simulation_output_manager import log_divergence_snapshot
-from stability_utils import run_stability_checks  # ✅ Updated import from shared utility
+from stability_utils import run_stability_checks
 from simulation.cfl_utils import calculate_max_cfl
 
 def step_health_monitor(step, max_div, residual, kill_threshold, divergence_tolerance, sim_instance):
-    """
-    Emergency handler if solver exceeds safety thresholds.
-    Reduces dt and clamps projection depth to attempt recovery.
-    """
     if residual > kill_threshold or max_div > 100 * divergence_tolerance:
         print(f"⚠️ Stability compromised @ step {step}. dt halved, projection_passes clamped.")
         sim_instance.time_step *= sim_instance.dt_reduction_factor
@@ -60,7 +56,7 @@ def run(self):
             self.scheduler.check_energy_and_dampen(self)
 
             projection_passes = getattr(self, "num_projection_passes", 1)
-            for pass_num in range(projection_passes):
+            for _ in range(projection_passes):
                 smoother_depth = self.scheduler.get_smoother_iterations(
                     getattr(self.time_stepper, "last_pressure_residual", 0.0)
                 )
@@ -80,7 +76,7 @@ def run(self):
 
             passed, div_metrics = run_stability_checks(
                 velocity_field=self.velocity_field,
-                pressure_field=self.p,  # ✅ Correct reference, not .pressure_field
+                pressure_field=self.p,
                 divergence_field=divergence_at_step_field,
                 step=self.step_count,
                 expected_velocity_shape=self.velocity_field.shape,
@@ -102,6 +98,18 @@ def run(self):
                 divergence_tolerance=self.max_allowed_divergence,
                 sim_instance=self
             )
+
+            # 🛡️ Reflex termination: check for unrecoverable instability
+            try:
+                velocity_mag = np.linalg.norm(np.nan_to_num(self.velocity_field[1:-1, 1:-1, 1:-1, :]), axis=-1)
+                max_velocity = float(np.max(velocity_mag))
+                cfl_metrics = calculate_max_cfl(self)
+                global_cfl = cfl_metrics["global_max"]
+                self.scheduler.check_extreme_instability(self, max_div, max_velocity, global_cfl)
+            except RuntimeError as fatal:
+                print(f"🧯 Critical failure triggered: {fatal}")
+                save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir, tag="critical_abort")
+                raise
 
             self.scheduler.update_projection_passes(self, residual, max_div)
             self.scheduler.monitor_divergence_and_escalate(self, divergence_at_step_field, self.step_count)
@@ -125,8 +133,7 @@ def run(self):
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
-                cfl_metrics = calculate_max_cfl(self)
-                print(f"    CFL @ step {self.step_count}: {cfl_metrics['global_max']:.4f}")
+                print(f"    CFL @ step {self.step_count}: {global_cfl:.4f}")
 
             log_flow_metrics(
                 velocity_field=self.velocity_field,
