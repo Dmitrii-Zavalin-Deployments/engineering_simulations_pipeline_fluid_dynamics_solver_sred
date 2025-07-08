@@ -6,6 +6,8 @@ import os
 import json
 
 SNAPSHOT_PATH = "data/testing-output-run/navier_stokes_output/divergence_snapshot.json"
+THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
+SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 
 @pytest.fixture
 def clean_velocity_field():
@@ -77,6 +79,24 @@ def write_snapshot_for_tests():
     os.makedirs(os.path.dirname(SNAPSHOT_PATH), exist_ok=True)
     with open(SNAPSHOT_PATH, "w") as f:
         json.dump(snapshot_data, f, indent=2)
+
+@pytest.fixture(scope="module")
+def loaded_thresholds():
+    """
+    Loads test_thresholds.json for use in threshold validation tests.
+    """
+    with open(THRESHOLD_PATH) as f:
+        return json.load(f)
+
+@pytest.fixture(scope="module")
+def threshold_schema():
+    """
+    Loads schema for validating structure of test thresholds.
+    """
+    if os.path.isfile(SCHEMA_PATH):
+        with open(SCHEMA_PATH) as f:
+            return json.load(f)
+    return None  # Gracefully handles absence of schema if needed
 
 
 

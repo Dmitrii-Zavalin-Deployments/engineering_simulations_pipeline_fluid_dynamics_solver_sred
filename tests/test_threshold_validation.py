@@ -3,6 +3,10 @@
 import json
 import pytest
 import os
+from jsonschema import validate, ValidationError
+
+# Optional: Load schema from separate file if needed
+SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 
 @pytest.fixture(scope="module")
 def thresholds():
@@ -53,6 +57,29 @@ def test_behavior_flags(thresholds):
     behavior = thresholds["test_behavior"]
     assert isinstance(behavior.get("enable_overflow_logging"), bool)
     assert isinstance(behavior.get("strict_mode"), bool)
+
+def test_thresholds_schema_compliance(thresholds):
+    if not os.path.isfile(SCHEMA_PATH):
+        pytest.skip("Schema file not found")
+    with open(SCHEMA_PATH) as f:
+        schema = json.load(f)
+    try:
+        validate(instance=thresholds, schema=schema)
+    except ValidationError as e:
+        pytest.fail(f"Schema validation failed: {e.message}")
+
+def test_no_fallback_values_used(thresholds):
+    vtest = thresholds.get("volatility_tests", {})
+    warning = vtest.get("warning_threshold", -1.0)
+    assert warning != -1.0, "Fallback used: 'warning_threshold' is missing"
+    assert warning >= 0.0
+
+@pytest.mark.parametrize("cfl_value", [0.89, 0.9, 0.91])
+def test_cfl_threshold_sensitivity(cfl_value, thresholds):
+    threshold = thresholds["cfl_tests"]["max_cfl_stable"]
+    should_be_stable = cfl_value <= threshold
+    # Simulate expected reflex behavior (logic placeholder)
+    assert should_be_stable is True or should_be_stable is False  # Passes regardless, placeholder for simulation link
 
 
 

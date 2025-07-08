@@ -1,19 +1,21 @@
-# adaptive_scheduler.py
+# simulation/adaptive_scheduler.py
 
 import numpy as np  # ✅ Required for metric evaluations
+import warnings
+from src.stability_utils import get_threshold  # ✅ Centralized threshold accessor
 
 class AdaptiveScheduler:
     def __init__(self, config):
         self.config = config
-        # Reflex configuration parameters
-        self.damping_enabled = config.get("damping_enabled", True)
-        self.damping_factor = config.get("damping_factor", 0.1)
-        self.divergence_spike_factor = config.get("divergence_spike_factor", 100.0)
-        self.abort_divergence_threshold = config.get("abort_divergence_threshold", 1e6)
-        self.abort_velocity_threshold = config.get("abort_velocity_threshold", 1e6)
-        self.abort_cfl_threshold = config.get("abort_cfl_threshold", 1e6)
-        self.projection_passes_max = config.get("projection_passes_max", 4)
-        self.max_consecutive_failures = config.get("max_consecutive_failures", 3)
+        # Reflex configuration parameters using safe accessor
+        self.damping_enabled = get_threshold(config, "damping_enabled", True)
+        self.damping_factor = get_threshold(config, "damping_factor", 0.1)
+        self.divergence_spike_factor = get_threshold(config, "divergence_spike_factor", 100.0)
+        self.abort_divergence_threshold = get_threshold(config, "abort_divergence_threshold", 1e6)
+        self.abort_velocity_threshold = get_threshold(config, "abort_velocity_threshold", 1e6)
+        self.abort_cfl_threshold = get_threshold(config, "abort_cfl_threshold", 1e6)
+        self.projection_passes_max = get_threshold(config, "projection_passes_max", 4)
+        self.max_consecutive_failures = get_threshold(config, "max_consecutive_failures", 3)
         self.consecutive_spike_count = 0
 
     def apply_velocity_damping(self, velocity_field):

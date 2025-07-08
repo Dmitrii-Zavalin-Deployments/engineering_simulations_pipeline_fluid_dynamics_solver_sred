@@ -1,6 +1,7 @@
-# stability_utils.py
+# src/stability_utils.py
 
 import numpy as np
+import warnings
 
 def check_field_validity(field, label="field"):
     """
@@ -32,6 +33,16 @@ def compute_volatility(current_value, previous_value, step):
     delta = current_value - previous_value
     slope = delta / max(step, 1)
     return delta, slope
+
+def get_threshold(thresh_dict, key, default):
+    """
+    Centralized accessor for threshold values.
+    Logs a warning if a fallback value is used.
+    """
+    val = thresh_dict.get(key, default)
+    if val == default:
+        warnings.warn(f"[THRESHOLD FALLBACK] Key '{key}' not found. Using default: {default}")
+    return val
 
 
 
