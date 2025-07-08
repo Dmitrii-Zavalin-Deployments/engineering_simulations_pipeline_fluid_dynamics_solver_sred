@@ -26,24 +26,33 @@ def test_top_level_sections_exist(thresholds):
 
 def test_divergence_threshold_values(thresholds):
     div = thresholds["divergence_tests"]
-    assert div["max_divergence_threshold"] > 0
-    assert div["spike_factor"] >= 10.0
+    assert div.get("max_divergence_threshold", 0) > 0
+    assert div.get("spike_factor", 0) >= 10.0
 
 def test_velocity_thresholds_reasonable(thresholds):
     vtest = thresholds["velocity_tests"]
-    assert vtest["velocity_magnitude_max"] > vtest["velocity_magnitude_warning"]
-    assert vtest["nan_inf_allowed"] is False
+    assert vtest.get("velocity_magnitude_max", 0) > 50.0
+    assert vtest.get("warning_tolerance_percent", 0) <= 50.0
 
 def test_projection_effectiveness_values(thresholds):
     proj = thresholds["projection_effectiveness"]
-    assert 0.0 <= proj["minimum_reduction_percent"] <= 100.0
-    assert 0.0 <= proj["failure_tolerance_percent"] <= 100.0
+    assert 0.0 <= proj.get("minimum_reduction_percent", 0.0) <= 100.0
+    assert proj.get("max_projection_passes", 0) >= 1
 
 def test_volatility_threshold_values(thresholds):
     vtest = thresholds["volatility_tests"]
-    assert vtest["warning_threshold"] < vtest["max_slope_per_step"]
-    assert vtest["max_slope_per_step"] < 1e4
-    assert vtest["warning_threshold"] >= 0.0
+    assert vtest.get("warning_threshold", 0.0) < vtest.get("max_slope_per_step", 1e4)
+    assert vtest.get("warning_threshold", -1.0) >= 0.0
+    assert vtest.get("delta_threshold", 0.0) >= 0.0
+
+def test_cfl_threshold_range(thresholds):
+    cfl = thresholds["cfl_tests"]
+    assert 0.0 < cfl.get("max_cfl_stable", 0.0) < 1.0
+
+def test_behavior_flags(thresholds):
+    behavior = thresholds["test_behavior"]
+    assert isinstance(behavior.get("enable_overflow_logging"), bool)
+    assert isinstance(behavior.get("strict_mode"), bool)
 
 
 

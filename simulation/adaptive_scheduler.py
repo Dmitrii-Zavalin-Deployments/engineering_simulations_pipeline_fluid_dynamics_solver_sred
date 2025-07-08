@@ -1,5 +1,7 @@
 # adaptive_scheduler.py
 
+import numpy as np  # ✅ Required for metric evaluations
+
 class AdaptiveScheduler:
     def __init__(self, config):
         self.config = config
@@ -15,11 +17,17 @@ class AdaptiveScheduler:
         self.consecutive_spike_count = 0
 
     def apply_velocity_damping(self, velocity_field):
+        """
+        Applies a damping factor to the velocity field if enabled.
+        """
         if not self.damping_enabled:
             return velocity_field
         return velocity_field * (1.0 - self.damping_factor)
 
     def check_extreme_instability(self, sim, max_divergence, max_velocity, global_cfl):
+        """
+        Aborts the simulation if any metrics exceed defined thresholds.
+        """
         if (
             max_divergence > self.abort_divergence_threshold or
             max_velocity > self.abort_velocity_threshold or
@@ -28,6 +36,9 @@ class AdaptiveScheduler:
             raise RuntimeError("Simulation terminated due to extreme instability.")
 
     def monitor_divergence_and_escalate(self, sim, divergence_field, step):
+        """
+        Tracks divergence spikes and increments escalation counter.
+        """
         current_max = float(np.max(divergence_field))
         threshold = self.divergence_spike_factor * getattr(sim, "max_allowed_divergence", 1.0)
         if current_max > threshold:
@@ -36,12 +47,18 @@ class AdaptiveScheduler:
             self.consecutive_spike_count = 0
 
     def update_projection_passes(self, sim, residual, max_div):
+        """
+        Escalates or clamps the number of projection passes based on failure severity.
+        """
         if getattr(sim, "num_projection_passes", 1) < self.projection_passes_max:
             sim.num_projection_passes += 1
         elif sim.num_projection_passes > self.projection_passes_max:
             sim.num_projection_passes = self.projection_passes_max
 
     def get_current_reflex_status(self):
+        """
+        Returns a snapshot of current reflex settings and escalation state.
+        """
         return {
             "projection_passes": self.projection_passes_max,
             "damping_enabled": self.damping_enabled,

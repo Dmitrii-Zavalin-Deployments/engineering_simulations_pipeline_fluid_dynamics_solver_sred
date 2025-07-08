@@ -5,7 +5,7 @@ import numpy as np
 
 from src.stability_utils import (
     check_field_validity,
-    test_velocity_bounds,
+    velocity_bounds_check,
     compute_volatility
 )
 
@@ -21,12 +21,12 @@ def test_check_field_validity_with_valid_values():
 
 def test_velocity_bounds_exceeding_limit():
     velocity_field = np.ones((4, 4, 4, 3)) * 1000.0
-    result = test_velocity_bounds(velocity_field, velocity_limit=100.0)
+    result = velocity_bounds_check(velocity_field, velocity_limit=100.0)
     assert result is False
 
 def test_velocity_bounds_within_limit():
     velocity_field = np.ones((4, 4, 4, 3)) * 50.0
-    result = test_velocity_bounds(velocity_field, velocity_limit=100.0)
+    result = velocity_bounds_check(velocity_field, velocity_limit=100.0)
     assert result is True
 
 def test_compute_volatility_returns_correct_delta_and_slope():

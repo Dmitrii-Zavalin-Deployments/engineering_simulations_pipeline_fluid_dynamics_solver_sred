@@ -1,5 +1,34 @@
-{}
-
+{
+  "divergence_tests": {
+    "max_divergence_threshold": 0.5,
+    "spike_factor": 100.0
+  },
+  "velocity_tests": {
+    "velocity_magnitude_max": 100.0,
+    "warning_tolerance_percent": 10.0
+  },
+  "projection_effectiveness": {
+    "minimum_reduction_percent": 90.0,
+    "max_projection_passes": 4
+  },
+  "volatility_tests": {
+    "max_slope_per_step": 15.0,
+    "delta_threshold": 50.0
+  },
+  "residual_tests": {
+    "max_residual_allowed": 1e-3
+  },
+  "pressure_tests": {
+    "max_pressure_difference": 1000.0
+  },
+  "cfl_tests": {
+    "max_cfl_stable": 0.9
+  },
+  "test_behavior": {
+    "enable_overflow_logging": true,
+    "strict_mode": false
+  }
+}
 
 
 

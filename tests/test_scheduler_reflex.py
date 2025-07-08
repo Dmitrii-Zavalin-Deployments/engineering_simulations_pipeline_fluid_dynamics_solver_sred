@@ -67,5 +67,22 @@ def test_update_projection_passes_clamps_depth():
     scheduler.update_projection_passes(sim, residual=10.0, max_div=0.01)
     assert sim.num_projection_passes <= config["projection_passes_max"]
 
+def test_get_current_reflex_status_snapshot():
+    config = {
+        "damping_enabled": True,
+        "projection_passes_max": 4,
+        "divergence_spike_factor": 100.0,
+        "max_consecutive_failures": 3
+    }
+    sim = DummySim()
+    scheduler = AdaptiveScheduler(config)
+    divergence_field = np.ones((6, 6, 6)) * 100.0
+    scheduler.monitor_divergence_and_escalate(sim, divergence_field, step=3)
+    status = scheduler.get_current_reflex_status()
+    assert isinstance(status, dict)
+    assert status["projection_passes"] == 4
+    assert status["damping_enabled"] is True
+    assert status["spike_count"] >= 1
+
 
 

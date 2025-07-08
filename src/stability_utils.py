@@ -12,7 +12,7 @@ def check_field_validity(field, label="field"):
         return False
     return True
 
-def test_velocity_bounds(field, velocity_limit):
+def velocity_bounds_check(field, velocity_limit):
     """
     Returns True if all velocity magnitudes are below the threshold.
     Assumes velocity field shape: (nx, ny, nz, 3)
