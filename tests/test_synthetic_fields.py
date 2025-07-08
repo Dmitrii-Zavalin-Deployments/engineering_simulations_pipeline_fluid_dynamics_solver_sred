@@ -2,7 +2,7 @@
 
 import pytest
 import numpy as np
-from src.stability_utils import check_field_validity, test_velocity_bounds  # ✅ Confirmed accurate import
+from src.stability_utils import check_field_validity, velocity_bounds_check  # ✅ Updated import
 
 def generate_nan_field(shape):
     field = np.zeros(shape)
@@ -34,11 +34,11 @@ def test_synthetic_corrupted_fields_fail_validation(field_generator, label):
 
 def test_spike_velocity_exceeds_bounds():
     velocity_field = generate_spike_velocity_field((5, 5, 5), spike_value=99999.0)
-    assert test_velocity_bounds(velocity_field, velocity_limit=100.0) is False
+    assert velocity_bounds_check(velocity_field, velocity_limit=100.0) is False
 
 def test_clean_velocity_passes_bounds_check():
     velocity_field = np.ones((4, 4, 4, 3)) * 9.0
-    assert test_velocity_bounds(velocity_field, velocity_limit=100.0) is True
+    assert velocity_bounds_check(velocity_field, velocity_limit=100.0) is True
 
 def test_malformed_velocity_field_detects_nan():
     velocity_field = generate_malformed_velocity_field()
