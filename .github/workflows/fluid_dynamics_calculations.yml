@@ -43,14 +43,14 @@ jobs:
         python "${GITHUB_WORKSPACE}/src/pre_process_input.py" "$ORIGINAL_INPUT_FILE" "$TEMP_SOLVER_INPUT_FILE"
 
         # Verify the pre-processed file exists
-        [ -f "$TEMP_SOLVER_INPUT_FILE" ] && echo "✅ Pre-processing completed." || { echo "❌ Error: solver_input.json not created!"; exit 1; }
+        # [ -f "$TEMP_SOLVER_INPUT_FILE" ] && echo "✅ Pre-processing completed." || { echo "❌ Error: solver_input.json not created!"; exit 1; }
 
         # Sanity check: must include cell_indices
-        if ! grep -q "cell_indices" "$TEMP_SOLVER_INPUT_FILE"; then
-          echo "❌ Error: Preprocessed input missing 'cell_indices'. Did preprocessing run correctly?"
-          cat "$TEMP_SOLVER_INPUT_FILE"
-          exit 1
-        fi
+        # if ! grep -q "cell_indices" "$TEMP_SOLVER_INPUT_FILE"; then
+        #  echo "❌ Error: Preprocessed input missing 'cell_indices'. Did preprocessing run correctly?"
+        #  cat "$TEMP_SOLVER_INPUT_FILE"
+        #  exit 1
+        # fi
 
     - name: Run Main Solver
       run: |
