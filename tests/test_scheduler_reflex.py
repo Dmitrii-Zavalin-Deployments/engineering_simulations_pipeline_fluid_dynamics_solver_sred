@@ -2,7 +2,8 @@
 
 import pytest
 import numpy as np
-from simulation.adaptive_scheduler import AdaptiveScheduler
+# Fix: Change 'AdaptiveScheduler' to 'adaptive_scheduler' to match the actual class name
+from simulation.adaptive_scheduler import adaptive_scheduler
 
 class DummySim:
     def __init__(self):
@@ -26,20 +27,23 @@ def test_check_extreme_instability_triggers_abort():
         "abort_cfl_threshold": 100.0
     }
     sim = DummySim()
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     with pytest.raises(RuntimeError):
         scheduler.check_extreme_instability(sim, max_divergence=5e4, max_velocity=1e4, global_cfl=200.0)
 
 def test_apply_velocity_damping_with_enabled_flag():
     config = {"damping_enabled": True, "damping_factor": 0.1}
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     field = np.ones((4, 4, 4, 3)) * 10.0
     damped_field = scheduler.apply_velocity_damping(field)
     assert np.allclose(damped_field, field * 0.9)
 
 def test_apply_velocity_damping_skipped_when_disabled():
     config = {"damping_enabled": False}
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     field = np.ones((4, 4, 4, 3)) * 8.0
     damped_field = scheduler.apply_velocity_damping(field)
     assert np.array_equal(damped_field, field)
@@ -47,7 +51,8 @@ def test_apply_velocity_damping_skipped_when_disabled():
 def test_monitor_divergence_and_escalate_spike_triggers_counter():
     sim = DummySim()
     config = {"divergence_spike_factor": 100.0, "max_consecutive_failures": 3}
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     divergence_field = np.ones((8, 8, 8)) * 50.0  # > 100×0.03 → spike triggered
     scheduler.monitor_divergence_and_escalate(sim, divergence_field, step=2)
     assert scheduler.consecutive_spike_count >= 1
@@ -55,14 +60,16 @@ def test_monitor_divergence_and_escalate_spike_triggers_counter():
 def test_update_projection_passes_escalates_depth():
     sim = DummySim()
     config = {"projection_passes_max": 4}
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     scheduler.update_projection_passes(sim, residual=5000.0, max_div=100.0)
     assert sim.num_projection_passes >= 2
 
 def test_update_projection_passes_clamps_depth():
     sim = DummySim()
     config = {"projection_passes_max": 3}
-    scheduler = AdaptiveScheduler(config)
+    # Fix: Instantiate with 'adaptive_scheduler'
+    scheduler = adaptive_scheduler(config)
     sim.num_projection_passes = 5
     scheduler.update_projection_passes(sim, residual=10.0, max_div=0.01)
     assert sim.num_projection_passes <= config["projection_passes_max"]
