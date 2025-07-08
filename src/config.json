@@ -9,7 +9,7 @@
     "max_allowed_divergence": 0.03,
     "divergence_spike_factor": 100.0,
     "divergence_mode": "log",
-    "residual_kill_threshold": 1e4,
+    "residual_kill_threshold": 10000.0,
     "max_consecutive_failures": 3,
 
     "adaptive_dt_enabled": true,
@@ -33,7 +33,7 @@
 
     "damping_enabled": true,
     "damping_factor": 0.05,
-    "energy_threshold": 1e6
+    "energy_threshold": 1000000.0
   },
 
   "logging": {
