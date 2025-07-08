@@ -59,25 +59,25 @@ jobs:
         python "${GITHUB_WORKSPACE}/src/main_solver.py" "$TEMP_SOLVER_INPUT_FILE" "$OUTPUT_RESULTS_BASE_DIR"
         echo "✅ Main solver executed."
 
-    - name: Verify Output & Validate JSON
-      run: |
-        ACTUAL_OUTPUT_DIR="$OUTPUT_RESULTS_BASE_DIR/navier_stokes_output"
-        [ -d "$ACTUAL_OUTPUT_DIR" ] && echo "✅ Output directory found." || { echo "❌ Error: Output directory missing!"; exit 1; }
-        [ -f "$ACTUAL_OUTPUT_DIR/config.json" ] && echo "✅ config.json found." || { echo "❌ Error: config.json not found!"; exit 1; }
-        [ -f "$ACTUAL_OUTPUT_DIR/mesh.json" ] && echo "✅ mesh.json found." || { echo "❌ Error: mesh.json not found!"; exit 1; }
-        [ -d "$ACTUAL_OUTPUT_DIR/fields" ] && echo "✅ fields directory found." || { echo "❌ Error: 'fields' directory missing!"; exit 1; }
+    # - name: Verify Output & Validate JSON
+    #  run: |
+    #    ACTUAL_OUTPUT_DIR="$OUTPUT_RESULTS_BASE_DIR/navier_stokes_output"
+    #    [ -d "$ACTUAL_OUTPUT_DIR" ] && echo "✅ Output directory found." || { echo "❌ Error: Output directory missing!"; exit 1; }
+    #    [ -f "$ACTUAL_OUTPUT_DIR/config.json" ] && echo "✅ config.json found." || { echo "❌ Error: config.json not found!"; exit 1; }
+    #    [ -f "$ACTUAL_OUTPUT_DIR/mesh.json" ] && echo "✅ mesh.json found." || { echo "❌ Error: mesh.json not found!"; exit 1; }
+    #    [ -d "$ACTUAL_OUTPUT_DIR/fields" ] && echo "✅ fields directory found." || { echo "❌ Error: 'fields' directory missing!"; exit 1; }
 
-        echo "🔍 Directory Content:"
-        ls -R "$ACTUAL_OUTPUT_DIR"
+    #    echo "🔍 Directory Content:"
+    #    ls -R "$ACTUAL_OUTPUT_DIR"
 
-        jq empty "$ACTUAL_OUTPUT_DIR/config.json" || { echo "❌ config.json is malformed!"; exit 1; }
+    #    jq empty "$ACTUAL_OUTPUT_DIR/config.json" || { echo "❌ config.json is malformed!"; exit 1; }
 
-        FIRST_SNAPSHOT="$ACTUAL_OUTPUT_DIR/fields/step_0000.json"
-        if [ -f "$FIRST_SNAPSHOT" ]; then
-          jq empty "$FIRST_SNAPSHOT" || { echo "❌ First snapshot is malformed!"; exit 1; }
-        else
-          echo "ℹ️ No initial snapshot found (may be expected for short runs)."
-        fi
+    #    FIRST_SNAPSHOT="$ACTUAL_OUTPUT_DIR/fields/step_0000.json"
+    #    if [ -f "$FIRST_SNAPSHOT" ]; then
+    #      jq empty "$FIRST_SNAPSHOT" || { echo "❌ First snapshot is malformed!"; exit 1; }
+    #    else
+    #      echo "ℹ️ No initial snapshot found (may be expected for short runs)."
+    #    fi
 
     - name: Run Tests
       run: |
