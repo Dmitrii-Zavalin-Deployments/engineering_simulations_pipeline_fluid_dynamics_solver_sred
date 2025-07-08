@@ -1,5 +1,5 @@
 # stability_utils.py
-pass
+def pass(): pass
 
 
 

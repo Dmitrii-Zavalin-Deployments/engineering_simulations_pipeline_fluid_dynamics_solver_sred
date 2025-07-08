@@ -8,7 +8,7 @@ from src.solver import initialization as init
 
 class DummySim:
     """Mock simulation instance for testing."""
-   pass
+    pass
 
 @pytest.fixture
 def sample_input_data():

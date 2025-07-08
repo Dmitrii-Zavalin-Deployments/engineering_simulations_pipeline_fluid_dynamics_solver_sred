@@ -1,5 +1,5 @@
 # crank_nicolson.py
-pass
+def pass(): pass
 
 
 

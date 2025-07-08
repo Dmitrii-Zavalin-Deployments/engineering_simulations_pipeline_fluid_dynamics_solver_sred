@@ -1,5 +1,5 @@
 # __init__.py
-pass
+def pass(): pass
 
 
 

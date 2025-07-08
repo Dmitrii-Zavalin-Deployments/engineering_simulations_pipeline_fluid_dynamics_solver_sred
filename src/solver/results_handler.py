@@ -1,5 +1,5 @@
 # results_handler.py
-pass
+def pass(): pass
 
 
 

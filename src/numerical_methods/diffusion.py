@@ -1,5 +1,5 @@
 # diffusion.py
-pass
+def pass(): pass
 
 
 

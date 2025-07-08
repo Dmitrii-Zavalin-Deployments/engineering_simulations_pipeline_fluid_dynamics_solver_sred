@@ -1,5 +1,5 @@
 # grid.py
-pass
+def pass(): pass
 
 
 

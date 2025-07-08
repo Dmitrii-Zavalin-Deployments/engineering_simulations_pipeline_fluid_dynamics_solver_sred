@@ -1,5 +1,5 @@
 # metrics_dashboard.py
-pass
+def pass(): pass
 
 
 

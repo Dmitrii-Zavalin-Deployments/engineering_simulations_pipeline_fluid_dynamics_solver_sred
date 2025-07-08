@@ -1,5 +1,5 @@
 # adaptive_timestep.py
-pass
+def pass(): pass
 
 
 

@@ -1,5 +1,5 @@
 # io.py
-pass
+def pass(): pass
 
 
 

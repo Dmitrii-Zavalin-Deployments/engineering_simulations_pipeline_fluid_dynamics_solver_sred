@@ -1,5 +1,5 @@
 # initialization.py
-pass
+def pass(): pass
 
 
 

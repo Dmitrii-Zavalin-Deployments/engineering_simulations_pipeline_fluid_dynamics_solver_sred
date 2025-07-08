@@ -1,5 +1,5 @@
 # boundary_data_parser.py
-pass
+def pass(): pass
 
 
 

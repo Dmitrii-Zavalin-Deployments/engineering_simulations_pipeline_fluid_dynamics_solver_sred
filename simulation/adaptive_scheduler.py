@@ -1,5 +1,5 @@
 # adaptive_scheduler.py
-pass
+def pass(): pass
 
 
 

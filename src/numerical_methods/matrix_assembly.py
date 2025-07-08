@@ -1,5 +1,5 @@
 # matrix_assembly.py
-pass
+def pass(): pass
 
 
 

@@ -1,5 +1,5 @@
 # plotter.py
-pass
+def pass(): pass
 
 
 

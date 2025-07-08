@@ -1,5 +1,5 @@
 # identify_boundary_nodes.py
-pass
+def pass(): pass
 
 
 

@@ -1,5 +1,5 @@
 # multigrid_poisson.py
-pass
+def pass(): pass
 
 
 

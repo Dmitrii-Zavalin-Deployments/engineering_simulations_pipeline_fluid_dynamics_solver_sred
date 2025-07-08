@@ -1,5 +1,5 @@
 # pressure_divergence.py
-pass
+def pass(): pass
 
 
 

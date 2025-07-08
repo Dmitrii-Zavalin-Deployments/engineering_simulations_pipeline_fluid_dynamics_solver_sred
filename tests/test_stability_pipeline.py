@@ -74,7 +74,7 @@ def test_config_integrity():
 @pytest.mark.integration
 def test_run_stability_checks_output_shape():
     velocity, pressure, divergence = generate_synthetic_fields()
-   passed, metrics = run_stability_checks(
+    passed, metrics = run_stability_checks(
         velocity_field=velocity,
         pressure_field=pressure,
         divergence_field=divergence,

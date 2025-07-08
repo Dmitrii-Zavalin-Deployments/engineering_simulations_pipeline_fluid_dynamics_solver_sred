@@ -1,5 +1,5 @@
 # stepper.py
-pass
+def pass(): pass
 
 
 

@@ -1,5 +1,5 @@
 # pre_process_input.py
-pass
+def pass(): pass
 
 
 

@@ -1,5 +1,5 @@
 # advection.py
-pass
+def pass(): pass
 
 
 
