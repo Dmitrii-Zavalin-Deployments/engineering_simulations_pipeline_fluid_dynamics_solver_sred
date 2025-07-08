@@ -38,28 +38,6 @@ def log_flow_metrics(
 ):
     """
     Logs diagnostic metrics for simulation stability and runtime behavior.
-
-    Args:
-        velocity_field (np.ndarray): Velocity [nx+2, ny+2, nz+2, 3]
-        pressure_field (np.ndarray): Pressure [nx+2, ny+2, nz+2]
-        divergence_field (np.ndarray): Divergence ∇·u field
-        fluid_density (float): Fluid density
-        step_count (int): Current step number
-        current_time (float): Simulation time in seconds
-        output_frequency_steps (int): Step interval for diagnostics
-        num_steps (int): Total number of simulation steps
-        dt (float): Time step
-        cfl (float): CFL number
-        residual_divergence (float): Post-correction divergence residual
-        event_tag (str): Optional event label
-        recovery_triggered (bool): Whether recovery logic was applied
-        projection_passes (int): Number of pressure projection passes used
-        damping_applied (bool): Whether velocity damping was applied
-        smoother_iterations (int): Gauss–Seidel sweeps per multigrid level
-        vcycle_residuals (list): List of residuals per V-cycle level
-        divergence_slope (float): Change in divergence per step
-        divergence_delta (float): Absolute divergence change from previous
-        effectiveness_score (float): ∇·u reduction effectiveness (%)
     """
     interior_v = velocity_field[1:-1, 1:-1, 1:-1, :]
     interior_p = pressure_field[1:-1, 1:-1, 1:-1]

@@ -1,7 +1,6 @@
 # tests/stability_tests.py
 
 import numpy as np
-import sys
 
 _previous_divergence_max = None  # Global tracker for divergence spike analysis
 
@@ -27,10 +26,10 @@ def test_divergence_stability(
     spike_factor: float = 100.0
 ):
     """
-    Checks for excessive divergence and logs trend metrics.
+    Checks for excessive divergence and tracks instability metrics.
 
     Returns:
-        (bool, dict): pass/fail flag and trend metrics (delta, slope, spike_triggered)
+        (bool, dict): stability pass flag, divergence trend diagnostics
     """
     global _previous_divergence_max
 
@@ -55,10 +54,7 @@ def test_divergence_stability(
         slope = delta / max(1, step)
         metrics["delta"] = delta
         metrics["slope"] = slope
-
         print(f"📊 ∇·u trend: Δ={delta:.4e}, Δ/step={slope:.4e}")
-        if delta > 0 and mode == "strict":
-            print("📈 ∇·u growing — consider additional projection or smaller dt.")
 
     _previous_divergence_max = max_div
 
@@ -76,7 +72,7 @@ def test_divergence_stability(
 
 def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.0):
     """
-    Validates physical velocity bounds.
+    Validates that velocity magnitude stays within specified bounds.
     """
     interior = velocity_field[1:-1, 1:-1, 1:-1, :]
     magnitude = np.linalg.norm(np.nan_to_num(interior), axis=-1)
@@ -87,7 +83,7 @@ def test_velocity_bounds(velocity_field: np.ndarray, velocity_limit: float = 10.
 
 def test_shape_match(field_a: np.ndarray, field_b: np.ndarray, label_a="A", label_b="B"):
     """
-    Verifies shape consistency between fields.
+    Checks if two fields have the same shape.
     """
     match = field_a.shape == field_b.shape
     print(f"📐 Shape match: {label_a}={field_a.shape}, {label_b}={field_b.shape}, match={match}")
@@ -108,10 +104,10 @@ def run_stability_checks(
     spike_factor: float = 100.0
 ):
     """
-    Composite stability diagnostics with trend analysis.
+    Runs stability diagnostics and trend tracking for a given simulation step.
 
     Returns:
-        (bool, dict): status flag, divergence diagnostics
+        (bool, dict): status flag and divergence metrics
     """
     print(f"\n🧪 Stability Checks @ Step {step}")
     pass_flag = True

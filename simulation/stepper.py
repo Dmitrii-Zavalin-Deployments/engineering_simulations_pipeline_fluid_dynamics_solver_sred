@@ -13,8 +13,12 @@ from tests.stability_tests import run_stability_checks
 from simulation.cfl_utils import calculate_max_cfl
 
 def step_health_monitor(step, max_div, residual, kill_threshold, divergence_tolerance, sim_instance):
+    """
+    Emergency handler if solver exceeds safety thresholds.
+    Reduces dt and clamps projection depth to attempt recovery.
+    """
     if residual > kill_threshold or max_div > 100 * divergence_tolerance:
-        print(f"⚠️ Stability compromised at step {step}. Reducing dt and clamping projection passes.")
+        print(f"⚠️ Stability compromised @ step {step}. dt halved, projection_passes clamped.")
         sim_instance.time_step *= sim_instance.dt_reduction_factor
         sim_instance.time_step = max(sim_instance.dt_min, sim_instance.time_step)
         sim_instance.num_projection_passes = 1
@@ -28,11 +32,11 @@ def run(self):
     fields_dir = os.path.join(self.output_dir, "fields")
     num_steps = int(round(self.total_time / self.time_step))
 
-    print(f"Total desired simulation time: {self.total_time} s")
-    print(f"Time step per iteration: {self.time_step} s")
-    print(f"Calculated number of simulation steps: {num_steps}")
+    print(f"Total simulation time: {self.total_time} s")
+    print(f"Initial time step: {self.time_step} s → {num_steps} steps")
 
     try:
+        # Step 0 snapshot
         initial_divergence_field = compute_pressure_divergence(self.velocity_field, self.mesh_info)
         save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
@@ -54,11 +58,10 @@ def run(self):
             self.step_count += 1
             self.current_time = self.step_count * self.time_step
 
+            # Reflex: KE damping
             self.scheduler.check_energy_and_dampen(self)
 
-            print(f"[DEBUG @ Step {self.step_count}] Velocity BEFORE step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
-            print(f"[DEBUG @ Step {self.step_count}] Pressure BEFORE step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
-
+            # Pressure projection loop
             projection_passes = getattr(self, "num_projection_passes", 1)
             for pass_num in range(projection_passes):
                 smoother_depth = self.scheduler.get_smoother_iterations(getattr(self.time_stepper, "last_pressure_residual", 0.0))
@@ -67,12 +70,8 @@ def run(self):
                     self.p,
                     smoother_iterations=smoother_depth
                 )
-                print(f"🔁 Pressure Projection Pass {pass_num + 1}")
 
-            print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER step: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
-            print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER step: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
-            print(f"[DEBUG @ Step {self.step_count}] Divergence AFTER step: min={np.nanmin(divergence_at_step_field):.4e}, max={np.nanmax(divergence_at_step_field):.4e}")
-
+            # Final BCs
             apply_boundary_conditions(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -81,9 +80,7 @@ def run(self):
                 is_tentative_step=False
             )
 
-            print(f"[DEBUG @ Step {self.step_count}] Velocity AFTER final BCs: min={np.nanmin(self.velocity_field):.4e}, max={np.nanmax(self.velocity_field):.4e}")
-            print(f"[DEBUG @ Step {self.step_count}] Pressure AFTER final BCs: min={np.nanmin(self.p):.4e}, max={np.nanmax(self.p):.4e}")
-
+            # Stability diagnostics
             passed, div_metrics = run_stability_checks(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -104,23 +101,16 @@ def run(self):
                 step=self.step_count,
                 max_div=max_div,
                 residual=residual,
-                kill_threshold=getattr(self, "residual_kill_threshold", 1e4),
-                divergence_tolerance=getattr(self, "max_allowed_divergence", 3e-2),
+                kill_threshold=self.residual_kill_threshold,
+                divergence_tolerance=self.max_allowed_divergence,
                 sim_instance=self
             )
 
-            self.scheduler.update_projection_passes(
-                sim_instance=self,
-                current_residual=residual,
-                current_divergence=max_div
-            )
+            # Reflex logic
+            self.scheduler.update_projection_passes(self, residual, max_div)
+            self.scheduler.monitor_divergence_and_escalate(self, divergence_at_step_field, self.step_count)
 
-            self.scheduler.monitor_divergence_and_escalate(
-                sim_instance=self,
-                divergence_field=divergence_at_step_field,
-                step=self.step_count
-            )
-
+            # Snapshot logging
             log_divergence_snapshot(
                 divergence_at_step_field,
                 self.step_count,
@@ -137,12 +127,14 @@ def run(self):
                 }
             )
 
+            # Step-level output
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
                 cfl_metrics = calculate_max_cfl(self)
-                print(f"    CFL Number: {cfl_metrics['global_max']:.4f}")
+                print(f"    CFL @ step {self.step_count}: {cfl_metrics['global_max']:.4f}")
 
+            # Log metrics
             log_flow_metrics(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -165,15 +157,16 @@ def run(self):
                 vcycle_residuals=None
             )
 
+            # Field validity check
             if np.any(np.isnan(self.velocity_field)) or np.any(np.isinf(self.velocity_field)) or \
                np.any(np.isnan(self.p)) or np.any(np.isinf(self.p)):
-                raise RuntimeError(f"NaN or Inf detected in fields at step {self.step_count}, t={self.current_time:.4e}s")
+                raise RuntimeError(f"❌ NaN or Inf detected at step {self.step_count}, t={self.current_time:.4e}s")
 
         print("--- Simulation Finished ---")
         print(f"Final time: {self.current_time:.4f} s, Total steps: {self.step_count}")
 
     except Exception as e:
-        print(f"An unexpected error occurred during simulation: {e}", file=sys.stderr)
+        print(f"Unhandled error during simulation: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         raise

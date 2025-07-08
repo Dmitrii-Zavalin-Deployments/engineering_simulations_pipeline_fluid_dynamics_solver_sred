@@ -2,8 +2,8 @@
 
 """
 Adaptive Scheduler:
-Manages projection pass depth and smoother iterations based on solver health and runtime metrics.
-Designed to help the fluid solver adapt to instability, spikes, and recovery phases intelligently.
+Manages projection depth, smoother tuning, energy damping, and trend escalation
+based on solver health and runtime instability detection.
 """
 
 import numpy as np
@@ -32,9 +32,10 @@ class AdaptiveScheduler:
             return
 
         ramp = sim_instance.num_projection_passes
+        spike_threshold = sim_instance.divergence_spike_factor * sim_instance.max_allowed_divergence
 
-        if current_residual is not None and current_residual > sim_instance.residual_kill_threshold or \
-           current_divergence > sim_instance.divergence_spike_factor * sim_instance.max_allowed_divergence:
+        if (current_residual is not None and current_residual > sim_instance.residual_kill_threshold) or \
+           (current_divergence > spike_threshold):
             ramp = min(ramp + 1, self.max_passes)
             self.stability_counter = 0
             print(f"🔧 Projection depth ramped → {ramp}")
@@ -75,7 +76,7 @@ class AdaptiveScheduler:
 
     def monitor_divergence_and_escalate(self, sim_instance, divergence_field, step):
         """
-        Tracks divergence growth and applies escalation logic if instability persists.
+        Tracks divergence trend slope and escalates if explosive growth detected.
         """
         interior = divergence_field[1:-1, 1:-1, 1:-1]
         interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
@@ -86,8 +87,8 @@ class AdaptiveScheduler:
 
         if self.last_divergence_max is not None:
             delta = current_max - self.last_divergence_max
-            rate = delta / max(1, step)
-            print(f"📉 ∇·u slope: Δ={delta:.4e}, Δ/step={rate:.4e}")
+            slope = delta / max(1, step)
+            print(f"📉 ∇·u slope: Δ={delta:.4e}, Δ/step={slope:.4e}")
 
             if current_max > spike_threshold:
                 self.consecutive_spike_count += 1
@@ -101,7 +102,7 @@ class AdaptiveScheduler:
 
     def auto_escalate(self, sim_instance):
         """
-        Escalates correction strategy based on divergence spike patterns.
+        Escalates correction strategy upon persistent divergence spikes.
         """
         if sim_instance.num_projection_passes < self.max_passes:
             sim_instance.num_projection_passes += 1
@@ -115,7 +116,7 @@ class AdaptiveScheduler:
             sim_instance.time_step = new_dt
             print(f"⏬ Timestep reduced → {new_dt:.4e}")
 
-        self.consecutive_spike_count = 0  # Reset after escalation
+        self.consecutive_spike_count = 0
 
 
 

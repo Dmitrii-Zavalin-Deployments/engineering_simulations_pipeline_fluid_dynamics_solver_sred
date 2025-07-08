@@ -1,12 +1,4 @@
-# metrics_dashboard.py
-
-"""
-📊 Metrics Dashboard for Runtime Visualization
-Visualizes key fluid solver diagnostics:
-  • Divergence (∇·u) histogram
-  • Kinetic energy trajectory
-  • Pressure range over time
-"""
+# utils/metrics_dashboard.py
 
 import os
 import json
@@ -15,116 +7,82 @@ import matplotlib.pyplot as plt
 
 def load_divergence_logs(log_dir):
     """
-    Loads all divergence log files into sorted list of metrics.
-
-    Args:
-        log_dir (str): Path to 'logs/' folder.
+    Loads divergence JSON logs from specified directory.
 
     Returns:
-        List of dicts sorted by step number.
+        List of dictionaries sorted by step count.
     """
     entries = []
-    for fname in os.listdir(log_dir):
+    for fname in sorted(os.listdir(log_dir)):
         if fname.startswith("divergence_step_") and fname.endswith(".json"):
             path = os.path.join(log_dir, fname)
             with open(path) as f:
                 data = json.load(f)
                 entries.append(data)
-    return sorted(entries, key=lambda d: d["step"])
+    entries.sort(key=lambda x: x.get("step", 0))
+    return entries
 
+def plot_ke_and_pressure(log_dir, output_path=None):
+    """
+    Plots kinetic energy and pressure range trajectories.
 
-def plot_divergence_histogram(divergence_field, step):
+    Requires corresponding log entries to contain KE, pressure_range, etc.
+    """
+    entries = load_divergence_logs(log_dir)
+    steps = [e["step"] for e in entries]
+    ke = [e.get("kinetic_energy", None) for e in entries]
+    pmin = [e.get("pressure_min", None) or e.get("pressure_range", [None])[0] for e in entries]
+    pmax = [e.get("pressure_max", None) or e.get("pressure_range", [None])[1] for e in entries]
+
+    fig, ax = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+    ax[0].plot(steps, ke, label="Kinetic Energy", color="darkblue")
+    ax[0].set_ylabel("KE")
+    ax[0].grid()
+    ax[0].legend()
+
+    ax[1].plot(steps, pmin, label="Pressure Min", color="darkred")
+    ax[1].plot(steps, pmax, label="Pressure Max", color="darkgreen")
+    ax[1].set_ylabel("Pressure")
+    ax[1].set_xlabel("Step")
+    ax[1].grid()
+    ax[1].legend()
+
+    fig.suptitle("Kinetic Energy & Pressure Range")
+    if output_path:
+        plt.savefig(output_path, dpi=120)
+        print(f"📊 Saved KE/Pressure plot to: {output_path}")
+    else:
+        plt.show()
+
+def plot_divergence_histogram(divergence_field, step=None, output_path=None):
     """
     Plots histogram of ∇·u at given step.
 
     Args:
         divergence_field (np.ndarray): Full divergence field [nx+2, ny+2, nz+2]
-        step (int): Simulation step
+        step (int): Optional label
+        output_path (str): Save path if specified
     """
-    interior = divergence_field[1:-1, 1:-1, 1:-1].flatten()
+    interior = divergence_field[1:-1, 1:-1, 1:-1]
     interior = np.nan_to_num(interior, nan=0.0, posinf=0.0, neginf=0.0)
+    flattened = interior.flatten()
 
     plt.figure(figsize=(8, 4))
-    plt.hist(interior, bins=100, color='steelblue', alpha=0.8)
-    plt.title(f"∇·u Histogram @ Step {step}")
-    plt.xlabel("Divergence Value")
+    plt.hist(flattened, bins=100, color="steelblue", alpha=0.85)
+    plt.xlabel("∇·u")
     plt.ylabel("Frequency")
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    title = f"Divergence Histogram"
+    if step is not None:
+        title += f" @ Step {step}"
+    plt.title(title)
+    plt.grid()
 
-
-def plot_ke_and_pressure_metrics(log_data):
-    """
-    Plots kinetic energy, pressure range, and mean pressure vs time.
-
-    Args:
-        log_data (List[dict]): Sequence of log entries.
-    """
-    steps = [entry["step"] for entry in log_data]
-    ke = [entry.get("kinetic_energy", np.nan) for entry in log_data]
-    mean_pressure = [entry.get("mean_pressure", np.nan) for entry in log_data]
-    min_pressure = [entry.get("min_pressure", np.nan) for entry in log_data]
-    max_pressure = [entry.get("max_pressure", np.nan) for entry in log_data]
-
-    fig, axes = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
-
-    axes[0].plot(steps, ke, label='Kinetic Energy', color='darkgreen')
-    axes[0].set_ylabel("KE")
-    axes[0].set_title("Kinetic Energy Trajectory")
-    axes[0].grid(True)
-
-    axes[1].plot(steps, mean_pressure, label='Mean Pressure', color='navy')
-    axes[1].set_ylabel("Pressure")
-    axes[1].set_title("Mean Pressure Over Time")
-    axes[1].grid(True)
-
-    axes[2].fill_between(steps, min_pressure, max_pressure, color='orange', alpha=0.4)
-    axes[2].set_ylabel("Pressure Range")
-    axes[2].set_title("Pressure Min–Max Envelope")
-    axes[2].grid(True)
-    axes[2].set_xlabel("Step")
-
-    plt.tight_layout()
-    plt.show()
-
-
-def visualize_metrics(output_dir):
-    """
-    Entry point to load logs and generate dashboard plots.
-
-    Args:
-        output_dir (str): Root simulation output directory
-    """
-    log_dir = os.path.join(output_dir, "logs")
-
-    if not os.path.isdir(log_dir):
-        print(f"❌ Log directory not found: {log_dir}")
-        return
-
-    log_entries = load_divergence_logs(log_dir)
-
-    if not log_entries:
-        print("⚠️ No divergence log entries found.")
-        return
-
-    print(f"📊 Loaded {len(log_entries)} log entries from: {log_dir}")
-
-    plot_ke_and_pressure_metrics(log_entries)
-
-    # Optional: plot histogram from last step
-    final_step = log_entries[-1]["step"]
-    field_path = os.path.join(output_dir, "fields", f"step_{final_step:04d}.json")
-    if os.path.exists(field_path):
-        with open(field_path) as f:
-            snapshot = json.load(f)
-        div = np.array(snapshot.get("divergence", []))
-        if div.ndim == 3:
-            plot_divergence_histogram(div, final_step)
-        else:
-            print("⚠️ No valid divergence field in snapshot.")
+    if output_path:
+        plt.savefig(output_path, dpi=120)
+        print(f"📉 Saved divergence histogram to: {output_path}")
     else:
-        print("ℹ️ No snapshot found for final step — skipping histogram.")
+        plt.show()
 
 
 

@@ -17,14 +17,14 @@ from solver.initialization import (
     initialize_fields,
     print_initial_setup
 )
-from simulation.adaptive_scheduler import AdaptiveScheduler  # 🧠 Add adaptive scheduler
+from simulation.adaptive_scheduler import AdaptiveScheduler  # 🧠 Reflexive strategy module
 
 
 def load_config_overrides(config_path: str = "src/config.json"):
     if Path(config_path).exists():
         with open(config_path) as f:
             config_data = json.load(f)
-        print(f"✅ Loaded override config from: {config_path}")
+        print(f"✅ Loaded config overrides from: {config_path}")
         return config_data.get("simulation_parameters", {})
     return {}
 
@@ -36,36 +36,35 @@ class Simulation:
         self.output_dir = output_dir
         self.start_time = datetime.now().isoformat()
 
-        # Load input JSON and initialize
+        # Load input and config override
         self.input_data = load_input_data(self.input_file_path)
         initialize_simulation_parameters(self, self.input_data)
         initialize_grid(self, self.input_data)
 
-        # Load config override
         override_params = load_config_overrides()
         sim_params = self.input_data.get("simulation_parameters", {})
-        sim_params.update(override_params)
+        sim_params.update(override_params)  # Config values override input file
 
-        # Prepare boundary condition indexing
+        # Boundary condition preprocessing
         bc_dict = self.input_data["mesh_info"].get("boundary_conditions", {})
         for name, bc_data in bc_dict.items():
             if "cell_indices" not in bc_data or "ghost_indices" not in bc_data:
-                raise ValueError(f"❌ BC '{name}' missing cell or ghost indices. Was pre-processing successful?")
+                raise ValueError(f"❌ BC '{name}' missing cell or ghost indices.")
             bc_data["cell_indices"] = np.array(bc_data["cell_indices"], dtype=int)
             bc_data["ghost_indices"] = np.array(bc_data["ghost_indices"], dtype=int)
 
-        # Mesh config
+        # Mesh and grid setup
         self.mesh_info = self.input_data["mesh_info"]
         self.grid_shape = self.mesh_info["grid_shape"]
         self.dx = self.mesh_info["dx"]
         self.dy = self.mesh_info["dy"]
         self.dz = self.mesh_info["dz"]
 
-        # Initialize velocity/pressure fields
+        # Field initialization
         initialize_fields(self, self.input_data)
         self.velocity_field = np.stack((self.u, self.v, self.w), axis=-1)
 
-        # Simulation parameters
+        # Simulation controls
         self.max_allowed_divergence = sim_params.get("max_allowed_divergence", 3e-2)
         self.divergence_spike_factor = sim_params.get("divergence_spike_factor", 100.0)
         self.divergence_mode = sim_params.get("divergence_mode", "log")
@@ -76,7 +75,7 @@ class Simulation:
         self.fallback_solver = sim_params.get("fallback_solver", "direct")
         self.adaptive_dt_enabled = sim_params.get("adaptive_dt_enabled", True)
 
-        # Adaptive controls
+        # Reflexive stability controls
         self.damping_enabled = sim_params.get("damping_enabled", True)
         self.damping_factor = sim_params.get("damping_factor", 0.05)
         self.enable_projection_ramp = sim_params.get("enable_projection_ramp", True)
@@ -88,7 +87,7 @@ class Simulation:
         self.dt_min = sim_params.get("dt_min", 1e-5)
         self.dt_reduction_factor = sim_params.get("dt_reduction_factor", 0.5)
 
-        # Fluid properties
+        # Fluid material properties
         self.fluid_properties = {
             "density": self.rho,
             "viscosity": self.nu,
@@ -97,7 +96,7 @@ class Simulation:
 
         self.boundary_conditions = bc_dict
 
-        # 🧠 AdaptiveScheduler instantiation
+        # 🧠 Stability reflex engine
         self.scheduler = AdaptiveScheduler(sim_params)
 
         # Solver selection
@@ -109,7 +108,7 @@ class Simulation:
             self.time_stepper = ImplicitSolver(self.fluid_properties, self.mesh_info, self.time_step)
             print("Using Implicit (Semi-Implicit) Solver.")
         else:
-            raise ValueError(f"Unknown solver type specified: '{solver_type}'.")
+            raise ValueError(f"Unknown solver type: '{solver_type}'")
 
         print_initial_setup(self)
 
