@@ -1,9 +1,17 @@
-jsonschema   # Validating JSON input boundary conditions
-numpy        # Basic numerical computations (if used in calculations)
-scipy        # Scientific computing (fluid dynamics simulation support)
-pint         # Unit handling for fluid dynamics calculations
-dropbox
-numba
-matplotlib
+# ✅ Core dependencies for fluid simulation
+jsonschema          # Validating JSON input boundary conditions
+numpy               # Basic numerical computations
+scipy               # Scientific computing (fluid dynamics support)
+pint                # Unit handling for physical quantities
+dropbox             # Dropbox API integration for input/output
+numba               # Performance optimization via JIT
+matplotlib          # Plotting for diagnostics or visualization
+
+# ✅ Test and CI utilities
+pytest              # Automated testing framework
+pytest-mock         # Test mocking support if needed
+pytest-cov          # Test coverage metrics
+jq                  # JSON CLI tool (used in GitHub Actions shell)
+
 
 

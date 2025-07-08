@@ -11,7 +11,7 @@ if project_root not in sys.path:
 
 from simulation import Simulation
 from utils.simulation_output_manager import setup_simulation_output_directory
-from stability_utils import run_stability_checks  # ✅ Moved from tests module
+from stability_utils import run_stability_checks  # ✅ Imported from shared utility module
 
 def cli_entrypoint():
     if len(sys.argv) != 3:

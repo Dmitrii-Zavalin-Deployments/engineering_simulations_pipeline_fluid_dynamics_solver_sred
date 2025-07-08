@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      PYTHONPATH: ${{ github.workspace }}/src  # ✅ Ensures imports from src work globally
+      PYTHONPATH: ${{ github.workspace }}/src  # ✅ Ensures src/ imports are recognized
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run 
       TEMP_SOLVER_INPUT_FILE: ${{ github.workspace }}/temp/solver_input.json

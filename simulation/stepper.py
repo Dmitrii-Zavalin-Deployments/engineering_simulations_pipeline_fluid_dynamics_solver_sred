@@ -9,7 +9,7 @@ from numerical_methods.pressure_divergence import compute_pressure_divergence
 from solver.results_handler import save_field_snapshot
 from utils.log_utils import log_flow_metrics
 from utils.simulation_output_manager import log_divergence_snapshot
-from tests.stability_tests import run_stability_checks
+from stability_utils import run_stability_checks  # ✅ Updated import from shared utility
 from simulation.cfl_utils import calculate_max_cfl
 
 def step_health_monitor(step, max_div, residual, kill_threshold, divergence_tolerance, sim_instance):
@@ -36,7 +36,6 @@ def run(self):
     print(f"Initial time step: {self.time_step} s → {num_steps} steps")
 
     try:
-        # Step 0 snapshot
         initial_divergence_field = compute_pressure_divergence(self.velocity_field, self.mesh_info)
         save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
 
@@ -58,20 +57,19 @@ def run(self):
             self.step_count += 1
             self.current_time = self.step_count * self.time_step
 
-            # Reflex: KE damping
             self.scheduler.check_energy_and_dampen(self)
 
-            # Pressure projection loop
             projection_passes = getattr(self, "num_projection_passes", 1)
             for pass_num in range(projection_passes):
-                smoother_depth = self.scheduler.get_smoother_iterations(getattr(self.time_stepper, "last_pressure_residual", 0.0))
+                smoother_depth = self.scheduler.get_smoother_iterations(
+                    getattr(self.time_stepper, "last_pressure_residual", 0.0)
+                )
                 self.velocity_field, self.p, divergence_at_step_field = self.time_stepper.step(
                     self.velocity_field,
                     self.p,
                     smoother_iterations=smoother_depth
                 )
 
-            # Final BCs
             apply_boundary_conditions(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -80,7 +78,6 @@ def run(self):
                 is_tentative_step=False
             )
 
-            # Stability diagnostics
             passed, div_metrics = run_stability_checks(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -106,11 +103,9 @@ def run(self):
                 sim_instance=self
             )
 
-            # Reflex logic
             self.scheduler.update_projection_passes(self, residual, max_div)
             self.scheduler.monitor_divergence_and_escalate(self, divergence_at_step_field, self.step_count)
 
-            # Snapshot logging
             log_divergence_snapshot(
                 divergence_at_step_field,
                 self.step_count,
@@ -127,14 +122,12 @@ def run(self):
                 }
             )
 
-            # Step-level output
             if (self.step_count % self.output_frequency_steps == 0) or \
                (self.step_count == num_steps and self.step_count != 0):
                 save_field_snapshot(self.step_count, self.velocity_field, self.p, fields_dir)
                 cfl_metrics = calculate_max_cfl(self)
                 print(f"    CFL @ step {self.step_count}: {cfl_metrics['global_max']:.4f}")
 
-            # Log metrics
             log_flow_metrics(
                 velocity_field=self.velocity_field,
                 pressure_field=self.p,
@@ -157,7 +150,6 @@ def run(self):
                 vcycle_residuals=None
             )
 
-            # Field validity check
             if np.any(np.isnan(self.velocity_field)) or np.any(np.isinf(self.velocity_field)) or \
                np.any(np.isnan(self.p)) or np.any(np.isinf(self.p)):
                 raise RuntimeError(f"❌ NaN or Inf detected at step {self.step_count}, t={self.current_time:.4e}s")

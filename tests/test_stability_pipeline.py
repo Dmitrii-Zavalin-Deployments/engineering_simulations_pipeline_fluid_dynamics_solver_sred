@@ -11,7 +11,7 @@ import json
 import numpy as np
 import pytest
 
-from stability_utils import run_stability_checks  # ✅ Import shared diagnostic logic
+from stability_utils import run_stability_checks  # ✅ Shared stability logic from src/
 
 # Load threshold config
 with open(os.path.join("src", "test_thresholds.json")) as f:
