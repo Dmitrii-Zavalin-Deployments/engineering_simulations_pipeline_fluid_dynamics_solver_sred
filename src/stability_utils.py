@@ -48,5 +48,29 @@ def get_threshold(thresh_dict, key, default, silent=False):
         warnings.warn(f"[THRESHOLD FALLBACK] Key '{key}' not found. Using default: {default}")
     return val
 
+def validate_threshold_config(config, required_keys, silent=False):
+    """
+    Verifies that required threshold keys are present.
+    Logs warnings for any missing keys unless silent=True.
+    """
+    missing = [key for key in required_keys if key not in config]
+    if missing and not silent:
+        warnings.warn(f"[CONFIG CHECK] Missing threshold keys: {missing}")
+    return len(missing) == 0
+
+class ReflexConfig:
+    """
+    Wrapper for threshold config access.
+    Handles defaults, fallback detection, and structured retrieval.
+    """
+    def __init__(self, config_dict):
+        self.config = config_dict
+
+    def get(self, key, default=None, silent=False):
+        return get_threshold(self.config, key, default, silent)
+
+    def validate(self, required_keys):
+        return validate_threshold_config(self.config, required_keys)
+
 
 

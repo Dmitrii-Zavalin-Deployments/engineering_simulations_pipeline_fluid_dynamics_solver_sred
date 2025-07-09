@@ -19,6 +19,7 @@ from jsonschema import validate, ValidationError
 THRESHOLD_PATH = os.path.join("tests", "test_thresholds.json")
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 REPORT_PATH = os.path.join("data", "testing-input-output", "threshold_report.json")
+CONFIG_PATH = os.path.join("src", "config.json")  # Optional runtime config file
 
 # 🧪 Keys that must not fall back silently
 FALLBACK_KEYS = {
@@ -44,7 +45,11 @@ FALLBACK_KEYS = {
     }
 }
 
-# 📦 Load JSON
+# 🌐 Environment Loader
+def load_env(key, fallback=None):
+    return os.getenv(key, fallback)
+
+# 📦 Load JSON File
 def load_json(path, label):
     if not os.path.isfile(path):
         print(f"❌ {label} file not found at: {path}")
@@ -79,6 +84,17 @@ def check_fallbacks(thresholds):
         print("⚠️ Fallback values were used. Review above.")
     return fallback_messages
 
+# 🔁 Environment vs Config Crosscheck
+def validate_environment_against_config(config_path):
+    if not os.path.isfile(config_path):
+        print(f"⚠️ Runtime config file not found: {config_path}")
+        return
+    config_data = load_json(config_path, "Runtime Config")
+    env_mode = load_env("SIMULATION_MODE", "default")
+    config_mode = config_data.get("mode", "default")
+    if env_mode != config_mode:
+        warnings.warn(f"[MODE MISMATCH] .env mode '{env_mode}' differs from config.json mode '{config_mode}'")
+
 # 📝 Write JSON Report
 def write_report(thresholds, schema_status, fallback_messages):
     os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
@@ -87,6 +103,7 @@ def write_report(thresholds, schema_status, fallback_messages):
         "source_file": THRESHOLD_PATH,
         "schema_status": schema_status,
         "fallback_warnings": fallback_messages,
+        "env_mode": load_env("SIMULATION_MODE", "default"),
         "thresholds": thresholds
     }
     with open(REPORT_PATH, "w") as f:
@@ -95,6 +112,7 @@ def write_report(thresholds, schema_status, fallback_messages):
 
 # 🚀 Entrypoint
 def main():
+    print("🔍 Environment Mode:", load_env("SIMULATION_MODE", "default"))
     print("🔍 Loading threshold config and schema...")
     thresholds = load_json(THRESHOLD_PATH, "Thresholds")
     schema = load_json(SCHEMA_PATH, "Schema")
@@ -104,6 +122,9 @@ def main():
 
     print("🔍 Auditing fallback usage...")
     fallback_messages = check_fallbacks(thresholds)
+
+    print("🔍 Comparing environment vs runtime config...")
+    validate_environment_against_config(CONFIG_PATH)
 
     print("📝 Writing threshold report...")
     write_report(thresholds, schema_status, fallback_messages)
