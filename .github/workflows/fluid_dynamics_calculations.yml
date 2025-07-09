@@ -16,7 +16,6 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}  # ✅ Updated to include repo root for simulation module
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
-      TEMP_SOLVER_INPUT_FILE: ${{ github.workspace }}/temp/solver_input.json
 
     steps:
     - name: Checkout Repository
@@ -39,16 +38,11 @@ jobs:
         src/download_from_dropbox.sh
         [ -f "$ORIGINAL_INPUT_FILE" ] && echo "✅ Original input file found." || { echo "❌ Error: Original input file missing!"; exit 1; }
 
-    - name: Run Pre-processor (Generate cell_indices and structured input)
-      run: |
-        mkdir -p "$(dirname "$TEMP_SOLVER_INPUT_FILE")"
-        python "${GITHUB_WORKSPACE}/src/pre_process_input.py" "$ORIGINAL_INPUT_FILE" "$TEMP_SOLVER_INPUT_FILE"
-
     - name: Run Main Solver
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        python "${GITHUB_WORKSPACE}/src/main_solver.py" "$TEMP_SOLVER_INPUT_FILE" "$OUTPUT_RESULTS_BASE_DIR"
+        python "${GITHUB_WORKSPACE}/src/main_solver.py" "$ORIGINAL_INPUT_FILE" "$OUTPUT_RESULTS_BASE_DIR"
         echo "✅ Main solver executed."
 
     - name: Run Tests
