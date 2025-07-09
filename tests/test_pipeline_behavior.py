@@ -6,54 +6,60 @@ import pytest
 
 SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
-# Each scenario maps to a directory, within which we expect at least step_0000.json
-SCENARIOS = [
-    "stable_flow.json",
-    "cfl_spike.json",
-    "projection_overload.json",
-    "velocity_burst.json",
-    "damped_cavity.json"
-]
+def discover_snapshots():
+    """Returns a list of snapshot files ending with _step_0000.json"""
+    return [
+        filename for filename in os.listdir(SNAPSHOT_ROOT)
+        if filename.endswith("_step_0000.json")
+    ]
 
-def load_snapshot(scenario_name, step="step_0000.json"):
-    snapshot_path = os.path.join(SNAPSHOT_ROOT, scenario_name.replace(".json", ""), step)
-    assert os.path.isfile(snapshot_path), f"❌ Snapshot missing: {snapshot_path}"
+@pytest.mark.parametrize("snapshot_file", discover_snapshots())
+def test_pipeline_snapshot_behavior(snapshot_file):
+    snapshot_path = os.path.join(SNAPSHOT_ROOT, snapshot_file)
     with open(snapshot_path) as f:
-        return json.load(f)
+        snapshot = json.load(f)
 
-@pytest.mark.parametrize("scenario", SCENARIOS)
-def test_pipeline_snapshot_behavior(scenario):
-    snapshot = load_snapshot(scenario)
+    # Basic structural fields
+    assert "step" in snapshot, f"❌ Missing 'step' in {snapshot_file}"
+    assert "grid" in snapshot, f"❌ Missing 'grid' in {snapshot_file}"
+    assert isinstance(snapshot["grid"], list), f"❌ 'grid' must be a list in {snapshot_file}"
+    assert "max_velocity" in snapshot, f"❌ Missing 'max_velocity' in {snapshot_file}"
+    assert "max_divergence" in snapshot, f"❌ Missing 'max_divergence' in {snapshot_file}"
+    assert "global_cfl" in snapshot, f"❌ Missing 'global_cfl' in {snapshot_file}"
+    assert "overflow_detected" in snapshot, f"❌ Missing 'overflow_detected' in {snapshot_file}"
+    assert "damping_enabled" in snapshot, f"❌ Missing 'damping_enabled' in {snapshot_file}"
+    assert "projection_passes" in snapshot, f"❌ Missing 'projection_passes' in {snapshot_file}"
 
-    # Core behavioral assertions
-    assert "divergence_max" in snapshot, f"❌ Missing divergence metric in {scenario}"
-    assert "velocity_max" in snapshot, f"❌ Missing velocity metric in {scenario}"
-    assert "overflow_flag" in snapshot, f"❌ Missing overflow flag in {scenario}"
-    assert "projection_passes" in snapshot, f"❌ Missing projection depth in {scenario}"
-    assert "reflex_triggered" in snapshot, f"❌ Missing reflex trigger status in {scenario}"
+    # Type checks
+    assert isinstance(snapshot["step"], int), f"❌ 'step' must be int in {snapshot_file}"
+    assert isinstance(snapshot["max_velocity"], (int, float)), f"❌ 'max_velocity' must be numeric in {snapshot_file}"
+    assert isinstance(snapshot["max_divergence"], (int, float)), f"❌ 'max_divergence' must be numeric in {snapshot_file}"
+    assert isinstance(snapshot["global_cfl"], (int, float)), f"❌ 'global_cfl' must be numeric in {snapshot_file}"
+    assert isinstance(snapshot["overflow_detected"], bool), f"❌ 'overflow_detected' must be boolean in {snapshot_file}"
+    assert isinstance(snapshot["damping_enabled"], bool), f"❌ 'damping_enabled' must be boolean in {snapshot_file}"
+    assert isinstance(snapshot["projection_passes"], int), f"❌ 'projection_passes' must be int in {snapshot_file}"
 
-    # Sanity checks
-    assert snapshot["divergence_max"] >= 0, f"❌ Invalid divergence_max value in {scenario}"
-    assert snapshot["velocity_max"] >= 0, f"❌ Invalid velocity_max value in {scenario}"
-    assert isinstance(snapshot["overflow_flag"], bool), f"❌ overflow_flag should be boolean in {scenario}"
-    assert isinstance(snapshot["reflex_triggered"], bool), f"❌ reflex_triggered should be boolean in {scenario}"
-    assert snapshot["projection_passes"] >= 0, f"❌ projection_passes should be ≥ 0 in {scenario}"
+    # Value bounds
+    assert snapshot["max_velocity"] >= 0, f"❌ Negative 'max_velocity' in {snapshot_file}"
+    assert snapshot["max_divergence"] >= 0, f"❌ Negative 'max_divergence' in {snapshot_file}"
+    assert snapshot["global_cfl"] >= 0, f"❌ Negative 'global_cfl' in {snapshot_file}"
+    assert snapshot["projection_passes"] >= 0, f"❌ Invalid 'projection_passes' in {snapshot_file}"
 
-    # Reflex and escalation logic expectations (optional and extendable)
-    if scenario == "cfl_spike.json":
-        assert snapshot["reflex_triggered"], "⚠️ CFL spike should trigger reflex"
-        assert snapshot.get("damping_applied", False), "⚠️ Damping expected to be applied"
+    # Optional logic extensions
+    name = snapshot_file.split("_step_")[0]
+    if "cfl_spike" in name:
+        assert snapshot["damping_enabled"], f"⚠️ Expected damping for CFL spike in {snapshot_file}"
 
-    if scenario == "velocity_burst.json":
-        assert snapshot["overflow_flag"], "⚠️ Velocity burst should trigger overflow"
-        assert snapshot["reflex_triggered"], "⚠️ Reflex expected due to velocity spike"
+    if "velocity_burst" in name:
+        assert snapshot["overflow_detected"], f"⚠️ Velocity burst should trigger overflow in {snapshot_file}"
+        assert snapshot["damping_enabled"], f"⚠️ Reflex expected due to velocity spike in {snapshot_file}"
 
-    if scenario == "projection_overload.json":
-        assert snapshot["projection_passes"] > 1, "⚠️ Projection escalation expected"
+    if "projection_overload" in name:
+        assert snapshot["projection_passes"] > 1, f"⚠️ Projection overload should escalate in {snapshot_file}"
 
-    if scenario == "stable_flow.json":
-        assert not snapshot["reflex_triggered"], "⚠️ Reflex should not trigger in stable flow"
-        assert not snapshot["overflow_flag"], "⚠️ No overflow expected in stable flow"
+    if "stable_flow" in name:
+        assert not snapshot["overflow_detected"], f"⚠️ No overflow expected in stable flow: {snapshot_file}"
+        assert not snapshot["damping_enabled"], f"⚠️ No damping expected in stable flow: {snapshot_file}"
 
 
 

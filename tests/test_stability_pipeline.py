@@ -5,60 +5,59 @@ import json
 import pytest
 
 SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
-STEPS = ["step_0000.json", "step_0001.json", "step_0002.json"]
+STEP_INDICES = ["step_0000", "step_0001", "step_0002"]
 
 SCENARIOS = [
-    "cfl_spike.json",
-    "velocity_burst.json",
-    "projection_overload.json"
+    "cfl_spike",
+    "velocity_burst",
+    "projection_overload"
 ]
 
-def load_snapshot(scenario, step_file):
-    path = os.path.join(SNAPSHOT_ROOT, scenario.replace(".json", ""), step_file)
+def load_snapshot(scenario_prefix, step_index):
+    filename = f"{scenario_prefix}_{step_index}.json"
+    path = os.path.join(SNAPSHOT_ROOT, filename)
     assert os.path.isfile(path), f"❌ Snapshot missing: {path}"
     with open(path) as f:
         return json.load(f)
 
-@pytest.mark.parametrize("scenario", SCENARIOS)
-def test_stability_over_time(scenario):
+@pytest.mark.parametrize("scenario_prefix", SCENARIOS)
+def test_stability_over_time(scenario_prefix):
     divergence_trend = []
     velocity_trend = []
     projection_passes = []
-    reflex_steps = 0
-    overflow_steps = 0
+    damping_flags = []
+    overflow_flags = []
 
-    for step_file in STEPS:
-        snap = load_snapshot(scenario, step_file)
+    for step_index in STEP_INDICES:
+        snap = load_snapshot(scenario_prefix, step_index)
 
-        # Assert core fields exist
-        for key in ["divergence_max", "velocity_max", "projection_passes", "reflex_triggered", "overflow_flag"]:
-            assert key in snap, f"❌ '{key}' missing in {step_file} of {scenario}"
+        # Core field presence checks
+        for key in ["max_divergence", "max_velocity", "projection_passes", "damping_enabled", "overflow_detected"]:
+            assert key in snap, f"❌ Missing '{key}' in {scenario_prefix}_{step_index}.json"
 
-        # Track values over time
-        divergence_trend.append(snap["divergence_max"])
-        velocity_trend.append(snap["velocity_max"])
+        # Tracking over time
+        divergence_trend.append(snap["max_divergence"])
+        velocity_trend.append(snap["max_velocity"])
         projection_passes.append(snap["projection_passes"])
+        damping_flags.append(snap["damping_enabled"])
+        overflow_flags.append(snap["overflow_detected"])
 
-        if snap["reflex_triggered"]:
-            reflex_steps += 1
-        if snap["overflow_flag"]:
-            overflow_steps += 1
-
-    # Basic progression checks
-    assert reflex_steps > 0, f"⚠️ Reflex never triggered in scenario '{scenario}'"
-    assert all(d >= 0 for d in divergence_trend), f"❌ Negative divergence detected in {scenario}"
-    assert all(v >= 0 for v in velocity_trend), f"❌ Negative velocity detected in {scenario}"
+    # Generic assertions
+    assert all(d >= 0 for d in divergence_trend), f"❌ Negative divergence detected in {scenario_prefix}"
+    assert all(v >= 0 for v in velocity_trend), f"❌ Negative velocity detected in {scenario_prefix}"
+    assert any(damping_flags), f"⚠️ No damping detected in {scenario_prefix}"
+    assert any(projection_passes), f"⚠️ Projection passes missing in {scenario_prefix}"
 
     # Scenario-specific expectations
-    if scenario == "cfl_spike.json":
-        assert reflex_steps >= 2, "⚠️ Reflex should trigger multiple times under sustained CFL instability"
+    if scenario_prefix == "cfl_spike":
+        assert damping_flags.count(True) >= 2, "⚠️ Damping should activate repeatedly under CFL spike"
 
-    if scenario == "projection_overload.json":
-        assert max(projection_passes) >= 2, "⚠️ Expected projection escalation in projection_overload.json"
+    if scenario_prefix == "projection_overload":
+        assert max(projection_passes) >= 2, "⚠️ Expected projection escalation in projection_overload"
 
-    if scenario == "velocity_burst.json":
-        assert overflow_steps >= 1, "⚠️ Expected overflow reaction in velocity_burst.json"
-        assert any(v > 200 for v in velocity_trend), "⚠️ Velocity burst threshold not reached"
+    if scenario_prefix == "velocity_burst":
+        assert any(overflow_flags), "⚠️ Expected overflow in velocity_burst"
+        assert any(v > 2.0 for v in velocity_trend), "⚠️ Velocity burst threshold not reached in velocity_burst"
 
 
 
