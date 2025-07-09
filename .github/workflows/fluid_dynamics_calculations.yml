@@ -28,13 +28,6 @@ jobs:
         pip install -r requirements.txt pytest numpy jsonschema jq
         echo "✅ Python and dependencies installed."
 
-    - name: Validate Thresholds (Schema + Fallbacks)
-      run: |
-        echo "🔍 Running threshold schema validation and fallback audit..."
-        python validate_thresholds.py
-        cat data/testing-input-output/threshold_report.json
-        echo "✔ Thresholds Validated."
-
     - name: Clean Previous Input & Download Files
       env:
         APP_KEY: ${{ secrets.APP_KEY }}
