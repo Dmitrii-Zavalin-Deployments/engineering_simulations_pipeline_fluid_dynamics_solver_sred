@@ -19,68 +19,69 @@ class DummySim:
         self.damping_enabled = True
         self.scheduler = None
 
-def test_check_extreme_instability_triggers_abort():
-    config = {
-        "abort_divergence_threshold": 1e4,
-        "abort_velocity_threshold": 1e3,
-        "abort_cfl_threshold": 100.0
+@pytest.fixture
+def complete_reflex_config():
+    return {
+        "damping_enabled": True,
+        "damping_factor": 0.1,
+        "divergence_spike_factor": 100.0,
+        "abort_divergence_threshold": 1e6,
+        "abort_velocity_threshold": 1e6,
+        "abort_cfl_threshold": 1e6,
+        "projection_passes_max": 4,
+        "max_consecutive_failures": 3
     }
-    sim = DummySim()
-    scheduler = AdaptiveScheduler(config)
-    with pytest.raises(RuntimeError):
-        scheduler.check_extreme_instability(sim, max_divergence=5e4, max_velocity=1e4, global_cfl=200.0)
 
-def test_apply_velocity_damping_with_enabled_flag():
-    config = {"damping_enabled": True, "damping_factor": 0.1}
-    scheduler = AdaptiveScheduler(config)
+def test_check_extreme_instability_triggers_abort(complete_reflex_config):
+    sim = DummySim()
+    scheduler = AdaptiveScheduler(complete_reflex_config)
+    with pytest.raises(RuntimeError):
+        scheduler.check_extreme_instability(sim, max_divergence=5e6, max_velocity=1e6 + 1, global_cfl=2e6)
+
+def test_apply_velocity_damping_with_enabled_flag(complete_reflex_config):
+    scheduler = AdaptiveScheduler(complete_reflex_config)
     field = np.ones((4, 4, 4, 3)) * 10.0
     damped_field = scheduler.apply_velocity_damping(field)
     assert np.allclose(damped_field, field * 0.9)
 
-def test_apply_velocity_damping_skipped_when_disabled():
-    config = {"damping_enabled": False}
+def test_apply_velocity_damping_skipped_when_disabled(complete_reflex_config):
+    config = complete_reflex_config.copy()
+    config["damping_enabled"] = False
     scheduler = AdaptiveScheduler(config)
     field = np.ones((4, 4, 4, 3)) * 8.0
     damped_field = scheduler.apply_velocity_damping(field)
     assert np.array_equal(damped_field, field)
 
-def test_monitor_divergence_and_escalate_spike_triggers_counter():
+def test_monitor_divergence_and_escalate_spike_triggers_counter(complete_reflex_config):
     sim = DummySim()
-    config = {"divergence_spike_factor": 100.0, "max_consecutive_failures": 3}
-    scheduler = AdaptiveScheduler(config)
-    divergence_field = np.ones((8, 8, 8)) * 50.0  # > 100×0.03 → spike triggered
+    scheduler = AdaptiveScheduler(complete_reflex_config)
+    divergence_field = np.ones((8, 8, 8)) * 50.0  # > 100 × 0.03 → spike triggered
     scheduler.monitor_divergence_and_escalate(sim, divergence_field, step=2)
     assert scheduler.consecutive_spike_count >= 1
 
-def test_update_projection_passes_escalates_depth():
+def test_update_projection_passes_escalates_depth(complete_reflex_config):
     sim = DummySim()
-    config = {"projection_passes_max": 4}
-    scheduler = AdaptiveScheduler(config)
+    scheduler = AdaptiveScheduler(complete_reflex_config)
     scheduler.update_projection_passes(sim, residual=5000.0, max_div=100.0)
     assert sim.num_projection_passes >= 2
 
-def test_update_projection_passes_clamps_depth():
+def test_update_projection_passes_clamps_depth(complete_reflex_config):
     sim = DummySim()
-    config = {"projection_passes_max": 3}
+    config = complete_reflex_config.copy()
+    config["projection_passes_max"] = 3
     scheduler = AdaptiveScheduler(config)
     sim.num_projection_passes = 5
     scheduler.update_projection_passes(sim, residual=10.0, max_div=0.01)
     assert sim.num_projection_passes <= config["projection_passes_max"]
 
-def test_get_current_reflex_status_snapshot():
-    config = {
-        "damping_enabled": True,
-        "projection_passes_max": 4,
-        "divergence_spike_factor": 100.0,
-        "max_consecutive_failures": 3
-    }
+def test_get_current_reflex_status_snapshot(complete_reflex_config):
     sim = DummySim()
-    scheduler = AdaptiveScheduler(config)
+    scheduler = AdaptiveScheduler(complete_reflex_config)
     divergence_field = np.ones((6, 6, 6)) * 100.0
     scheduler.monitor_divergence_and_escalate(sim, divergence_field, step=3)
     status = scheduler.get_current_reflex_status()
     assert isinstance(status, dict)
-    assert status["projection_passes"] == 4
+    assert status["projection_passes"] == complete_reflex_config["projection_passes_max"]
     assert status["damping_enabled"] is True
     assert status["spike_count"] >= 1
 
