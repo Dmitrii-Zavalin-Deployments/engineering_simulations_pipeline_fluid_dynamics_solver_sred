@@ -61,7 +61,7 @@ jobs:
         ACTUAL_OUTPUT_DIR="$OUTPUT_RESULTS_BASE_DIR/navier_stokes_output"
         echo "🔍 FULL_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
         echo "🔍 RESTARTED_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
-        pytest tests/ --verbose -ra
+        pytest -s tests/ --verbose -ra
 
     - name: Upload Results to Dropbox
       env:
