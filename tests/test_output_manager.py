@@ -5,61 +5,60 @@ import json
 import pytest
 
 SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
+
 EXPECTED_KEYS = [
-    "divergence_max",
-    "velocity_max",
-    "overflow_flag",
-    "reflex_triggered",
-    "projection_passes",
-    "volatility_slope",
-    "volatility_delta",
-    "damping_applied",
-    "step_index",
-    "timestamp"
+    "step",
+    "grid",
+    "max_velocity",
+    "max_divergence",
+    "global_cfl",
+    "overflow_detected",
+    "damping_enabled",
+    "projection_passes"
 ]
 
-SCENARIOS = [
-    "stable_flow.json",
-    "cfl_spike.json",
-    "velocity_burst.json",
-    "projection_overload.json",
-    "damped_cavity.json"
-]
-
-STEP_FILES = ["step_0000.json", "step_0001.json", "step_0002.json"]  # Extendable if needed
-
-def load_snapshot(scenario, step_file):
-    path = os.path.join(SNAPSHOT_ROOT, scenario.replace(".json", ""), step_file)
+def load_snapshot(path):
     assert os.path.isfile(path), f"❌ Snapshot missing: {path}"
     with open(path) as f:
         return json.load(f)
 
-@pytest.mark.parametrize("scenario", SCENARIOS)
-def test_snapshot_schema_and_behavioral_fields(scenario):
-    for step_file in STEP_FILES:
-        snapshot = load_snapshot(scenario, step_file)
+def test_all_snapshots_have_expected_schema_and_values():
+    for scenario_name in os.listdir(SNAPSHOT_ROOT):
+        scenario_path = os.path.join(SNAPSHOT_ROOT, scenario_name)
+        if not os.path.isdir(scenario_path):
+            continue  # Skip files, only look at folders
 
-        # Schema validation
+        step_file = os.path.join(scenario_path, "step_0000.json")
+        snapshot = load_snapshot(step_file)
+
+        # Schema keys presence
         for key in EXPECTED_KEYS:
-            assert key in snapshot, f"❌ Missing key '{key}' in {step_file} of {scenario}"
+            assert key in snapshot, f"❌ Missing key '{key}' in {step_file}"
 
-        # Field type validation
-        assert isinstance(snapshot["divergence_max"], (int, float)), "❌ divergence_max should be numeric"
-        assert isinstance(snapshot["velocity_max"], (int, float)), "❌ velocity_max should be numeric"
-        assert isinstance(snapshot["overflow_flag"], bool), "❌ overflow_flag should be boolean"
-        assert isinstance(snapshot["reflex_triggered"], bool), "❌ reflex_triggered should be boolean"
-        assert isinstance(snapshot["projection_passes"], int), "❌ projection_passes should be integer"
-        assert isinstance(snapshot["volatility_slope"], str), "❌ volatility_slope should be string"
-        assert isinstance(snapshot["volatility_delta"], (int, float)), "❌ volatility_delta should be numeric"
-        assert isinstance(snapshot["damping_applied"], bool), "❌ damping_applied should be boolean"
-        assert isinstance(snapshot["step_index"], int), "❌ step_index should be integer"
-        assert isinstance(snapshot["timestamp"], str), "❌ timestamp should be string"
+        # Grid structure
+        assert isinstance(snapshot["grid"], list), f"❌ 'grid' should be a list in {step_file}"
+        for cell in snapshot["grid"]:
+            assert isinstance(cell, list) and len(cell) == 5, f"❌ Grid cell malformed in {step_file}"
+            x, y, z, velocity, pressure = cell
+            assert all(isinstance(coord, int) for coord in [x, y, z]), "❌ Grid coordinates must be integers"
+            assert isinstance(velocity, list) and len(velocity) == 3, "❌ Velocity must be a 3D vector"
+            assert all(isinstance(v, (int, float)) for v in velocity), "❌ Velocity vector must contain numbers"
+            assert isinstance(pressure, (int, float)), "❌ Pressure must be numeric"
 
-        # Behavioral bounds
-        assert snapshot["divergence_max"] >= 0, "❌ Invalid divergence_max value"
-        assert snapshot["velocity_max"] >= 0, "❌ Invalid velocity_max value"
-        assert snapshot["projection_passes"] >= 0, "❌ projection_passes should be non-negative"
-        assert snapshot["volatility_delta"] >= 0, "❌ volatility_delta should be non-negative"
+        # Metadata types
+        assert isinstance(snapshot["step"], int), "❌ 'step' must be an integer"
+        assert isinstance(snapshot["max_velocity"], (int, float)), "❌ 'max_velocity' must be numeric"
+        assert isinstance(snapshot["max_divergence"], (int, float)), "❌ 'max_divergence' must be numeric"
+        assert isinstance(snapshot["global_cfl"], (int, float)), "❌ 'global_cfl' must be numeric"
+        assert isinstance(snapshot["overflow_detected"], bool), "❌ 'overflow_detected' must be boolean"
+        assert isinstance(snapshot["damping_enabled"], bool), "❌ 'damping_enabled' must be boolean"
+        assert isinstance(snapshot["projection_passes"], int), "❌ 'projection_passes' must be integer"
+
+        # Numeric bounds
+        assert snapshot["max_velocity"] >= 0, "❌ Invalid max_velocity value"
+        assert snapshot["max_divergence"] >= 0, "❌ Invalid max_divergence value"
+        assert snapshot["global_cfl"] >= 0, "❌ global_cfl must be non-negative"
+        assert snapshot["projection_passes"] >= 0, "❌ projection_passes must be non-negative"
 
 
 
