@@ -3,16 +3,15 @@
 import os
 import json
 from datetime import datetime
-from prepare_simulation_upload import prepare_simulation_upload_files  # ✅ Batch simulation runner
 
 def run_solver(input_path: str = None, output_base: str = None):
     """
-    Executes the simulation pipeline.
-    If input_path/output_base are provided: process one scenario.
-    If not: run full pipeline using prepare_simulation_upload_files().
+    Executes simulation pipeline. If no input is given, triggers full upload preparation.
+    Otherwise, writes a stub snapshot for the specified scenario input.
     """
     if input_path is None or output_base is None:
-        print("🚀 [main_solver] Triggering full simulation pipeline via prepare_simulation_upload_files()")
+        print("🚀 [main_solver] Triggering full simulation pipeline")
+        from prepare_simulation_upload import prepare_simulation_upload_files  # ⬅️ Local import to avoid circular reference
         prepare_simulation_upload_files()
         return
 
@@ -20,11 +19,11 @@ def run_solver(input_path: str = None, output_base: str = None):
     scenario_output_dir = os.path.join(output_base, scenario_name)
     os.makedirs(scenario_output_dir, exist_ok=True)
 
-    print(f"🧠 [main_solver] Starting simulation: {scenario_name}")
-    print(f"📄 [main_solver] Reading input: {input_path}")
-    print(f"📁 [main_solver] Writing output to: {scenario_output_dir}")
+    print(f"🧠 [main_solver] Starting simulation for: {scenario_name}")
+    print(f"📄 [main_solver] Input path: {input_path}")
+    print(f"📁 [main_solver] Output folder: {scenario_output_dir}")
 
-    # Stub snapshot logic — will later be replaced with actual simulation data
+    # Stub snapshot content — to be replaced later with real simulation output
     snapshot = {
         "divergence_max": 0.0,
         "velocity_max": 0.0,
@@ -45,7 +44,7 @@ def run_solver(input_path: str = None, output_base: str = None):
     print(f"📦 [main_solver] Snapshot written: {snapshot_path}")
 
 
-# 🚀 CLI Entry Point
+# 🚀 Entry point — triggers full pipeline when run as script
 if __name__ == "__main__":
     run_solver()
 
