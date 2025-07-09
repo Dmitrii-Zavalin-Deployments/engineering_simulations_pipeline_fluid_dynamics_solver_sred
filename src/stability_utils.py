@@ -38,7 +38,7 @@ def get_threshold(thresh_dict, key, default, silent=False):
     """
     Centralized accessor for threshold values.
     Logs a warning if a fallback value is used,
-    unless silent=True (useful for overrides).
+    unless silent=True (useful for test overrides or expected defaults).
     """
     val = thresh_dict.get(key, default)
     if val == default and not silent:
