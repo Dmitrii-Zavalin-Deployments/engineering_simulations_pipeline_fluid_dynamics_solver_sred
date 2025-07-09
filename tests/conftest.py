@@ -50,12 +50,12 @@ def complete_reflex_config():
     return {
         "damping_enabled": True,
         "damping_factor": 0.1,
-        "divergence_spike_factor": 100.0,
+        "max_consecutive_failures": 3,
         "abort_divergence_threshold": 1e6,
         "abort_velocity_threshold": 1e6,
         "abort_cfl_threshold": 1e6,
-        "projection_passes_max": 4,
-        "max_consecutive_failures": 3
+        "divergence_spike_factor": 100.0,
+        "projection_passes_max": 4
     }
 
 @pytest.fixture(params=[True, False])
@@ -67,12 +67,12 @@ def strict_mode_config(request):
     return {
         "damping_enabled": True,
         "damping_factor": 0.1,
-        "divergence_spike_factor": 100.0,
+        "max_consecutive_failures": 3,
         "abort_divergence_threshold": 1e6,
         "abort_velocity_threshold": 1e6,
         "abort_cfl_threshold": 1e6,
+        "divergence_spike_factor": 100.0,
         "projection_passes_max": 4,
-        "max_consecutive_failures": 3,
         "strict_mode": request.param
     }
 
