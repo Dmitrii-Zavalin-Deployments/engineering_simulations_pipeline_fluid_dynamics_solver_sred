@@ -27,6 +27,14 @@ jobs:
         pip install -r requirements.txt pytest numpy jsonschema jq
         echo "✅ Python and dependencies installed."
 
+    - name: Validate Threshold Configuration
+      run: |
+        echo "🔍 Running threshold schema validation..."
+        python validate_thresholds.py
+        cat data/testing-input-output/threshold_report.json
+        echo "✅ Threshold validation completed."
+
+
     - name: Clean Previous Input & Download Files
       env:
         APP_KEY: ${{ secrets.APP_KEY }}
