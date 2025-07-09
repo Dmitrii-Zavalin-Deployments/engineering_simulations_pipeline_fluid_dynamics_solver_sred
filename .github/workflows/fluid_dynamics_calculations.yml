@@ -1,3 +1,5 @@
+# .github/workflows/fluid_dynamics_calculations.yml
+
 name: Fluid Dynamics Calculations Pipeline
 
 on:
@@ -11,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      PYTHONPATH: ${{ github.workspace }}/src
+      PYTHONPATH: ${{ github.workspace }}  # ✅ Updated to include repo root for simulation module
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
       TEMP_SOLVER_INPUT_FILE: ${{ github.workspace }}/temp/solver_input.json
