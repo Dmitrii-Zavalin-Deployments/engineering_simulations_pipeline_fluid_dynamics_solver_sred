@@ -36,7 +36,12 @@ def compute_volatility(current_value, previous_value, step):
     return delta, slope
 
 def get_threshold(thresh_dict, key, default, silent=False):
-    import sys
+    """
+    Centralized accessor for threshold values.
+    Logs a warning if a fallback value is used,
+    unless silent=True (useful for test overrides or expected defaults).
+    Also prints debug info to stderr for diagnostics.
+    """
     sys.stderr.write(f"[DEBUG] Looking for '{key}' in: {thresh_dict}\n")
     val = thresh_dict.get(key, default)
     if val == default and not silent:
