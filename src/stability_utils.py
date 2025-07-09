@@ -42,6 +42,7 @@ def get_threshold(thresh_dict, key, default, silent=False):
     """
     val = thresh_dict.get(key, default)
     print(f"[DEBUG] Received keys: {list(thresh_dict.keys())}")
+    raise RuntimeError("Breakpoint reached in get_threshold")
     if val == default and not silent:
         warnings.warn(f"[THRESHOLD FALLBACK] Key '{key}' not found. Using default: {default}")
     return val
