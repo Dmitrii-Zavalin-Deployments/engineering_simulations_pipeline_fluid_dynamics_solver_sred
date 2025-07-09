@@ -34,13 +34,14 @@ def compute_volatility(current_value, previous_value, step):
     slope = delta / max(step, 1)
     return delta, slope
 
-def get_threshold(thresh_dict, key, default):
+def get_threshold(thresh_dict, key, default, silent=False):
     """
     Centralized accessor for threshold values.
-    Logs a warning if a fallback value is used.
+    Logs a warning if a fallback value is used,
+    unless silent=True (useful for overrides).
     """
     val = thresh_dict.get(key, default)
-    if val == default:
+    if val == default and not silent:
         warnings.warn(f"[THRESHOLD FALLBACK] Key '{key}' not found. Using default: {default}")
     return val
 
