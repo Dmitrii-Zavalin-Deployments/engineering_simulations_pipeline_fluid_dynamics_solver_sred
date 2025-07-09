@@ -35,7 +35,12 @@ FALLBACK_KEYS = {
     },
     "damping_tests": {
         "damping_factor": -1.0,
-        "max_consecutive_failures": -1
+        "max_consecutive_failures": -1,
+        "abort_divergence_threshold": -1.0,
+        "abort_velocity_threshold": -1.0,
+        "abort_cfl_threshold": -1.0,
+        "divergence_spike_factor": -1.0,
+        "projection_passes_max": -1
     }
 }
 
