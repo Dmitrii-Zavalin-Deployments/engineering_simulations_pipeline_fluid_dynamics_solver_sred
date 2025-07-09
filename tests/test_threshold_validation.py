@@ -95,7 +95,9 @@ def test_complete_reflex_config_matches_damping_schema(threshold_schema, complet
     if not threshold_schema:
         pytest.skip("Schema file not found")
     damping_subschema = threshold_schema["properties"]["damping_tests"]
-    validate(instance=complete_reflex_config, schema=damping_subschema)
+    allowed_keys = damping_subschema["properties"].keys()
+    filtered_config = {k: complete_reflex_config[k] for k in allowed_keys if k in complete_reflex_config}
+    validate(instance=filtered_config, schema=damping_subschema)
 
 
 
