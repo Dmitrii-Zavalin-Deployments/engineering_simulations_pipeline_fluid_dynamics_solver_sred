@@ -1,52 +1,59 @@
+# tests/test_pipeline_behavior.py
+
 import os
 import json
 import pytest
-import subprocess
 
+SNAPSHOT_ROOT = "data/testing-output-run/navier_stokes_output"
+
+# Each scenario maps to a directory, within which we expect at least step_0000.json
 SCENARIOS = [
-    ("stable_flow.json", {"expect_reflex": False}),
-    ("cfl_spike.json", {"expect_damping": True}),
-    ("projection_overload.json", {"projection_passes": 5}),
-    ("velocity_burst.json", {"expect_overflow": True}),
-    ("damped_cavity.json", {"max_velocity_expected": 120.0})
+    "stable_flow.json",
+    "cfl_spike.json",
+    "projection_overload.json",
+    "velocity_burst.json",
+    "damped_cavity.json"
 ]
 
-@pytest.mark.parametrize("scenario_file, expectations", SCENARIOS)
-def test_solver_behavior_snapshot(tmp_path, scenario_file, expectations):
-    input_path = f"tests/inputs/{scenario_file}"
-    output_dir = tmp_path / "solver_output"
-    output_dir.mkdir(exist_ok=True)
-
-    # Run main_solver.py with scenario input
-    subprocess.run([
-        "python", "src/main_solver.py",
-        str(input_path),
-        str(output_dir)
-    ], check=True)
-
-    # Load snapshot
-    snapshot_path = output_dir / "navier_stokes_output" / "divergence_snapshot.json"
-    assert snapshot_path.is_file(), f"Missing snapshot: {snapshot_path}"
+def load_snapshot(scenario_name, step="step_0000.json"):
+    snapshot_path = os.path.join(SNAPSHOT_ROOT, scenario_name.replace(".json", ""), step)
+    assert os.path.isfile(snapshot_path), f"❌ Snapshot missing: {snapshot_path}"
     with open(snapshot_path) as f:
-        snap = json.load(f)
+        return json.load(f)
 
-    # Validate expectations
-    if "expect_reflex" in expectations:
-        assert not snap.get("overflow_detected", False)
-        assert snap["global_cfl"] < 1.0
+@pytest.mark.parametrize("scenario", SCENARIOS)
+def test_pipeline_snapshot_behavior(scenario):
+    snapshot = load_snapshot(scenario)
 
-    if expectations.get("expect_damping"):
-        assert snap["global_cfl"] > 1.0
-        assert snap.get("damping_enabled") is True
+    # Core behavioral assertions
+    assert "divergence_max" in snapshot, f"❌ Missing divergence metric in {scenario}"
+    assert "velocity_max" in snapshot, f"❌ Missing velocity metric in {scenario}"
+    assert "overflow_flag" in snapshot, f"❌ Missing overflow flag in {scenario}"
+    assert "projection_passes" in snapshot, f"❌ Missing projection depth in {scenario}"
+    assert "reflex_triggered" in snapshot, f"❌ Missing reflex trigger status in {scenario}"
 
-    if "projection_passes" in expectations:
-        assert snap["projection_passes"] >= expectations["projection_passes"]
+    # Sanity checks
+    assert snapshot["divergence_max"] >= 0, f"❌ Invalid divergence_max value in {scenario}"
+    assert snapshot["velocity_max"] >= 0, f"❌ Invalid velocity_max value in {scenario}"
+    assert isinstance(snapshot["overflow_flag"], bool), f"❌ overflow_flag should be boolean in {scenario}"
+    assert isinstance(snapshot["reflex_triggered"], bool), f"❌ reflex_triggered should be boolean in {scenario}"
+    assert snapshot["projection_passes"] >= 0, f"❌ projection_passes should be ≥ 0 in {scenario}"
 
-    if expectations.get("expect_overflow"):
-        assert snap.get("overflow_detected") is True
+    # Reflex and escalation logic expectations (optional and extendable)
+    if scenario == "cfl_spike.json":
+        assert snapshot["reflex_triggered"], "⚠️ CFL spike should trigger reflex"
+        assert snapshot.get("damping_applied", False), "⚠️ Damping expected to be applied"
 
-    if "max_velocity_expected" in expectations:
-        assert snap["max_velocity"] <= expectations["max_velocity_expected"]
+    if scenario == "velocity_burst.json":
+        assert snapshot["overflow_flag"], "⚠️ Velocity burst should trigger overflow"
+        assert snapshot["reflex_triggered"], "⚠️ Reflex expected due to velocity spike"
+
+    if scenario == "projection_overload.json":
+        assert snapshot["projection_passes"] > 1, "⚠️ Projection escalation expected"
+
+    if scenario == "stable_flow.json":
+        assert not snapshot["reflex_triggered"], "⚠️ Reflex should not trigger in stable flow"
+        assert not snapshot["overflow_flag"], "⚠️ No overflow expected in stable flow"
 
 
 

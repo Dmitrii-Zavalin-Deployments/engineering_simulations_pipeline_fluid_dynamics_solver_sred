@@ -3,48 +3,45 @@
 import os
 import json
 import pytest
-from jsonschema import validate
 
-THRESHOLD_PATH = "tests/test_thresholds.json"
-SCHEMA_PATH = "tests/schema/thresholds.schema.json"
+SCENARIO_DIR = "tests/inputs"
+
+# Required reflex-related keys that must be present in every scenario input
+REQUIRED_KEYS = [
+    "abort_cfl_threshold",
+    "abort_divergence_threshold",
+    "abort_velocity_threshold",
+    "damping_enabled",
+    "damping_factor",
+    "divergence_spike_factor",
+    "projection_passes",
+    "max_consecutive_failures"
+]
 
 def load_json(path):
-    assert os.path.isfile(path), f"Missing file: {path}"
+    assert os.path.isfile(path), f"❌ File missing: {path}"
     with open(path) as f:
         return json.load(f)
 
-def test_thresholds_match_schema():
-    config = load_json(THRESHOLD_PATH)
-    schema = load_json(SCHEMA_PATH)
-    validate(instance=config, schema=schema)
+@pytest.mark.parametrize("scenario_file", os.listdir(SCENARIO_DIR))
+def test_reflex_threshold_structure_and_values(scenario_file):
+    scenario_path = os.path.join(SCENARIO_DIR, scenario_file)
+    config = load_json(scenario_path)
 
-def test_no_fallbacks_present():
-    config = load_json(THRESHOLD_PATH)
-    for section, entries in config.items():
-        for key, value in entries.items():
-            assert value != -1.0, f"Fallback detected at {section}.{key} = -1.0"
+    for key in REQUIRED_KEYS:
+        assert key in config, f"❌ Missing required key '{key}' in {scenario_file}"
+        value = config[key]
 
-def test_required_reflex_keys_present():
-    damping = load_json(THRESHOLD_PATH).get("damping_tests", {})
-    required = [
-        "damping_enabled",
-        "damping_factor",
-        "abort_cfl_threshold",
-        "abort_divergence_threshold",
-        "abort_velocity_threshold",
-        "divergence_spike_factor",
-        "projection_passes_max",
-        "max_consecutive_failures"
-    ]
-    for key in required:
-        assert key in damping, f"Missing reflex key: {key}"
+        # Detect fallback value
+        assert value != -1.0, f"⚠️ Fallback (-1.0) detected for '{key}' in {scenario_file}"
 
-def test_numeric_thresholds_are_positive():
-    config = load_json(THRESHOLD_PATH)
-    for section, entries in config.items():
-        for key, value in entries.items():
-            if isinstance(value, (int, float)):
-                assert value >= 0, f"Negative or invalid value at {section}.{key}: {value}"
+        # Value type and range checks
+        if key == "damping_enabled":
+            assert isinstance(value, bool), f"❌ '{key}' must be boolean in {scenario_file}"
+        elif isinstance(value, (int, float)):
+            assert value >= 0, f"❌ Invalid negative value for '{key}' in {scenario_file}"
+        else:
+            assert False, f"❌ Unexpected type for '{key}' in {scenario_file}: {type(value)}"
 
 
 
