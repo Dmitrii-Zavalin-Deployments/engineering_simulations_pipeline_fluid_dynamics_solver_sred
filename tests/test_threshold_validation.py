@@ -70,6 +70,11 @@ def test_damping_config_values(thresholds):
     assert isinstance(damp.get("damping_enabled"), bool)
     assert 0.0 <= damp.get("damping_factor", -1.0) <= 1.0
     assert damp.get("max_consecutive_failures", -1) >= 0
+    assert damp.get("abort_divergence_threshold", -1.0) > 0.0
+    assert damp.get("abort_velocity_threshold", -1.0) > 0.0
+    assert damp.get("abort_cfl_threshold", -1.0) > 0.0
+    assert damp.get("divergence_spike_factor", -1.0) >= 0.0
+    assert damp.get("projection_passes_max", -1) >= 1
 
 def test_thresholds_schema_compliance(thresholds, threshold_schema):
     if not threshold_schema:
