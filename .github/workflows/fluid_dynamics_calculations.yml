@@ -31,7 +31,7 @@ jobs:
     - name: Validate Threshold Configuration
       run: |
         echo "🔍 Running threshold schema validation..."
-        python validate_thresholds.py
+        python tools/validate_thresholds.py
         if [ -f "$THRESHOLD_REPORT_PATH" ]; then
           cat "$THRESHOLD_REPORT_PATH"
           echo "✅ Threshold validation completed."
