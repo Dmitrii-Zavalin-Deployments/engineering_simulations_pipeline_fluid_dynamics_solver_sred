@@ -35,7 +35,8 @@ def test_apply_velocity_damping_with_enabled_flag(complete_reflex_config):
     scheduler = AdaptiveScheduler(complete_reflex_config)
     field = np.ones((4, 4, 4, 3)) * 10.0
     damped_field = scheduler.apply_velocity_damping(field)
-    assert np.allclose(damped_field, field * complete_reflex_config["damping_factor"])
+    expected_field = field * (1.0 - complete_reflex_config["damping_factor"])
+    assert np.allclose(damped_field, expected_field)
 
 def test_apply_velocity_damping_skipped_when_disabled(complete_reflex_config):
     config = complete_reflex_config.copy()
