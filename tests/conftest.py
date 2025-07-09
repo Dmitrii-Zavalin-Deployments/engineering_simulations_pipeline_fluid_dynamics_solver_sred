@@ -39,7 +39,7 @@ def corrupted_field_with_inf():
     return field
 
 # 🛡️ Reflex Configuration Fixtures
-'''
+
 @pytest.fixture
 def complete_reflex_config():
     """
@@ -55,9 +55,10 @@ def complete_reflex_config():
         "max_consecutive_failures": 3,
         "abort_divergence_threshold": 1e6,
         "abort_velocity_threshold": 1e6,
-        "abort_cfl_threshold": 1e6
+        "abort_cfl_threshold": 1e6,
+        "strict_mode": False
     }
-'''
+
 @pytest.fixture(params=[True, False])
 def strict_mode_config(request):
     """
