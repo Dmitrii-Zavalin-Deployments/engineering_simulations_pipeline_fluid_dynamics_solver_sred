@@ -6,7 +6,7 @@ import os
 from jsonschema import validate, ValidationError
 
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
-THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
+THRESHOLD_PATH = os.path.join("tests", "test_thresholds.json")
 
 @pytest.fixture(scope="module")
 def thresholds():

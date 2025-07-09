@@ -7,7 +7,7 @@ import json
 
 # 📁 File Paths
 SNAPSHOT_PATH = "data/testing-output-run/navier_stokes_output/divergence_snapshot.json"
-THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
+THRESHOLD_PATH = os.path.join("tests", "test_thresholds.json")
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 
 # 🔧 Synthetic Field Fixtures
@@ -64,7 +64,7 @@ def strict_mode_config(request):
     Reflex configuration with strict_mode toggle.
     Useful for testing scheduler behavior under constraint variations.
     """
-    config = {
+    return {
         "damping_enabled": True,
         "damping_factor": 0.1,
         "divergence_spike_factor": 100.0,
@@ -75,7 +75,6 @@ def strict_mode_config(request):
         "abort_cfl_threshold": 1e6,
         "strict_mode": request.param
     }
-    return config
 
 # 📊 Pre-generated Snapshot Fixture
 

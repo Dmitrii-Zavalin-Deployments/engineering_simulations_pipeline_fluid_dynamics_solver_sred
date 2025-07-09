@@ -16,7 +16,7 @@ from datetime import datetime
 from jsonschema import validate, ValidationError
 
 # 📁 File Paths
-THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
+THRESHOLD_PATH = os.path.join("tests", "test_thresholds.json")
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 REPORT_PATH = os.path.join("data", "testing-input-output", "threshold_report.json")
 
