@@ -24,13 +24,18 @@ def test_check_extreme_instability_triggers_abort(complete_reflex_config):
     sim = DummySim()
     scheduler = AdaptiveScheduler(complete_reflex_config)
     with pytest.raises(RuntimeError):
-        scheduler.check_extreme_instability(sim, max_divergence=5e6, max_velocity=1e6 + 1, global_cfl=2e6)
+        scheduler.check_extreme_instability(
+            sim,
+            max_divergence=5e6,
+            max_velocity=1e6 + 1,
+            global_cfl=2e6
+        )
 
 def test_apply_velocity_damping_with_enabled_flag(complete_reflex_config):
     scheduler = AdaptiveScheduler(complete_reflex_config)
     field = np.ones((4, 4, 4, 3)) * 10.0
     damped_field = scheduler.apply_velocity_damping(field)
-    assert np.allclose(damped_field, field * 0.9)
+    assert np.allclose(damped_field, field * complete_reflex_config["damping_factor"])
 
 def test_apply_velocity_damping_skipped_when_disabled(complete_reflex_config):
     config = complete_reflex_config.copy()
