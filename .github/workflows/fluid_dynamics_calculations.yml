@@ -16,6 +16,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}  # ✅ Updated to include repo root for simulation module
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
+      THRESHOLD_REPORT_PATH: ${{ github.workspace }}/data/testing-input-output/threshold_report.json
 
     steps:
     - name: Checkout Repository
@@ -31,8 +32,12 @@ jobs:
       run: |
         echo "🔍 Running threshold schema validation..."
         python validate_thresholds.py
-        cat data/testing-input-output/threshold_report.json
-        echo "✅ Threshold validation completed."
+        if [ -f "$THRESHOLD_REPORT_PATH" ]; then
+          cat "$THRESHOLD_REPORT_PATH"
+          echo "✅ Threshold validation completed."
+        else
+          echo "⚠️ Threshold report not found at $THRESHOLD_REPORT_PATH"
+        fi
 
 
     - name: Clean Previous Input & Download Files
