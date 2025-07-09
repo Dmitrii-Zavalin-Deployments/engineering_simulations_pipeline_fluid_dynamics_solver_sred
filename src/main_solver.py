@@ -1,17 +1,30 @@
+# src/main_solver.py
+
 import os
 import json
 from datetime import datetime
+from prepare_simulation_upload import prepare_simulation_upload_files  # ✅ Batch simulation runner
 
-def run_solver(input_path: str, output_dir: str):
+def run_solver(input_path: str = None, output_base: str = None):
+    """
+    Executes the simulation pipeline.
+    If input_path/output_base are provided: process one scenario.
+    If not: run full pipeline using prepare_simulation_upload_files().
+    """
+    if input_path is None or output_base is None:
+        print("🚀 [main_solver] Triggering full simulation pipeline via prepare_simulation_upload_files()")
+        prepare_simulation_upload_files()
+        return
+
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
-    scenario_output_dir = os.path.join(output_dir, scenario_name)
-
+    scenario_output_dir = os.path.join(output_base, scenario_name)
     os.makedirs(scenario_output_dir, exist_ok=True)
 
-    print(f"🧠 Starting stubbed solver for: {scenario_name}")
-    print(f"📄 Input: {input_path}")
-    print(f"📁 Output folder: {scenario_output_dir}")
+    print(f"🧠 [main_solver] Starting simulation: {scenario_name}")
+    print(f"📄 [main_solver] Reading input: {input_path}")
+    print(f"📁 [main_solver] Writing output to: {scenario_output_dir}")
 
+    # Stub snapshot logic — will later be replaced with actual simulation data
     snapshot = {
         "divergence_max": 0.0,
         "velocity_max": 0.0,
@@ -29,7 +42,12 @@ def run_solver(input_path: str, output_dir: str):
     with open(snapshot_path, "w") as f:
         json.dump(snapshot, f, indent=2)
 
-    print(f"📦 Snapshot written: {snapshot_path}")
+    print(f"📦 [main_solver] Snapshot written: {snapshot_path}")
+
+
+# 🚀 CLI Entry Point
+if __name__ == "__main__":
+    run_solver()
 
 
 
