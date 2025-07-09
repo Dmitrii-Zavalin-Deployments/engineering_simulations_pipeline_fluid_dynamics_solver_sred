@@ -86,11 +86,25 @@
     },
     "damping_tests": {
       "type": "object",
-      "required": ["damping_enabled", "damping_factor", "max_consecutive_failures"],
+      "required": [
+        "damping_enabled",
+        "damping_factor",
+        "max_consecutive_failures",
+        "abort_divergence_threshold",
+        "abort_velocity_threshold",
+        "abort_cfl_threshold",
+        "divergence_spike_factor",
+        "projection_passes_max"
+      ],
       "properties": {
         "damping_enabled": { "type": "boolean" },
         "damping_factor": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-        "max_consecutive_failures": { "type": "integer", "minimum": 0 }
+        "max_consecutive_failures": { "type": "integer", "minimum": 0 },
+        "abort_divergence_threshold": { "type": "number", "minimum": 0.0 },
+        "abort_velocity_threshold": { "type": "number", "minimum": 0.0 },
+        "abort_cfl_threshold": { "type": "number", "minimum": 0.0 },
+        "divergence_spike_factor": { "type": "number", "minimum": 0.0 },
+        "projection_passes_max": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     }
