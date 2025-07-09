@@ -1,0 +1,12 @@
+{
+  "step": 3,
+  "max_velocity": 1e6,
+  "max_divergence": 5e6,
+  "global_cfl": 2.0,
+  "overflow_detected": true,
+  "damping_enabled": true,
+  "projection_passes": 2
+}
+
+
+
