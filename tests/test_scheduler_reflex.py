@@ -3,7 +3,6 @@
 import pytest
 import numpy as np
 from simulation.adaptive_scheduler import AdaptiveScheduler
-from tests.conftest import complete_reflex_config  # ✅ Uses shared fixture with flat structure
 
 class DummySim:
     def __init__(self):
