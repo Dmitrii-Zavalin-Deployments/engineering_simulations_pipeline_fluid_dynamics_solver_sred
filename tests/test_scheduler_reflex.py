@@ -3,19 +3,7 @@
 import pytest
 import numpy as np
 from simulation.adaptive_scheduler import AdaptiveScheduler
-
-@pytest.fixture
-def complete_reflex_config():
-    return {
-        "damping_enabled": True,
-        "damping_factor": 0.1,
-        "divergence_spike_factor": 100.0,
-        "projection_passes_max": 4,
-        "max_consecutive_failures": 3,
-        "abort_divergence_threshold": 1e6,
-        "abort_velocity_threshold": 1e6,
-        "abort_cfl_threshold": 1e6
-    }
+from tests.conftest import complete_reflex_config  # ✅ Uses shared fixture with flat structure
 
 class DummySim:
     def __init__(self):
