@@ -3,6 +3,7 @@
 import pytest
 import numpy as np
 from simulation.adaptive_scheduler import AdaptiveScheduler  # ✅ Fixed import
+from tests.conftest import complete_reflex_config  # ✅ Shared fixture reuse
 
 class DummySim:
     def __init__(self):
@@ -18,19 +19,6 @@ class DummySim:
         self.velocity_limit = 10.0
         self.damping_enabled = True
         self.scheduler = None
-
-@pytest.fixture
-def complete_reflex_config():
-    return {
-        "damping_enabled": True,
-        "damping_factor": 0.1,
-        "divergence_spike_factor": 100.0,
-        "abort_divergence_threshold": 1e6,
-        "abort_velocity_threshold": 1e6,
-        "abort_cfl_threshold": 1e6,
-        "projection_passes_max": 4,
-        "max_consecutive_failures": 3
-    }
 
 def test_check_extreme_instability_triggers_abort(complete_reflex_config):
     sim = DummySim()
@@ -55,7 +43,7 @@ def test_apply_velocity_damping_skipped_when_disabled(complete_reflex_config):
 def test_monitor_divergence_and_escalate_spike_triggers_counter(complete_reflex_config):
     sim = DummySim()
     scheduler = AdaptiveScheduler(complete_reflex_config)
-    divergence_field = np.ones((8, 8, 8)) * 50.0  # > 100 × 0.03 → spike triggered
+    divergence_field = np.ones((8, 8, 8)) * 50.0
     scheduler.monitor_divergence_and_escalate(sim, divergence_field, step=2)
     assert scheduler.consecutive_spike_count >= 1
 

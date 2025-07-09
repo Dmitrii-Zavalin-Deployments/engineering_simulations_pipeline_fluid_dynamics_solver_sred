@@ -5,9 +5,12 @@ import numpy as np
 import os
 import json
 
+# 📁 File Paths
 SNAPSHOT_PATH = "data/testing-output-run/navier_stokes_output/divergence_snapshot.json"
 THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
+
+# 🔧 Synthetic Field Fixtures
 
 @pytest.fixture
 def clean_velocity_field():
@@ -35,11 +38,14 @@ def corrupted_field_with_inf():
     field[1, 2] = np.inf
     return field
 
+# 🛡️ Reflex Configuration Fixtures
+
 @pytest.fixture
 def complete_reflex_config():
     """
     Full configuration dictionary for AdaptiveScheduler tests.
     Avoids fallback warnings by including all expected keys.
+    Matches `damping_tests` section of thresholds.schema.json
     """
     return {
         "damping_enabled": True,
@@ -52,12 +58,29 @@ def complete_reflex_config():
         "max_consecutive_failures": 3
     }
 
+@pytest.fixture(params=[True, False])
+def strict_mode_config(request):
+    """
+    Reflex configuration with `strict_mode` variants.
+    Allows testing scheduler behavior under relaxed vs strict settings.
+    """
+    return {
+        "damping_enabled": True,
+        "damping_factor": 0.1,
+        "divergence_spike_factor": 100.0,
+        "abort_divergence_threshold": 1e6,
+        "abort_velocity_threshold": 1e6,
+        "abort_cfl_threshold": 1e6,
+        "projection_passes_max": 4,
+        "max_consecutive_failures": 3,
+        "strict_mode": request.param
+    }
+
+# 📊 Pre-generated Snapshot Fixture
+
 @pytest.fixture(autouse=True, scope="module")
 def write_snapshot_for_tests():
-    """
-    Auto-generated snapshot file for overflow-related tests.
-    Runs once per module.
-    """
+    """Auto-generated snapshot file for overflow-related tests. Runs once per module."""
     snapshot_data = {
         "step": 42,
         "max_divergence": float("inf"),
@@ -72,11 +95,15 @@ def write_snapshot_for_tests():
     with open(SNAPSHOT_PATH, "w") as f:
         json.dump(snapshot_data, f, indent=2)
 
+# 📎 Threshold Config Loader
+
 @pytest.fixture(scope="module")
 def loaded_thresholds():
     """Loads test_thresholds.json for use in threshold validation tests."""
     with open(THRESHOLD_PATH) as f:
         return json.load(f)
+
+# 📐 JSON Schema Loader
 
 @pytest.fixture(scope="module")
 def threshold_schema():

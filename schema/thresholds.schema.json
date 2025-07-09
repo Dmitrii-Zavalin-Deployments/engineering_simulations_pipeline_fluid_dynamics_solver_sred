@@ -20,7 +20,8 @@
       "properties": {
         "max_divergence_threshold": { "type": "number", "minimum": 0.0 },
         "spike_factor": { "type": "number", "minimum": 10.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "velocity_tests": {
       "type": "object",
@@ -28,7 +29,8 @@
       "properties": {
         "velocity_magnitude_max": { "type": "number", "minimum": 0.0 },
         "warning_tolerance_percent": { "type": "number", "minimum": 0.0, "maximum": 100.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "projection_effectiveness": {
       "type": "object",
@@ -36,7 +38,8 @@
       "properties": {
         "minimum_reduction_percent": { "type": "number", "minimum": 0.0, "maximum": 100.0 },
         "max_projection_passes": { "type": "integer", "minimum": 1 }
-      }
+      },
+      "additionalProperties": false
     },
     "volatility_tests": {
       "type": "object",
@@ -45,28 +48,32 @@
         "warning_threshold": { "type": "number", "minimum": 0.0 },
         "max_slope_per_step": { "type": "number", "minimum": 0.0 },
         "delta_threshold": { "type": "number", "minimum": 0.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "residual_tests": {
       "type": "object",
       "required": ["max_residual_allowed"],
       "properties": {
         "max_residual_allowed": { "type": "number", "minimum": 0.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "pressure_tests": {
       "type": "object",
       "required": ["max_pressure_difference"],
       "properties": {
         "max_pressure_difference": { "type": "number", "minimum": 0.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "cfl_tests": {
       "type": "object",
       "required": ["max_cfl_stable"],
       "properties": {
         "max_cfl_stable": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
-      }
+      },
+      "additionalProperties": false
     },
     "test_behavior": {
       "type": "object",
@@ -74,7 +81,8 @@
       "properties": {
         "enable_overflow_logging": { "type": "boolean" },
         "strict_mode": { "type": "boolean" }
-      }
+      },
+      "additionalProperties": false
     },
     "damping_tests": {
       "type": "object",
@@ -83,7 +91,8 @@
         "damping_enabled": { "type": "boolean" },
         "damping_factor": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
         "max_consecutive_failures": { "type": "integer", "minimum": 0 }
-      }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -1,8 +1,8 @@
 # validate_thresholds.py
 
 """
-CLI Tool: Validates `test_thresholds.json` against a schema and audits fallback risk.
-Also generates `threshold_report.json` in data/testing-input-output/.
+✅ CLI Tool: Validates `test_thresholds.json` against a schema and audits fallback risk.
+Also generates `threshold_report.json` in `data/testing-input-output/`.
 
 Usage:
     python validate_thresholds.py
@@ -15,23 +15,31 @@ import warnings
 from datetime import datetime
 from jsonschema import validate, ValidationError
 
+# 📁 File Paths
 THRESHOLD_PATH = os.path.join("src", "test_thresholds.json")
 SCHEMA_PATH = os.path.join("schema", "thresholds.schema.json")
 REPORT_PATH = os.path.join("data", "testing-input-output", "threshold_report.json")
 
+# 🧪 Keys that must not fall back silently
 FALLBACK_KEYS = {
     "volatility_tests": {
         "warning_threshold": -1.0,
-        "max_slope_per_step": -1.0
+        "max_slope_per_step": -1.0,
+        "delta_threshold": -1.0
     },
     "cfl_tests": {
         "max_cfl_stable": -1.0
     },
     "projection_effectiveness": {
         "minimum_reduction_percent": -1.0
+    },
+    "damping_tests": {
+        "damping_factor": -1.0,
+        "max_consecutive_failures": -1
     }
 }
 
+# 📦 Load JSON
 def load_json(path, label):
     if not os.path.isfile(path):
         print(f"❌ {label} file not found at: {path}")
@@ -39,6 +47,7 @@ def load_json(path, label):
     with open(path) as f:
         return json.load(f)
 
+# 🔐 Check Schema Compliance
 def check_schema(thresholds, schema):
     try:
         validate(instance=thresholds, schema=schema)
@@ -48,6 +57,7 @@ def check_schema(thresholds, schema):
         print(f"❌ Schema validation failed: {e.message}")
         return "invalid"
 
+# ⚠️ Check Fallback Usage
 def check_fallbacks(thresholds):
     fallback_messages = []
     for section, keys in FALLBACK_KEYS.items():
@@ -56,7 +66,7 @@ def check_fallbacks(thresholds):
             actual = config_section.get(key, fallback_value)
             if actual == fallback_value:
                 warning = f"{section}.{key}: used fallback {fallback_value}"
-                warnings.warn(f"[FALLBACK] {warning}")
+                warnings.warn(f"[THRESHOLD FALLBACK] {warning}")
                 fallback_messages.append(warning)
     if not fallback_messages:
         print("✅ No fallback values detected.")
@@ -64,6 +74,7 @@ def check_fallbacks(thresholds):
         print("⚠️ Fallback values were used. Review above.")
     return fallback_messages
 
+# 📝 Write JSON Report
 def write_report(thresholds, schema_status, fallback_messages):
     os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
     report = {
@@ -77,6 +88,7 @@ def write_report(thresholds, schema_status, fallback_messages):
         json.dump(report, f, indent=2)
     print(f"📄 Threshold report saved to: {REPORT_PATH}")
 
+# 🚀 Entrypoint
 def main():
     print("🔍 Loading threshold config and schema...")
     thresholds = load_json(THRESHOLD_PATH, "Thresholds")

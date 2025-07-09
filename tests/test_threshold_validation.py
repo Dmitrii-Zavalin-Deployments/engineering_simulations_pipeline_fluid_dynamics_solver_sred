@@ -89,13 +89,13 @@ def test_no_fallback_values_used(thresholds):
 def test_cfl_threshold_sensitivity(cfl_value, thresholds):
     threshold = thresholds["cfl_tests"]["max_cfl_stable"]
     should_be_stable = cfl_value <= threshold
-    # Placeholder: Reflex adaptation logic validation
     assert isinstance(should_be_stable, bool)
 
-def test_complete_reflex_config_matches_schema(threshold_schema, complete_reflex_config):
+def test_complete_reflex_config_matches_damping_schema(threshold_schema, complete_reflex_config):
     if not threshold_schema:
         pytest.skip("Schema file not found")
-    validate(instance={"damping_tests": complete_reflex_config}, schema=threshold_schema)
+    damping_subschema = threshold_schema["properties"]["damping_tests"]
+    validate(instance=complete_reflex_config, schema=damping_subschema)
 
 
 
