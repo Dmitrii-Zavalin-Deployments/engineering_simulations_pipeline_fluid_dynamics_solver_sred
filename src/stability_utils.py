@@ -40,12 +40,10 @@ def get_threshold(thresh_dict, key, default, silent=False):
     Logs a warning if a fallback value is used,
     unless silent=True (useful for test overrides or expected defaults).
     """
+    print(f"[DEBUG] get_threshold received: {thresh_dict}")
     val = thresh_dict.get(key, default)
-    print(f"[DEBUG] Received keys: {list(thresh_dict.keys())}")
-    raise RuntimeError("Breakpoint reached in get_threshold")
-    if val == default and not silent:
+    if val == default:
         warnings.warn(f"[THRESHOLD FALLBACK] Key '{key}' not found. Using default: {default}")
     return val
-
 
 
