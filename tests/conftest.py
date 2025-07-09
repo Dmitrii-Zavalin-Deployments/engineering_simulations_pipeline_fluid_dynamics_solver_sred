@@ -43,9 +43,9 @@ def corrupted_field_with_inf():
 @pytest.fixture
 def complete_reflex_config():
     """
-    Full configuration dictionary for AdaptiveScheduler tests.
-    Avoids fallback warnings by including all expected keys.
-    Matches `damping_tests` section of thresholds.schema.json
+    Flat configuration for AdaptiveScheduler.
+    Matches the top-level keys accessed via get_threshold().
+    Prevents fallback warnings by including all required keys.
     """
     return {
         "damping_enabled": True,
@@ -61,10 +61,10 @@ def complete_reflex_config():
 @pytest.fixture(params=[True, False])
 def strict_mode_config(request):
     """
-    Reflex configuration with `strict_mode` variants.
-    Allows testing scheduler behavior under relaxed vs strict settings.
+    Reflex configuration with strict_mode toggle.
+    Useful for testing scheduler behavior under constraint variations.
     """
-    return {
+    config = {
         "damping_enabled": True,
         "damping_factor": 0.1,
         "divergence_spike_factor": 100.0,
@@ -75,6 +75,7 @@ def strict_mode_config(request):
         "abort_cfl_threshold": 1e6,
         "strict_mode": request.param
     }
+    return config
 
 # 📊 Pre-generated Snapshot Fixture
 
