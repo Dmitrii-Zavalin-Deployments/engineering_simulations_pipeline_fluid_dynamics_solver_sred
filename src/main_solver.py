@@ -1,17 +1,17 @@
-# src/main_solver.py
-
 import os
 import json
 from datetime import datetime
 
 def run_solver(input_path: str, output_dir: str):
-    """Stubbed simulation pipeline that creates expected snapshot structure."""
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     scenario_output_dir = os.path.join(output_dir, scenario_name)
 
     os.makedirs(scenario_output_dir, exist_ok=True)
 
-    # Minimal placeholder snapshot for step_0000
+    print(f"🧠 Starting stubbed solver for: {scenario_name}")
+    print(f"📄 Input: {input_path}")
+    print(f"📁 Output folder: {scenario_output_dir}")
+
     snapshot = {
         "divergence_max": 0.0,
         "velocity_max": 0.0,
@@ -29,7 +29,7 @@ def run_solver(input_path: str, output_dir: str):
     with open(snapshot_path, "w") as f:
         json.dump(snapshot, f, indent=2)
 
-    print(f"✅ Stubbed snapshot created at: {snapshot_path}")
+    print(f"📦 Snapshot written: {snapshot_path}")
 
 
 
