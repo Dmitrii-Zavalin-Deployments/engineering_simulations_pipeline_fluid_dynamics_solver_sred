@@ -4,7 +4,7 @@ import os
 import json
 import pytest
 
-SNAPSHOT_ROOT = "data/testing-output-run/navier_stokes_output"
+SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
 # Each scenario maps to a directory, within which we expect at least step_0000.json
 SCENARIOS = [

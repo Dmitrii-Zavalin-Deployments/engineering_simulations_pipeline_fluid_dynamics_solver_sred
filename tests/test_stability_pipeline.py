@@ -4,7 +4,7 @@ import os
 import json
 import pytest
 
-SNAPSHOT_ROOT = "data/testing-output-run/navier_stokes_output"
+SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 STEPS = ["step_0000.json", "step_0001.json", "step_0002.json"]
 
 SCENARIOS = [

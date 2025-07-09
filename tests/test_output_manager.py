@@ -4,7 +4,7 @@ import os
 import json
 import pytest
 
-SNAPSHOT_ROOT = "data/testing-output-run/navier_stokes_output"
+SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 EXPECTED_KEYS = [
     "divergence_max",
     "velocity_max",
