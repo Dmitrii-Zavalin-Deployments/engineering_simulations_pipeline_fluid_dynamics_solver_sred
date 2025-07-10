@@ -3,7 +3,7 @@
 import os
 import json
 import pytest
-from input_reader import load_simulation_input
+from src.input_reader import load_simulation_input
 
 VALID_INPUT = {
     "domain_definition": {
