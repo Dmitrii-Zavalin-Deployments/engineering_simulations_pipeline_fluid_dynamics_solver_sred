@@ -35,7 +35,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
             "grid": grid,
             "max_velocity": compute_max_velocity(grid),
             "max_divergence": compute_max_divergence(grid),
-            "global_cfl": compute_global_cfl(grid, time_step),
+            "global_cfl": compute_global_cfl(grid, time_step, domain),
             "overflow_detected": detect_overflow(grid),
             "damping_enabled": should_dampen(grid, time_step),
             "projection_passes": calculate_projection_passes(grid)
