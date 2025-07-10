@@ -52,6 +52,12 @@ jobs:
         echo "🔍 RESTARTED_OUTPUT_DIR=$ACTUAL_OUTPUT_DIR"
         pytest -s tests/ --verbose -ra
 
+    - name: Inspect Repository Contents
+      run: |
+        echo "📦 Repository structure preview:"
+        ls -R ${{ github.workspace }}
+        echo "✅ Repository inspection complete."
+
     - name: Upload Results to Dropbox
       env:
         APP_KEY: ${{ secrets.APP_KEY }}
