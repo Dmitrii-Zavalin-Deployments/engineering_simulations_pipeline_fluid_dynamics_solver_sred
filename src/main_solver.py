@@ -3,7 +3,7 @@
 import os
 import json
 import sys
-from input_reader import load_simulation_input
+from src.input_reader import load_simulation_input
 
 def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
