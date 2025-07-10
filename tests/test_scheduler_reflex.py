@@ -31,6 +31,7 @@ SCENARIOS = {
 }
 
 def discover_snapshot_files():
+    """Find all step_0000 snapshots in the flat output directory"""
     return [
         filename for filename in os.listdir(SNAPSHOT_ROOT)
         if filename.endswith("_step_0000.json")
@@ -38,33 +39,34 @@ def discover_snapshot_files():
 
 @pytest.mark.parametrize("snapshot_file", discover_snapshot_files())
 def test_reflex_response_and_flags(snapshot_file):
-    scenario_key = snapshot_file.replace("_step_0000.json", "")
-    if scenario_key not in SCENARIOS:
-        pytest.skip(f"⚠️ No expectations configured for {snapshot_file}")
+    scenario_prefix = snapshot_file.replace("_step_0000.json", "")
+    if scenario_prefix not in SCENARIOS:
+        pytest.skip(f"⚠️ No reflex expectations configured for {snapshot_file}")
 
     path = os.path.join(SNAPSHOT_ROOT, snapshot_file)
     with open(path) as f:
         snap = json.load(f)
 
-    expected = SCENARIOS[scenario_key]
+    expected = SCENARIOS[scenario_prefix]
 
-    # Required field checks
+    # Required reflex fields
     for key in ["damping_enabled", "overflow_detected", "projection_passes"]:
         assert key in snap, f"❌ Missing key '{key}' in {snapshot_file}"
 
-    # Damping validation
+    # Damping check
     assert snap["damping_enabled"] == expected["expect_damping_enabled"], (
         f"⚠️ Damping mismatch in {snapshot_file}: expected {expected['expect_damping_enabled']}, got {snap['damping_enabled']}"
     )
 
-    # Overflow validation
+    # Overflow check
     assert snap["overflow_detected"] == expected["expect_overflow_detected"], (
         f"⚠️ Overflow mismatch in {snapshot_file}: expected {expected['expect_overflow_detected']}, got {snap['overflow_detected']}"
     )
 
-    # Projection pass depth
-    assert snap["projection_passes"] >= expected["min_projection_passes"], (
-        f"⚠️ Projection passes too low in {snapshot_file}: expected ≥ {expected['min_projection_passes']}, got {snap['projection_passes']}"
+    # Projection depth check
+    actual_passes = snap["projection_passes"]
+    assert actual_passes >= expected["min_projection_passes"], (
+        f"⚠️ Projection pass count too low in {snapshot_file}: expected ≥ {expected['min_projection_passes']}, got {actual_passes}"
     )
 
 
