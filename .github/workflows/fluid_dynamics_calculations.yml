@@ -40,6 +40,8 @@ jobs:
         [ -f "$ORIGINAL_INPUT_FILE" ] && echo "✅ Original input file ready." || { echo "❌ Error: Input file missing."; exit 1; }
 
     - name: 🚀 Run Main Solver
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
@@ -47,6 +49,8 @@ jobs:
         echo "✅ Main solver executed without JSON serialization errors."
 
     - name: 🧪 Run Unit Tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
       run: |
         pytest -s tests/ --verbose -ra
         echo "✅ Unit tests completed."
