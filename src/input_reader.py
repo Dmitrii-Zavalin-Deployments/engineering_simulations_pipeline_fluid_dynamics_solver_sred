@@ -22,8 +22,7 @@ def load_simulation_input(filepath: str) -> dict:
         "fluid_properties",
         "initial_conditions",
         "simulation_parameters",
-        "boundary_conditions",
-        "mesh"
+        "boundary_conditions"
     ]
 
     for section in required_sections:
@@ -35,8 +34,7 @@ def load_simulation_input(filepath: str) -> dict:
     nx, ny, nz = domain.get("nx"), domain.get("ny"), domain.get("nz")
     print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
 
-    solver_type = data["simulation_parameters"].get("solver", "unknown")
-    print(f"⚙️  Solver mode: {solver_type}")
+    print(f"⚙️  Output interval: {data['simulation_parameters'].get('output_interval', 'N/A')}")
 
     return data
 

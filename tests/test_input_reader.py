@@ -21,16 +21,18 @@ VALID_INPUT = {
     },
     "simulation_parameters": {
         "time_step": 0.1, "total_time": 1.0,
-        "solver": "explicit", "output_frequency_steps": 20
+        "output_interval": 20
     },
     "boundary_conditions": [
-        {"label": "inlet", "faces": [1], "type": "dirichlet", "apply_to": ["pressure"], "pressure": 100.0}
-    ],
-    "mesh": {
-        "boundary_faces": [
-            {"face_id": 1, "nodes": {"n1": [0,0,0], "n2": [0,1,0], "n3": [0,0,1], "n4": [0,1,1]}}
-        ]
-    }
+        {
+            "faces": [1, 2, 3, 4, 5, 6],
+            "type": "dirichlet",
+            "apply_to": ["pressure", "velocity"],
+            "pressure": 100.0,
+            "velocity": [0.0, 0.0, 0.0],
+            "no_slip": True
+        }
+    ]
 }
 
 @pytest.fixture
@@ -44,9 +46,8 @@ def test_valid_input_loads_correctly(tmp_valid_input):
     assert result["domain_definition"]["nx"] == 41
     assert result["fluid_properties"]["density"] == 1.0
     assert result["initial_conditions"]["initial_velocity"] == [0.01, 0.0, 0.0]
-    assert result["simulation_parameters"]["solver"] == "explicit"
+    assert result["simulation_parameters"]["output_interval"] == 20
     assert len(result["boundary_conditions"]) == 1
-    assert "mesh" in result
 
 def test_missing_input_file():
     with pytest.raises(FileNotFoundError):
@@ -63,8 +64,7 @@ def test_invalid_json_content(tmp_path):
     "fluid_properties",
     "initial_conditions",
     "simulation_parameters",
-    "boundary_conditions",
-    "mesh"
+    "boundary_conditions"
 ])
 def test_missing_required_section(tmp_path, missing_key):
     bad_input = VALID_INPUT.copy()
@@ -74,16 +74,6 @@ def test_missing_required_section(tmp_path, missing_key):
     with pytest.raises(KeyError) as exc:
         load_simulation_input(str(file))
     assert missing_key in str(exc.value)
-
-def test_optional_solver_defaults(tmp_path):
-    no_solver = VALID_INPUT.copy()
-    no_solver["simulation_parameters"] = {
-        "time_step": 0.1, "total_time": 1.0, "output_frequency_steps": 20
-    }
-    file = tmp_path / "missing_solver.json"
-    file.write_text(json.dumps(no_solver))
-    result = load_simulation_input(str(file))
-    assert result["simulation_parameters"].get("solver", "unknown") == "unknown"
 
 
 
