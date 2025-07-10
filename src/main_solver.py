@@ -29,7 +29,7 @@ def run_solver(input_path: str, _: str = None):
         "max_divergence": 0.05,
         "global_cfl": 0.9,
         "overflow_detected": False,
-        "damping_enabled": True,
+        "damping_enabled": False,
         "projection_passes": 2
     }
 
