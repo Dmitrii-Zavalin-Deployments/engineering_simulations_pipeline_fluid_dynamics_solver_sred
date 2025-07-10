@@ -4,17 +4,19 @@ import os
 import json
 import sys
 
-def run_solver(input_path: str, output_base: str):
+def run_solver(input_path: str, _: str = None):
     """
     Executes simulation for a single scenario input file.
-    Writes a unified snapshot directly into the output folder.
+    Writes a unified snapshot directly into the fixed output folder.
     """
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
-    os.makedirs(output_base, exist_ok=True)
+
+    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
+    os.makedirs(output_folder, exist_ok=True)
 
     print(f"🧠 [main_solver] Starting simulation for: {scenario_name}")
     print(f"📄 [main_solver] Input path: {input_path}")
-    print(f"📁 [main_solver] Output folder: {output_base}")
+    print(f"📁 [main_solver] Output folder: {output_folder}")
 
     snapshot = {
         "step": 0,
@@ -32,7 +34,7 @@ def run_solver(input_path: str, output_base: str):
     }
 
     snapshot_filename = f"{scenario_name}_step_0000.json"
-    snapshot_path = os.path.join(output_base, snapshot_filename)
+    snapshot_path = os.path.join(output_folder, snapshot_filename)
     with open(snapshot_path, "w") as f:
         json.dump(snapshot, f, indent=2)
 
@@ -40,12 +42,12 @@ def run_solver(input_path: str, output_base: str):
     print(f"✅ Scenario snapshot saved: {snapshot_path}")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("⚠️ Please provide input and output folder paths:")
-        print("   Example: python src/main_solver.py input.json output-folder")
+    if len(sys.argv) < 2:
+        print("⚠️ Please provide at least the input file path.")
+        print("   Example: python src/main_solver.py input.json")
         sys.exit(1)
 
-    run_solver(sys.argv[1], sys.argv[2])
+    run_solver(sys.argv[1])
 
 
 
