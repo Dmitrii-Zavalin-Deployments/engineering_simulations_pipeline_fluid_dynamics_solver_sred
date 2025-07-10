@@ -16,7 +16,7 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
-      UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output  # ✅ Updated destination for Dropbox upload
+      UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output
 
     steps:
     - name: Checkout Repository
@@ -58,6 +58,16 @@ jobs:
         echo "📦 Repository structure preview:"
         ls -R ${{ github.workspace }}
         echo "✅ Repository inspection complete."
+
+    - name: Create Snapshot Archive
+      run: |
+        ZIP_NAME="navier_stokes_output.zip"
+        ZIP_SOURCE="${{ github.workspace }}/data/testing-input-output/navier_stokes_output"
+        ZIP_DEST="${{ github.workspace }}/data/testing-output-run"
+        echo "📦 Creating zip archive of navier_stokes_output inside $ZIP_DEST..."
+        mkdir -p "$ZIP_DEST"
+        cd "$ZIP_SOURCE"
+        zip -rq "$ZIP_DEST/$ZIP_NAME" . || { echo "❌ ERROR: Failed to create zip archive."; exit 1; }
 
     - name: Upload Results to Dropbox
       env:
