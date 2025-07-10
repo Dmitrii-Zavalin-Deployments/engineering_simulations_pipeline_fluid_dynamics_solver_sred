@@ -13,9 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      PYTHONPATH: ${{ github.workspace }}  # ✅ Updated to include repo root for simulation module
+      PYTHONPATH: ${{ github.workspace }}
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
+      UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output  # ✅ Updated destination for Dropbox upload
 
     steps:
     - name: Checkout Repository
@@ -63,7 +64,6 @@ jobs:
         APP_KEY: ${{ secrets.APP_KEY }}
         APP_SECRET: ${{ secrets.APP_SECRET }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
-        UPLOAD_DIR: ${{ env.OUTPUT_RESULTS_BASE_DIR }}/navier_stokes_output
       run: |
         if [ ! -d "$UPLOAD_DIR" ]; then
           echo "⚠️ No upload directory found at $UPLOAD_DIR — skipping Dropbox upload."
