@@ -61,9 +61,9 @@ jobs:
 
     - name: Create Snapshot Archive
       run: |
+        ZIP_SOURCE="${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output"
+        ZIP_DEST="${GITHUB_WORKSPACE}/data/testing-output-run"
         ZIP_NAME="navier_stokes_output.zip"
-        ZIP_SOURCE="${{ github.workspace }}/data/testing-input-output/navier_stokes_output"
-        ZIP_DEST="${{ github.workspace }}/data/testing-output-run"
         echo "📦 Creating zip archive of navier_stokes_output inside $ZIP_DEST..."
         mkdir -p "$ZIP_DEST"
         cd "$ZIP_SOURCE"
