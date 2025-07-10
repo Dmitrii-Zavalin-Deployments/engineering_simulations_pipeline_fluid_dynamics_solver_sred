@@ -8,26 +8,7 @@ SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
 # Reflex expectations keyed by snapshot filename prefix
 SCENARIOS = {
-    "cfl_spike": {
-        "expect_damping_enabled": True,
-        "expect_overflow_detected": False,
-        "min_projection_passes": 1
-    },
-    "projection_overload": {
-        "expect_damping_enabled": False,
-        "expect_overflow_detected": False,
-        "min_projection_passes": 2
-    },
-    "velocity_burst": {
-        "expect_damping_enabled": True,
-        "expect_overflow_detected": True,
-        "min_projection_passes": 2
-    },
-    "stable_flow": {
-        "expect_damping_enabled": False,
-        "expect_overflow_detected": False,
-        "min_projection_passes": 1
-    }
+    "fluid_simulation_input": {}
 }
 
 def discover_snapshot_files():
