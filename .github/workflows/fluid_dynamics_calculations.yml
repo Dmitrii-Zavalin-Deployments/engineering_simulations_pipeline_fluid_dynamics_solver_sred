@@ -59,8 +59,12 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
         UPLOAD_DIR: ${{ env.OUTPUT_RESULTS_BASE_DIR }}/navier_stokes_output
       run: |
+        if [ ! -d "$UPLOAD_DIR" ]; then
+          echo "⚠️ No upload directory found at $UPLOAD_DIR — skipping Dropbox upload."
+          exit 0
+        fi
         chmod +x src/upload_to_dropbox.sh
-        echo "🔍 Uploading contents of: $UPLOAD_DIR"
+        echo "📦 Uploading contents of: $UPLOAD_DIR"
         ls -R "$UPLOAD_DIR"
         src/upload_to_dropbox.sh "$UPLOAD_DIR"
 
