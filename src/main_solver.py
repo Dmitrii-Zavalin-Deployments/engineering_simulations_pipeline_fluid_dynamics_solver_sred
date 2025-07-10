@@ -2,18 +2,13 @@
 
 import os
 import json
+import sys
 
-def run_solver(input_path: str = None, output_base: str = None):
+def run_solver(input_path: str, output_base: str):
     """
-    Executes simulation pipeline. If no input is given, triggers full upload preparation.
-    Otherwise, writes a unified snapshot directly into the output base folder.
+    Executes simulation for a single scenario input file.
+    Writes a unified snapshot directly into the output folder.
     """
-    if input_path is None or output_base is None:
-        print("🚀 [main_solver] Triggering full simulation pipeline")
-        from prepare_simulation_upload import prepare_simulation_upload_files  # Avoid circular import
-        prepare_simulation_upload_files()
-        return
-
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     os.makedirs(output_base, exist_ok=True)
 
@@ -21,7 +16,6 @@ def run_solver(input_path: str = None, output_base: str = None):
     print(f"📄 [main_solver] Input path: {input_path}")
     print(f"📁 [main_solver] Output folder: {output_base}")
 
-    # Stub snapshot content in unified format
     snapshot = {
         "step": 0,
         "grid": [
@@ -45,9 +39,13 @@ def run_solver(input_path: str = None, output_base: str = None):
     print(f"📦 [main_solver] Snapshot written: {snapshot_path}")
     print(f"✅ Scenario snapshot saved: {snapshot_path}")
 
-# 🚀 Entry point — triggers full pipeline when run as script
 if __name__ == "__main__":
-    run_solver()
+    if len(sys.argv) != 3:
+        print("⚠️ Please provide input and output folder paths:")
+        print("   Example: python src/main_solver.py input.json output-folder")
+        sys.exit(1)
+
+    run_solver(sys.argv[1], sys.argv[2])
 
 
 
