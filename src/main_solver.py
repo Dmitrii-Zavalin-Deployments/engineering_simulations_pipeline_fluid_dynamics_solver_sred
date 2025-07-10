@@ -3,6 +3,7 @@
 import os
 import json
 import sys
+from input_reader import load_simulation_input
 
 def run_solver(input_path: str, _: str = None):
     """
@@ -11,6 +12,9 @@ def run_solver(input_path: str, _: str = None):
     """
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
 
+    # Load input data
+    input_data = load_simulation_input(input_path)
+
     output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
     os.makedirs(output_folder, exist_ok=True)
 
@@ -18,16 +22,17 @@ def run_solver(input_path: str, _: str = None):
     print(f"📄 [main_solver] Input path: {input_path}")
     print(f"📁 [main_solver] Output folder: {output_folder}")
 
+    # Stub snapshot using values pulled from input_data
     snapshot = {
         "step": 0,
         "grid": [
-            [0, 0, 0, [1.2, 0.0, -0.1], 1.0],
-            [0, 1, 0, [0.9, -0.1, 0.0], 0.95],
-            [1, 0, 0, [1.1, 0.1, 0.05], 0.98]
+            [0, 0, 0, input_data["initial_conditions"]["initial_velocity"], input_data["initial_conditions"]["initial_pressure"]],
+            [0, 1, 0, input_data["initial_conditions"]["initial_velocity"], input_data["initial_conditions"]["initial_pressure"]],
+            [1, 0, 0, input_data["initial_conditions"]["initial_velocity"], input_data["initial_conditions"]["initial_pressure"]]
         ],
-        "max_velocity": 1.2,
+        "max_velocity": input_data["initial_conditions"]["initial_velocity"][0],
         "max_divergence": 0.05,
-        "global_cfl": 0.9,
+        "global_cfl": input_data["simulation_parameters"]["time_step"] * 9.0,
         "overflow_detected": False,
         "damping_enabled": False,
         "projection_passes": 2
