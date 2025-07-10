@@ -1,12 +1,15 @@
 # src/metrics/projection_evaluator.py
 
-def calculate_projection_passes(grid: list) -> int:
+from src.grid_modules.cell import Cell
+import math
+
+def calculate_projection_passes(grid: list[Cell]) -> int:
     """
-    Estimates how many passes a projection solver would need based on velocity variability.
-    Real implementation calculates a rough count based on flow irregularity.
+    Estimates how many projection passes are needed based on velocity variability.
+    Greater velocity irregularity may require more iterations for pressure convergence.
 
     Args:
-        grid (list): Grid cells as [x, y, z, velocity_vector, pressure]
+        grid (list[Cell]): Grid of simulation cells
 
     Returns:
         int: Estimated projection passes (minimum of 1)
@@ -17,9 +20,9 @@ def calculate_projection_passes(grid: list) -> int:
     velocity_magnitudes = []
 
     for cell in grid:
-        velocity = cell[3]
+        velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
-            magnitude = sum(v**2 for v in velocity) ** 0.5
+            magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             velocity_magnitudes.append(magnitude)
 
     if not velocity_magnitudes:
@@ -29,7 +32,7 @@ def calculate_projection_passes(grid: list) -> int:
     avg_v = sum(velocity_magnitudes) / len(velocity_magnitudes)
     variation = max_v - avg_v
 
-    # Higher variation suggests more iterations needed for convergence
+    # Heuristic: more variation → more projection depth
     passes = 1 + int(variation // 0.5)
 
     return max(passes, 1)

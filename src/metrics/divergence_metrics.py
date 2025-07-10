@@ -1,13 +1,14 @@
 # src/metrics/divergence_metrics.py
 
-def compute_max_divergence(grid: list) -> float:
+from src.grid_modules.cell import Cell
+
+def compute_max_divergence(grid: list[Cell]) -> float:
     """
     Computes the maximum divergence across the simulation grid.
-    Real implementation analyzes the velocity change around each cell.
-    Currently simplified to use adjacent velocity differences in x-direction.
+    Currently simplified to adjacent x-velocity differences.
 
     Args:
-        grid (list): Grid cells as [x, y, z, velocity_vector, pressure]
+        grid (list[Cell]): Grid of simulation cells
 
     Returns:
         float: Maximum divergence value detected
@@ -21,11 +22,10 @@ def compute_max_divergence(grid: list) -> float:
         cell_a = grid[i]
         cell_b = grid[i + 1]
 
-        vx_a = cell_a[3][0] if isinstance(cell_a[3], list) and len(cell_a[3]) == 3 else 0.0
-        vx_b = cell_b[3][0] if isinstance(cell_b[3], list) and len(cell_b[3]) == 3 else 0.0
+        vx_a = cell_a.velocity[0] if isinstance(cell_a.velocity, list) and len(cell_a.velocity) == 3 else 0.0
+        vx_b = cell_b.velocity[0] if isinstance(cell_b.velocity, list) and len(cell_b.velocity) == 3 else 0.0
 
-        # Simplified 1D divergence: change in x-velocity between neighboring cells
-        divergence = abs(vx_b - vx_a)
+        divergence = abs(vx_b - vx_a)  # Simplified 1D divergence
         divergence_values.append(divergence)
 
     return round(max(divergence_values), 5) if divergence_values else 0.0

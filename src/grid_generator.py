@@ -1,6 +1,6 @@
 # src/grid_generator.py
 
-from grid_modules.cell import Cell
+from src.grid_modules.cell import Cell
 from grid_modules.grid_geometry import generate_coordinates
 from grid_modules.initial_field_assigner import assign_fields
 from grid_modules.boundary_manager import apply_boundaries

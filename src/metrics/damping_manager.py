@@ -1,14 +1,15 @@
 # src/metrics/damping_manager.py
 
 import math
+from src.grid_modules.cell import Cell
 
-def should_dampen(grid: list, time_step: float) -> bool:
+def should_dampen(grid: list[Cell], time_step: float) -> bool:
     """
     Determines whether flow damping should be enabled based on velocity volatility.
-    Real implementation checks for velocity spikes exceeding a stability threshold.
+    Checks for spikes exceeding 50% above average magnitude.
 
     Args:
-        grid (list): Grid cells as [x, y, z, velocity_vector, pressure]
+        grid (list[Cell]): Grid of simulation cells
         time_step (float): Simulation time step
 
     Returns:
@@ -20,7 +21,7 @@ def should_dampen(grid: list, time_step: float) -> bool:
     velocity_magnitudes = []
 
     for cell in grid:
-        velocity = cell[3]
+        velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             velocity_magnitudes.append(magnitude)
@@ -32,7 +33,7 @@ def should_dampen(grid: list, time_step: float) -> bool:
     max_velocity = max(velocity_magnitudes)
     volatility = max_velocity - avg_velocity
 
-    # Damping threshold: triggers if spike exceeds 50% above average
+    # Trigger if max velocity exceeds 50% above average
     return volatility > (0.5 * avg_velocity)
 
 

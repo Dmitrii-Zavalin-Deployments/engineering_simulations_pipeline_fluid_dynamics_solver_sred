@@ -1,13 +1,14 @@
 # src/metrics/cfl_controller.py
 
 import math
+from src.grid_modules.cell import Cell
 
-def compute_global_cfl(grid: list, time_step: float, domain: dict) -> float:
+def compute_global_cfl(grid: list[Cell], time_step: float, domain: dict) -> float:
     """
-    Computes the global CFL number for the simulation grid.
+    Computes the global CFL number for the simulation grid using velocity magnitudes.
 
     Args:
-        grid (list): Grid cells as [x, y, z, velocity_vector, pressure]
+        grid (list[Cell]): Simulation grid cells
         time_step (float): Time step duration
         domain (dict): Contains nx, min_x, max_x for dx calculation
 
@@ -21,7 +22,7 @@ def compute_global_cfl(grid: list, time_step: float, domain: dict) -> float:
     max_cfl = 0.0
 
     for cell in grid:
-        velocity = cell[3]
+        velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             cfl = magnitude * time_step / dx

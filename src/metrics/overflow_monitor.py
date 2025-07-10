@@ -1,12 +1,15 @@
 # src/metrics/overflow_monitor.py
 
-def detect_overflow(grid: list) -> bool:
+from src.grid_modules.cell import Cell
+import math
+
+def detect_overflow(grid: list[Cell]) -> bool:
     """
-    Detects whether any velocity magnitude in the grid exceeds a defined overflow threshold.
-    Real implementation checks for extreme, likely unstable flow values.
+    Detects whether any velocity magnitude in the grid exceeds the overflow threshold.
+    Helps catch unstable or non-physical flow values.
 
     Args:
-        grid (list): Grid cells formatted as [x, y, z, velocity_vector, pressure]
+        grid (list[Cell]): Structured simulation grid
 
     Returns:
         bool: True if overflow is detected, False otherwise
@@ -14,12 +17,12 @@ def detect_overflow(grid: list) -> bool:
     if not grid:
         return False
 
-    overflow_threshold = 10.0  # Define overflow threshold (units/sec)
+    overflow_threshold = 10.0  # Units/sec
 
     for cell in grid:
-        velocity = cell[3]
+        velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
-            magnitude = sum(v**2 for v in velocity) ** 0.5
+            magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             if magnitude > overflow_threshold:
                 return True
 
