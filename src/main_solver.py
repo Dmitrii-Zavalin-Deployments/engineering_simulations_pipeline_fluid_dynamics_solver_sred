@@ -1,9 +1,13 @@
 # src/main_solver.py
 
 import os
-import json
 import sys
+import json
 from dataclasses import asdict
+
+# ✅ Add path adjustment for module resolution in CI or direct script execution
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid
 from src.metrics.velocity_metrics import compute_max_velocity
@@ -33,7 +37,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
 
         snapshot = {
             "step": step,
-            "grid": [asdict(cell) for cell in grid],  # ✅ Ensures Cell objects are JSON-serializable
+            "grid": [asdict(cell) for cell in grid],  # ✅ Make Cell objects JSON-serializable
             "max_velocity": compute_max_velocity(grid),
             "max_divergence": compute_max_divergence(grid),
             "global_cfl": compute_global_cfl(grid, time_step, domain),
