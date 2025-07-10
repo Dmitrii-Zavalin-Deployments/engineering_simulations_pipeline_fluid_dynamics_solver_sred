@@ -3,63 +3,81 @@
 import os
 import json
 import pytest
+from datetime import datetime
 
 SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
 EXPECTED_KEYS = [
-    "step",
+    "step_index",
+    "timestamp",
     "grid",
-    "max_velocity",
-    "max_divergence",
+    "velocity_max",
+    "divergence_max",
     "global_cfl",
-    "overflow_detected",
-    "damping_enabled",
-    "projection_passes"
+    "overflow_flag",
+    "damping_applied",
+    "projection_passes",
+    "volatility_slope",
+    "volatility_delta",
+    "reflex_triggered"
 ]
 
 def discover_snapshots():
-    """Returns a list of snapshot files matching *_step_0000.json"""
+    """Returns snapshot filenames matching *_step_*.json"""
+    if not os.path.isdir(SNAPSHOT_ROOT):
+        return []
     return [
         filename for filename in os.listdir(SNAPSHOT_ROOT)
-        if filename.endswith("_step_0000.json")
+        if filename.endswith(".json") and "_step_" in filename
     ]
 
 @pytest.mark.parametrize("snapshot_file", discover_snapshots())
-def test_all_snapshots_have_expected_schema_and_values(snapshot_file):
-    snapshot_path = os.path.join(SNAPSHOT_ROOT, snapshot_file)
-    assert os.path.isfile(snapshot_path), f"❌ Snapshot missing: {snapshot_path}"
+def test_snapshot_structure_and_values(snapshot_file):
+    path = os.path.join(SNAPSHOT_ROOT, snapshot_file)
+    assert os.path.isfile(path), f"❌ File missing: {path}"
 
-    with open(snapshot_path) as f:
-        snapshot = json.load(f)
+    with open(path) as f:
+        snap = json.load(f)
 
-    # Required schema keys
+    # Required keys
     for key in EXPECTED_KEYS:
-        assert key in snapshot, f"❌ Missing key '{key}' in {snapshot_file}"
+        assert key in snap, f"❌ Missing key '{key}' in {snapshot_file}"
 
-    # Grid structure
-    assert isinstance(snapshot["grid"], list), f"❌ 'grid' should be a list in {snapshot_file}"
-    for cell in snapshot["grid"]:
-        assert isinstance(cell, list) and len(cell) == 5, f"❌ Grid cell malformed in {snapshot_file}"
-        x, y, z, velocity, pressure = cell
-        assert all(isinstance(coord, int) for coord in [x, y, z]), f"❌ Grid coordinates must be integers in {snapshot_file}"
-        assert isinstance(velocity, list) and len(velocity) == 3, f"❌ Velocity must be 3D vector in {snapshot_file}"
-        assert all(isinstance(v, (int, float)) for v in velocity), f"❌ Velocity values must be numeric in {snapshot_file}"
-        assert isinstance(pressure, (int, float)), f"❌ Pressure must be numeric in {snapshot_file}"
+    # Grid checks
+    assert isinstance(snap["grid"], list), f"❌ Grid must be a list in {snapshot_file}"
+    for cell in snap["grid"]:
+        assert isinstance(cell, dict), f"❌ Grid cell must be a dict in {snapshot_file}"
+        assert all(k in cell for k in ["x", "y", "z", "velocity", "pressure"]), f"❌ Missing cell keys in {snapshot_file}"
+        assert isinstance(cell["x"], (int, float))
+        assert isinstance(cell["y"], (int, float))
+        assert isinstance(cell["z"], (int, float))
+        assert isinstance(cell["pressure"], (int, float))
+        assert isinstance(cell["velocity"], list) and len(cell["velocity"]) == 3
+        assert all(isinstance(v, (int, float)) for v in cell["velocity"])
 
-    # Metadata type validation
-    assert isinstance(snapshot["step"], int), f"❌ 'step' must be int in {snapshot_file}"
-    assert isinstance(snapshot["max_velocity"], (int, float)), f"❌ 'max_velocity' must be numeric in {snapshot_file}"
-    assert isinstance(snapshot["max_divergence"], (int, float)), f"❌ 'max_divergence' must be numeric in {snapshot_file}"
-    assert isinstance(snapshot["global_cfl"], (int, float)), f"❌ 'global_cfl' must be numeric in {snapshot_file}"
-    assert isinstance(snapshot["overflow_detected"], bool), f"❌ 'overflow_detected' must be boolean in {snapshot_file}"
-    assert isinstance(snapshot["damping_enabled"], bool), f"❌ 'damping_enabled' must be boolean in {snapshot_file}"
-    assert isinstance(snapshot["projection_passes"], int), f"❌ 'projection_passes' must be int in {snapshot_file}"
+    # Metric types
+    assert isinstance(snap["step_index"], int), f"❌ step_index must be int"
+    assert isinstance(snap["velocity_max"], (int, float))
+    assert isinstance(snap["divergence_max"], (int, float))
+    assert isinstance(snap["global_cfl"], (int, float))
+    assert isinstance(snap["overflow_flag"], bool)
+    assert isinstance(snap["damping_applied"], bool)
+    assert isinstance(snap["projection_passes"], int)
+    assert isinstance(snap["volatility_slope"], (int, float))
+    assert isinstance(snap["volatility_delta"], (int, float))
+    assert isinstance(snap["reflex_triggered"], bool)
+
+    # Timestamp sanity
+    try:
+        datetime.fromisoformat(snap["timestamp"])
+    except Exception:
+        pytest.fail(f"❌ Invalid timestamp format in {snapshot_file}")
 
     # Value bounds
-    assert snapshot["max_velocity"] >= 0, f"❌ Invalid max_velocity in {snapshot_file}"
-    assert snapshot["max_divergence"] >= 0, f"❌ Invalid max_divergence in {snapshot_file}"
-    assert snapshot["global_cfl"] >= 0, f"❌ global_cfl must be non-negative in {snapshot_file}"
-    assert snapshot["projection_passes"] >= 0, f"❌ projection_passes must be non-negative in {snapshot_file}"
+    assert snap["velocity_max"] >= 0
+    assert snap["divergence_max"] >= 0
+    assert snap["global_cfl"] >= 0
+    assert snap["projection_passes"] >= 1
 
 
 

@@ -3,6 +3,7 @@
 import os
 import json
 import sys
+from dataclasses import asdict
 from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid
 from src.metrics.velocity_metrics import compute_max_velocity
@@ -32,7 +33,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
 
         snapshot = {
             "step": step,
-            "grid": grid,
+            "grid": [asdict(cell) for cell in grid],  # ✅ Ensures Cell objects are JSON-serializable
             "max_velocity": compute_max_velocity(grid),
             "max_divergence": compute_max_divergence(grid),
             "global_cfl": compute_global_cfl(grid, time_step, domain),
