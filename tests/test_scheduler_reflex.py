@@ -8,7 +8,14 @@ SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
 # Reflex expectations keyed by snapshot filename prefix
 SCENARIOS = {
-    "fluid_simulation_input": {}
+    "fluid_simulation_input": {
+        "expect_damping_enabled": False,
+        "expect_overflow_detected": False,
+        "min_projection_passes": 1,
+        "max_velocity_limit": 1.5,
+        "max_divergence_limit": 0.1,
+        "global_cfl_limit": 1.0
+    }
 }
 
 def discover_snapshot_files():
