@@ -1,30 +1,27 @@
 # src/grid_generator.py
 
+from grid_modules.cell import Cell
+from grid_modules.grid_geometry import generate_coordinates
+from grid_modules.initial_field_assigner import assign_fields
+from grid_modules.boundary_manager import apply_boundaries
+
 def generate_grid(domain: dict, initial_conditions: dict) -> list:
     """
-    Generates a structured grid based on domain resolution.
-    Each cell: [x, y, z, velocity_vector, pressure]
-    Stubbed to return one layer slice (xy-plane at z=0)
-
-    Args:
-        domain (dict): Includes nx, ny, nz, and boundaries
-        initial_conditions (dict): Includes velocity and pressure
-
-    Returns:
-        list: List of cell entries
+    Generates a structured 3D grid with seeded fields and boundaries.
+    Returns list of Cell objects.
     """
-    nx, ny = domain["nx"], domain["ny"]
-    velocity = initial_conditions["initial_velocity"]
-    pressure = initial_conditions["initial_pressure"]
+    coordinates = generate_coordinates(domain)
 
-    grid = []
+    # Create raw cell objects with placeholders
+    cells = [Cell(x, y, z, velocity=[], pressure=0.0) for (x, y, z) in coordinates]
 
-    for i in range(nx):
-        for j in range(ny):
-            cell = [i, j, 0, velocity, pressure]  # z=0 slice for simplicity
-            grid.append(cell)
+    # Assign initial velocity and pressure
+    cells = assign_fields(cells, initial_conditions)
 
-    return grid
+    # Apply boundary conditions or ghost cells
+    cells = apply_boundaries(cells, domain)
+
+    return cells
 
 
 

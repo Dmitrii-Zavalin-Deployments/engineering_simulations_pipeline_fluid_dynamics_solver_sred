@@ -1,0 +1,92 @@
+# tests/grid/test_grid_generator.py
+
+import pytest
+from src.grid_generator import generate_grid
+
+def test_basic_grid_structure():
+    domain = {
+        "nx": 2, "ny": 2, "nz": 1,
+        "min_x": 0, "max_x": 1,
+        "min_y": 0, "max_y": 1,
+        "min_z": 0, "max_z": 0.1
+    }
+    initial_conditions = {
+        "initial_velocity": [1.0, 0.0, 0.0],
+        "initial_pressure": 1.0
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    assert len(grid) == 4
+    for cell in grid:
+        assert hasattr(cell, "x")
+        assert hasattr(cell, "y")
+        assert hasattr(cell, "z")
+        assert isinstance(cell.velocity, list) and len(cell.velocity) == 3
+        assert isinstance(cell.pressure, float)
+
+def test_empty_domain_returns_empty():
+    domain = {"nx": 0, "ny": 0, "nz": 0}
+    initial_conditions = {
+        "initial_velocity": [0.0, 0.0, 0.0],
+        "initial_pressure": 0.0
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    assert grid == []
+
+def test_nonuniform_dimensions():
+    domain = {
+        "nx": 1, "ny": 3, "nz": 2,
+        "min_x": 0, "max_x": 1,
+        "min_y": 0, "max_y": 3,
+        "min_z": 0, "max_z": 2
+    }
+    initial_conditions = {
+        "initial_velocity": [0.0, 1.0, 0.0],
+        "initial_pressure": 2.0
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    assert len(grid) == 1 * 3 * 2
+    for cell in grid:
+        assert cell.velocity == [0.0, 1.0, 0.0]
+        assert cell.pressure == 2.0
+
+def test_velocity_and_pressure_assigned_correctly():
+    domain = {"nx": 2, "ny": 2, "nz": 1}
+    initial_conditions = {
+        "initial_velocity": [3.0, -1.0, 0.5],
+        "initial_pressure": 4.2
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    for cell in grid:
+        assert cell.velocity == [3.0, -1.0, 0.5]
+        assert cell.pressure == 4.2
+
+def test_invalid_initial_conditions_handled_gracefully():
+    domain = {"nx": 1, "ny": 1, "nz": 1}
+    initial_conditions = {
+        "initial_velocity": None,
+        "initial_pressure": None
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    for cell in grid:
+        assert isinstance(cell.velocity, list)
+        assert len(cell.velocity) == 3
+        assert all(isinstance(v, (int, float)) for v in cell.velocity)
+        assert isinstance(cell.pressure, (int, float))
+
+def test_large_grid_scale():
+    domain = {"nx": 10, "ny": 10, "nz": 10}
+    initial_conditions = {
+        "initial_velocity": [0.0, 0.0, 1.0],
+        "initial_pressure": 1.0
+    }
+
+    grid = generate_grid(domain, initial_conditions)
+    assert len(grid) == 1000
+
+
+
