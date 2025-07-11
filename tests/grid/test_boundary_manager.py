@@ -27,18 +27,16 @@ def test_boundary_tagging():
 
 # ✅ Test: Domain with minimal required keys
 def test_missing_domain_keys():
-    domain = {"nx": 3, "ny": 3, "nz": 3}  # no min/max required anymore
+    domain = {"nx": 3, "ny": 3, "nz": 3}
     grid = [make_cell(0, 0, 0)]
     tagged = apply_boundaries(grid, domain)
     assert tagged[0].boundary_type == "wall"
 
-# ✅ Test: Non-numeric domain resolution handled gracefully
+# ✅ Test: Non-numeric domain resolution triggers error
 def test_invalid_domain_resolution():
     domain = {"nx": "high", "ny": 3, "nz": 3}
     grid = [make_cell(0, 0, 0)]
-    with pytest.raises(TypeError):
-        # Explicit cast to int will fail if added in boundary logic
-        _ = {0, int(domain["nx"]) - 1}
+    with pytest.raises((TypeError, ValueError)):
         apply_boundaries(grid, domain)
 
 # ✅ Test: Empty grid returns unchanged
