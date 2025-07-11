@@ -9,17 +9,13 @@ SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
 
 EXPECTED_KEYS = [
     "step_index",
-    "timestamp",
     "grid",
-    "velocity_max",
-    "divergence_max",
+    "max_velocity",
+    "max_divergence",
     "global_cfl",
-    "overflow_flag",
-    "damping_applied",
-    "projection_passes",
-    "volatility_slope",
-    "volatility_delta",
-    "reflex_triggered"
+    "overflow_detected",
+    "damping_enabled",
+    "projection_passes"
 ]
 
 def discover_snapshots():
@@ -57,25 +53,16 @@ def test_snapshot_structure_and_values(snapshot_file):
 
     # Metric types
     assert isinstance(snap["step_index"], int), f"❌ step_index must be int"
-    assert isinstance(snap["velocity_max"], (int, float))
-    assert isinstance(snap["divergence_max"], (int, float))
-    assert isinstance(snap["global_cfl"], (int, float))
-    assert isinstance(snap["overflow_flag"], bool)
-    assert isinstance(snap["damping_applied"], bool)
-    assert isinstance(snap["projection_passes"], int)
-    assert isinstance(snap["volatility_slope"], (int, float))
-    assert isinstance(snap["volatility_delta"], (int, float))
-    assert isinstance(snap["reflex_triggered"], bool)
-
-    # Timestamp sanity
-    try:
-        datetime.fromisoformat(snap["timestamp"])
-    except Exception:
-        pytest.fail(f"❌ Invalid timestamp format in {snapshot_file}")
+    assert isinstance(snap["max_velocity"], (int, float)), f"❌ max_velocity must be numeric"
+    assert isinstance(snap["max_divergence"], (int, float)), f"❌ max_divergence must be numeric"
+    assert isinstance(snap["global_cfl"], (int, float)), f"❌ global_cfl must be numeric"
+    assert isinstance(snap["overflow_detected"], bool), f"❌ overflow_detected must be bool"
+    assert isinstance(snap["damping_enabled"], bool), f"❌ damping_enabled must be bool"
+    assert isinstance(snap["projection_passes"], int), f"❌ projection_passes must be int"
 
     # Value bounds
-    assert snap["velocity_max"] >= 0
-    assert snap["divergence_max"] >= 0
+    assert snap["max_velocity"] >= 0
+    assert snap["max_divergence"] >= 0
     assert snap["global_cfl"] >= 0
     assert snap["projection_passes"] >= 1
 

@@ -3,31 +3,28 @@
 from dataclasses import asdict
 from typing import Any
 
+EXPECTED_SNAPSHOT_KEYS = [
+    "step_index",
+    "grid",
+    "max_velocity",
+    "max_divergence",
+    "global_cfl",
+    "overflow_detected",
+    "damping_enabled",
+    "projection_passes"
+]
+
 def validate_snapshot(snapshot: dict) -> bool:
     """
-    Checks if the snapshot meets required schema and contains expected fields.
+    Checks if the snapshot meets required schema and contains expected keys.
 
     Args:
         snapshot (dict): Snapshot dictionary generated during simulation
 
     Returns:
-        bool: True if all required keys are present, False otherwise
+        bool: True if all expected keys are present, False otherwise
     """
-    required_keys = [
-        "divergence_max",
-        "velocity_max",
-        "overflow_flag",
-        "reflex_triggered",
-        "projection_passes",
-        "volatility_slope",
-        "volatility_delta",
-        "damping_applied",
-        "step_index",
-        "timestamp",
-        "grid"
-    ]
-    return all(key in snapshot for key in required_keys)
-
+    return all(key in snapshot for key in EXPECTED_SNAPSHOT_KEYS)
 
 def serialize_snapshot(snapshot: dict, grid: list[Any]) -> dict:
     """

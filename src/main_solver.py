@@ -3,6 +3,7 @@
 import os
 import sys
 import json
+import logging
 from dataclasses import asdict
 
 # ✅ Add path adjustment for module resolution in CI or direct script execution
@@ -24,7 +25,12 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
-    output_interval = input_data["simulation_parameters"]["output_interval"]
+    output_interval = input_data["simulation_parameters"].get("output_interval", 1)
+
+    # ✅ Defensive fallback for invalid output_interval
+    if output_interval <= 0:
+        logging.warning(f"⚠️ output_interval was set to {output_interval}. Using fallback of 1.")
+        output_interval = 1
 
     domain = input_data["domain_definition"]
     initial_conditions = input_data["initial_conditions"]
@@ -36,8 +42,8 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         grid = generate_grid(domain, initial_conditions)
 
         snapshot = {
-            "step": step,
-            "grid": [asdict(cell) for cell in grid],  # ✅ Make Cell objects JSON-serializable
+            "step_index": step,  # ✅ Standardize field name to align with tests
+            "grid": [asdict(cell) for cell in grid],
             "max_velocity": compute_max_velocity(grid),
             "max_divergence": compute_max_divergence(grid),
             "global_cfl": compute_global_cfl(grid, time_step, domain),

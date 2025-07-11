@@ -45,9 +45,9 @@ def test_generate_snapshots_count(input_dict):
 
 def test_snapshot_keys(input_dict):
     snaps = generate_snapshots(input_dict, "test_case")
-    for step, snap in snaps:
+    for _, snap in snaps:
         for key in [
-            "step", "grid", "max_velocity", "max_divergence",
+            "step_index", "grid", "max_velocity", "max_divergence",
             "global_cfl", "overflow_detected", "damping_enabled",
             "projection_passes"
         ]:
@@ -70,10 +70,10 @@ def test_output_interval_larger_than_total_steps():
     snaps = generate_snapshots(modified, "fluid_simulation_input")
     assert len(snaps) == 1  # Only step 0 written
 
-def test_zero_output_interval_triggers_exception(input_dict):
+def test_zero_output_interval_triggers_fallback(input_dict):
     input_dict["simulation_parameters"]["output_interval"] = 0
-    with pytest.raises(ZeroDivisionError):
-        generate_snapshots(input_dict, "fail_case")
+    snaps = generate_snapshots(input_dict, "resilience_check")
+    assert len(snaps) > 0  # Fallback applied → should not crash
 
 def test_velocity_is_consistent(input_dict):
     grid = generate_grid(input_dict["domain_definition"], input_dict["initial_conditions"])
