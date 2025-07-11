@@ -12,11 +12,19 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list:
     """
     coordinates = generate_coordinates(domain)
 
-    # Create raw cell objects with placeholders
-    cells = [Cell(x, y, z, velocity=[], pressure=0.0) for (x, y, z) in coordinates]
+    # 🛡️ Fallback for missing or malformed initial conditions
+    velocity = initial_conditions.get("initial_velocity")
+    if not isinstance(velocity, list) or len(velocity) != 3:
+        print("⚠️ initial_velocity missing or invalid. Using default [0.0, 0.0, 0.0].")
+        velocity = [0.0, 0.0, 0.0]
 
-    # Assign initial velocity and pressure
-    cells = assign_fields(cells, initial_conditions)
+    pressure = initial_conditions.get("initial_pressure")
+    if not isinstance(pressure, (int, float)):
+        print("⚠️ initial_pressure missing or invalid. Using default 0.0.")
+        pressure = 0.0
+
+    # Create cell objects using resolved initial values
+    cells = [Cell(x, y, z, velocity=velocity, pressure=pressure) for (x, y, z) in coordinates]
 
     # Apply boundary conditions or ghost cells
     cells = apply_boundaries(cells, domain)

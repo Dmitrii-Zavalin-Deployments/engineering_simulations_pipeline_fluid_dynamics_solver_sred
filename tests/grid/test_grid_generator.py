@@ -2,6 +2,7 @@
 
 import pytest
 from src.grid_generator import generate_grid
+from src.grid_modules.cell import Cell
 
 def test_basic_grid_structure():
     domain = {
@@ -18,11 +19,14 @@ def test_basic_grid_structure():
     grid = generate_grid(domain, initial_conditions)
     assert len(grid) == 4
     for cell in grid:
-        assert hasattr(cell, "x")
-        assert hasattr(cell, "y")
-        assert hasattr(cell, "z")
-        assert isinstance(cell.velocity, list) and len(cell.velocity) == 3
-        assert isinstance(cell.pressure, float)
+        assert isinstance(cell, Cell)
+        assert isinstance(cell.x, (int, float))
+        assert isinstance(cell.y, (int, float))
+        assert isinstance(cell.z, (int, float))
+        assert isinstance(cell.velocity, list)
+        assert len(cell.velocity) == 3
+        assert all(isinstance(v, (int, float)) for v in cell.velocity)
+        assert isinstance(cell.pressure, (int, float))
 
 def test_empty_domain_returns_empty():
     domain = {"nx": 0, "ny": 0, "nz": 0}
@@ -47,7 +51,7 @@ def test_nonuniform_dimensions():
     }
 
     grid = generate_grid(domain, initial_conditions)
-    assert len(grid) == 1 * 3 * 2
+    assert len(grid) == 6
     for cell in grid:
         assert cell.velocity == [0.0, 1.0, 0.0]
         assert cell.pressure == 2.0
@@ -72,11 +76,13 @@ def test_invalid_initial_conditions_handled_gracefully():
     }
 
     grid = generate_grid(domain, initial_conditions)
-    for cell in grid:
-        assert isinstance(cell.velocity, list)
-        assert len(cell.velocity) == 3
-        assert all(isinstance(v, (int, float)) for v in cell.velocity)
-        assert isinstance(cell.pressure, (int, float))
+    assert len(grid) == 1
+    cell = grid[0]
+    assert isinstance(cell.velocity, list)
+    assert len(cell.velocity) == 3
+    assert cell.velocity == [0.0, 0.0, 0.0]
+    assert isinstance(cell.pressure, (int, float))
+    assert cell.pressure == 0.0
 
 def test_large_grid_scale():
     domain = {"nx": 10, "ny": 10, "nz": 10}
@@ -87,6 +93,9 @@ def test_large_grid_scale():
 
     grid = generate_grid(domain, initial_conditions)
     assert len(grid) == 1000
+    for cell in grid:
+        assert cell.velocity == [0.0, 0.0, 1.0]
+        assert cell.pressure == 1.0
 
 
 
