@@ -10,7 +10,9 @@ from dataclasses import asdict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.input_reader import load_simulation_input
-from src.grid_generator import generate_grid
+from src.grid_generator import generate_grid_with_mask
+from src.step_controller import evolve_step
+
 from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.divergence_metrics import compute_max_divergence
 from src.metrics.cfl_controller import compute_global_cfl
@@ -20,29 +22,33 @@ from src.metrics.projection_evaluator import calculate_projection_passes
 
 def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
-    Generates a list of snapshots based on simulation settings.
-    Each snapshot includes metrics calculated from a freshly generated grid.
+    Runs the simulation over time using persistent evolving grid.
+    Each snapshot reflects updated fluid state and metrics.
     """
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
     output_interval = input_data["simulation_parameters"].get("output_interval", 1)
 
-    # ✅ Defensive fallback for invalid output_interval
     if output_interval <= 0:
         logging.warning(f"⚠️ output_interval was set to {output_interval}. Using fallback of 1.")
         output_interval = 1
 
     domain = input_data["domain_definition"]
     initial_conditions = input_data["initial_conditions"]
+    geometry = input_data["geometry_definition"]
+
+    # ✅ Initialize grid with embedded fluid_mask from geometry
+    grid = generate_grid_with_mask(domain, initial_conditions, geometry)
 
     num_steps = int(total_time / time_step)
     snapshots = []
 
     for step in range(num_steps + 1):
-        grid = generate_grid(domain, initial_conditions)
+        # ✅ Apply physics update and preserve evolving state
+        grid = evolve_step(grid, input_data, step)
 
         snapshot = {
-            "step_index": step,  # ✅ Standardize field name to align with tests
+            "step_index": step,
             "grid": [asdict(cell) for cell in grid],
             "max_velocity": compute_max_velocity(grid),
             "max_divergence": compute_max_divergence(grid),
