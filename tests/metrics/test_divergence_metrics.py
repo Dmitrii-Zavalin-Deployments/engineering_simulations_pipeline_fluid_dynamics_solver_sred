@@ -2,48 +2,48 @@
 
 import pytest
 from src.metrics.divergence_metrics import compute_max_divergence
+from src.grid_modules.cell import Cell
 
 def test_uniform_velocity_no_divergence():
     grid = [
-        [0, 0, 0, [1.0, 0.0, 0.0], 1.0],
-        [1, 0, 0, [1.0, 0.0, 0.0], 1.0],
-        [2, 0, 0, [1.0, 0.0, 0.0], 1.0]
+        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0)
     ]
     result = compute_max_divergence(grid)
     assert result == 0.0
 
 def test_linear_velocity_gradient_x_direction():
     grid = [
-        [0, 0, 0, [1.0, 0.0, 0.0], 1.0],
-        [1, 0, 0, [2.0, 0.0, 0.0], 1.0],
-        [2, 0, 0, [4.0, 0.0, 0.0], 1.0]
+        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=1, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=2, y=0, z=0, velocity=[4.0, 0.0, 0.0], pressure=1.0)
     ]
-    # Max divergence = |4.0 - 2.0| = 2.0
     result = compute_max_divergence(grid)
-    assert result == 2.0
+    assert result == 2.0  # |4.0 - 2.0|
 
 def test_negative_velocity_gradient():
     grid = [
-        [0, 0, 0, [3.0, 0.0, 0.0], 1.0],
-        [1, 0, 0, [1.5, 0.0, 0.0], 1.0],
-        [2, 0, 0, [0.5, 0.0, 0.0], 1.0]
+        Cell(x=0, y=0, z=0, velocity=[3.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=1, y=0, z=0, velocity=[1.5, 0.0, 0.0], pressure=1.0),
+        Cell(x=2, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0)
     ]
-    # Divergence = |1.5 - 3.0| = 1.5, |0.5 - 1.5| = 1.0 → max = 1.5
     result = compute_max_divergence(grid)
-    assert result == 1.5
+    assert result == 1.5  # |1.5 - 3.0|
 
 def test_non_monotonic_velocity_pattern():
     grid = [
-        [0, 0, 0, [0.5, 0.0, 0.0], 1.0],
-        [1, 0, 0, [3.0, 0.0, 0.0], 1.0],
-        [2, 0, 0, [2.0, 0.0, 0.0], 1.0]
+        Cell(x=0, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0),
+        Cell(x=1, y=0, z=0, velocity=[3.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=2, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0)
     ]
-    # Divergences = |3.0 - 0.5| = 2.5, |2.0 - 3.0| = 1.0 → max = 2.5
     result = compute_max_divergence(grid)
-    assert result == 2.5
+    assert result == 2.5  # |3.0 - 0.5|
 
 def test_short_grid_returns_zero():
-    grid = [[0, 0, 0, [1.0, 0.0, 0.0], 1.0]]
+    grid = [
+        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0)
+    ]
     result = compute_max_divergence(grid)
     assert result == 0.0
 
@@ -52,26 +52,28 @@ def test_empty_grid_returns_zero():
     assert result == 0.0
 
 def test_invalid_velocity_formats_ignored():
+    class BadCell:
+        def __init__(self, velocity):
+            self.velocity = velocity
+
     grid = [
-        [0, 0, 0, "invalid", 1.0],
-        [1, 0, 0, [1.0], 1.0],
-        [2, 0, 0, None, 1.0],
-        [3, 0, 0, [2.0, 0.0, 0.0], 1.0],
-        [4, 0, 0, [5.0, 0.0, 0.0], 1.0]
+        BadCell("invalid"),
+        BadCell([1.0]),
+        BadCell(None),
+        Cell(x=3, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=4, y=0, z=0, velocity=[5.0, 0.0, 0.0], pressure=1.0)
     ]
-    # Only last two cells are valid → divergence = |5.0 - 2.0| = 3.0
     result = compute_max_divergence(grid)
-    assert result == 3.0
+    assert result == 3.0  # |5.0 - 2.0|
 
 def test_fluctuating_velocity_components():
     grid = [
-        [0, 0, 0, [1.0, 1.0, 0.0], 1.0],
-        [1, 0, 0, [2.0, 0.0, 0.0], 1.0],
-        [2, 0, 0, [0.5, 0.0, 0.0], 1.0]
+        Cell(x=0, y=0, z=0, velocity=[1.0, 1.0, 0.0], pressure=1.0),
+        Cell(x=1, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0),
+        Cell(x=2, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0)
     ]
-    # Only x-component analyzed → |2.0 - 1.0| = 1.0, |0.5 - 2.0| = 1.5
     result = compute_max_divergence(grid)
-    assert result == 1.5
+    assert result == 1.5  # |0.5 - 2.0|
 
 
 
