@@ -19,16 +19,16 @@ def test_pipeline_snapshot_behavior(snapshot_file):
     with open(snapshot_path) as f:
         snapshot = json.load(f)
 
-    # Field presence checks
+    # Field presence checks (updated to match unified schema)
     required_fields = [
-        "step", "grid", "max_velocity", "max_divergence",
+        "step_index", "grid", "max_velocity", "max_divergence",
         "global_cfl", "overflow_detected", "damping_enabled", "projection_passes"
     ]
     for field in required_fields:
         assert field in snapshot, f"❌ Missing '{field}' in {snapshot_file}"
 
     # Type assertions
-    assert isinstance(snapshot["step"], int), f"❌ 'step' must be int in {snapshot_file}"
+    assert isinstance(snapshot["step_index"], int), f"❌ 'step_index' must be int in {snapshot_file}"
     assert isinstance(snapshot["grid"], list), f"❌ 'grid' must be list in {snapshot_file}"
     assert isinstance(snapshot["max_velocity"], (int, float)), f"❌ 'max_velocity' must be numeric in {snapshot_file}"
     assert isinstance(snapshot["max_divergence"], (int, float)), f"❌ 'max_divergence' must be numeric in {snapshot_file}"
@@ -41,7 +41,7 @@ def test_pipeline_snapshot_behavior(snapshot_file):
     assert snapshot["max_velocity"] >= 0, f"❌ Negative 'max_velocity' in {snapshot_file}"
     assert snapshot["max_divergence"] >= 0, f"❌ Negative 'max_divergence' in {snapshot_file}"
     assert snapshot["global_cfl"] >= 0, f"❌ Negative 'global_cfl' in {snapshot_file}"
-    assert snapshot["projection_passes"] >= 0, f"❌ Invalid 'projection_passes' in {snapshot_file}"
+    assert snapshot["projection_passes"] >= 1, f"❌ Invalid 'projection_passes' in {snapshot_file}"
 
     # Scenario-specific behavioral checks
     scenario = snapshot_file.split("_step_")[0]
