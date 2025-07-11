@@ -7,9 +7,9 @@ from src.grid_modules.cell import Cell
 def test_basic_grid_structure():
     domain = {
         "nx": 2, "ny": 2, "nz": 1,
-        "min_x": 0, "max_x": 1,
-        "min_y": 0, "max_y": 1,
-        "min_z": 0, "max_z": 0.1
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 1.0,
+        "min_z": 0.0, "max_z": 0.1
     }
     initial_conditions = {
         "initial_velocity": [1.0, 0.0, 0.0],
@@ -29,7 +29,12 @@ def test_basic_grid_structure():
         assert isinstance(cell.pressure, (int, float))
 
 def test_empty_domain_returns_empty():
-    domain = {"nx": 0, "ny": 0, "nz": 0}
+    domain = {
+        "nx": 0, "ny": 0, "nz": 0,
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 1.0,
+        "min_z": 0.0, "max_z": 1.0
+    }
     initial_conditions = {
         "initial_velocity": [0.0, 0.0, 0.0],
         "initial_pressure": 0.0
@@ -41,9 +46,9 @@ def test_empty_domain_returns_empty():
 def test_nonuniform_dimensions():
     domain = {
         "nx": 1, "ny": 3, "nz": 2,
-        "min_x": 0, "max_x": 1,
-        "min_y": 0, "max_y": 3,
-        "min_z": 0, "max_z": 2
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 3.0,
+        "min_z": 0.0, "max_z": 2.0
     }
     initial_conditions = {
         "initial_velocity": [0.0, 1.0, 0.0],
@@ -57,7 +62,12 @@ def test_nonuniform_dimensions():
         assert cell.pressure == 2.0
 
 def test_velocity_and_pressure_assigned_correctly():
-    domain = {"nx": 2, "ny": 2, "nz": 1}
+    domain = {
+        "nx": 2, "ny": 2, "nz": 1,
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 1.0,
+        "min_z": 0.0, "max_z": 0.1
+    }
     initial_conditions = {
         "initial_velocity": [3.0, -1.0, 0.5],
         "initial_pressure": 4.2
@@ -69,7 +79,12 @@ def test_velocity_and_pressure_assigned_correctly():
         assert cell.pressure == 4.2
 
 def test_invalid_initial_conditions_handled_gracefully():
-    domain = {"nx": 1, "ny": 1, "nz": 1}
+    domain = {
+        "nx": 1, "ny": 1, "nz": 1,
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 1.0,
+        "min_z": 0.0, "max_z": 1.0
+    }
     initial_conditions = {
         "initial_velocity": None,
         "initial_pressure": None
@@ -85,7 +100,12 @@ def test_invalid_initial_conditions_handled_gracefully():
     assert cell.pressure == 0.0
 
 def test_large_grid_scale():
-    domain = {"nx": 10, "ny": 10, "nz": 10}
+    domain = {
+        "nx": 10, "ny": 10, "nz": 10,
+        "min_x": 0.0, "max_x": 10.0,
+        "min_y": 0.0, "max_y": 10.0,
+        "min_z": 0.0, "max_z": 10.0
+    }
     initial_conditions = {
         "initial_velocity": [0.0, 0.0, 1.0],
         "initial_pressure": 1.0

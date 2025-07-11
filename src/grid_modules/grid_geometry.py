@@ -1,21 +1,40 @@
 # src/grid_modules/grid_geometry.py
 
+import logging
+
 def generate_coordinates(domain: dict) -> list[tuple[float, float, float]]:
     """
     Generates 3D (x, y, z) physical coordinates for a structured grid,
-    based on domain boundaries and resolution.
+    based on domain boundaries and resolution. Requires explicit bounds.
 
     Args:
-        domain (dict): Dictionary containing "min_x", "max_x", "nx",
-                       "min_y", "max_y", "ny", "min_z", "max_z", "nz"
+        domain (dict): Must include keys:
+            "min_x", "max_x", "nx",
+            "min_y", "max_y", "ny",
+            "min_z", "max_z", "nz"
 
     Returns:
         list of tuple: Each tuple represents (x, y, z) physical coordinate
+
+    Raises:
+        ValueError: If any required key is missing or resolution is invalid
     """
-    # Extract domain bounds and resolution
-    min_x, max_x, nx = domain["min_x"], domain["max_x"], domain["nx"]
-    min_y, max_y, ny = domain["min_y"], domain["max_y"], domain["ny"]
-    min_z, max_z, nz = domain["min_z"], domain["max_z"], domain["nz"]
+    required_keys = [
+        "min_x", "max_x", "nx",
+        "min_y", "max_y", "ny",
+        "min_z", "max_z", "nz"
+    ]
+    missing = [key for key in required_keys if key not in domain]
+    if missing:
+        raise ValueError(f"Missing domain keys: {missing}")
+
+    try:
+        min_x, max_x, nx = float(domain["min_x"]), float(domain["max_x"]), int(domain["nx"])
+        min_y, max_y, ny = float(domain["min_y"]), float(domain["max_y"]), int(domain["ny"])
+        min_z, max_z, nz = float(domain["min_z"]), float(domain["max_z"]), int(domain["nz"])
+    except (TypeError, ValueError) as e:
+        logging.error(f"Invalid domain value: {e}")
+        raise ValueError("Domain must contain numeric bounds and integer resolution values")
 
     # Compute grid spacing
     dx = (max_x - min_x) / nx if nx > 0 else 0.0
