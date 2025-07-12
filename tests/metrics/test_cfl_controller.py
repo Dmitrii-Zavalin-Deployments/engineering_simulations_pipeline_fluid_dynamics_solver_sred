@@ -6,9 +6,9 @@ from src.grid_modules.cell import Cell
 
 def test_uniform_velocity_grid():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0)
+        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
+        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
+        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
     ]
     domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
     time_step = 0.1
@@ -18,9 +18,9 @@ def test_uniform_velocity_grid():
 
 def test_varied_velocity_grid():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0),
-        Cell(x=1, y=0, z=0, velocity=[1.5, 0.0, 0.0], pressure=1.0),
-        Cell(x=2, y=0, z=0, velocity=[0.1, 0.0, 0.0], pressure=1.0)
+        Cell(x=0, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
+        Cell(x=1, y=0, z=0, velocity=[1.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
+        Cell(x=2, y=0, z=0, velocity=[0.1, 0.0, 0.0], pressure=1.0, fluid_mask=True)
     ]
     domain = {"nx": 20, "min_x": 0.0, "max_x": 2.0}
     time_step = 0.1
@@ -36,7 +36,7 @@ def test_empty_grid_returns_zero():
     assert compute_global_cfl(grid, time_step, domain) == 0.0
 
 def test_missing_domain_keys_returns_zero():
-    grid = [Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0)]
+    grid = [Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)]
     incomplete_domains = [
         {"min_x": 0.0, "max_x": 1.0},
         {"nx": 10, "max_x": 1.0},
@@ -46,7 +46,6 @@ def test_missing_domain_keys_returns_zero():
         assert compute_global_cfl(grid, 0.1, domain) == 0.0
 
 def test_invalid_velocity_format():
-    # Simulate bad cells by manually overriding dataclass
     class BadCell:
         def __init__(self, velocity):
             self.velocity = velocity
@@ -63,13 +62,13 @@ def test_invalid_velocity_format():
 
 def test_velocity_with_yz_components():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.0, 1.0, 0.0], pressure=1.0),
-        Cell(x=1, y=0, z=0, velocity=[0.0, 0.0, 2.0], pressure=1.0)
+        Cell(x=0, y=0, z=0, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True),
+        Cell(x=1, y=0, z=0, velocity=[0.0, 0.0, 2.0], pressure=1.0, fluid_mask=True)
     ]
     domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
     time_step = 0.1
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
-    expected_magnitude = 2.0  # highest magnitude is from [0.0, 0.0, 2.0]
+    expected_magnitude = 2.0
     expected_cfl = expected_magnitude * time_step / dx
     result = compute_global_cfl(grid, time_step, domain)
     assert result == round(expected_cfl, 5)
