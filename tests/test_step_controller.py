@@ -13,13 +13,19 @@ def make_fluid_cell(x, y, z):
 def make_solid_cell(x, y, z):
     return Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=False)
 
-def mock_config():
+# ✅ Updated mock config to include required domain_definition
+def mock_config(time_step=0.1, viscosity=0.01):
     return {
         "simulation_parameters": {
-            "time_step": 0.1
+            "time_step": time_step
         },
         "fluid_properties": {
-            "viscosity": 0.01
+            "viscosity": viscosity
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 1.0,
+            "nx": 10
         }
     }
 
@@ -46,7 +52,7 @@ def test_evolve_mixed_cells():
         make_solid_cell(1, 0, 0),
         make_fluid_cell(2, 0, 0)
     ]
-    updated, _ = evolve_step(grid, mock_config(), step=1)
+    updated, reflex = evolve_step(grid, mock_config(), step=1)
 
     assert len(updated) == 3
     for cell in updated:
@@ -56,6 +62,8 @@ def test_evolve_mixed_cells():
         else:
             assert cell.velocity is None
             assert cell.pressure is None
+    assert isinstance(reflex, dict)
+    assert "max_velocity" in reflex
 
 # ✅ Test: Evolve with empty grid
 def test_evolve_empty_grid():
@@ -83,13 +91,15 @@ def test_reflex_metadata_keys_present():
     _, reflex = evolve_step(grid, mock_config(), step=4)
 
     expected_keys = {
-        "damping_enabled",
-        "overflow_detected",
-        "adjusted_time_step",
         "max_velocity",
-        "global_cfl"
+        "max_divergence",
+        "global_cfl",
+        "overflow_detected",
+        "damping_enabled",
+        "adjusted_time_step",
+        "projection_passes"
     }
-    assert set(reflex.keys()) == expected_keys
+    assert expected_keys.issubset(reflex.keys())
 
 # ✅ Test: Step index variation preserves behavior
 def test_evolve_step_index_variation():
