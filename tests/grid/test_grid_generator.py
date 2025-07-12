@@ -27,6 +27,7 @@ def test_basic_grid_structure():
         assert len(cell.velocity) == 3
         assert all(isinstance(v, (int, float)) for v in cell.velocity)
         assert isinstance(cell.pressure, (int, float))
+        assert isinstance(cell.fluid_mask, bool)
         assert cell.fluid_mask is True
 
 def test_empty_domain_returns_empty():
