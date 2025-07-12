@@ -30,7 +30,7 @@ def test_basic_grid_structure():
         assert isinstance(cell.fluid_mask, bool)
         assert cell.fluid_mask is True
 
-def test_empty_domain_returns_empty():
+def test_empty_domain_raises_error():
     domain = {
         "nx": 0, "ny": 0, "nz": 0,
         "min_x": 0.0, "max_x": 1.0,
@@ -42,7 +42,7 @@ def test_empty_domain_returns_empty():
         "initial_pressure": 0.0
     }
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Resolution values must be greater than zero"):
         generate_grid(domain, initial_conditions)
 
 def test_nonuniform_dimensions():
@@ -82,7 +82,7 @@ def test_velocity_and_pressure_assigned_correctly():
         assert cell.pressure == 4.2
         assert cell.fluid_mask is True
 
-def test_invalid_initial_conditions_handled_gracefully():
+def test_invalid_initial_conditions_raise_error():
     domain = {
         "nx": 1, "ny": 1, "nz": 1,
         "min_x": 0.0, "max_x": 1.0,
@@ -94,15 +94,8 @@ def test_invalid_initial_conditions_handled_gracefully():
         "initial_pressure": None
     }
 
-    grid = generate_grid(domain, initial_conditions)
-    assert len(grid) == 1
-    cell = grid[0]
-    assert isinstance(cell.velocity, list)
-    assert len(cell.velocity) == 3
-    assert cell.velocity == [0.0, 0.0, 0.0]
-    assert isinstance(cell.pressure, (int, float))
-    assert cell.pressure == 0.0
-    assert cell.fluid_mask is True
+    with pytest.raises(ValueError, match="must be a list of 3 numeric components"):
+        generate_grid(domain, initial_conditions)
 
 def test_large_grid_scale():
     domain = {

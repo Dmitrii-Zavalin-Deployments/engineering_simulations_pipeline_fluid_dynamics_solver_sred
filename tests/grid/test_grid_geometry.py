@@ -24,15 +24,15 @@ def test_coordinate_count_matches_resolution():
         assert math.isclose(y, ey, rel_tol=1e-9)
         assert math.isclose(z, ez, rel_tol=1e-9)
 
-# ✅ Test: Zero-sized grid returns empty list
+# ❌ Test: Zero-sized grid raises ValueError
 def test_zero_resolution_grid():
     domain = {
         "min_x": 0.0, "max_x": 1.0, "nx": 0,
         "min_y": 0.0, "max_y": 1.0, "ny": 0,
         "min_z": 0.0, "max_z": 1.0, "nz": 0
     }
-    coords = generate_coordinates(domain)
-    assert coords == []
+    with pytest.raises(ValueError, match="Resolution values must be greater than zero"):
+        generate_coordinates(domain)
 
 # ✅ Test: Negative bounds still compute correctly
 def test_negative_domain_bounds():
