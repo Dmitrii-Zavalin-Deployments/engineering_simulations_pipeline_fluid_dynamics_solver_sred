@@ -1,41 +1,35 @@
 # src/grid_modules/boundary_manager.py
-# 🧱 Applies boundary condition tagging based on grid resolution
 
 from src.grid_modules.cell import Cell
 
 def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     """
-    Applies simplified boundary conditions by tagging edge cells using grid resolution.
-    Marks cells on outermost x/y/z layers with 'wall'; all others as 'interior'.
-    Assumes physical coordinates are centered on indices and do not infer boundaries.
+    Applies simplified boundary conditions by tagging edge cells using resolution values.
+    Marks cells on the outermost x/y/z faces with 'wall' type; others as 'interior'.
+    Does not require physical min/max domain coordinates.
 
     Args:
-        cells (list[Cell]): Grid cells with spatial data
-        domain (dict): Contains "nx", "ny", "nz" resolution values
+        cells (list[Cell]): Structured grid of cells
+        domain (dict): Must contain "nx", "ny", "nz"
 
     Returns:
-        list[Cell]: Updated cells with 'boundary_type' field
+        list[Cell]: Tagged cells with 'boundary_type' set
     """
+    # Extract resolution values; assume valid integers
     nx = domain.get("nx", 0)
     ny = domain.get("ny", 0)
     nz = domain.get("nz", 0)
 
-    # Precompute physical edges using coordinate resolution
-    dx = (domain["max_x"] - domain["min_x"]) / nx if nx else 0
-    dy = (domain["max_y"] - domain["min_y"]) / ny if ny else 0
-    dz = (domain["max_z"] - domain["min_z"]) / nz if nz else 0
-
-    edge_x = {domain["min_x"] + i * dx for i in (0, nx - 1)} if nx > 0 else set()
-    edge_y = {domain["min_y"] + j * dy for j in (0, ny - 1)} if ny > 0 else set()
-    edge_z = {domain["min_z"] + k * dz for k in (0, nz - 1)} if nz > 0 else set()
+    # Determine edge positions; empty sets for zero-sized grids
+    edge_x = {0, nx - 1} if nx > 0 else set()
+    edge_y = {0, ny - 1} if ny > 0 else set()
+    edge_z = {0, nz - 1} if nz > 0 else set()
 
     for cell in cells:
-        is_edge = (
-            any(abs(cell.x - ex) < 1e-6 for ex in edge_x) or
-            any(abs(cell.y - ey) < 1e-6 for ey in edge_y) or
-            any(abs(cell.z - ez) < 1e-6 for ez in edge_z)
-        )
-        cell.boundary_type = "wall" if is_edge else "interior"
+        if cell.x in edge_x or cell.y in edge_y or cell.z in edge_z:
+            cell.boundary_type = "wall"
+        else:
+            cell.boundary_type = "interior"
 
     return cells
 
