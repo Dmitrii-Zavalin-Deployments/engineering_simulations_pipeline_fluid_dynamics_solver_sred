@@ -4,7 +4,7 @@
 from typing import List
 from src.grid_modules.cell import Cell
 from src.reflex.reflex_logic import should_dampen, should_flag_overflow, adjust_time_step
-from src.metrics.velocity import compute_max_velocity
+from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.cfl import compute_global_cfl
 
 def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
