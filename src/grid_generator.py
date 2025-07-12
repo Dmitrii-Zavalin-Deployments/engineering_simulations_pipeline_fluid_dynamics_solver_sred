@@ -80,7 +80,8 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
             logging.warning(f"⚠️ Skipping out-of-bound cell at physical ({x}, {y}, {z}) → indices ({ix}, {iy}, {iz})")
             continue
 
-        fluid_mask = mask_array[iz][iy][ix] == fluid_value
+        # ✅ Coerce to native Python bool to ensure JSON compatibility
+        fluid_mask = bool(mask_array[iz][iy][ix] == fluid_value)
         cells.append(Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=fluid_mask))
 
     seeded_cells = assign_fields(cells, initial_conditions)
