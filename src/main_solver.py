@@ -47,11 +47,11 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         # ✅ Evolve grid and collect reflex diagnostics
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
-        # ✅ Serialize snapshot with step index and reflex flags
+        # ✅ Serialize snapshot with step index and flat reflex metrics
         snapshot = {
             "step_index": step,
             "grid": [asdict(cell) for cell in grid],
-            "reflex_flags": reflex_metadata
+            **reflex_metadata  # 🚀 Flatten reflex flags into top-level
         }
 
         if step % output_interval == 0:

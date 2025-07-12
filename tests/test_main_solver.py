@@ -1,5 +1,5 @@
 # tests/test_main_solver.py
-# 🧪 Comprehensive unit tests for main_solver.py — includes reflex logic, masking, and snapshot integrity
+# 🧪 Comprehensive unit tests for main_solver.py — includes reflex metrics, masking, and snapshot integrity
 
 import pytest
 from dataclasses import asdict
@@ -49,31 +49,27 @@ def test_snapshot_count_matches_interval(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "mask_test")
     assert len(snaps) == 6  # steps 0,2,4,6,8,10
 
-def test_snapshot_contains_expected_keys(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "mask_test")
+def test_snapshot_contains_flat_metrics(input_with_mask):
+    snaps = generate_snapshots(input_with_mask, "flat_metrics_check")
+    required_keys = {
+        "step_index", "grid",
+        "max_velocity", "max_divergence", "global_cfl",
+        "overflow_detected", "damping_enabled",
+        "adjusted_time_step", "projection_passes"
+    }
     for _, snap in snaps:
-        assert "step_index" in snap
-        assert "grid" in snap
-        assert "reflex_flags" in snap
+        assert required_keys.issubset(snap.keys())
 
-def test_reflex_flags_structure(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "reflex_test")
+def test_metrics_have_correct_types(input_with_mask):
+    snaps = generate_snapshots(input_with_mask, "type_check")
     for _, snap in snaps:
-        reflex = snap["reflex_flags"]
-        expected_keys = {
-            "damping_enabled",
-            "overflow_detected",
-            "adjusted_time_step",
-            "max_velocity",
-            "global_cfl"
-        }
-        assert isinstance(reflex, dict)
-        assert expected_keys.issubset(reflex.keys())
-        assert isinstance(reflex["damping_enabled"], bool)
-        assert isinstance(reflex["overflow_detected"], bool)
-        assert isinstance(reflex["adjusted_time_step"], float)
-        assert isinstance(reflex["max_velocity"], float)
-        assert isinstance(reflex["global_cfl"], float)
+        assert isinstance(snap["max_velocity"], float)
+        assert isinstance(snap["max_divergence"], float)
+        assert isinstance(snap["global_cfl"], float)
+        assert isinstance(snap["overflow_detected"], bool)
+        assert isinstance(snap["damping_enabled"], bool)
+        assert isinstance(snap["adjusted_time_step"], float)
+        assert isinstance(snap["projection_passes"], int)
 
 def test_grid_has_correct_field_types(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "field_check")
