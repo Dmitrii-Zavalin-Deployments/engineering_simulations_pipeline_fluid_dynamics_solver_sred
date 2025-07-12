@@ -41,8 +41,8 @@ def test_empty_domain_returns_empty():
         "initial_pressure": 0.0
     }
 
-    grid = generate_grid(domain, initial_conditions)
-    assert grid == []
+    with pytest.raises(ValueError):
+        generate_grid(domain, initial_conditions)
 
 def test_nonuniform_dimensions():
     domain = {
