@@ -79,6 +79,7 @@ def test_global_cfl_consistency():
     flags = apply_reflex(grid, mock_config(time_step=0.1), step=4)
 
     assert flags["global_cfl"] <= 1.0
+    assert flags["global_cfl"] >= 0.0
 
 def test_divergence_and_projection_fields():
     grid = [
@@ -93,9 +94,9 @@ def test_divergence_and_projection_fields():
 def test_safe_defaults_for_empty_grid():
     flags = apply_reflex([], mock_config(), step=6)
 
-    assert isinstance(flags["max_velocity"], float)
-    assert isinstance(flags["max_divergence"], float)
-    assert isinstance(flags["global_cfl"], float)
+    assert flags["max_velocity"] == 0.0
+    assert flags["max_divergence"] == 0.0
+    assert flags["global_cfl"] == 0.0
     assert isinstance(flags["overflow_detected"], bool)
     assert isinstance(flags["damping_enabled"], bool)
     assert isinstance(flags["adjusted_time_step"], float)
