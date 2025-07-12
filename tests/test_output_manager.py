@@ -43,13 +43,19 @@ def test_snapshot_structure_and_values(snapshot_file):
     assert isinstance(snap["grid"], list), f"❌ Grid must be a list in {snapshot_file}"
     for cell in snap["grid"]:
         assert isinstance(cell, dict), f"❌ Grid cell must be a dict in {snapshot_file}"
-        assert all(k in cell for k in ["x", "y", "z", "velocity", "pressure"]), f"❌ Missing cell keys in {snapshot_file}"
+        assert all(k in cell for k in ["x", "y", "z", "velocity", "pressure", "fluid_mask"]), f"❌ Missing cell keys in {snapshot_file}"
         assert isinstance(cell["x"], (int, float))
         assert isinstance(cell["y"], (int, float))
         assert isinstance(cell["z"], (int, float))
-        assert isinstance(cell["pressure"], (int, float))
-        assert isinstance(cell["velocity"], list) and len(cell["velocity"]) == 3
-        assert all(isinstance(v, (int, float)) for v in cell["velocity"])
+        assert isinstance(cell["fluid_mask"], bool)
+
+        if cell["fluid_mask"]:
+            assert isinstance(cell["velocity"], list) and len(cell["velocity"]) == 3, f"❌ Velocity must be a list in fluid cell"
+            assert all(isinstance(v, (int, float)) for v in cell["velocity"]), f"❌ Velocity components must be numeric"
+            assert isinstance(cell["pressure"], (int, float)), f"❌ Pressure must be numeric in fluid cell"
+        else:
+            assert cell["velocity"] is None, f"❌ Velocity should be null in solid cell"
+            assert cell["pressure"] is None, f"❌ Pressure should be null in solid cell"
 
     # Metric types
     assert isinstance(snap["step_index"], int), f"❌ step_index must be int"
