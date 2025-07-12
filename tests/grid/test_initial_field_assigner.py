@@ -6,7 +6,7 @@ from src.grid_modules.initial_field_assigner import assign_fields
 
 # 🔧 Helper: generate basic grid
 def make_cells(count=3):
-    return [Cell(x=i, y=0, z=0, velocity=[], pressure=0.0) for i in range(count)]
+    return [Cell(x=i, y=0, z=0, velocity=[], pressure=0.0, fluid_mask=True) for i in range(count)]
 
 # ✅ Test: Correct assignment
 def test_valid_assignment():
