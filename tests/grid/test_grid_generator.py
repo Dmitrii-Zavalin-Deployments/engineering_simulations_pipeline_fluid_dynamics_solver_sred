@@ -27,6 +27,7 @@ def test_basic_grid_structure():
         assert len(cell.velocity) == 3
         assert all(isinstance(v, (int, float)) for v in cell.velocity)
         assert isinstance(cell.pressure, (int, float))
+        assert cell.fluid_mask is True
 
 def test_empty_domain_returns_empty():
     domain = {
@@ -60,6 +61,7 @@ def test_nonuniform_dimensions():
     for cell in grid:
         assert cell.velocity == [0.0, 1.0, 0.0]
         assert cell.pressure == 2.0
+        assert cell.fluid_mask is True
 
 def test_velocity_and_pressure_assigned_correctly():
     domain = {
@@ -77,6 +79,7 @@ def test_velocity_and_pressure_assigned_correctly():
     for cell in grid:
         assert cell.velocity == [3.0, -1.0, 0.5]
         assert cell.pressure == 4.2
+        assert cell.fluid_mask is True
 
 def test_invalid_initial_conditions_handled_gracefully():
     domain = {
@@ -98,6 +101,7 @@ def test_invalid_initial_conditions_handled_gracefully():
     assert cell.velocity == [0.0, 0.0, 0.0]
     assert isinstance(cell.pressure, (int, float))
     assert cell.pressure == 0.0
+    assert cell.fluid_mask is True
 
 def test_large_grid_scale():
     domain = {
@@ -116,6 +120,7 @@ def test_large_grid_scale():
     for cell in grid:
         assert cell.velocity == [0.0, 0.0, 1.0]
         assert cell.pressure == 1.0
+        assert cell.fluid_mask is True
 
 
 

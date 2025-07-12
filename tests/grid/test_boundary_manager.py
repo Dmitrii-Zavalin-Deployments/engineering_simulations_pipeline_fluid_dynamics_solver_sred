@@ -4,8 +4,8 @@ import pytest
 from src.grid_modules.cell import Cell
 from src.grid_modules.boundary_manager import apply_boundaries
 
-def make_cell(x, y, z):
-    return Cell(x=x, y=y, z=z, velocity=[0.0, 0.0, 0.0], pressure=1.0)
+def make_cell(x, y, z, fluid_mask=True):
+    return Cell(x=x, y=y, z=z, velocity=[0.0, 0.0, 0.0], pressure=1.0, fluid_mask=fluid_mask)
 
 # ✅ Test: Correct tagging of edge and interior cells
 def test_boundary_tagging():
