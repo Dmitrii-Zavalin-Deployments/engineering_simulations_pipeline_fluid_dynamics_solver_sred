@@ -10,6 +10,7 @@ class Cell:
     z: float
     velocity: List[float]  # [vx, vy, vz]
     pressure: float
+    fluid_mask: bool       # ✅ True if cell contains fluid, False if solid
 
 
 

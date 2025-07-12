@@ -2,22 +2,25 @@
 
 import logging
 
-def generate_coordinates(domain: dict) -> list[tuple[float, float, float]]:
+def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float, float]]:
     """
-    Generates 3D (x, y, z) physical coordinates for a structured grid,
-    based on domain boundaries and resolution. Requires explicit bounds.
+    Generates 3D grid positions along with physical coordinates.
+
+    Each entry is a tuple: (ix, iy, iz, x, y, z), where:
+    - (ix, iy, iz) are grid indices
+    - (x, y, z) are physical coordinates based on domain bounds
 
     Args:
-        domain (dict): Must include keys:
+        domain (dict): Must include:
             "min_x", "max_x", "nx",
             "min_y", "max_y", "ny",
             "min_z", "max_z", "nz"
 
     Returns:
-        list of tuple: Each tuple represents (x, y, z) physical coordinate
+        list of tuple: Grid indices and physical coordinates per cell
 
     Raises:
-        ValueError: If any required key is missing or resolution is invalid
+        ValueError: If domain parameters are missing or invalid
     """
     required_keys = [
         "min_x", "max_x", "nx",
@@ -36,19 +39,21 @@ def generate_coordinates(domain: dict) -> list[tuple[float, float, float]]:
         logging.error(f"Invalid domain value: {e}")
         raise ValueError("Domain must contain numeric bounds and integer resolution values")
 
-    # Compute grid spacing
-    dx = (max_x - min_x) / nx if nx > 0 else 0.0
-    dy = (max_y - min_y) / ny if ny > 0 else 0.0
-    dz = (max_z - min_z) / nz if nz > 0 else 0.0
+    if nx <= 0 or ny <= 0 or nz <= 0:
+        raise ValueError("Resolution values must be greater than zero")
+
+    dx = (max_x - min_x) / nx
+    dy = (max_y - min_y) / ny
+    dz = (max_z - min_z) / nz
 
     coordinates = []
-    for i in range(nx):
-        x = min_x + (i + 0.5) * dx
-        for j in range(ny):
-            y = min_y + (j + 0.5) * dy
-            for k in range(nz):
-                z = min_z + (k + 0.5) * dz
-                coordinates.append((x, y, z))
+    for ix in range(nx):
+        x = min_x + (ix + 0.5) * dx
+        for iy in range(ny):
+            y = min_y + (iy + 0.5) * dy
+            for iz in range(nz):
+                z = min_z + (iz + 0.5) * dz
+                coordinates.append((ix, iy, iz, x, y, z))
 
     return coordinates
 

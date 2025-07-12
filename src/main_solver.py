@@ -37,6 +37,9 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     initial_conditions = input_data["initial_conditions"]
     geometry = input_data["geometry_definition"]
 
+    print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
+    print(f"⚙️  Output interval: {output_interval}")
+
     # ✅ Initialize grid with embedded fluid_mask from geometry
     grid = generate_grid_with_mask(domain, initial_conditions, geometry)
 

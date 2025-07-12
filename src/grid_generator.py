@@ -63,25 +63,33 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     if shape != [nx, ny, nz]:
         raise ValueError(f"Geometry mask shape {shape} does not match domain resolution [{nx}, {ny}, {nz}]")
 
-    # 🧬 Reshape flat mask into a 3D cube: [z][y][x]
     try:
-        mask_array = np.array(flat_mask).reshape((nz, ny, nx))
+        mask_array = np.array(flat_mask).reshape((nz, ny, nx))  # [z][y][x]
     except Exception as e:
         raise ValueError(f"Failed to reshape geometry_mask_flat: {e}")
 
     coordinates = generate_coordinates(domain)
     if not coordinates:
-        logging.warning("⚠️ Empty grid generated — no spatial cells")
+        logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
     cells = []
+    dx = (domain["max_x"] - domain["min_x"]) / (nx - 1)
+    dy = (domain["max_y"] - domain["min_y"]) / (ny - 1)
+    dz = (domain["max_z"] - domain["min_z"]) / (nz - 1)
+
     for (x, y, z) in coordinates:
-        fluid_mask = mask_array[z][y][x] == fluid_value
+        ix = int(round((x - domain["min_x"]) / dx))
+        iy = int(round((y - domain["min_y"]) / dy))
+        iz = int(round((z - domain["min_z"]) / dz))
+
+        if not (0 <= ix < nx and 0 <= iy < ny and 0 <= iz < nz):
+            logging.warning(f"⚠️ Skipping out-of-bound cell at physical ({x}, {y}, {z}) → indices ({ix}, {iy}, {iz})")
+            continue
+
+        fluid_mask = mask_array[iz][iy][ix] == fluid_value
         cells.append(Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=fluid_mask))
 
-    # 🧬 Assign velocity/pressure fields
     seeded_cells = assign_fields(cells, initial_conditions)
-
-    # 🧱 Apply boundary tagging
     tagged_cells = apply_boundaries(seeded_cells, domain)
 
     return tagged_cells
