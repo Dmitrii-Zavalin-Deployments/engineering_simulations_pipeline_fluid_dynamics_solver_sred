@@ -33,13 +33,13 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
         logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
     seeded_cells = assign_fields([
-        Cell(x, y, z, velocity=[], pressure=0.0) for (_, _, _, x, y, z) in coordinates
+        Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=True)
+        for (_, _, _, x, y, z) in coordinates
     ], initial_conditions)
 
     tagged_cells = apply_boundaries(seeded_cells, domain)
 
     return tagged_cells
-
 
 def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: dict) -> list[Cell]:
     """

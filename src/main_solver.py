@@ -10,7 +10,7 @@ from dataclasses import asdict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.input_reader import load_simulation_input
-from src.grid_generator import generate_grid_with_mask
+from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 
 from src.metrics.velocity_metrics import compute_max_velocity
@@ -35,13 +35,16 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
 
     domain = input_data["domain_definition"]
     initial_conditions = input_data["initial_conditions"]
-    geometry = input_data["geometry_definition"]
+    geometry = input_data.get("geometry_definition")
 
     print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
     print(f"⚙️  Output interval: {output_interval}")
 
-    # ✅ Initialize grid with embedded fluid_mask from geometry
-    grid = generate_grid_with_mask(domain, initial_conditions, geometry)
+    # ✅ Initialize grid with or without embedded fluid_mask
+    if geometry:
+        grid = generate_grid_with_mask(domain, initial_conditions, geometry)
+    else:
+        grid = generate_grid(domain, initial_conditions)
 
     num_steps = int(total_time / time_step)
     snapshots = []
