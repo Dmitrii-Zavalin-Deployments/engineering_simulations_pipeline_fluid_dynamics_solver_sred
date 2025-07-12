@@ -24,9 +24,13 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
             - "max_velocity" (float)
             - "global_cfl" (float)
     """
+    # 📊 Extract domain and time_step
+    domain = input_data["domain_definition"]
+    time_step = input_data["simulation_parameters"]["time_step"]
+
     # 📊 Collect key metrics
     max_velocity = compute_max_velocity(grid)
-    global_cfl = compute_global_cfl(grid, input_data)
+    global_cfl = compute_global_cfl(grid, time_step, domain)
 
     # 🧠 Evaluate reflex conditions
     damping_enabled = should_dampen(grid)

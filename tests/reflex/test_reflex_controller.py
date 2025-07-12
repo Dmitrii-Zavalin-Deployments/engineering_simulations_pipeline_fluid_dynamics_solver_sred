@@ -12,6 +12,11 @@ def mock_config(time_step=0.1, viscosity=0.01):
         },
         "fluid_properties": {
             "viscosity": viscosity
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 1.0,
+            "nx": 10
         }
     }
 
