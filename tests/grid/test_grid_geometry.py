@@ -19,8 +19,10 @@ def test_coordinate_count_matches_resolution():
         (0.75, 0.25, 0.25), (0.75, 0.25, 0.75),
         (0.75, 0.75, 0.25), (0.75, 0.75, 0.75),
     ]
-    for a, e in zip(coords, expected):
-        assert all(math.isclose(a_i, e_i, rel_tol=1e-9) for a_i, e_i in zip(a, e))
+    for (_, _, _, x, y, z), (ex, ey, ez) in zip(coords, expected):
+        assert math.isclose(x, ex, rel_tol=1e-9)
+        assert math.isclose(y, ey, rel_tol=1e-9)
+        assert math.isclose(z, ez, rel_tol=1e-9)
 
 # ✅ Test: Zero-sized grid returns empty list
 def test_zero_resolution_grid():
@@ -43,10 +45,10 @@ def test_negative_domain_bounds():
     assert len(coords) == 8
     expected_first = (-0.5, -1.0, -1.5)
     expected_last = ( 0.5,  1.0,  1.5)
-    for a_i, e_i in zip(coords[0], expected_first):
-        assert math.isclose(a_i, e_i, rel_tol=1e-9)
-    for a_i, e_i in zip(coords[-1], expected_last):
-        assert math.isclose(a_i, e_i, rel_tol=1e-9)
+    for (_, _, _, x, y, z), (ex, ey, ez) in [(coords[0], expected_first), (coords[-1], expected_last)]:
+        assert math.isclose(x, ex, rel_tol=1e-9)
+        assert math.isclose(y, ey, rel_tol=1e-9)
+        assert math.isclose(z, ez, rel_tol=1e-9)
 
 # ✅ Test: Uneven resolution along axes
 def test_nonuniform_resolution():
@@ -59,14 +61,14 @@ def test_nonuniform_resolution():
     assert len(coords) == 6
     expected_first = (0.25, 0.5, 0.16666666666666666)
     expected_last  = (0.75, 0.5, 0.8333333333333334)
-    for a_i, e_i in zip(coords[0], expected_first):
-        assert math.isclose(a_i, e_i, rel_tol=1e-9)
-    for a_i, e_i in zip(coords[-1], expected_last):
-        assert math.isclose(a_i, e_i, rel_tol=1e-9)
+    for (_, _, _, x, y, z), (ex, ey, ez) in [(coords[0], expected_first), (coords[-1], expected_last)]:
+        assert math.isclose(x, ex, rel_tol=1e-9)
+        assert math.isclose(y, ey, rel_tol=1e-9)
+        assert math.isclose(z, ez, rel_tol=1e-9)
 
 # ❌ Test: Missing domain keys raises ValueError
 def test_missing_domain_keys():
-    domain = {"min_x": 0.0, "max_x": 1.0, "nx": 2}  # Missing y/z info
+    domain = {"min_x": 0.0, "max_x": 1.0, "nx": 2}
     with pytest.raises(ValueError):
         generate_coordinates(domain)
 
