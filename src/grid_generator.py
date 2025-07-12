@@ -59,7 +59,6 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     shape = geometry["geometry_mask_shape"]
     fluid_value = geometry["mask_encoding"]["fluid"]
 
-    # 🧩 Ensure shape matches expected domain resolution
     if shape != [nx, ny, nz]:
         raise ValueError(f"Geometry mask shape {shape} does not match domain resolution [{nx}, {ny}, {nz}]")
 
@@ -72,15 +71,20 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     if not coordinates:
         logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
-    cells = []
-    dx = (domain["max_x"] - domain["min_x"]) / (nx - 1)
-    dy = (domain["max_y"] - domain["min_y"]) / (ny - 1)
-    dz = (domain["max_z"] - domain["min_z"]) / (nz - 1)
+    # ✅ Safe spacing calculations with fallback for single-cell dimensions
+    dx = (domain["max_x"] - domain["min_x"]) / max((nx - 1), 1)
+    dy = (domain["max_y"] - domain["min_y"]) / max((ny - 1), 1)
+    dz = (domain["max_z"] - domain["min_z"]) / max((nz - 1), 1)
 
+    # ✅ Log warnings for suspiciously low resolutions
+    if nx < 2 or ny < 2 or nz < 2:
+        logging.warning(f"⚠️ Low grid resolution — nx={nx}, ny={ny}, nz={nz}. Domain may be under-resolved.")
+
+    cells = []
     for (x, y, z) in coordinates:
-        ix = int(round((x - domain["min_x"]) / dx))
-        iy = int(round((y - domain["min_y"]) / dy))
-        iz = int(round((z - domain["min_z"]) / dz))
+        ix = int(round((x - domain["min_x"]) / dx)) if nx > 1 else 0
+        iy = int(round((y - domain["min_y"]) / dy)) if ny > 1 else 0
+        iz = int(round((z - domain["min_z"]) / dz)) if nz > 1 else 0
 
         if not (0 <= ix < nx and 0 <= iy < ny and 0 <= iz < nz):
             logging.warning(f"⚠️ Skipping out-of-bound cell at physical ({x}, {y}, {z}) → indices ({ix}, {iy}, {iz})")
