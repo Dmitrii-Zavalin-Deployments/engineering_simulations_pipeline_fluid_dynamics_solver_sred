@@ -1,4 +1,5 @@
 # tests/test_step_controller.py
+# 🧪 Tests for simulation step controller — verifies grid evolution and reflex metadata
 
 import pytest
 from src.step_controller import evolve_step
@@ -12,17 +13,31 @@ def make_fluid_cell(x, y, z):
 def make_solid_cell(x, y, z):
     return Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=False)
 
+def mock_config():
+    return {
+        "simulation_parameters": {
+            "time_step": 0.1
+        },
+        "fluid_properties": {
+            "viscosity": 0.01
+        }
+    }
+
 # ✅ Test: Evolve with single fluid cell
 def test_evolve_single_fluid_cell():
     grid = [make_fluid_cell(0, 0, 0)]
-    input_data = {"solver_params": {}, "reflex_flags": {}}
-    updated = evolve_step(grid, input_data, step=0)
+    updated, reflex = evolve_step(grid, mock_config(), step=0)
+
     assert isinstance(updated, list)
     assert len(updated) == 1
     cell = updated[0]
     assert isinstance(cell.velocity, list)
     assert isinstance(cell.pressure, (int, float))
     assert cell.fluid_mask is True
+
+    assert isinstance(reflex, dict)
+    assert "max_velocity" in reflex
+    assert "damping_enabled" in reflex
 
 # ✅ Test: Evolve with fluid and solid cells
 def test_evolve_mixed_cells():
@@ -31,8 +46,8 @@ def test_evolve_mixed_cells():
         make_solid_cell(1, 0, 0),
         make_fluid_cell(2, 0, 0)
     ]
-    input_data = {"solver_params": {}, "reflex_flags": {}}
-    updated = evolve_step(grid, input_data, step=1)
+    updated, _ = evolve_step(grid, mock_config(), step=1)
+
     assert len(updated) == 3
     for cell in updated:
         if cell.fluid_mask:
@@ -45,44 +60,47 @@ def test_evolve_mixed_cells():
 # ✅ Test: Evolve with empty grid
 def test_evolve_empty_grid():
     grid = []
-    input_data = {"solver_params": {}, "reflex_flags": {}}
-    updated = evolve_step(grid, input_data, step=2)
+    updated, reflex = evolve_step(grid, mock_config(), step=2)
+
     assert updated == []
+    assert isinstance(reflex, dict)
+    assert "max_velocity" in reflex
 
 # ✅ Test: Evolve with malformed velocity (should preserve or ignore)
 def test_evolve_malformed_velocity():
     bad_cell = Cell(x=0, y=0, z=0, velocity="bad", pressure=1.0, fluid_mask=True)
     grid = [bad_cell]
-    input_data = {"solver_params": {}, "reflex_flags": {}}
-    updated = evolve_step(grid, input_data, step=3)
+    updated, reflex = evolve_step(grid, mock_config(), step=3)
+
     assert updated[0].fluid_mask is True
     assert isinstance(updated[0].pressure, (int, float))
-    # Let broken velocity pass through unchanged for now
     assert updated[0].velocity == "bad"
+    assert isinstance(reflex["max_velocity"], float)
 
-# ✅ Test: Input data is passed correctly
-def test_evolve_input_data_passthrough():
+# ✅ Test: Reflex metadata structure is complete
+def test_reflex_metadata_keys_present():
     grid = [make_fluid_cell(0, 0, 0)]
-    input_data = {
-        "solver_params": {
-            "viscosity": 0.01,
-            "external_force": [0.0, -9.8, 0.0]
-        },
-        "reflex_flags": {
-            "damping_enabled": False
-        }
-    }
-    updated = evolve_step(grid, input_data, step=5)
-    assert len(updated) == 1
-    assert updated[0].fluid_mask is True
+    _, reflex = evolve_step(grid, mock_config(), step=4)
 
-# ✅ Test: Step index updates logging and doesn’t alter behavior
+    expected_keys = {
+        "damping_enabled",
+        "overflow_detected",
+        "adjusted_time_step",
+        "max_velocity",
+        "global_cfl"
+    }
+    assert set(reflex.keys()) == expected_keys
+
+# ✅ Test: Step index variation preserves behavior
 def test_evolve_step_index_variation():
     grid = [make_fluid_cell(0, 0, 0)]
-    input_data = {"solver_params": {}, "reflex_flags": {}}
-    before = evolve_step(grid, input_data, step=0)
-    after = evolve_step(grid, input_data, step=10)
-    assert len(before) == len(after)
+    updated1, reflex1 = evolve_step(grid, mock_config(), step=0)
+    updated2, reflex2 = evolve_step(grid, mock_config(), step=10)
+
+    assert len(updated1) == len(updated2)
+    assert isinstance(reflex1, dict)
+    assert isinstance(reflex2, dict)
+    assert reflex1.keys() == reflex2.keys()
 
 
 

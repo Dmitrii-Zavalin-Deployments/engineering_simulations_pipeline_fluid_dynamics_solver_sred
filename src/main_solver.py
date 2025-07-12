@@ -1,4 +1,5 @@
 # src/main_solver.py
+# 🧠 Top-level driver for fluid simulation — orchestrates snapshots using step evolution
 
 import os
 import sys
@@ -13,17 +14,10 @@ from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 
-from src.metrics.velocity_metrics import compute_max_velocity
-from src.metrics.divergence_metrics import compute_max_divergence
-from src.metrics.cfl_controller import compute_global_cfl
-from src.metrics.overflow_monitor import detect_overflow
-from src.metrics.damping_manager import should_dampen
-from src.metrics.projection_evaluator import calculate_projection_passes
-
 def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
     Runs the simulation over time using persistent evolving grid.
-    Each snapshot reflects updated fluid state and metrics.
+    Each snapshot reflects updated fluid state and reflex diagnostics.
     """
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
@@ -50,18 +44,13 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     snapshots = []
 
     for step in range(num_steps + 1):
-        # ✅ Apply physics update and preserve evolving state
-        grid = evolve_step(grid, input_data, step)
+        # ✅ Evolve grid and collect reflex diagnostics
+        grid, reflex_metadata = evolve_step(grid, input_data, step)
 
         snapshot = {
             "step_index": step,
             "grid": [asdict(cell) for cell in grid],
-            "max_velocity": compute_max_velocity(grid),
-            "max_divergence": compute_max_divergence(grid),
-            "global_cfl": compute_global_cfl(grid, time_step, domain),
-            "overflow_detected": detect_overflow(grid),
-            "damping_enabled": should_dampen(grid, time_step),
-            "projection_passes": calculate_projection_passes(grid)
+            "reflex_flags": reflex_metadata
         }
 
         if step % output_interval == 0:
