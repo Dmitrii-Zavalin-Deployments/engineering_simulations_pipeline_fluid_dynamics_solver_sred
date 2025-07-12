@@ -40,69 +40,66 @@ def test_reflex_output_keys_complete():
     assert isinstance(flags, dict)
     assert expected_keys.issubset(flags.keys())
 
-def test_reflex_boolean_flags_are_valid():
+def test_reflex_flag_types():
     grid = [
         Cell(x=0, y=0, z=0, velocity=[0.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)
     ]
-    result = apply_reflex(grid, mock_config(), step=1)
+    flags = apply_reflex(grid, mock_config(), step=1)
 
-    assert isinstance(result["damping_enabled"], bool)
-    assert isinstance(result["overflow_detected"], bool)
+    assert isinstance(flags["damping_enabled"], bool)
+    assert isinstance(flags["overflow_detected"], bool)
+    assert isinstance(flags["adjusted_time_step"], float)
+    assert isinstance(flags["max_velocity"], float)
+    assert isinstance(flags["max_divergence"], float)
+    assert isinstance(flags["global_cfl"], float)
+    assert isinstance(flags["projection_passes"], int)
 
-def test_adjusted_time_step_matches_config_when_stable():
+def test_adjusted_time_step_stability():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)
     ]
     flags = apply_reflex(grid, mock_config(time_step=0.05), step=2)
 
-    assert isinstance(flags["adjusted_time_step"], float)
     assert abs(flags["adjusted_time_step"] - 0.05) < 1e-6
 
-def test_max_velocity_computation_is_correct():
+def test_max_velocity_calculation():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.1, 0.2, 0.2], pressure=101.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=102.0, fluid_mask=True)
     ]
-    result = apply_reflex(grid, mock_config(), step=3)
+    flags = apply_reflex(grid, mock_config(), step=3)
     expected = (0.1**2 + 0.2**2 + 0.2**2)**0.5
 
-    assert isinstance(result["max_velocity"], float)
-    assert abs(result["max_velocity"] - expected) < 1e-6
+    assert abs(flags["max_velocity"] - expected) < 1e-6
 
-def test_global_cfl_computation_is_stable():
+def test_global_cfl_consistency():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.0, 0.0], pressure=101.0, fluid_mask=True)
     ]
-    result = apply_reflex(grid, mock_config(time_step=0.1), step=4)
+    flags = apply_reflex(grid, mock_config(time_step=0.1), step=4)
 
-    assert isinstance(result["global_cfl"], float)
-    assert result["global_cfl"] <= 1.0
+    assert flags["global_cfl"] <= 1.0
 
-def test_max_divergence_is_float():
+def test_divergence_and_projection_fields():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.02, -0.01, 0.03], pressure=100.0, fluid_mask=True)
     ]
-    result = apply_reflex(grid, mock_config(), step=5)
-    assert isinstance(result["max_divergence"], float)
+    flags = apply_reflex(grid, mock_config(), step=5)
 
-def test_projection_pass_count_is_int():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.03, 0.01, 0.02], pressure=100.0, fluid_mask=True)
-    ]
-    result = apply_reflex(grid, mock_config(), step=6)
-    assert isinstance(result["projection_passes"], int)
-    assert result["projection_passes"] >= 0
+    assert isinstance(flags["max_divergence"], float)
+    assert isinstance(flags["projection_passes"], int)
+    assert flags["projection_passes"] >= 0
 
-def test_empty_grid_returns_safe_values():
-    result = apply_reflex([], mock_config(), step=7)
+def test_safe_defaults_for_empty_grid():
+    flags = apply_reflex([], mock_config(), step=6)
 
-    assert isinstance(result["max_velocity"], float)
-    assert isinstance(result["global_cfl"], float)
-    assert isinstance(result["max_divergence"], float)
-    assert isinstance(result["projection_passes"], int)
-    assert isinstance(result["damping_enabled"], bool)
-    assert isinstance(result["overflow_detected"], bool)
-    assert isinstance(result["adjusted_time_step"], float)
+    assert isinstance(flags["max_velocity"], float)
+    assert isinstance(flags["max_divergence"], float)
+    assert isinstance(flags["global_cfl"], float)
+    assert isinstance(flags["overflow_detected"], bool)
+    assert isinstance(flags["damping_enabled"], bool)
+    assert isinstance(flags["adjusted_time_step"], float)
+    assert isinstance(flags["projection_passes"], int)
 
 
 

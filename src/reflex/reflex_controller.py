@@ -39,7 +39,7 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
     max_divergence = compute_max_divergence(grid)
     global_cfl = compute_global_cfl(grid, time_step, domain)
     overflow_detected = detect_overflow(grid)
-    damping_enabled = should_dampen(grid, time_step)
+    damping_enabled = damping_metric(grid)
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
 
