@@ -1,11 +1,11 @@
 # src/grid_generator.py
 
 import logging
-import numpy as np
 from src.grid_modules.cell import Cell
 from src.grid_modules.grid_geometry import generate_coordinates
 from src.grid_modules.initial_field_assigner import assign_fields
 from src.grid_modules.boundary_manager import apply_boundaries
+from src.utils.mask_interpreter import decode_geometry_mask_flat
 
 def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     """
@@ -41,10 +41,11 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
 
     return tagged_cells
 
+
 def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: dict) -> list[Cell]:
     """
     Generates a 3D grid with seeded velocity/pressure, boundary tags, and fluid masking.
-    Fluid masking is extracted from geometry_mask_flat and geometry_mask_shape.
+    Fluid masking is extracted using geometry_mask_flat and geometry_mask_shape.
 
     Args:
         domain (dict): Domain bounds and resolution
@@ -55,17 +56,18 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
         list[Cell]: Grid tagged with fluid_mask and boundary conditions
     """
     nx, ny, nz = domain["nx"], domain["ny"], domain["nz"]
-    flat_mask = geometry["geometry_mask_flat"]
     shape = geometry["geometry_mask_shape"]
-    fluid_value = geometry["mask_encoding"]["fluid"]
-
     if shape != [nx, ny, nz]:
         raise ValueError(f"Geometry mask shape {shape} does not match domain resolution [{nx}, {ny}, {nz}]")
 
+    flat_mask = geometry["geometry_mask_flat"]
+    encoding = geometry.get("mask_encoding", {"fluid": 1, "solid": 0})
+    order = geometry.get("flattening_order", "x-major")
+
     try:
-        mask_array = np.array(flat_mask).reshape((nz, ny, nx))  # [z][y][x]
+        fluid_mask_list = decode_geometry_mask_flat(flat_mask, [nx, ny, nz], encoding, order)
     except Exception as e:
-        raise ValueError(f"Failed to reshape geometry_mask_flat: {e}")
+        raise ValueError(f"❌ Failed to decode fluid mask: {e}")
 
     coordinates = generate_coordinates(domain)
     if not coordinates:
@@ -75,13 +77,10 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
         logging.warning(f"⚠️ Low grid resolution — nx={nx}, ny={ny}, nz={nz}. Domain may be under-resolved.")
 
     cells = []
-    for (ix, iy, iz, x, y, z) in coordinates:
-        if not (0 <= ix < nx and 0 <= iy < ny and 0 <= iz < nz):
-            logging.warning(f"⚠️ Skipping out-of-bound cell at physical ({x}, {y}, {z}) → indices ({ix}, {iy}, {iz})")
-            continue
-
-        # ✅ Coerce to native Python bool to ensure JSON compatibility
-        fluid_mask = bool(mask_array[iz][iy][ix] == fluid_value)
+    for idx, (ix, iy, iz, x, y, z) in enumerate(coordinates):
+        if idx >= len(fluid_mask_list):
+            raise IndexError(f"❌ Coordinate index {idx} exceeds fluid mask length {len(fluid_mask_list)}")
+        fluid_mask = fluid_mask_list[idx]
         cells.append(Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=fluid_mask))
 
     seeded_cells = assign_fields(cells, initial_conditions)
