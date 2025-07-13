@@ -132,5 +132,15 @@ def test_snapshot_nulling_on_nonfluid_cells(input_with_mask):
                 assert cell["velocity"] is None
                 assert cell["pressure"] is None
 
+def test_snapshot_grid_size_matches_geometry(input_with_mask):
+    nx = input_with_mask["domain_definition"]["nx"]
+    ny = input_with_mask["domain_definition"]["ny"]
+    nz = input_with_mask["domain_definition"]["nz"]
+    expected_size = nx * ny * nz
+
+    snaps = generate_snapshots(input_with_mask, "geometry_size_check")
+    for _, snap in snaps:
+        assert len(snap["grid"]) == expected_size, "❌ Grid size mismatch against domain resolution"
+
 
 

@@ -43,20 +43,25 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     num_steps = int(total_time / time_step)
     snapshots = []
 
+    expected_size = domain["nx"] * domain["ny"] * domain["nz"]
+
     for step in range(num_steps + 1):
         # ✅ Evolve grid and collect reflex diagnostics
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
+        assert len(grid) == expected_size, f"❌ Snapshot grid size mismatch at step {step}"
+
         # ✅ Clean and serialize each cell
         serialized_grid = []
         for cell in grid:
+            fluid = getattr(cell, "fluid_mask", True)
             serialized_grid.append({
                 "x": cell.x,
                 "y": cell.y,
                 "z": cell.z,
-                "fluid_mask": getattr(cell, "fluid_mask", True),
-                "velocity": cell.velocity if getattr(cell, "fluid_mask", True) else None,
-                "pressure": cell.pressure if getattr(cell, "fluid_mask", True) else None
+                "fluid_mask": fluid,
+                "velocity": cell.velocity if fluid else None,
+                "pressure": cell.pressure if fluid else None
             })
 
         # ✅ Assemble snapshot with step index and flat reflex metrics

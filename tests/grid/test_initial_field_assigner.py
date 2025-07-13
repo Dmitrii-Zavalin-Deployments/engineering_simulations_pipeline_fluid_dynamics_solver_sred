@@ -51,7 +51,7 @@ def test_mixed_order_cell_assignment():
     assert updated[2].pressure == 8.0
 
 # ✅ Test: Fallback for missing fluid_mask (treated as fluid)
-def test_cells_without_fluid_mask_treated_as_true():
+def test_partial_cell_missing_fluid_mask_defaults_to_true():
     class PartialCell:
         def __init__(self, x, y, z):
             self.x = x
@@ -59,12 +59,11 @@ def test_cells_without_fluid_mask_treated_as_true():
             self.z = z
             self.velocity = []
             self.pressure = 0.0
-            # No fluid_mask defined — test assign_fields fallback logic
+            # fluid_mask intentionally omitted
 
     grid = [PartialCell(0, 0, 0), PartialCell(1, 0, 0)]
     init = {"initial_velocity": [1.0, 1.0, 1.0], "initial_pressure": 10.0}
     updated = assign_fields(grid, init)
-
     for cell in updated:
         assert cell.velocity == [1.0, 1.0, 1.0]
         assert cell.pressure == 10.0
@@ -119,6 +118,14 @@ def test_negative_pressure_and_velocity_values():
     for cell in updated:
         assert cell.velocity == [-1.0, -0.5, -2.0]
         assert cell.pressure == -99.0
+
+# 🔒 Defensive grid size check
+def test_field_assigner_grid_size_consistency():
+    grid = make_cells(count=6)
+    expected_size = 6
+    init = {"initial_velocity": [1.0, 0.0, 0.0], "initial_pressure": 100.0}
+    updated = assign_fields(grid, init)
+    assert len(updated) == expected_size, "❌ Grid size mismatch after field assignment"
 
 
 

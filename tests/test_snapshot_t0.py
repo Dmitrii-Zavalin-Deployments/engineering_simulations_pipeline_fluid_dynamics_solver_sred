@@ -46,6 +46,9 @@ def test_grid_structure(snapshot):
         assert isinstance(cell["y"], (int, float))
         assert isinstance(cell["z"], (int, float))
 
+def test_grid_size_matches_mask(snapshot, expected_mask):
+    assert len(snapshot["grid"]) == len(expected_mask), "❌ Snapshot grid size mismatch"
+
 def test_cell_coordinates(snapshot, domain):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
@@ -56,21 +59,17 @@ def test_cell_coordinates(snapshot, domain):
     z_centers = [domain["min_z"] + (k + 0.5) * dz for k in range(domain["nz"])]
 
     expected_coords = [(x, y, z) for x in x_centers for y in y_centers for z in z_centers]
+    actual_coords = [(c["x"], c["y"], c["z"]) for c in snapshot["grid"]]
 
-    domain_cells = [c for c in snapshot["grid"] if isinstance(c["x"], (int, float))]
-    assert len(domain_cells) == len(expected_coords), "❌ Grid coordinate count mismatch"
-
-    actual_coords = [(c["x"], c["y"], c["z"]) for c in domain_cells]
     for expected in expected_coords:
         assert expected in actual_coords
 
 def test_fluid_mask_matches_geometry(snapshot, expected_mask):
-    actual_mask = [c["fluid_mask"] for c in snapshot["grid"] if c["velocity"] is not None or c["pressure"] is not None]
+    actual_mask = [c["fluid_mask"] for c in snapshot["grid"]]
     assert actual_mask == expected_mask
 
 def test_velocity_and_pressure_field_values(snapshot, expected_mask):
-    labeled_cells = [c for c in snapshot["grid"] if c["velocity"] is not None or c["pressure"] is not None]
-    for cell, is_fluid in zip(labeled_cells, expected_mask):
+    for cell, is_fluid in zip(snapshot["grid"], expected_mask):
         if is_fluid:
             assert isinstance(cell["velocity"], list)
             assert len(cell["velocity"]) == 3
@@ -105,9 +104,8 @@ def test_basic_reflex_flags(snapshot):
 
 def test_snapshot_input_pressure_if_no_projection(snapshot, expected_mask):
     passes = snapshot.get("projection_passes", 0)
-    labeled_cells = [c for c in snapshot["grid"] if c["velocity"] is not None or c["pressure"] is not None]
     if passes == 0:
-        for cell, is_fluid in zip(labeled_cells, expected_mask):
+        for cell, is_fluid in zip(snapshot["grid"], expected_mask):
             if is_fluid:
                 assert abs(cell["pressure"] - EXPECTED_PRESSURE) < EPSILON
             else:
@@ -117,9 +115,8 @@ def test_snapshot_input_pressure_if_no_projection(snapshot, expected_mask):
 
 def test_pressure_projection_changed_values(snapshot, expected_mask):
     passes = snapshot.get("projection_passes", 0)
-    labeled_cells = [c for c in snapshot["grid"] if c["velocity"] is not None or c["pressure"] is not None]
     if passes >= 1:
-        deltas = [abs(c["pressure"] - EXPECTED_PRESSURE) for c in labeled_cells if c["fluid_mask"]]
+        deltas = [abs(cell["pressure"] - EXPECTED_PRESSURE) for cell, is_fluid in zip(snapshot["grid"], expected_mask) if is_fluid]
         if all(d < EPSILON for d in deltas):
             print("⚠️ Projection ran, but no pressure changed from initial value.")
             pytest.skip("⚠️ Pressure projection did not modify fluid pressures — possible equilibrium")

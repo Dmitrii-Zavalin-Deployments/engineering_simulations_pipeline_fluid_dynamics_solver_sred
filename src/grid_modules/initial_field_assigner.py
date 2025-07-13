@@ -32,7 +32,8 @@ def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
         raise ValueError("❌ 'initial_pressure' must be a numeric value")
 
     for cell in cells:
-        if not hasattr(cell, "fluid_mask") or cell.fluid_mask:
+        fluid = getattr(cell, "fluid_mask", True)
+        if fluid:
             cell.velocity = velocity[:]
             cell.pressure = pressure
         else:
