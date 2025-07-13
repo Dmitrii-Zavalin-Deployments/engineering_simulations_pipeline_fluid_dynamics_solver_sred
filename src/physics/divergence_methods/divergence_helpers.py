@@ -1,11 +1,11 @@
 # src/physics/divergence_methods/divergence_helpers.py
-# 🧮 Stub: Divergence helper utilities for central difference scheme
+# 🧮 Divergence helper utilities for central difference scheme
 
 from src.grid_modules.cell import Cell
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 
 def get_neighbor_velocity(
-    grid_lookup: dict,
+    grid_lookup: Dict[Tuple[float, float, float], Cell],
     x: float,
     y: float,
     z: float,
@@ -14,37 +14,52 @@ def get_neighbor_velocity(
     spacing: float
 ) -> Optional[List[float]]:
     """
-    Placeholder for retrieving neighbor cell velocity along a given axis and offset.
+    Retrieves velocity vector from neighbor cell along specified axis and direction.
 
     Args:
-        grid_lookup (dict): Map of (x, y, z) → Cell
-        x, y, z (float): Cell coordinates
-        axis (str): 'x', 'y', or 'z'
-        sign (int): +1 or -1 direction
-        spacing (float): Domain spacing (dx, dy, dz)
+        grid_lookup (Dict): (x, y, z) → Cell mapping
+        x, y, z (float): Origin cell coordinates
+        axis (str): Axis ('x', 'y', or 'z')
+        sign (int): Direction (+1 or -1)
+        spacing (float): Grid spacing along that axis
 
     Returns:
-        Optional[List[float]]: Velocity vector if neighbor exists and is fluid; None otherwise
+        Optional[List[float]]: Velocity if neighbor is fluid and valid; None otherwise
     """
+    offset = {
+        'x': (spacing, 0.0, 0.0),
+        'y': (0.0, spacing, 0.0),
+        'z': (0.0, 0.0, spacing)
+    }.get(axis, (0.0, 0.0, 0.0))
+
+    dx, dy, dz = offset
+    target = (x + sign * dx, y + sign * dy, z + sign * dz)
+    neighbor = grid_lookup.get(target)
+
+    if neighbor and neighbor.fluid_mask and isinstance(neighbor.velocity, list):
+        return neighbor.velocity
     return None
 
-
 def central_gradient(
-    v_pos: List[float],
-    v_neg: List[float],
-    spacing: float
+    v_pos: Optional[List[float]],
+    v_neg: Optional[List[float]],
+    spacing: float,
+    component: int
 ) -> float:
     """
-    Placeholder for central difference gradient calculation.
+    Computes central difference gradient for a velocity component.
 
     Args:
-        v_pos (List[float]): Velocity from positive direction neighbor
-        v_neg (List[float]): Velocity from negative direction neighbor
-        spacing (float): Domain spacing along that axis
+        v_pos (Optional[List[float]]): Velocity vector from positive direction
+        v_neg (Optional[List[float]]): Velocity vector from negative direction
+        spacing (float): Grid spacing along axis
+        component (int): Index of component to differentiate (0:x, 1:y, 2:z)
 
     Returns:
-        float: Central difference gradient (∂v/∂axis)
+        float: Gradient value ∂v/∂axis or zero if neighbors are missing
     """
+    if v_pos is not None and v_neg is not None:
+        return (v_pos[component] - v_neg[component]) / (2.0 * spacing)
     return 0.0
 
 
