@@ -35,7 +35,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     divergence = compute_divergence(safe_grid)
 
     # ⚡ Step 2: Solve pressure Poisson equation based on divergence
-    grid_with_pressure = solve_pressure_poisson(safe_grid, divergence, input_data)
+    grid_with_pressure, pressure_mutated = solve_pressure_poisson(safe_grid, divergence, input_data)
 
     # 🧪 Step 2.5: Optional mutation diagnostics (non-functional logging only)
     mutation_count = 0

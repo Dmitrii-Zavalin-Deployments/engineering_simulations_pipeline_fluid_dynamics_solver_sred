@@ -32,7 +32,6 @@ def test_pressure_correction_preserves_grid_shape():
         Cell(x=2.0, y=0.0, z=0.0, velocity=[0.0, 1.0, 0.0], pressure=99.0, fluid_mask=True)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=0)
-
     assert isinstance(result, list)
     assert len(result) == len(grid)
     for updated, original in zip(result, grid):
@@ -58,7 +57,6 @@ def test_solid_cells_pressure_remains_none():
         Cell(x=1.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=2)
-
     for cell in result:
         assert not cell.fluid_mask
         assert cell.pressure is None
@@ -82,7 +80,6 @@ def test_pressure_correction_downgrades_malformed_velocity_cell():
         Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=5)
-
     assert result[0].fluid_mask is False
     assert result[0].pressure is None
     assert result[0].velocity is None
