@@ -1,8 +1,8 @@
 # tests/physics/pressure_methods/test_boundary.py
-# 🧪 Unit tests for Neumann and solid neighbor pressure logic
+# 🧪 Unit tests for Neumann and ghost/solid neighbor pressure logic
 
 import pytest
-from src.physics.pressure_methods.boundary import apply_neumann_conditions, handle_solid_neighbors
+from src.physics.pressure_methods.boundary import apply_neumann_conditions, handle_solid_or_ghost_neighbors
 
 def make_coord(x, y, z):
     return (float(x), float(y), float(z))
@@ -21,24 +21,30 @@ def test_neumann_condition_handles_missing_pressure_key():
     result = apply_neumann_conditions(coord, neighbor, pressure_map)
     assert result == 0.0
 
-def test_handle_solid_neighbors_with_all_fluid_neighbors():
+def test_handle_all_fluid_neighbors():
     coord = make_coord(0, 0, 0)
     neighbors = [make_coord(1, 0, 0), make_coord(-1, 0, 0),
                  make_coord(0, 1, 0), make_coord(0, -1, 0),
                  make_coord(0, 0, 1), make_coord(0, 0, -1)]
     pressure_map = {n: i * 10.0 for i, n in enumerate(neighbors)}
     fluid_mask_map = {n: True for n in neighbors}
-    result = handle_solid_neighbors(coord, neighbors, pressure_map, fluid_mask_map)
+    ghost_coords = set()  # no ghosts
+
+    result = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
     expected = sum(pressure_map[n] for n in neighbors)
     assert result == pytest.approx(expected)
 
-def test_handle_solid_neighbors_mixes_fluid_and_solid():
+def test_handle_mixed_fluid_solid_neighbors():
     coord = make_coord(0, 0, 0)
     neighbors = [make_coord(1, 0, 0), make_coord(-1, 0, 0),
                  make_coord(0, 1, 0), make_coord(0, -1, 0),
                  make_coord(0, 0, 1), make_coord(0, 0, -1)]
-
-    # Only half of them are fluid
+    pressure_map = {
+        coord: 100.0,
+        neighbors[0]: 10.0,
+        neighbors[2]: 20.0,
+        neighbors[4]: 30.0
+    }
     fluid_mask_map = {
         neighbors[0]: True,
         neighbors[1]: False,
@@ -47,35 +53,39 @@ def test_handle_solid_neighbors_mixes_fluid_and_solid():
         neighbors[4]: True,
         neighbors[5]: False
     }
+    ghost_coords = set()  # no ghosts
 
-    pressure_map = {
-        coord: 100.0,
-        neighbors[0]: 10.0,
-        neighbors[2]: 20.0,
-        neighbors[4]: 30.0
-    }
-
-    result = handle_solid_neighbors(coord, neighbors, pressure_map, fluid_mask_map)
-    # fluid neighbors contribute their own pressure
-    # solid neighbors contribute coord pressure (Neumann)
+    result = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
     expected = (
-        pressure_map[neighbors[0]] +
-        pressure_map[coord] +  # solid
-        pressure_map[neighbors[2]] +
-        pressure_map[coord] +  # solid
-        pressure_map[neighbors[4]] +
-        pressure_map[coord]    # solid
+        pressure_map[neighbors[0]] +  # fluid
+        pressure_map[coord] +         # solid
+        pressure_map[neighbors[2]] +  # fluid
+        pressure_map[coord] +         # solid
+        pressure_map[neighbors[4]] +  # fluid
+        pressure_map[coord]           # solid
     )
     assert result == pytest.approx(expected)
 
-def test_handle_solid_neighbors_handles_missing_neighbors_gracefully():
+def test_handle_missing_neighbors_gracefully():
     coord = make_coord(0, 0, 0)
-    neighbors = [make_coord(99, 99, 99)]  # completely missing
+    neighbors = [make_coord(9, 9, 9)]  # missing completely
     pressure_map = {coord: 123.0}
-    fluid_mask_map = {}  # no entry at all
+    fluid_mask_map = {}  # no entry
+    ghost_coords = set()
 
-    result = handle_solid_neighbors(coord, neighbors, pressure_map, fluid_mask_map)
-    assert result == pytest.approx(123.0)  # fallback to Neumann
+    result = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
+    assert result == pytest.approx(123.0)
+
+def test_ghost_neighbors_trigger_neumann_fallback():
+    coord = make_coord(0, 0, 0)
+    ghost = make_coord(1, 0, 0)
+    neighbors = [ghost]
+    pressure_map = {coord: 88.0}
+    fluid_mask_map = {ghost: True}  # will be ignored due to ghost
+    ghost_coords = {ghost}
+
+    result = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
+    assert result == pytest.approx(88.0)
 
 
 

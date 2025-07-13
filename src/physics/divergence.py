@@ -1,17 +1,19 @@
 # src/physics/divergence.py
-# 🔍 Central-difference divergence calculation for fluid incompressibility checks
+# 🔍 Central-difference divergence calculation for fluid incompressibility checks — ghost-aware
 
 from src.grid_modules.cell import Cell
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Set
 from src.physics.divergence_methods.central import compute_central_divergence
 
-def compute_divergence(grid: List[Cell], config: dict = {}) -> List[float]:
+def compute_divergence(grid: List[Cell], config: dict = {}, ghost_registry: Set[int] = set()) -> List[float]:
     """
-    Computes divergence values for fluid cells using central-difference approximation.
+    Computes divergence values for valid fluid cells using central-difference approximation,
+    excluding ghost cells.
 
     Args:
         grid (List[Cell]): Grid of Cell objects
         config (dict): Domain configuration including spacing and resolution
+        ghost_registry (Set[int]): Set of ghost cell IDs to exclude
 
     Returns:
         List[float]: Divergence values for fluid cells (order matches input)
@@ -27,9 +29,10 @@ def compute_divergence(grid: List[Cell], config: dict = {}) -> List[float]:
             fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
         )
         for cell in grid
+        if id(cell) not in ghost_registry
     ]
 
-    # 🧪 Step 2: Call divergence engine on sanitized grid
+    # 🧪 Step 2: Call divergence engine on sanitized, ghost-free grid
     return compute_central_divergence(safe_grid, config)
 
 

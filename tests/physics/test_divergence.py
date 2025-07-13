@@ -1,5 +1,5 @@
 # tests/physics/test_divergence.py
-# 🧪 Unit tests for compute_divergence — central-difference velocity divergence
+# 🧪 Unit tests for compute_divergence — central-difference velocity divergence and ghost-awareness
 
 import pytest
 from src.physics.divergence import compute_divergence
@@ -93,6 +93,16 @@ def test_divergence_skips_malformed_velocity_among_valid():
     result = compute_divergence(grid, config)
     assert len(result) == 2
     assert all(isinstance(val, float) for val in result)
+
+def test_divergence_excludes_ghost_cells():
+    ghost = make_cell(-1.0, 0.0, 0.0, None, fluid_mask=False)
+    fluid = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    grid = [ghost, fluid]
+    config = make_config()
+    ghost_registry = {id(ghost)}
+    result = compute_divergence(grid, config, ghost_registry=ghost_registry)
+    assert len(result) == 1
+    assert isinstance(result[0], float)
 
 
 

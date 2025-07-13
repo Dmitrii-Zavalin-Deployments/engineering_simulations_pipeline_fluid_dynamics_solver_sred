@@ -1,5 +1,5 @@
 # tests/physics/test_advection.py
-# 🧪 Integration tests for advection.py — default Euler method routing
+# 🧪 Integration tests for advection.py — default Euler method routing + ghost cell exclusion
 
 import pytest
 from src.physics.advection import compute_advection
@@ -67,10 +67,20 @@ def test_advection_preserves_cell_coordinates_and_mask():
 def test_advection_ignores_malformed_velocity_vector():
     bad_cell = make_cell(0, 0, 0, "invalid_velocity")
     result = compute_advection([bad_cell], dt=0.1, config={})
-
     assert isinstance(result, list)
     assert len(result) == 1
-    assert result[0].velocity == "invalid_velocity"  # preserved as-is
+    assert result[0].velocity == "invalid_velocity"
+
+def test_advection_excludes_ghost_cells():
+    physical = make_cell(0, 0, 0, [1.0, 0.0, 0.0])
+    ghost = make_cell(-1, 0, 0, None, pressure=None, fluid_mask=False)
+    grid = [physical, ghost]
+    ghost_registry = {id(ghost)}
+    config = {"simulation_parameters": {"time_step": 0.1}}
+
+    result = compute_advection(grid, dt=0.1, config=config, ghost_registry=ghost_registry)
+    assert len(result) == 1
+    assert result[0].velocity == [1.0, 0.0, 0.0]
 
 
 
