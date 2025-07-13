@@ -1,29 +1,22 @@
 # src/physics/divergence.py
-# 🔍 Stub: Divergence computation for incompressibility checks
+# 🔍 Central-difference divergence calculation for fluid incompressibility checks
 
 from src.grid_modules.cell import Cell
-from typing import List
+from typing import List, Dict, Tuple
+from src.physics.divergence_methods.central import compute_central_divergence
 
-def compute_divergence(grid: List[Cell]) -> List[float]:
+def compute_divergence(grid: List[Cell], config: dict = {}) -> List[float]:
     """
-    Placeholder for divergence calculation on fluid cells.
+    Computes divergence values for fluid cells using central-difference approximation.
 
     Args:
-        grid (List[Cell]): List of Cell objects with velocity data
+        grid (List[Cell]): Grid of Cell objects
+        config (dict): Domain configuration including spacing and resolution
 
     Returns:
-        List[float]: Divergence value per fluid cell (0.0 for stub)
-
-    Notes:
-        This stub returns zero divergence for all fluid cells.
-        Future implementation will compute central-difference-based divergence
-        using spatial velocity gradients and neighbor topology.
+        List[float]: Divergence values for fluid cells (order matches input)
     """
-    divergence = []
-    for cell in grid:
-        if cell.fluid_mask:
-            divergence.append(0.0)  # stubbed zero divergence
-    return divergence
+    return compute_central_divergence(grid, config)
 
 
 
