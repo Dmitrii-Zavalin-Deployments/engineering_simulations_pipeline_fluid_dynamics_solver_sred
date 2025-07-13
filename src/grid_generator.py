@@ -73,15 +73,15 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     if not coordinates:
         logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
-    if nx < 2 or ny < 2 or nz < 2:
-        logging.warning(f"⚠️ Low grid resolution — nx={nx}, ny={ny}, nz={nz}. Domain may be under-resolved.")
+    if len(fluid_mask_list) != len(coordinates):
+        raise ValueError(f"❌ Geometry mask length {len(fluid_mask_list)} does not match coordinate count {len(coordinates)}")
 
     cells = []
     for idx, (ix, iy, iz, x, y, z) in enumerate(coordinates):
-        if idx >= len(fluid_mask_list):
-            raise IndexError(f"❌ Coordinate index {idx} exceeds fluid mask length {len(fluid_mask_list)}")
         fluid_mask = fluid_mask_list[idx]
-        cells.append(Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=fluid_mask))
+        velocity = [] if fluid_mask else None
+        pressure = 0.0 if fluid_mask else None
+        cells.append(Cell(x, y, z, velocity=velocity, pressure=pressure, fluid_mask=fluid_mask))
 
     seeded_cells = assign_fields(cells, initial_conditions)
     tagged_cells = apply_boundaries(seeded_cells, domain)

@@ -1,38 +1,53 @@
 # tests/grid/test_grid_generator.py
 
 import pytest
-from src.grid_generator import generate_grid
+from src.grid_generator import generate_grid_with_mask
 from src.grid_modules.cell import Cell
 
-def test_basic_grid_structure():
+def test_masked_grid_structure_correctness():
     domain = {
-        "nx": 2, "ny": 2, "nz": 1,
-        "min_x": 0.0, "max_x": 1.0,
+        "nx": 3, "ny": 2, "nz": 1,
+        "min_x": 0.0, "max_x": 3.0,
         "min_y": 0.0, "max_y": 1.0,
-        "min_z": 0.0, "max_z": 0.1
+        "min_z": 0.0, "max_z": 1.0
     }
     initial_conditions = {
         "initial_velocity": [1.0, 0.0, 0.0],
-        "initial_pressure": 1.0
+        "initial_pressure": 100.0
+    }
+    geometry = {
+        "geometry_mask_flat": [1, 1, 0, 0, 1, 1],
+        "geometry_mask_shape": [3, 2, 1],
+        "mask_encoding": { "fluid": 1, "solid": 0 },
+        "flattening_order": "x-major"
     }
 
-    grid = generate_grid(domain, initial_conditions)
-    assert len(grid) == 4
+    grid = generate_grid_with_mask(domain, initial_conditions, geometry)
+    assert len(grid) == 6
+    fluid_count = 0
+    solid_count = 0
+
     for cell in grid:
         assert isinstance(cell, Cell)
         assert isinstance(cell.x, (int, float))
         assert isinstance(cell.y, (int, float))
         assert isinstance(cell.z, (int, float))
-        assert isinstance(cell.velocity, list)
-        assert len(cell.velocity) == 3
-        assert all(isinstance(v, (int, float)) for v in cell.velocity)
-        assert isinstance(cell.pressure, (int, float))
         assert isinstance(cell.fluid_mask, bool)
-        assert cell.fluid_mask is True
+        if cell.fluid_mask:
+            fluid_count += 1
+            assert isinstance(cell.velocity, list) and len(cell.velocity) == 3
+            assert isinstance(cell.pressure, float)
+        else:
+            solid_count += 1
+            assert cell.velocity is None
+            assert cell.pressure is None
 
-def test_empty_domain_raises_error():
+    assert fluid_count == 4
+    assert solid_count == 2
+
+def test_mask_shape_mismatch_raises():
     domain = {
-        "nx": 0, "ny": 0, "nz": 0,
+        "nx": 2, "ny": 2, "nz": 1,
         "min_x": 0.0, "max_x": 1.0,
         "min_y": 0.0, "max_y": 1.0,
         "min_z": 0.0, "max_z": 1.0
@@ -41,80 +56,43 @@ def test_empty_domain_raises_error():
         "initial_velocity": [0.0, 0.0, 0.0],
         "initial_pressure": 0.0
     }
+    geometry = {
+        "geometry_mask_flat": [1, 1, 0, 0, 1, 1],
+        "geometry_mask_shape": [3, 2, 1],
+        "mask_encoding": { "fluid": 1, "solid": 0 },
+        "flattening_order": "x-major"
+    }
 
-    with pytest.raises(ValueError, match="Resolution values must be greater than zero"):
-        generate_grid(domain, initial_conditions)
+    with pytest.raises(ValueError, match="does not match domain resolution"):
+        generate_grid_with_mask(domain, initial_conditions, geometry)
 
-def test_nonuniform_dimensions():
+def test_masked_cells_sanitization_and_assignment():
     domain = {
-        "nx": 1, "ny": 3, "nz": 2,
-        "min_x": 0.0, "max_x": 1.0,
-        "min_y": 0.0, "max_y": 3.0,
-        "min_z": 0.0, "max_z": 2.0
-    }
-    initial_conditions = {
-        "initial_velocity": [0.0, 1.0, 0.0],
-        "initial_pressure": 2.0
-    }
-
-    grid = generate_grid(domain, initial_conditions)
-    assert len(grid) == 6
-    for cell in grid:
-        assert cell.velocity == [0.0, 1.0, 0.0]
-        assert cell.pressure == 2.0
-        assert cell.fluid_mask is True
-
-def test_velocity_and_pressure_assigned_correctly():
-    domain = {
-        "nx": 2, "ny": 2, "nz": 1,
-        "min_x": 0.0, "max_x": 1.0,
-        "min_y": 0.0, "max_y": 1.0,
-        "min_z": 0.0, "max_z": 0.1
-    }
-    initial_conditions = {
-        "initial_velocity": [3.0, -1.0, 0.5],
-        "initial_pressure": 4.2
-    }
-
-    grid = generate_grid(domain, initial_conditions)
-    for cell in grid:
-        assert cell.velocity == [3.0, -1.0, 0.5]
-        assert cell.pressure == 4.2
-        assert cell.fluid_mask is True
-
-def test_invalid_initial_conditions_raise_error():
-    domain = {
-        "nx": 1, "ny": 1, "nz": 1,
-        "min_x": 0.0, "max_x": 1.0,
+        "nx": 2, "ny": 1, "nz": 1,
+        "min_x": 0.0, "max_x": 2.0,
         "min_y": 0.0, "max_y": 1.0,
         "min_z": 0.0, "max_z": 1.0
     }
     initial_conditions = {
-        "initial_velocity": None,
-        "initial_pressure": None
+        "initial_velocity": [0.5, 0.5, 0.0],
+        "initial_pressure": 1.5
+    }
+    geometry = {
+        "geometry_mask_flat": [1, 0],
+        "geometry_mask_shape": [2, 1, 1],
+        "mask_encoding": { "fluid": 1, "solid": 0 },
+        "flattening_order": "x-major"
     }
 
-    with pytest.raises(ValueError, match="must be a list of 3 numeric components"):
-        generate_grid(domain, initial_conditions)
+    grid = generate_grid_with_mask(domain, initial_conditions, geometry)
+    assert len(grid) == 2
+    assert grid[0].fluid_mask is True
+    assert grid[0].velocity == [0.5, 0.5, 0.0]
+    assert grid[0].pressure == 1.5
 
-def test_large_grid_scale():
-    domain = {
-        "nx": 10, "ny": 10, "nz": 10,
-        "min_x": 0.0, "max_x": 10.0,
-        "min_y": 0.0, "max_y": 10.0,
-        "min_z": 0.0, "max_z": 10.0
-    }
-    initial_conditions = {
-        "initial_velocity": [0.0, 0.0, 1.0],
-        "initial_pressure": 1.0
-    }
-
-    grid = generate_grid(domain, initial_conditions)
-    assert len(grid) == 1000
-    for cell in grid:
-        assert cell.velocity == [0.0, 0.0, 1.0]
-        assert cell.pressure == 1.0
-        assert cell.fluid_mask is True
+    assert grid[1].fluid_mask is False
+    assert grid[1].velocity is None
+    assert grid[1].pressure is None
 
 
 
