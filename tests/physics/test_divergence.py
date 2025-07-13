@@ -42,7 +42,7 @@ def test_linear_velocity_gradient_x_direction():
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 3
-    assert result[1] > 0.0
+    assert result[1] == pytest.approx(1.0)
 
 def test_divergence_excludes_solid_cells():
     grid = [
@@ -80,11 +80,9 @@ def test_divergence_returns_ordered_values_for_fluid_cells():
 def test_divergence_safety_for_malformed_velocity_vector():
     bad_cell = make_cell(0.0, 0.0, 0.0, "not_a_vector")
     config = make_config()
-    try:
-        result = compute_divergence([bad_cell], config)
-        assert isinstance(result[0], float)
-    except Exception:
-        pytest.fail("compute_divergence crashed on malformed velocity input")
+    result = compute_divergence([bad_cell], config)
+    assert isinstance(result, list)
+    assert len(result) == 0  # Malformed velocity is safely skipped
 
 
 
