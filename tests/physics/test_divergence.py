@@ -84,5 +84,17 @@ def test_divergence_safety_for_malformed_velocity_vector():
     assert isinstance(result, list)
     assert len(result) == 0  # Malformed velocity is safely skipped
 
+def test_divergence_mixed_valid_and_invalid_velocity_cells():
+    grid = [
+        make_cell(0.0, 0.0, 0.0, "bad"),
+        make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
+        make_cell(2.0, 0.0, 0.0, "bad"),
+        make_cell(3.0, 0.0, 0.0, [2.0, 0.0, 0.0])
+    ]
+    config = make_config(nx=4)
+    result = compute_divergence(grid, config)
+    assert len(result) == 2  # Only valid fluid cells contribute
+    assert all(isinstance(val, float) for val in result)
+
 
 

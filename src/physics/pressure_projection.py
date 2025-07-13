@@ -19,6 +19,14 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     """
     method = config.get("pressure_solver", {}).get("method", "jacobi").lower()
 
+    # Count fluid cells up front
+    fluid_cell_count = sum(cell.fluid_mask for cell in grid)
+
+    if len(divergence) != fluid_cell_count:
+        raise ValueError(
+            f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
+        )
+
     if method == "jacobi":
         pressure_values = solve_jacobi_pressure(grid, divergence, config)
     else:
@@ -32,7 +40,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
                 x=cell.x,
                 y=cell.y,
                 z=cell.z,
-                velocity=cell.velocity[:],
+                velocity=cell.velocity[:] if isinstance(cell.velocity, list) else None,
                 pressure=pressure_values[fluid_index],
                 fluid_mask=True
             )

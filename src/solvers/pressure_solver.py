@@ -18,11 +18,24 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     Returns:
         List[Cell]: Grid with updated pressure values (fluid cells only)
     """
+    # 🧼 Step 0: Filter out malformed velocity cells before computing divergence
+    safe_grid = []
+    for cell in grid:
+        if cell.fluid_mask and not isinstance(cell.velocity, list):
+            # Downgrade malformed fluid cell to solid to skip divergence
+            cell = Cell(
+                x=cell.x, y=cell.y, z=cell.z,
+                velocity=None,
+                pressure=None,
+                fluid_mask=False
+            )
+        safe_grid.append(cell)
+
     # 🔍 Step 1: Compute divergence of velocity field
-    divergence = compute_divergence(grid)  # returns List[float] for fluid cells
+    divergence = compute_divergence(safe_grid)  # returns List[float] for valid fluid cells
 
     # ⚡ Step 2: Solve pressure Poisson equation for correction
-    grid_with_pressure = solve_pressure_poisson(grid, divergence, input_data)
+    grid_with_pressure = solve_pressure_poisson(safe_grid, divergence, input_data)
 
     # 📤 Step 3: Return pressure-corrected grid (velocity projection to be added later)
     return grid_with_pressure
