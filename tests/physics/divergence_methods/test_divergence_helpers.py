@@ -57,7 +57,7 @@ def test_central_gradient_computes_correct_value():
     v_pos = [3.0, 2.0, 1.0]
     v_neg = [1.0, 0.0, -1.0]
     spacing = 1.0
-    result = central_gradient(v_pos, v_neg, spacing, component=0)  # ∂vx/∂x
+    result = central_gradient(v_pos, v_neg, spacing, component=0)
     assert result == pytest.approx(1.0)
 
 def test_central_gradient_handles_non_x_component():

@@ -77,7 +77,7 @@ def test_divergence_includes_y_and_z_gradients():
     divergence = compute_central_divergence(grid, config)
     assert len(divergence) == 5
     center_index = 0
-    assert divergence[center_index] == pytest.approx(1.0)  # ∂vy/∂y = 1.0, ∂vz/∂z = 1.0 → total ≈ 2.0
+    assert divergence[center_index] == pytest.approx(2.0)
 
 def test_malformed_velocity_skipped_safely():
     grid = [
@@ -86,6 +86,7 @@ def test_malformed_velocity_skipped_safely():
     ]
     config = make_config()
     divergence = compute_central_divergence(grid, config)
+    assert isinstance(divergence, list)
     assert len(divergence) == 1
     assert divergence[0] == pytest.approx(0.0)
 
