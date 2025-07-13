@@ -26,7 +26,7 @@ def test_solid_cells_are_sanitized():
     updated = assign_fields(grid, init)
 
     for cell in updated:
-        if cell.fluid_mask:
+        if getattr(cell, "fluid_mask", True):
             assert cell.velocity == [2.0, 0.0, 0.0]
             assert cell.pressure == 5.5
         else:
@@ -59,6 +59,7 @@ def test_cells_without_fluid_mask_treated_as_true():
             self.z = z
             self.velocity = []
             self.pressure = 0.0
+            # No fluid_mask defined — test assign_fields fallback logic
 
     grid = [PartialCell(0, 0, 0), PartialCell(1, 0, 0)]
     init = {"initial_velocity": [1.0, 1.0, 1.0], "initial_pressure": 10.0}

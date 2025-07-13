@@ -54,9 +54,9 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
                 "x": cell.x,
                 "y": cell.y,
                 "z": cell.z,
-                "fluid_mask": cell.fluid_mask,
-                "velocity": cell.velocity if cell.fluid_mask else None,
-                "pressure": cell.pressure if cell.fluid_mask else None
+                "fluid_mask": getattr(cell, "fluid_mask", True),
+                "velocity": cell.velocity if getattr(cell, "fluid_mask", True) else None,
+                "pressure": cell.pressure if getattr(cell, "fluid_mask", True) else None
             })
 
         # ✅ Assemble snapshot with step index and flat reflex metrics

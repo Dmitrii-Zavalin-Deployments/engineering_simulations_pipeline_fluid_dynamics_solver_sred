@@ -40,15 +40,9 @@ MASKED_INPUT = {
         "no_slip": True
     },
     "geometry_definition": {
-        "geometry_mask_flat": [
-            1, 1, 0,
-            0, 1, 1
-        ],
+        "geometry_mask_flat": [1, 1, 0, 0, 1, 1],
         "geometry_mask_shape": [3, 2, 1],
-        "mask_encoding": {
-            "fluid": 1,
-            "solid": 0
-        },
+        "mask_encoding": { "fluid": 1, "solid": 0 },
         "flattening_order": "x-major"
     }
 }
@@ -59,18 +53,18 @@ def input_with_mask():
 
 def test_snapshot_count_matches_interval(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "mask_test")
-    assert len(snaps) == 6  # steps 0,2,4,6,8,10
+    assert len(snaps) == 6
 
-def test_snapshot_contains_flat_metrics(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "flat_metrics_check")
-    required_keys = {
+def test_snapshot_includes_all_required_keys(input_with_mask):
+    snaps = generate_snapshots(input_with_mask, "key_check")
+    expected_keys = {
         "step_index", "grid",
         "max_velocity", "max_divergence", "global_cfl",
         "overflow_detected", "damping_enabled",
         "adjusted_time_step", "projection_passes"
     }
     for _, snap in snaps:
-        assert required_keys.issubset(snap.keys())
+        assert expected_keys.issubset(snap.keys())
 
 def test_metrics_have_correct_types(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "type_check")
@@ -83,8 +77,8 @@ def test_metrics_have_correct_types(input_with_mask):
         assert isinstance(snap["adjusted_time_step"], float)
         assert isinstance(snap["projection_passes"], int)
 
-def test_grid_has_correct_field_types_and_nulling(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "field_check")
+def test_grid_serialization_respects_mask(input_with_mask):
+    snaps = generate_snapshots(input_with_mask, "mask_check")
     for _, snap in snaps:
         for cell in snap["grid"]:
             assert isinstance(cell["x"], (int, float))
@@ -121,14 +115,22 @@ def test_velocity_magnitude_consistency(input_with_mask):
     actual_mag = compute_max_velocity(grid)
     assert round(actual_mag, 5) == round(expected_mag, 5)
 
-def test_zero_output_interval_is_handled_gracefully(input_with_mask):
+def test_zero_output_interval_fallback(input_with_mask):
     input_with_mask["simulation_parameters"]["output_interval"] = 0
     snaps = generate_snapshots(input_with_mask, "zero_interval")
-    assert len(snaps) > 0  # Should fallback to interval=1
+    assert len(snaps) > 0
 
-def test_snapshot_step_index_formatting():
+def test_step_index_formatting_logic():
     steps = [f"{i:04d}" for i in [0, 1, 12, 123, 1234]]
     assert steps == ["0000", "0001", "0012", "0123", "1234"]
+
+def test_snapshot_nulling_on_nonfluid_cells(input_with_mask):
+    snaps = generate_snapshots(input_with_mask, "null_check")
+    for _, snap in snaps:
+        for cell in snap["grid"]:
+            if not cell["fluid_mask"]:
+                assert cell["velocity"] is None
+                assert cell["pressure"] is None
 
 
 
