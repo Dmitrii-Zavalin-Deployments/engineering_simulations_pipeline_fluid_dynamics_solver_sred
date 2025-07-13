@@ -5,7 +5,6 @@ import os
 import sys
 import json
 import logging
-from dataclasses import asdict
 
 # ✅ Add path adjustment for module resolution in CI or direct script execution
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -18,6 +17,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
     Runs the simulation over time using persistent evolving grid.
     Each snapshot reflects updated fluid state and reflex diagnostics.
+    Ensures all cells — fluid, solid, and ghost — have consistent serialization.
     """
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
@@ -47,11 +47,23 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         # ✅ Evolve grid and collect reflex diagnostics
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
-        # ✅ Serialize snapshot with step index and flat reflex metrics
+        # ✅ Clean and serialize each cell
+        serialized_grid = []
+        for cell in grid:
+            serialized_grid.append({
+                "x": cell.x,
+                "y": cell.y,
+                "z": cell.z,
+                "fluid_mask": cell.fluid_mask,
+                "velocity": cell.velocity if cell.fluid_mask else None,
+                "pressure": cell.pressure if cell.fluid_mask else None
+            })
+
+        # ✅ Assemble snapshot with step index and flat reflex metrics
         snapshot = {
             "step_index": step,
-            "grid": [asdict(cell) for cell in grid],
-            **reflex_metadata  # 🚀 Flatten reflex flags into top-level
+            "grid": serialized_grid,
+            **reflex_metadata
         }
 
         if step % output_interval == 0:

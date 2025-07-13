@@ -2,9 +2,8 @@
 # 🧪 Comprehensive unit tests for main_solver.py — includes reflex metrics, masking, and snapshot integrity
 
 import pytest
-from dataclasses import asdict
 from src.main_solver import generate_snapshots
-from src.grid_generator import generate_grid, generate_grid_with_mask
+from src.grid_generator import generate_grid_with_mask
 from src.metrics.velocity_metrics import compute_max_velocity
 
 MASKED_INPUT = {
@@ -26,7 +25,20 @@ MASKED_INPUT = {
         "total_time": 1.0,
         "output_interval": 2
     },
-    "boundary_conditions": [],
+    "boundary_conditions": {
+        "x_min": "inlet",
+        "x_max": "outlet",
+        "y_min": "wall",
+        "y_max": "wall",
+        "z_min": "symmetry",
+        "z_max": "symmetry",
+        "faces": [1, 2, 3, 4, 5, 6],
+        "type": "dirichlet",
+        "apply_to": ["pressure", "velocity"],
+        "pressure": 100.0,
+        "velocity": [0.0, 0.0, 0.0],
+        "no_slip": True
+    },
     "geometry_definition": {
         "geometry_mask_flat": [
             1, 1, 0,
@@ -71,7 +83,7 @@ def test_metrics_have_correct_types(input_with_mask):
         assert isinstance(snap["adjusted_time_step"], float)
         assert isinstance(snap["projection_passes"], int)
 
-def test_grid_has_correct_field_types(input_with_mask):
+def test_grid_has_correct_field_types_and_nulling(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "field_check")
     for _, snap in snaps:
         for cell in snap["grid"]:
@@ -112,7 +124,7 @@ def test_velocity_magnitude_consistency(input_with_mask):
 def test_zero_output_interval_is_handled_gracefully(input_with_mask):
     input_with_mask["simulation_parameters"]["output_interval"] = 0
     snaps = generate_snapshots(input_with_mask, "zero_interval")
-    assert len(snaps) > 0  # Should not crash or hang
+    assert len(snaps) > 0  # Should fallback to interval=1
 
 def test_snapshot_step_index_formatting():
     steps = [f"{i:04d}" for i in [0, 1, 12, 123, 1234]]

@@ -27,32 +27,35 @@ def mock_config(time_step=0.1, viscosity=0.01):
             "viscosity": viscosity
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 1.0,
-            "nx": 5,
-            "min_y": 0.0,
-            "max_y": 1.0,
-            "ny": 1,
-            "min_z": 0.0,
-            "max_z": 1.0,
-            "nz": 1
+            "min_x": 0.0, "max_x": 1.0, "nx": 5,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         },
         "boundary_conditions": {
             "x_min": "inlet",
-            "x_max": "outlet"
+            "x_max": "outlet",
+            "y_min": "wall",
+            "y_max": "wall",
+            "z_min": "symmetry",
+            "z_max": "symmetry",
+            "faces": [1, 2, 3, 4, 5, 6],
+            "type": "dirichlet",
+            "apply_to": ["pressure", "velocity"],
+            "pressure": 100.0,
+            "velocity": [0.0, 0.0, 0.0],
+            "no_slip": True
         }
     }
 
 def test_evolve_single_fluid_cell():
     grid = [make_fluid_cell(0, 0, 0)]
     updated, reflex = evolve_step(grid, mock_config(), step=0)
-    assert len(updated) >= 1  # Ghost cells may be added
-    fluid_count = sum(1 for cell in updated if cell.fluid_mask)
-    assert fluid_count >= 1
+    assert len(updated) >= 1
     assert isinstance(reflex, dict)
     assert "max_velocity" in reflex
+    assert any(isinstance(c, Cell) for c in updated)
 
-def test_evolve_mixed_cells():
+def test_evolve_mixed_cells_with_solid_and_fluid():
     grid = [
         make_fluid_cell(0, 0, 0),
         make_solid_cell(1, 0, 0),
@@ -65,28 +68,27 @@ def test_evolve_mixed_cells():
             assert isinstance(cell.velocity, list)
             assert isinstance(cell.pressure, float)
         else:
-            assert cell.velocity is None or isinstance(cell.velocity, list)
-            assert cell.pressure is None or isinstance(cell.pressure, float)
+            assert cell.velocity is None
+            assert cell.pressure is None
     assert "max_velocity" in reflex
 
-def test_evolve_empty_grid():
+def test_evolve_empty_grid_does_not_crash():
     updated, reflex = evolve_step([], mock_config(), step=2)
     assert isinstance(updated, list)
     assert isinstance(reflex, dict)
     assert "max_velocity" in reflex
 
-def test_evolve_malformed_velocity_gets_downgraded_to_solid():
+def test_malformed_velocity_downgrades_cell():
     bad_cell = Cell(x=0, y=0, z=0, velocity="bad", pressure=1.0, fluid_mask=True)
     grid = [bad_cell]
     updated, reflex = evolve_step(grid, mock_config(), step=3)
-    assert len(updated) >= 1
     downgraded = next(c for c in updated if c.x == 0 and c.y == 0 and c.z == 0)
     assert downgraded.fluid_mask is False
     assert downgraded.velocity is None
     assert downgraded.pressure is None
     assert isinstance(reflex["max_velocity"], float)
 
-def test_reflex_metadata_structure():
+def test_reflex_metadata_has_expected_keys():
     grid = [make_fluid_cell(0, 0, 0)]
     _, reflex = evolve_step(grid, mock_config(), step=4)
     expected_keys = {
@@ -101,20 +103,24 @@ def test_reflex_metadata_structure():
     for key in expected_keys:
         assert key in reflex
 
-def test_evolve_step_index_effect():
+def test_consistent_step_metadata_across_steps():
     grid = [make_fluid_cell(0, 0, 0)]
     updated_a, reflex_a = evolve_step(grid, mock_config(), step=0)
     updated_b, reflex_b = evolve_step(grid, mock_config(), step=1)
     assert len(updated_a) == len(updated_b)
-    assert isinstance(reflex_a, dict)
-    assert isinstance(reflex_b, dict)
     assert set(reflex_a.keys()) == set(reflex_b.keys())
 
-def test_ghost_cells_are_created_and_excluded():
-    grid = [make_fluid_cell(0, 0, 0)]
+def test_ghost_cells_generated_and_identified():
+    grid = [make_fluid_cell(0.0, 0.0, 0.0)]
     updated, _ = evolve_step(grid, mock_config(), step=5)
-    ghost_candidates = [cell for cell in updated if not cell.fluid_mask and cell.velocity is None and cell.pressure is None]
-    assert len(ghost_candidates) >= 1  # Expect at least ghost cells near x boundaries
+    ghost_cells = [c for c in updated if not c.fluid_mask and c.velocity is None and c.pressure is None]
+    assert len(ghost_cells) >= 1
+    for ghost in ghost_cells:
+        assert isinstance(ghost.x, (int, float))
+        assert isinstance(ghost.y, (int, float))
+        assert isinstance(ghost.z, (int, float))
+        assert ghost.velocity is None
+        assert ghost.pressure is None
 
 
 

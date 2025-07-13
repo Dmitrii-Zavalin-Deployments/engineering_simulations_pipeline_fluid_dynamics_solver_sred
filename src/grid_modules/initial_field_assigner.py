@@ -5,7 +5,7 @@ from src.grid_modules.cell import Cell
 def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
     """
     Assigns initial velocity and pressure to fluid cells only.
-    Solid cells (fluid_mask=False) are initialized with None values.
+    Solid and ghost cells (fluid_mask=False) are initialized with None values.
     Raises ValueError if required fields are missing or invalid.
 
     Args:
@@ -31,7 +31,7 @@ def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
         raise ValueError("❌ 'initial_pressure' must be a numeric value")
 
     for cell in cells:
-        if getattr(cell, "fluid_mask", True):
+        if hasattr(cell, "fluid_mask") and cell.fluid_mask is True:
             cell.velocity = velocity[:]
             cell.pressure = pressure
         else:
