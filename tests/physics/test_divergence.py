@@ -23,7 +23,6 @@ def make_config(dx=1.0, dy=1.0, dz=1.0, nx=3, ny=1, nz=1):
 # -------------------------------
 
 def test_uniform_velocity_zero_divergence():
-    # 1D grid of 3 cells with uniform velocity → divergence should be 0
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
@@ -32,10 +31,9 @@ def test_uniform_velocity_zero_divergence():
     config = make_config()
     result = compute_divergence(grid, config)
     for value in result:
-        assert pytest.approx(value) == 0.0
+        assert value == pytest.approx(0.0)
 
 def test_linear_velocity_gradient_x_direction():
-    # 1D grid with increasing vx → divergence should be positive
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0]),
@@ -43,10 +41,8 @@ def test_linear_velocity_gradient_x_direction():
     ]
     config = make_config()
     result = compute_divergence(grid, config)
-
-    # Expect non-zero divergence at center (only fluid cell with full neighbors)
     assert len(result) == 3
-    assert pytest.approx(result[1]) > 0.0
+    assert result[1] > 0.0
 
 def test_divergence_excludes_solid_cells():
     grid = [
@@ -57,13 +53,12 @@ def test_divergence_excludes_solid_cells():
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 1
-    assert pytest.approx(result[0]) == 0.0
+    assert result[0] == pytest.approx(0.0)
 
 def test_missing_neighbor_edge_case_handled_safely():
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0])
-        # No neighbor at x = 2.0 for central difference
     ]
     config = make_config(nx=2)
     result = compute_divergence(grid, config)
@@ -80,8 +75,7 @@ def test_divergence_returns_ordered_values_for_fluid_cells():
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 2
-    assert isinstance(result[0], float)
-    assert isinstance(result[1], float)
+    assert all(isinstance(v, float) for v in result)
 
 def test_divergence_safety_for_malformed_velocity_vector():
     bad_cell = make_cell(0.0, 0.0, 0.0, "not_a_vector")
