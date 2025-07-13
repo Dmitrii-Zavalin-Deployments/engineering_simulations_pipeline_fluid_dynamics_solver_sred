@@ -2,11 +2,11 @@
 # 🔁 Pressure projection module for enforcing incompressibility
 
 from src.grid_modules.cell import Cell
-from typing import List
+from typing import List, Tuple
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
 from src.physics.pressure_methods.utils import index_fluid_cells, flatten_pressure_field
 
-def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> List[Cell]:
+def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool]:
     """
     Computes updated pressure values for fluid cells using the selected solver method.
 
@@ -16,7 +16,9 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
         config (dict): Simulation config including solver parameters
 
     Returns:
-        List[Cell]: Grid with updated pressure values (fluid cells only)
+        Tuple[List[Cell], bool]: 
+            - Grid with updated pressure values (fluid cells only)
+            - pressure_mutated flag indicating if any fluid pressure changed
     """
     method = config.get("pressure_solver", {}).get("method", "jacobi").lower()
 
@@ -35,17 +37,21 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     else:
         raise ValueError(f"Unknown or unsupported pressure solver method: '{method}'")
 
-    # 🧱 Reconstruct grid with updated pressures
+    # 🧱 Reconstruct grid and track mutation
     updated = []
     fluid_index = 0
+    pressure_mutated = False
     for cell in grid:
         if cell.fluid_mask:
+            new_pressure = pressure_values[fluid_index]
+            if isinstance(cell.pressure, float) and abs(cell.pressure - new_pressure) > 1e-6:
+                pressure_mutated = True
             updated_cell = Cell(
                 x=cell.x,
                 y=cell.y,
                 z=cell.z,
                 velocity=cell.velocity[:] if isinstance(cell.velocity, list) else None,
-                pressure=pressure_values[fluid_index],
+                pressure=new_pressure,
                 fluid_mask=True
             )
             fluid_index += 1
@@ -60,7 +66,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
             )
         updated.append(updated_cell)
 
-    return updated
+    return updated, pressure_mutated
 
 
 

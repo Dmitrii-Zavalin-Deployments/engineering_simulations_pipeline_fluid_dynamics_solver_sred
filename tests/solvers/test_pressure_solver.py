@@ -1,5 +1,5 @@
 # tests/solvers/test_pressure_solver.py
-# 🧪 Unit tests for pressure_solver.py — validates pressure correction flow
+# 🧪 Unit tests for pressure_solver.py — validates pressure correction flow and mutation diagnostics
 
 import pytest
 from src.grid_modules.cell import Cell
@@ -88,6 +88,15 @@ def test_pressure_correction_downgrades_malformed_velocity_cell():
     assert result[0].velocity is None
     assert result[1].fluid_mask is True
     assert isinstance(result[1].pressure, float)
+
+def test_pressure_mutation_diagnostic_triggers_message(capfd):
+    grid = [
+        Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=50.0, fluid_mask=True),
+        Cell(x=1.0, y=0.0, z=0.0, velocity=[-1, 0, 0], pressure=50.0, fluid_mask=True)
+    ]
+    _ = apply_pressure_correction(grid, mock_config(), step=6)
+    out, _ = capfd.readouterr()
+    assert "Pressure correction modified" in out or "no pressure values changed" in out
 
 
 

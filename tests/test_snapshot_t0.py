@@ -134,7 +134,12 @@ def test_pressure_projection_modifies_pressure_if_solver_runs(snapshot, expected
     if passes >= 1:
         fluid_pressures = [cell["pressure"] for cell, is_fluid in zip(snapshot["grid"], expected_mask) if is_fluid]
         deltas = [abs(p - EXPECTED_PRESSURE) for p in fluid_pressures]
-        assert any(delta > EPSILON for delta in deltas), "❌ Pressure projection at t=0 did not modify expected values"
+
+        if all(delta < EPSILON for delta in deltas):
+            print("⚠️ Projection ran, but no pressure changed from initial value. Possibly steady-state.")
+
+        assert any(delta > EPSILON for delta in deltas), \
+            "❌ Pressure projection at t=0 did not modify expected values"
     else:
         pytest.skip("⚠️ projection_passes == 0 — skipping pressure mutation test")
 

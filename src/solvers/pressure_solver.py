@@ -37,6 +37,20 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     # ⚡ Step 2: Solve pressure Poisson equation based on divergence
     grid_with_pressure = solve_pressure_poisson(safe_grid, divergence, input_data)
 
+    # 🧪 Step 2.5: Optional mutation diagnostics (non-functional logging only)
+    mutation_count = 0
+    for old, updated in zip(safe_grid, grid_with_pressure):
+        if updated.fluid_mask:
+            initial = old.pressure if isinstance(old.pressure, float) else 0.0
+            final = updated.pressure if isinstance(updated.pressure, float) else 0.0
+            if abs(final - initial) > 1e-6:
+                mutation_count += 1
+
+    if mutation_count == 0:
+        print(f"⚠️ Pressure solver ran at step {step}, but no pressure values changed.")
+    else:
+        print(f"✅ Pressure correction modified {mutation_count} fluid cells at step {step}.")
+
     # 📤 Step 3: Return grid with updated pressure values (projection of velocity added later)
     return grid_with_pressure
 

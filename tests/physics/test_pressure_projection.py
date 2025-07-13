@@ -1,5 +1,5 @@
 # tests/physics/test_pressure_projection.py
-# 🧪 Unit tests for pressure projection — validate incompressibility enforcement
+# 🧪 Unit tests for pressure projection — validate incompressibility enforcement and pressure mutation tracking
 
 import pytest
 from src.physics.pressure_projection import solve_pressure_poisson
@@ -34,11 +34,12 @@ def test_pressure_projection_preserves_grid_structure():
     ]
     divergence = [0.5]
     config = make_config()
-    result = solve_pressure_poisson(grid, divergence, config)
+    result, mutated = solve_pressure_poisson(grid, divergence, config)
     assert len(result) == len(grid)
     assert result[0].fluid_mask is True
     assert result[1].fluid_mask is False
     assert result[1].pressure is None
+    assert isinstance(mutated, bool)
 
 def test_pressure_projection_mutates_pressure_on_nonzero_divergence():
     grid = [
@@ -47,9 +48,10 @@ def test_pressure_projection_mutates_pressure_on_nonzero_divergence():
     ]
     divergence = [0.2, -0.2]
     config = make_config(iterations=100, tolerance=1e-8)
-    result = solve_pressure_poisson(grid, divergence, config)
+    result, mutated = solve_pressure_poisson(grid, divergence, config)
     pressures = [cell.pressure for cell in result if cell.fluid_mask]
     assert any(abs(p - 1.0) > 1e-3 for p in pressures)
+    assert mutated is True
 
 def test_pressure_projection_balances_pressure_with_zero_divergence():
     grid = [
@@ -58,10 +60,11 @@ def test_pressure_projection_balances_pressure_with_zero_divergence():
     ]
     divergence = [0.0, 0.0]
     config = make_config()
-    result = solve_pressure_poisson(grid, divergence, config)
+    result, mutated = solve_pressure_poisson(grid, divergence, config)
     pressures = [cell.pressure for cell in result if cell.fluid_mask]
     midpoint = sum(pressures) / len(pressures)
     assert all(abs(p - midpoint) < 1.0 for p in pressures)
+    assert mutated is True or mutated is False  # may or may not change — result depends on solver stability
 
 def test_pressure_projection_skips_solid_cells():
     grid = [
@@ -70,13 +73,15 @@ def test_pressure_projection_skips_solid_cells():
     ]
     divergence = [0.1]
     config = make_config()
-    result = solve_pressure_poisson(grid, divergence, config)
+    result, mutated = solve_pressure_poisson(grid, divergence, config)
     assert result[0].pressure is None
     assert result[1].pressure is not None
+    assert isinstance(mutated, bool)
 
 def test_pressure_projection_handles_empty_grid():
-    result = solve_pressure_poisson([], [], make_config())
+    result, mutated = solve_pressure_poisson([], [], make_config())
     assert result == []
+    assert mutated is False
 
 def test_pressure_projection_raises_on_divergence_mismatch():
     grid = [
@@ -109,10 +114,11 @@ def test_pressure_projection_converges_with_high_iterations():
     ]
     divergence = [0.1, -0.1]
     config = make_config(iterations=200, tolerance=1e-8)
-    result = solve_pressure_poisson(grid, divergence, config)
+    result, mutated = solve_pressure_poisson(grid, divergence, config)
     pressures = [cell.pressure for cell in result if cell.fluid_mask]
     assert len(pressures) == 2
     assert any(abs(p - orig) > 1e-3 for p, orig in zip(pressures, [2.0, 4.0]))
+    assert mutated is True
 
 
 

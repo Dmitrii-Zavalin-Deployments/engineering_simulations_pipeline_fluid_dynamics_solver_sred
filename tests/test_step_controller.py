@@ -106,7 +106,7 @@ def test_evolve_step_index_effect():
     assert len(updated_a) == len(updated_b)
     assert isinstance(reflex_a, dict)
     assert isinstance(reflex_b, dict)
-    assert set(reflex_a.keys()) == set(reflex_b.keys)
+    assert set(reflex_a.keys()) == set(reflex_b.keys())
 
 
 
