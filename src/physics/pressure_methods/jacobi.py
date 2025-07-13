@@ -17,6 +17,7 @@ def solve_jacobi_pressure(grid: List[Cell], divergence: List[float], config: dic
         List[float]: Computed pressure values for fluid cells
     """
     # TODO: Implement Jacobi pressure projection logic
+    
     return [0.0 for _ in divergence]
 
 
