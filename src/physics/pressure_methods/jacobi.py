@@ -1,13 +1,16 @@
 # src/physics/pressure_methods/jacobi.py
-# 🔁 Jacobi iteration for pressure Poisson solve (∇²p = divergence)
+# 🔁 Jacobi iteration for pressure Poisson solve (∇²p = divergence) — ghost-aware
 
 from src.grid_modules.cell import Cell
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Set
 from src.physics.pressure_methods.utils import index_fluid_cells, build_pressure_map
-from src.physics.pressure_methods.boundary import handle_solid_neighbors
+from src.physics.pressure_methods.boundary import handle_solid_or_ghost_neighbors
 import math
 
-def solve_jacobi_pressure(grid: List[Cell], divergence: List[float], config: dict) -> List[float]:
+def solve_jacobi_pressure(grid: List[Cell],
+                          divergence: List[float],
+                          config: dict,
+                          ghost_coords: Set[Tuple[float, float, float]] = set()) -> List[float]:
     """
     Solves pressure Poisson equation using Jacobi iteration.
 
@@ -15,6 +18,7 @@ def solve_jacobi_pressure(grid: List[Cell], divergence: List[float], config: dic
         grid (List[Cell]): Grid of cells with fluid_mask and pressure fields
         divergence (List[float]): Divergence values for fluid cells
         config (dict): Simulation config with domain resolution and solver params
+        ghost_coords (Set[Tuple]): Coordinates of ghost cells to exclude from neighbor logic
 
     Returns:
         List[float]: Updated pressure values for fluid cells (same order as input)
@@ -58,7 +62,7 @@ def solve_jacobi_pressure(grid: List[Cell], divergence: List[float], config: dic
                 (x, y, z - dz), (x, y, z + dz)
             ]
 
-            neighbor_sum = handle_solid_neighbors(coord, neighbors, pressure_map, fluid_mask_map)
+            neighbor_sum = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
             rhs = spacing_sq * divergence_map.get(coord, 0.0)
             new_p = (neighbor_sum - rhs) / 6.0
 

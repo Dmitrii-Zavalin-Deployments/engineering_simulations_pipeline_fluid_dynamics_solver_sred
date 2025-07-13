@@ -1,5 +1,5 @@
 # tests/physics/pressure_methods/test_jacobi.py
-# 🧪 Unit tests for Jacobi pressure solver
+# 🧪 Unit tests for Jacobi pressure solver — ghost-aware
 
 import pytest
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
@@ -82,6 +82,19 @@ def test_jacobi_handles_boundary_conditions():
     pressures = solve_jacobi_pressure(grid, divergence, config)
     assert len(pressures) == 3
     assert any(abs(p) > 0.01 for p in pressures)
+
+def test_jacobi_excludes_ghost_neighbors_from_pressure_sum():
+    ghost_cell = make_cell(-1.0, 0.0, 0.0, None, pressure=None, fluid_mask=False)
+    fluid_cell = make_cell(0.0, 0.0, 0.0, [0, 0, 0], pressure=1.0)
+    grid = [ghost_cell, fluid_cell]
+    divergence = [0.0]
+    config = make_config(nx=1)
+    ghost_coords = {(ghost_cell.x, ghost_cell.y, ghost_cell.z)}
+
+    pressures = solve_jacobi_pressure(grid, divergence, config, ghost_coords=ghost_coords)
+    assert isinstance(pressures, list)
+    assert len(pressures) == 1
+    assert isinstance(pressures[0], float)
 
 
 
