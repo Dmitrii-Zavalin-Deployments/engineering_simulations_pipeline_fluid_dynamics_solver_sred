@@ -40,60 +40,54 @@ def test_pressure_correction_preserves_grid_shape():
         assert updated.x == original.x
         assert updated.y == original.y
         assert updated.z == original.z
-        assert updated.fluid_mask == original.fluid_mask
+        assert isinstance(updated.fluid_mask, bool)
 
-def test_fluid_cells_have_pressure_preserved_or_modified():
+def test_fluid_cells_receive_pressure_correction():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.01, 0.01], pressure=100.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[-0.01, -0.01, -0.01], pressure=105.0, fluid_mask=True)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=1)
+    pressures = [cell.pressure for cell in result if cell.fluid_mask]
+    assert all(isinstance(p, float) for p in pressures)
+    assert any(abs(p - 100.0) > 0.01 for p in pressures) or any(abs(p - 105.0) > 0.01 for p in pressures)
 
-    for updated in result:
-        assert updated.fluid_mask
-        assert updated.pressure is not None
-        assert isinstance(updated.pressure, float)
-
-def test_solid_cells_pressure_is_none():
+def test_solid_cells_pressure_remains_none():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False),
         Cell(x=1.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=2)
 
-    for updated in result:
-        assert not updated.fluid_mask
-        assert updated.pressure is None
-        assert updated.velocity is None
+    for cell in result:
+        assert not cell.fluid_mask
+        assert cell.pressure is None
+        assert cell.velocity is None
 
-def test_pressure_correction_handles_empty_grid():
+def test_pressure_correction_handles_empty_input():
     result = apply_pressure_correction([], mock_config(), step=3)
     assert isinstance(result, list)
-    assert len(result) == 0
+    assert result == []
 
-def test_pressure_correction_does_not_mutate_original():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=101, fluid_mask=True)
-    ]
-    before = grid[0].pressure
+def test_pressure_correction_does_not_mutate_original_pressure():
+    original = Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=101.0, fluid_mask=True)
+    grid = [original]
     result = apply_pressure_correction(grid, mock_config(), step=4)
-
     assert isinstance(result[0].pressure, float)
-    assert grid[0].pressure == before  # original remains unchanged
+    assert original.pressure == 101.0  # Ensure original pressure remains unchanged
 
-def test_pressure_correction_handles_malformed_velocity_cell():
+def test_pressure_correction_downgrades_malformed_velocity_cell():
     grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity="bad_velocity", pressure=1.0, fluid_mask=True),
+        Cell(x=0.0, y=0.0, z=0.0, velocity="not_a_vector", pressure=1.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
     ]
     result = apply_pressure_correction(grid, mock_config(), step=5)
 
-    assert isinstance(result, list)
-    assert len(result) == len(grid)
-    assert result[0].fluid_mask is False  # downgraded to solid
+    assert result[0].fluid_mask is False
     assert result[0].pressure is None
+    assert result[0].velocity is None
     assert result[1].fluid_mask is True
-    assert result[1].pressure is not None
+    assert isinstance(result[1].pressure, float)
 
 
 

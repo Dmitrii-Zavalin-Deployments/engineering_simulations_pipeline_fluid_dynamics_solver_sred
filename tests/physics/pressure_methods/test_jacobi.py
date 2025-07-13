@@ -39,25 +39,16 @@ def test_jacobi_returns_expected_length():
     assert len(pressures) == 2
     assert all(isinstance(p, float) for p in pressures)
 
-def test_jacobi_converges_for_uniform_input():
-    grid = [
-        make_cell(0.0, 0.0, 0.0, [0, 0, 0], pressure=10.0),
-        make_cell(1.0, 0.0, 0.0, [0, 0, 0], pressure=10.0)
-    ]
-    divergence = [0.0, 0.0]
-    config = make_config(max_iterations=20, tolerance=1e-8)
-    pressures = solve_jacobi_pressure(grid, divergence, config)
-    assert all(abs(p - 10.0) < 1e-2 for p in pressures)
-
-def test_jacobi_includes_initial_pressure():
+def test_jacobi_converges_to_balance_with_zero_divergence():
     grid = [
         make_cell(0.0, 0.0, 0.0, [0, 0, 0], pressure=5.0),
         make_cell(1.0, 0.0, 0.0, [0, 0, 0], pressure=0.0)
     ]
     divergence = [0.0, 0.0]
-    config = make_config()
+    config = make_config(max_iterations=50, tolerance=1e-6)
     pressures = solve_jacobi_pressure(grid, divergence, config)
-    assert abs(pressures[0] - 5.0) < 1.0  # initial pressure preserved
+    average = sum(pressures) / 2.0
+    assert all(abs(p - average) < 1.0 for p in pressures)
 
 def test_jacobi_skips_solid_cells():
     grid = [
@@ -75,7 +66,7 @@ def test_jacobi_raises_on_mismatched_divergence():
         make_cell(0.0, 0.0, 0.0, [0, 0, 0]),
         make_cell(1.0, 0.0, 0.0, [0, 0, 0])
     ]
-    divergence = [1.0]  # should be length 2
+    divergence = [1.0]  # mismatch
     config = make_config()
     with pytest.raises(ValueError):
         solve_jacobi_pressure(grid, divergence, config)

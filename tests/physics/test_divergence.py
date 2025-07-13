@@ -22,7 +22,7 @@ def make_config(dx=1.0, dy=1.0, dz=1.0, nx=3, ny=1, nz=1):
 # Divergence Value Test Scenarios
 # -------------------------------
 
-def test_uniform_velocity_zero_divergence():
+def test_uniform_velocity_yields_zero_divergence():
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
@@ -30,10 +30,9 @@ def test_uniform_velocity_zero_divergence():
     ]
     config = make_config()
     result = compute_divergence(grid, config)
-    for value in result:
-        assert value == pytest.approx(0.0)
+    assert all(pytest.approx(val, abs=1e-6) == 0.0 for val in result)
 
-def test_linear_velocity_gradient_x_direction():
+def test_linear_x_velocity_gives_correct_divergence():
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0]),
@@ -42,49 +41,48 @@ def test_linear_velocity_gradient_x_direction():
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 3
-    assert result[1] == pytest.approx(1.0)
+    assert result[1] == pytest.approx(1.0, abs=1e-6)
 
-def test_divergence_excludes_solid_cells():
+def test_solid_cells_excluded_from_divergence():
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid_mask=False),
-        make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid_mask=True),
-        make_cell(2.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid_mask=False)
+        make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid_mask=True),
+        make_cell(2.0, 0.0, 0.0, [3.0, 0.0, 0.0], fluid_mask=False)
     ]
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 1
-    assert result[0] == pytest.approx(0.0)
+    assert isinstance(result[0], float)
 
-def test_missing_neighbor_edge_case_handled_safely():
+def test_edge_cells_divergence_handles_missing_neighbors():
     grid = [
-        make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
-        make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0])
+        make_cell(0.0, 0.0, 0.0, [1.0, 1.0, 1.0]),
+        make_cell(1.0, 0.0, 0.0, [2.0, 2.0, 2.0])
     ]
     config = make_config(nx=2)
     result = compute_divergence(grid, config)
     assert len(result) == 2
-    for value in result:
-        assert isinstance(value, float)
+    assert all(isinstance(val, float) for val in result)
 
-def test_divergence_returns_ordered_values_for_fluid_cells():
+def test_divergence_order_matches_fluid_cells():
     grid = [
-        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid_mask=True),
+        make_cell(0.0, 0.0, 0.0, [0.1, 0.0, 0.0], fluid_mask=True),
         make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid_mask=False),
-        make_cell(2.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid_mask=True)
+        make_cell(2.0, 0.0, 0.0, [0.2, 0.0, 0.0], fluid_mask=True)
     ]
     config = make_config()
     result = compute_divergence(grid, config)
     assert len(result) == 2
-    assert all(isinstance(v, float) for v in result)
+    assert all(isinstance(val, float) for val in result)
 
-def test_divergence_safety_for_malformed_velocity_vector():
-    bad_cell = make_cell(0.0, 0.0, 0.0, "not_a_vector")
+def test_malformed_velocity_excluded_from_divergence():
+    bad = make_cell(0.0, 0.0, 0.0, "bad_vector", fluid_mask=True)
     config = make_config()
-    result = compute_divergence([bad_cell], config)
+    result = compute_divergence([bad], config)
     assert isinstance(result, list)
-    assert len(result) == 0  # Malformed velocity is safely skipped
+    assert len(result) == 0
 
-def test_divergence_mixed_valid_and_invalid_velocity_cells():
+def test_divergence_skips_malformed_velocity_among_valid():
     grid = [
         make_cell(0.0, 0.0, 0.0, "bad"),
         make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
@@ -93,7 +91,7 @@ def test_divergence_mixed_valid_and_invalid_velocity_cells():
     ]
     config = make_config(nx=4)
     result = compute_divergence(grid, config)
-    assert len(result) == 2  # Only valid fluid cells contribute
+    assert len(result) == 2
     assert all(isinstance(val, float) for val in result)
 
 

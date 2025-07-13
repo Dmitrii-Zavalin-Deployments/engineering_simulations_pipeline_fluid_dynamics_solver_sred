@@ -1,5 +1,5 @@
 # src/physics/pressure_methods/utils.py
-# Stub for indexing and pressure map utilities
+# 🛠️ Utilities for fluid cell indexing and pressure field mapping
 
 from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
@@ -14,8 +14,8 @@ def index_fluid_cells(grid: List[Cell]) -> List[Tuple[float, float, float]]:
     Returns:
         List of (x, y, z) coordinates for fluid cells
     """
-    # TODO: Extract coordinates of fluid cells
-    return []
+    return [(cell.x, cell.y, cell.z) for cell in grid if cell.fluid_mask]
+
 
 def build_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], float]:
     """
@@ -27,8 +27,12 @@ def build_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], flo
     Returns:
         Dict of coordinates to pressure values
     """
-    # TODO: Construct pressure map from fluid cells
-    return {}
+    return {
+        (cell.x, cell.y, cell.z): cell.pressure
+        for cell in grid
+        if cell.fluid_mask and isinstance(cell.pressure, (int, float))
+    }
+
 
 def flatten_pressure_field(pressure_map: Dict[Tuple[float, float, float], float],
                            fluid_coords: List[Tuple[float, float, float]]) -> List[float]:
@@ -42,8 +46,7 @@ def flatten_pressure_field(pressure_map: Dict[Tuple[float, float, float], float]
     Returns:
         List[float]: Flattened pressure field
     """
-    # TODO: Flatten pressure values to list
-    return [0.0 for _ in fluid_coords]
+    return [pressure_map.get(coord, 0.0) for coord in fluid_coords]
 
 
 

@@ -16,23 +16,21 @@ def compute_divergence(grid: List[Cell], config: dict = {}) -> List[float]:
     Returns:
         List[float]: Divergence values for fluid cells (order matches input)
     """
-    # 🧼 Filter out fluid cells with malformed velocity before computing divergence
-    filtered_grid = []
-    for cell in grid:
-        if cell.fluid_mask and not isinstance(cell.velocity, list):
-            # Downgrade malformed fluid cell to solid
-            filtered_grid.append(Cell(
-                x=cell.x,
-                y=cell.y,
-                z=cell.z,
-                velocity=None,
-                pressure=None,
-                fluid_mask=False
-            ))
-        else:
-            filtered_grid.append(cell)
+    # 🧼 Step 1: Downgrade malformed fluid cells (non-list velocity) to solid
+    safe_grid = [
+        Cell(
+            x=cell.x,
+            y=cell.y,
+            z=cell.z,
+            velocity=cell.velocity if cell.fluid_mask and isinstance(cell.velocity, list) else None,
+            pressure=cell.pressure if cell.fluid_mask and isinstance(cell.velocity, list) else None,
+            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
+        )
+        for cell in grid
+    ]
 
-    return compute_central_divergence(filtered_grid, config)
+    # 🧪 Step 2: Call divergence engine on sanitized grid
+    return compute_central_divergence(safe_grid, config)
 
 
 

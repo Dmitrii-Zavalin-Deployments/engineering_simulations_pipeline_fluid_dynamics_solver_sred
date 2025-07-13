@@ -4,6 +4,7 @@
 from src.grid_modules.cell import Cell
 from typing import List
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
+from src.physics.pressure_methods.utils import index_fluid_cells, flatten_pressure_field
 
 def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> List[Cell]:
     """
@@ -19,19 +20,22 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     """
     method = config.get("pressure_solver", {}).get("method", "jacobi").lower()
 
-    # Count fluid cells up front
-    fluid_cell_count = sum(cell.fluid_mask for cell in grid)
+    # 🔍 Index fluid cells for solver
+    fluid_coords = index_fluid_cells(grid)
+    fluid_cell_count = len(fluid_coords)
 
     if len(divergence) != fluid_cell_count:
         raise ValueError(
             f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
         )
 
+    # 🔁 Select solver method
     if method == "jacobi":
         pressure_values = solve_jacobi_pressure(grid, divergence, config)
     else:
         raise ValueError(f"Unknown or unsupported pressure solver method: '{method}'")
 
+    # 🧱 Reconstruct grid with updated pressures
     updated = []
     fluid_index = 0
     for cell in grid:
