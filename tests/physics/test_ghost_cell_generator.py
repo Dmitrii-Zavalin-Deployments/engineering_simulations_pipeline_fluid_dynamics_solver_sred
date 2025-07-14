@@ -29,6 +29,9 @@ def test_ghost_generated_for_x_min_tag():
     assert ghost.velocity is None
     assert ghost.pressure is None
     assert ghost.fluid_mask is False
+    assert registry[id(ghost)]["face"] == "x_min"
+    assert hasattr(ghost, "ghost_face")
+    assert ghost.ghost_face == "x_min"
 
 def test_ghost_generated_for_x_max_tag():
     cell = make_cell(1.0, 0.5, 0.5)
@@ -39,6 +42,8 @@ def test_ghost_generated_for_x_max_tag():
     assert len(ghosts) >= 1
     ghost = ghosts[0]
     assert ghost.x > cell.x
+    assert registry[id(ghost)]["face"] == "x_max"
+    assert ghost.ghost_face == "x_max"
 
 def test_ghost_generated_for_y_and_z_faces():
     cell = make_cell(0.5, 0.0, 0.0)
@@ -46,8 +51,8 @@ def test_ghost_generated_for_y_and_z_faces():
     padded, registry = generate_ghost_cells([cell], config)
 
     ghosts = [c for c in padded if id(c) in registry]
-    assert any(g.y < cell.y for g in ghosts)
-    assert any(g.z < cell.z for g in ghosts)
+    assert any(g.y < cell.y and g.ghost_face == "y_min" for g in ghosts)
+    assert any(g.z < cell.z and g.ghost_face == "z_min" for g in ghosts)
 
 def test_no_ghosts_without_boundary_tags():
     cell = make_cell(0.0, 0.0, 0.0)
@@ -66,10 +71,8 @@ def test_multiple_ghosts_from_multi_face_alignment():
     })
     padded, registry = generate_ghost_cells([cell], config)
     assert len(registry) == 3
-    ghost_coords = [(g.x, g.y, g.z) for g in padded if id(g) in registry]
-    assert any(gx < cell.x for gx, _, _ in ghost_coords)
-    assert any(gy < cell.y for _, gy, _ in ghost_coords)
-    assert any(gz < cell.z for _, _, gz in ghost_coords)
+    ghost_faces = {meta["face"] for meta in registry.values()}
+    assert ghost_faces == {"x_min", "y_min", "z_min"}
 
 def test_ghost_spacing_uses_domain_resolution():
     cell = make_cell(0.0, 0.0, 0.0)
@@ -79,17 +82,30 @@ def test_ghost_spacing_uses_domain_resolution():
     dx = (2.0 - 0.0) / 4
     ghost = next(c for c in padded if id(c) in registry)
     assert abs(ghost.x - (cell.x - dx)) < 1e-6
+    assert ghost.ghost_face == "x_min"
 
-def test_registry_includes_only_added_ghosts():
+def test_registry_metadata_matches_cell_attributes():
     cell = make_cell(1.0, 1.0, 1.0)
     config = make_config(boundary_tags={"x_max": "outlet"})
     padded, registry = generate_ghost_cells([cell], config)
 
-    real_ids = {id(c) for c in padded}
-    ghost_ids = set(registry)
-    fluid_ids = {id(c) for c in padded if c.fluid_mask}
-    assert ghost_ids.isdisjoint(fluid_ids)
-    assert all(id(c) in ghost_ids for c in padded if not c.fluid_mask and c.velocity is None)
+    ghosts = [c for c in padded if id(c) in registry]
+    for ghost in ghosts:
+        meta = registry[id(ghost)]
+        assert "face" in meta
+        assert "origin" in meta
+        assert meta["face"] == ghost.ghost_face
+        assert isinstance(meta["origin"], tuple)
+        assert len(meta["origin"]) == 3
+
+def test_registry_excludes_physical_cells():
+    cell = make_cell(0.0, 0.0, 0.0)
+    config = make_config(boundary_tags={"x_min": "inlet"})
+    padded, registry = generate_ghost_cells([cell], config)
+
+    physical_ids = {id(c) for c in padded if c.fluid_mask}
+    ghost_ids = set(registry.keys())
+    assert physical_ids.isdisjoint(ghost_ids)
 
 
 
