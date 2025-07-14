@@ -7,17 +7,10 @@ import os
 import pytest
 from tests.utils.input_loader import load_geometry_mask_bool
 
-# ✅ File paths and expected values
+# ✅ File paths
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0000.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EXPECTED_STEP_INDEX = 0
-EXPECTED_VELOCITY = [0.01, 0.0, 0.0]
-EXPECTED_PRESSURE = 100.0
-
-# ✨ Dynamic tolerances based on expected magnitude
-VELOCITY_TOLERANCE = max(abs(v) for v in EXPECTED_VELOCITY if v != 0) * 0.01
-PRESSURE_TOLERANCE = max(abs(EXPECTED_PRESSURE), 1e-6) * 0.01
-CFL_TOLERANCE = VELOCITY_TOLERANCE
 
 def is_close(actual, expected, tolerance):
     return abs(actual - expected) <= tolerance
@@ -29,14 +22,35 @@ def snapshot():
         return json.load(f)
 
 @pytest.fixture(scope="module")
-def domain():
+def config():
     with open(INPUT_FILE) as f:
-        config = json.load(f)
+        return json.load(f)
+
+@pytest.fixture(scope="module")
+def domain(config):
     return config["domain_definition"]
+
+@pytest.fixture(scope="module")
+def expected_velocity(config):
+    return config["initial_conditions"]["initial_velocity"]
+
+@pytest.fixture(scope="module")
+def expected_pressure(config):
+    return config["initial_conditions"]["initial_pressure"]
 
 @pytest.fixture(scope="module")
 def expected_mask():
     return load_geometry_mask_bool(INPUT_FILE)
+
+@pytest.fixture(scope="module")
+def tolerances(expected_velocity, expected_pressure):
+    v_tol = max(abs(v) for v in expected_velocity if v != 0) * 0.01
+    p_tol = max(abs(expected_pressure), 1e-6) * 0.01
+    return {
+        "velocity": v_tol,
+        "pressure": p_tol,
+        "cfl": v_tol
+    }
 
 def test_step_index(snapshot):
     assert snapshot["step_index"] == EXPECTED_STEP_INDEX
@@ -75,32 +89,32 @@ def test_fluid_mask_matches_geometry(snapshot, expected_mask):
     actual_mask = [c["fluid_mask"] for c in snapshot["grid"]]
     assert actual_mask == expected_mask
 
-def test_velocity_and_pressure_field_values(snapshot, expected_mask):
+def test_velocity_and_pressure_field_values(snapshot, expected_mask, expected_velocity, expected_pressure, tolerances):
     for cell, is_fluid in zip(snapshot["grid"], expected_mask):
         if is_fluid:
             assert isinstance(cell["velocity"], list)
             assert len(cell["velocity"]) == 3
-            for a, b in zip(cell["velocity"], EXPECTED_VELOCITY):
-                assert is_close(a, b, VELOCITY_TOLERANCE)
+            for a, b in zip(cell["velocity"], expected_velocity):
+                assert is_close(a, b, tolerances["velocity"])
             assert isinstance(cell["pressure"], (int, float))
-            assert is_close(cell["pressure"], EXPECTED_PRESSURE, PRESSURE_TOLERANCE)
+            assert is_close(cell["pressure"], expected_pressure, tolerances["pressure"])
         else:
             assert cell["velocity"] is None
             assert cell["pressure"] is None
 
-def test_max_velocity_matches_expected(snapshot):
+def test_max_velocity_matches_expected(snapshot, expected_velocity, tolerances):
     fluid_cells = [c for c in snapshot["grid"] if c["fluid_mask"]]
     velocities = [math.sqrt(sum(v**2 for v in c["velocity"])) for c in fluid_cells if isinstance(c["velocity"], list)]
     actual_max = max(velocities) if velocities else 0.0
-    expected_mag = math.sqrt(sum(v**2 for v in EXPECTED_VELOCITY))
-    assert is_close(snapshot["max_velocity"], expected_mag, VELOCITY_TOLERANCE)
-    assert is_close(snapshot["max_velocity"], actual_max, VELOCITY_TOLERANCE)
+    expected_mag = math.sqrt(sum(v**2 for v in expected_velocity))
+    assert is_close(snapshot["max_velocity"], expected_mag, tolerances["velocity"])
+    assert is_close(snapshot["max_velocity"], actual_max, tolerances["velocity"])
 
-def test_global_cfl_computation(snapshot, domain):
+def test_global_cfl_computation(snapshot, domain, expected_velocity, tolerances):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
-    expected_mag = math.sqrt(sum(v**2 for v in EXPECTED_VELOCITY))
+    expected_mag = math.sqrt(sum(v**2 for v in expected_velocity))
     expected_cfl = expected_mag * 0.1 / dx
-    assert is_close(snapshot["global_cfl"], expected_cfl, CFL_TOLERANCE)
+    assert is_close(snapshot["global_cfl"], expected_cfl, tolerances["cfl"])
 
 def test_basic_reflex_flags(snapshot):
     assert snapshot["damping_enabled"] is False
@@ -109,26 +123,29 @@ def test_basic_reflex_flags(snapshot):
     assert isinstance(snapshot["projection_passes"], int)
     assert snapshot["projection_passes"] >= 1
 
-def test_snapshot_input_pressure_if_no_projection(snapshot, expected_mask):
+def test_snapshot_input_pressure_if_no_projection(snapshot, expected_mask, expected_pressure, tolerances):
     passes = snapshot.get("projection_passes", 0)
     if passes == 0:
         for cell, is_fluid in zip(snapshot["grid"], expected_mask):
             if is_fluid:
-                assert is_close(cell["pressure"], EXPECTED_PRESSURE, PRESSURE_TOLERANCE)
+                assert is_close(cell["pressure"], expected_pressure, tolerances["pressure"])
             else:
                 assert cell["pressure"] is None
     else:
         pytest.skip("⚠️ Snapshot reflects projection output — skipping raw input pressure test")
 
-def test_pressure_projection_changed_values(snapshot, expected_mask):
+def test_pressure_projection_changed_values(snapshot, expected_mask, expected_pressure, tolerances):
     passes = snapshot.get("projection_passes", 0)
     if passes >= 1:
-        deltas = [abs(cell["pressure"] - EXPECTED_PRESSURE)
-                  for cell, is_fluid in zip(snapshot["grid"], expected_mask) if is_fluid]
-        if all(d < PRESSURE_TOLERANCE for d in deltas):
+        deltas = [
+            abs(cell["pressure"] - expected_pressure)
+            for cell, is_fluid in zip(snapshot["grid"], expected_mask)
+            if is_fluid
+        ]
+        if all(d < tolerances["pressure"] for d in deltas):
             print("⚠️ Projection ran, but no pressure changed from initial value.")
             pytest.skip("⚠️ Pressure projection did not modify fluid pressures — possible equilibrium")
-        assert any(d > PRESSURE_TOLERANCE for d in deltas), "❌ Projection did not update fluid pressures"
+        assert any(d > tolerances["pressure"] for d in deltas), "❌ Projection did not update fluid pressures"
     else:
         pytest.skip("⚠️ No projection pass — skipping mutation test")
 
