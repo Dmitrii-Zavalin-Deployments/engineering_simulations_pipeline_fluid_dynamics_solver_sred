@@ -1,12 +1,12 @@
 # src/solvers/pressure_solver.py
 # 🔧 Pressure solver — enforces incompressibility via divergence correction
 
-from typing import List
+from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 from src.physics.pressure_projection import solve_pressure_poisson
 
-def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> List[Cell]:
+def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
     Applies pressure correction to enforce incompressible flow.
 
@@ -16,7 +16,11 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         step (int): Current simulation step index
 
     Returns:
-        List[Cell]: Grid with updated pressure and velocity values
+        Tuple containing:
+        - List[Cell]: Grid with updated pressure and velocity values
+        - bool: Whether any pressure values changed
+        - int: Number of projection iterations or passes
+        - dict: Metadata about the correction process
     """
     # 🧼 Step 0: Downgrade malformed fluid cells to solid (invalid velocity structure)
     safe_grid = [
@@ -53,8 +57,15 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     else:
         print(f"✅ Step {step}: Pressure correction modified {mutation_count} fluid cells.")
 
-    # 📤 Step 3: Return grid with updated pressure and velocity
-    return grid_with_pressure
+    # 📦 Step 3: Prepare solver metadata
+    metadata = {
+        "max_divergence": max_div,
+        "pressure_mutation_count": mutation_count,
+        "pressure_solver_passes": 1  # Placeholder: adapt if iteration count available
+    }
+
+    # 📤 Step 4: Return all expected outputs
+    return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
 
 
 
