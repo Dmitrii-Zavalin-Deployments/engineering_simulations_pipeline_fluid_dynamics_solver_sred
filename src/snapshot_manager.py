@@ -74,9 +74,20 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         mutated_cells_raw = reflex.get("mutated_cells", [])
         print(f"[DEBUG] mutated_cells (step {step}): {[type(c) for c in mutated_cells_raw[:3]]}")
 
+        # ✅ Coerce pressure_mutated to boolean to avoid Cell leakage
+        raw_pm = reflex.get("pressure_mutated", False)
+        if isinstance(raw_pm, bool):
+            pressure_mutated = raw_pm
+        elif isinstance(raw_pm, dict) or hasattr(raw_pm, "__dict__"):
+            print("[WARNING] pressure_mutated was unexpectedly a complex object — coercing to True")
+            pressure_mutated = True
+        else:
+            print(f"[WARNING] pressure_mutated had unexpected type {type(raw_pm)} — coercing to bool")
+            pressure_mutated = bool(raw_pm)
+
         log_mutation_pathway(
             step_index=step,
-            pressure_mutated=reflex.get("pressure_mutated", False),
+            pressure_mutated=pressure_mutated,
             triggered_by=mutation_causes,
             output_folder=output_folder,
             triggered_cells=[
@@ -93,11 +104,11 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 • Max divergence: {reflex.get("max_divergence", "?"):.6e}
 • Projection attempted: {reflex.get("pressure_solver_invoked", False)}
 • Projection skipped: {reflex.get("projection_skipped", False)}
-• Pressure mutated: {reflex.get("pressure_mutated", False)}
+• Pressure mutated: {pressure_mutated}
 
 """)
 
-        if reflex.get("pressure_mutated", False):
+        if pressure_mutated:
             mutation_report["pressure_mutated"] += 1
         if reflex.get("velocity_projected", True):
             mutation_report["velocity_projected"] += 1
@@ -124,7 +135,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         snapshot = {
             "step_index": step,
             "grid": serialized_grid,
-            "pressure_mutated": reflex.get("pressure_mutated", False),
+            "pressure_mutated": pressure_mutated,
             "velocity_projected": reflex.get("velocity_projected", True),
             **{k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected"]}
         }

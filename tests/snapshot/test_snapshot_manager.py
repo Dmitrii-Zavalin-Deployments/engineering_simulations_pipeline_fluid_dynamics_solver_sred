@@ -41,7 +41,7 @@ def test_snapshots_return_expected_steps(minimal_input_data, fake_config):
     scenario_name = "unit_test_run"
     result = generate_snapshots(minimal_input_data, scenario_name, fake_config)
     assert isinstance(result, list)
-    assert len(result) == 3  # 2 steps + step 0 = 3 snapshots
+    assert len(result) == 3  # Steps 0, 1, 2
     for step_index, snapshot in result:
         assert isinstance(snapshot, dict)
         assert snapshot["step_index"] == step_index
@@ -55,15 +55,17 @@ def test_snapshot_grid_structure(minimal_input_data, fake_config):
     grid = snapshot["grid"]
     assert isinstance(grid, list)
     for cell in grid:
-        assert "x" in cell and "y" in cell and "z" in cell
-        assert "fluid_mask" in cell
-        assert "pressure" in cell
-        assert "velocity" in cell or cell["fluid_mask"] is False
+        assert isinstance(cell, dict)
+        assert all(k in cell for k in ("x", "y", "z", "fluid_mask", "pressure"))
+        if cell["fluid_mask"]:
+            assert "velocity" in cell
+        else:
+            assert cell["velocity"] is None
 
 def test_snapshot_respects_output_interval(minimal_input_data, fake_config):
     minimal_input_data["simulation_parameters"]["output_interval"] = 2
     result = generate_snapshots(minimal_input_data, "interval_check", fake_config)
-    assert len(result) == 2  # Only step 0 and step 2 are output
+    assert len(result) == 2  # Should include step 0 and step 2 only
 
 def test_snapshot_creates_summary_and_logs(minimal_input_data, fake_config):
     folder_path = "data/testing-input-output/navier_stokes_output"
@@ -77,13 +79,13 @@ def test_mutation_pathway_serialization_safe(minimal_input_data, fake_config, mo
     def mock_evolve_step(grid, input_data, step, config):
         dummy_cell = Cell(x=1.0, y=0.0, z=0.5, velocity=[1.0, 0.0, 0.0], pressure=10.0, fluid_mask=True)
         return [dummy_cell], {
-            "pressure_mutated": True,
+            "pressure_mutated": dummy_cell,  # intentionally wrong type
             "velocity_projected": True,
             "projection_skipped": False,
-            "triggered_by": ["ghost_influence"],
+            "triggered_by": ["boundary_override"],
             "mutated_cells": [dummy_cell],
             "ghost_registry": [],
-            "ghost_influence_count": 1,
+            "ghost_influence_count": 0,
             "fluid_cells_adjacent_to_ghosts": 0,
             "max_divergence": 0.0,
             "pressure_solver_invoked": True
@@ -91,7 +93,9 @@ def test_mutation_pathway_serialization_safe(minimal_input_data, fake_config, mo
 
     monkeypatch.setattr("src.snapshot_manager.evolve_step", mock_evolve_step)
     result = generate_snapshots(minimal_input_data, "mutation_serialization_check", fake_config)
-    assert len(result) > 0
+    assert len(result) == 3
+    _, snapshot = result[0]
+    assert isinstance(snapshot["pressure_mutated"], bool)  # Coerced from Cell
 
 
 
