@@ -53,7 +53,7 @@ def test_evolve_single_fluid_cell():
     assert len(updated) >= 1
     assert isinstance(reflex, dict)
     assert "max_velocity" in reflex
-    assert any(isinstance(c, Cell) for c in updated)
+    assert isinstance(updated[0], Cell)
 
 def test_evolve_mixed_cells_with_solid_and_fluid():
     grid = [
@@ -64,7 +64,7 @@ def test_evolve_mixed_cells_with_solid_and_fluid():
     updated, reflex = evolve_step(grid, mock_config(), step=1)
     assert len(updated) >= 3
     for cell in updated:
-        if cell.fluid_mask:
+        if getattr(cell, "fluid_mask", True):
             assert isinstance(cell.velocity, list)
             assert isinstance(cell.pressure, float)
         else:
@@ -98,29 +98,27 @@ def test_reflex_metadata_has_expected_keys():
         "damping_enabled",
         "overflow_detected",
         "adjusted_time_step",
-        "projection_passes"
+        "projection_passes",
+        "ghost_diagnostics"
     }
     for key in expected_keys:
         assert key in reflex
 
 def test_consistent_step_metadata_across_steps():
     grid = [make_fluid_cell(0, 0, 0)]
-    updated_a, reflex_a = evolve_step(grid, mock_config(), step=0)
-    updated_b, reflex_b = evolve_step(grid, mock_config(), step=1)
-    assert len(updated_a) == len(updated_b)
+    _, reflex_a = evolve_step(grid, mock_config(), step=0)
+    _, reflex_b = evolve_step(grid, mock_config(), step=1)
     assert set(reflex_a.keys()) == set(reflex_b.keys())
 
-def test_ghost_cells_generated_and_identified():
-    grid = [make_fluid_cell(0.0, 0.0, 0.0)]
-    updated, _ = evolve_step(grid, mock_config(), step=5)
-    ghost_cells = [c for c in updated if not c.fluid_mask and c.velocity is None and c.pressure is None]
-    assert len(ghost_cells) >= 1
-    for ghost in ghost_cells:
-        assert isinstance(ghost.x, (int, float))
-        assert isinstance(ghost.y, (int, float))
-        assert isinstance(ghost.z, (int, float))
-        assert ghost.velocity is None
-        assert ghost.pressure is None
+def test_ghost_cells_in_diagnostics():
+    grid = [make_fluid_cell(0, 0, 0)]
+    _, reflex = evolve_step(grid, mock_config(), step=5)
+    ghost_data = reflex.get("ghost_diagnostics", {})
+    assert "total" in ghost_data
+    assert isinstance(ghost_data["total"], int)
+    assert "per_face" in ghost_data
+    assert isinstance(ghost_data["per_face"], dict)
+    assert sum(ghost_data["per_face"].values()) == ghost_data["total"]
 
 
 

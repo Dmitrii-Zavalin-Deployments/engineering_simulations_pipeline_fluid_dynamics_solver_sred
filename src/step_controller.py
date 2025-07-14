@@ -9,6 +9,7 @@ from src.physics.boundary_condition_solver import apply_boundary_conditions
 from src.solvers.momentum_solver import apply_momentum_update
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.reflex.reflex_controller import apply_reflex
+from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 
 def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], dict]:
     """
@@ -31,6 +32,7 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     # 🧱 Step 0a: Generate ghost cell padding from tagged boundary faces
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
+    log_ghost_summary(ghost_registry)
 
     # 🧪 Step 0b: Enforce boundary conditions for both ghost and adjacent edge cells
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
@@ -44,6 +46,9 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics
     reflex_metadata = apply_reflex(pressure_corrected_grid, input_data, step)
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
+
+    # 📦 Inject optional ghost diagnostics into reflex metadata
+    reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry)
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return pressure_corrected_grid, reflex_metadata
