@@ -18,7 +18,7 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     """
     domain = config.get("domain_definition", {})
     boundaries = config.get("boundary_conditions", {})
-    apply_faces = boundaries.get("apply_to", [])
+    apply_faces = boundaries.get("apply_faces", [])
     no_slip = boundaries.get("no_slip", False)
     enforced_velocity = boundaries.get("velocity", [0.0, 0.0, 0.0])
     enforced_pressure = boundaries.get("pressure", None)
