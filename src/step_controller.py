@@ -72,9 +72,9 @@ def evolve_step(
 
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
-    # ✅ Unpack expected return values from pressure correction
+    # ✅ Unpack all values from pressure correction safely
     try:
-        pressure_corrected_grid, pressure_has_changed, projection_passes = apply_pressure_correction(
+        pressure_corrected_grid, pressure_has_changed, projection_passes, pressure_metadata = apply_pressure_correction(
             velocity_updated_grid, input_data, step
         )
     except ValueError as e:
@@ -106,6 +106,9 @@ def evolve_step(
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
+
+    if isinstance(pressure_metadata, dict):
+        reflex_metadata.update(pressure_metadata)
 
     reflex_metadata = inject_diagnostics(
         reflex_metadata, ghost_registry,
