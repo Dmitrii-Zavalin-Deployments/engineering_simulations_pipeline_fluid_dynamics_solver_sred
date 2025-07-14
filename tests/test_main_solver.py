@@ -3,7 +3,6 @@
 
 import os
 import json
-import tempfile
 import shutil
 import pytest
 
@@ -15,8 +14,8 @@ def fake_input_json(tmp_path):
     input_data = {
         "simulation_parameters": {
             "time_step": 1.0,
-            "total_time": 1.0,
-            "output_interval": 1
+            "total_time": 2.0,           # ✅ ensures step 0, 1, 2
+            "output_interval": 1         # ✅ ensures all steps are output
         },
         "domain_definition": {
             "min_x": 0.0, "max_x": 3.0,
@@ -41,23 +40,19 @@ def test_load_reflex_config_defaults_gracefully():
     assert "ghost_adjacency_depth" in config
 
 
-def test_run_solver_creates_outputs(fake_input_json, monkeypatch):
+def test_run_solver_creates_expected_snapshot(fake_input_json):
     # Clear output folder
     output_folder = "data/testing-input-output/navier_stokes_output"
     shutil.rmtree(output_folder, ignore_errors=True)
 
-    # Patch sys.argv to simulate CLI call
-    monkeypatch.setattr("sys.argv", ["main_solver.py", fake_input_json])
-
-    # Run
-    from src.main_solver import run_solver
+    # Run the solver
     run_solver(fake_input_json)
 
-    # Check snapshot files created
-    snapshot_files = os.listdir(output_folder)
-    assert any(f.endswith(".json") and "fluid_simulation_input" in f for f in snapshot_files)
+    # File should match step 2 snapshot
+    expected_file = os.path.join(output_folder, "fluid_simulation_input_step_0002.json")
+    assert os.path.isfile(expected_file), f"❌ Missing snapshot file: {expected_file}"
 
-    # Check summary and logs
+    # Check key output artifacts
     assert os.path.exists(os.path.join(output_folder, "step_summary.txt"))
     assert os.path.exists(os.path.join(output_folder, "mutation_pathways_log.json"))
     assert os.path.exists(os.path.join(output_folder, "influence_flags_log.json"))
