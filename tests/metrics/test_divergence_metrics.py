@@ -1,79 +1,85 @@
 # tests/metrics/test_divergence_metrics.py
+# ✅ Unit tests for compute_max_divergence — central difference in 3D
 
 import pytest
-from src.metrics.divergence_metrics import compute_max_divergence
 from src.grid_modules.cell import Cell
+from src.metrics.divergence_metrics import compute_max_divergence
 
-def test_uniform_velocity_no_divergence():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    result = compute_max_divergence(grid)
-    assert result == 0.0
+def make_fluid_cell(x, y, z, velocity):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=1.0, fluid_mask=True)
 
-def test_linear_velocity_gradient_x_direction():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[4.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    result = compute_max_divergence(grid)
-    assert result == 2.0  # |4.0 - 2.0|
+def make_solid_cell(x, y, z):
+    return Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=False)
 
-def test_negative_velocity_gradient():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[3.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    result = compute_max_divergence(grid)
-    assert result == 1.5  # |1.5 - 3.0|
+def domain_config(nx=3, ny=3, nz=3):
+    return {
+        "min_x": 0.0, "max_x": 3.0, "nx": nx,
+        "min_y": 0.0, "max_y": 3.0, "ny": ny,
+        "min_z": 0.0, "max_z": 3.0, "nz": nz,
+    }
 
-def test_non_monotonic_velocity_pattern():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[3.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+def test_uniform_velocity_gives_zero_divergence():
+    cells = [
+        make_fluid_cell(1.0, 1.0, 1.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(2.0, 1.0, 1.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(0.0, 1.0, 1.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(1.0, 2.0, 1.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(1.0, 0.0, 1.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(1.0, 1.0, 2.0, [1.0, 1.0, 1.0]),
+        make_fluid_cell(1.0, 1.0, 0.0, [1.0, 1.0, 1.0]),
     ]
-    result = compute_max_divergence(grid)
-    assert result == 2.5  # |3.0 - 0.5|
+    divergence = compute_max_divergence(cells, domain_config())
+    assert divergence == 0.0
 
-def test_short_grid_returns_zero():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+def test_high_x_velocity_gradient_detected():
+    cells = [
+        make_fluid_cell(0.0, 1.0, 1.0, [0.0, 0.0, 0.0]),
+        make_fluid_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0]),
+        make_fluid_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0]),
     ]
-    result = compute_max_divergence(grid)
-    assert result == 0.0
+    divergence = compute_max_divergence(cells, domain_config())
+    assert divergence > 0.0
+    assert round(divergence, 5) == round((2.0 - 0.0) / (2.0 * 1.0), 5)
+
+def test_divergence_ignores_solid_and_ghost_cells():
+    cells = [
+        make_fluid_cell(1.0, 1.0, 1.0, [3.0, 0.0, 0.0]),
+        make_solid_cell(2.0, 1.0, 1.0),
+        make_solid_cell(0.0, 1.0, 1.0),
+    ]
+    divergence = compute_max_divergence(cells, domain_config())
+    assert divergence == 0.0
+
+def test_partial_neighbors_produce_partial_contribution():
+    cells = [
+        make_fluid_cell(1.0, 1.0, 1.0, [5.0, 0.0, 0.0]),
+        make_fluid_cell(0.0, 1.0, 1.0, [1.0, 0.0, 0.0]),
+        # Missing +x neighbor at (2.0, 1.0, 1.0)
+    ]
+    divergence = compute_max_divergence(cells, domain_config())
+    # Only -x side contributes; total central difference falls back to 0
+    assert divergence == 0.0
+
+def test_multiple_cells_compute_max_divergence():
+    cells = [
+        make_fluid_cell(1.0, 1.0, 1.0, [5.0, 0.0, 0.0]),
+        make_fluid_cell(2.0, 1.0, 1.0, [0.0, 0.0, 0.0]),
+        make_fluid_cell(0.0, 1.0, 1.0, [0.0, 0.0, 0.0]),
+        make_fluid_cell(1.0, 2.0, 1.0, [0.0, 2.0, 0.0]),
+        make_fluid_cell(1.0, 0.0, 1.0, [0.0, 0.0, 0.0]),
+        make_fluid_cell(1.0, 1.0, 2.0, [0.0, 0.0, 3.0]),
+        make_fluid_cell(1.0, 1.0, 0.0, [0.0, 0.0, 0.0]),
+    ]
+    divergence = compute_max_divergence(cells, domain_config())
+    assert divergence > 0.0
+    assert divergence == round((2.0 / (2.0 * 1.0)) + (3.0 / (2.0 * 1.0)), 5)
 
 def test_empty_grid_returns_zero():
-    result = compute_max_divergence([])
-    assert result == 0.0
+    assert compute_max_divergence([], domain_config()) == 0.0
 
-def test_invalid_velocity_formats_ignored():
-    class BadCell:
-        def __init__(self, velocity):
-            self.velocity = velocity
-
-    grid = [
-        BadCell("invalid"),
-        BadCell([1.0]),
-        BadCell(None),
-        Cell(x=3, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=4, y=0, z=0, velocity=[5.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    result = compute_max_divergence(grid)
-    assert result == 3.0  # |5.0 - 2.0|
-
-def test_fluctuating_velocity_components():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 1.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    result = compute_max_divergence(grid)
-    assert result == 1.5  # |0.5 - 2.0|
+def test_missing_domain_keys_returns_zero():
+    cells = [make_fluid_cell(1.0, 1.0, 1.0, [1.0, 1.0, 1.0])]
+    assert compute_max_divergence(cells, {}) == 0.0
 
 
 
