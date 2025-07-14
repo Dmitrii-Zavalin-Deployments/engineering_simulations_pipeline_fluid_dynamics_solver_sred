@@ -40,7 +40,6 @@ def evolve_step(
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
-    # Spacing setup
     domain = input_data["domain_definition"]
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
@@ -49,16 +48,13 @@ def evolve_step(
 
     output_folder = "data/testing-input-output/navier_stokes_output"
 
-    # Ghost generation and tagging
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
     log_ghost_summary(ghost_registry)
 
-    # Boundary condition enforcement
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
     boundary_applied = True
 
-    # Ghost influence phase
     influence_count = apply_ghost_influence(
         boundary_tagged_grid,
         spacing,
@@ -67,7 +63,6 @@ def evolve_step(
     )
     logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
 
-    # Divergence stats before pressure projection
     stats_before = compute_divergence_stats(
         boundary_tagged_grid, spacing,
         label="before projection", step_index=step,
@@ -75,14 +70,15 @@ def evolve_step(
     )
     divergence_before = stats_before["max"]
 
-    # Core physics updates
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
-    pressure_corrected_grid, pressure_has_changed, projection_passes = apply_pressure_correction(
+
+    # Safely unpack all values from pressure correction
+    pressure_corrected_grid, pressure_has_changed, projection_passes, *_ = apply_pressure_correction(
         velocity_updated_grid, input_data, step
     )
+
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
-    # Divergence stats after projection
     stats_after = compute_divergence_stats(
         velocity_projected_grid, spacing,
         label="after projection", step_index=step,
@@ -90,7 +86,6 @@ def evolve_step(
     )
     divergence_after = stats_after["max"]
 
-    # Reflex diagnostics
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
         input_data,
@@ -103,7 +98,6 @@ def evolve_step(
     )
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
-    # Causality tagging and injection
     reflex_metadata["ghost_influence_count"] = influence_count
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
