@@ -97,7 +97,8 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             step_index=step,
             pressure_mutated=reflex.get("pressure_mutated", False),
             triggered_by=mutation_causes,
-            output_folder=output_folder
+            output_folder=output_folder,
+            triggered_cells=[(c.x, c.y, c.z) for c in reflex.get("mutated_cells", [])]
         )
 
         with open(summary_path, "a") as f:
