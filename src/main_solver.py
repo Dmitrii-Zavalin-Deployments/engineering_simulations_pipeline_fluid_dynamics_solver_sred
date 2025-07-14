@@ -38,13 +38,16 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     # ✅ Initialize grid with or without embedded fluid_mask
     if geometry:
         grid = generate_grid_with_mask(domain, initial_conditions, geometry)
+        mask_flat = geometry.get("geometry_mask_flat", [])
+        fluid_code = geometry.get("mask_encoding", {}).get("fluid", 1)
+        expected_size = mask_flat.count(fluid_code)
     else:
         grid = generate_grid(domain, initial_conditions)
+        expected_size = domain["nx"] * domain["ny"] * domain["nz"]
 
     num_steps = int(total_time / time_step)
     snapshots = []
 
-    expected_size = domain["nx"] * domain["ny"] * domain["nz"]
     mutation_report = {
         "pressure_mutated": 0,
         "velocity_projected": 0,
