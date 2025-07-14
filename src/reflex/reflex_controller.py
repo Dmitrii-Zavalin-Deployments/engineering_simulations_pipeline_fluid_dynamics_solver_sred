@@ -36,7 +36,7 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
     time_step = input_data["simulation_parameters"]["time_step"]
 
     max_velocity = compute_max_velocity(grid)
-    max_divergence = compute_max_divergence(grid)
+    max_divergence = compute_max_divergence(grid, domain)
     global_cfl = compute_global_cfl(grid, time_step, domain)
     overflow_detected = detect_overflow(grid)
     damping_enabled = damping_metric(grid, time_step)
