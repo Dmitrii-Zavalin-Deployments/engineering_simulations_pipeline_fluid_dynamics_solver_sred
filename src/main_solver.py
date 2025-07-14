@@ -45,6 +45,12 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         grid = generate_grid(domain, initial_conditions)
         expected_size = domain["nx"] * domain["ny"] * domain["nz"]
 
+    # Compute grid spacing for adjacency diagnostics
+    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
+    dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
+    dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
+    spacing = (dx, dy, dz)
+
     num_steps = int(total_time / time_step)
     snapshots = []
 
@@ -89,9 +95,11 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
             "grid": serialized_grid,
             "pressure_mutated": reflex_metadata.get("pressure_mutated", False),
             "velocity_projected": reflex_metadata.get("velocity_projected", True),
-            "ghost_diagnostics": reflex_metadata.get("ghost_diagnostics", {}),
-            **{k: v for k, v in reflex_metadata.items() if k not in ["ghost_diagnostics", "velocity_projected", "pressure_mutated"]}
+            **{k: v for k, v in reflex_metadata.items() if k not in ["velocity_projected", "pressure_mutated"]}
         }
+
+        # ✅ Inject ghost diagnostics with spacing
+        snapshot = inject_diagnostics(snapshot, reflex_metadata.get("ghost_registry", {}), grid, spacing=spacing)
 
         if step % output_interval == 0:
             snapshots.append((step, snapshot))

@@ -3,7 +3,7 @@
 
 from collections import defaultdict
 
-def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
+def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -> dict:
     """
     Returns ghost cell stats including per-face count, total, pressure enforcement, velocity rules,
     and optionally fluid cell adjacency counts if grid is provided.
@@ -11,6 +11,7 @@ def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
     Args:
         ghost_registry (dict or set): Maps ghost cell id to metadata OR contains ghost cell objects
         grid (List[Cell], optional): Full simulation grid for adjacency tracking
+        spacing (tuple): (dx, dy, dz) physical spacing of the grid
 
     Returns:
         dict: Summary with per-face breakdown and enforcement stats
@@ -19,10 +20,9 @@ def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
     pressure_overrides = 0
     no_slip_enforced = 0
     adjacent_fluid_cells = set()
-
     ghost_coords = set()
 
-    # Normalize ghost cell coordinates
+    # Normalize ghost cell coordinates and collect metadata
     if isinstance(ghost_registry, dict):
         for meta in ghost_registry.values():
             coord = meta.get("coordinate")
@@ -54,22 +54,15 @@ def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
     else:
         raise TypeError("❌ ghost_registry must be dict or set")
 
-    # 🧭 Fluid–ghost adjacency check (tolerant coordinate proximity)
+    # 🧭 Fluid–ghost adjacency detection using tolerant physical proximity
     if grid:
         fluid_coords = {
-            (cell.x, cell.y, cell.z) for cell in grid
+            (cell.x, cell.y, cell.z)
+            for cell in grid
             if getattr(cell, "fluid_mask", False)
         }
 
-        domain = getattr(grid[0], "domain_metadata", None)
-        if domain:
-            dx = (domain.get("max_x", 1.0) - domain.get("min_x", 0.0)) / domain.get("nx", 1)
-            dy = (domain.get("max_y", 1.0) - domain.get("min_y", 0.0)) / domain.get("ny", 1)
-            dz = (domain.get("max_z", 1.0) - domain.get("min_z", 0.0)) / domain.get("nz", 1)
-        else:
-            # Fallback spacing
-            dx, dy, dz = 1.0, 1.0, 1.0
-
+        dx, dy, dz = spacing
         def coords_are_neighbors(a, b, tol=1e-6):
             return (
                 abs(a[0] - b[0]) <= dx + tol and
@@ -90,11 +83,11 @@ def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
         "fluid_cells_adjacent_to_ghosts": len(adjacent_fluid_cells)
     }
 
-def log_ghost_summary(ghost_registry, grid=None):
+def log_ghost_summary(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)):
     """
     Logs ghost cell diagnostics to console for quick inspection, including fluid adjacency if grid is provided.
     """
-    summary = analyze_ghost_registry(ghost_registry, grid)
+    summary = analyze_ghost_registry(ghost_registry, grid, spacing)
     print(f"🧱 Ghost Cells: {summary['total']} total")
     for face, count in summary["per_face"].items():
         print(f"   {face}: {count}")
@@ -103,7 +96,7 @@ def log_ghost_summary(ghost_registry, grid=None):
     if "fluid_cells_adjacent_to_ghosts" in summary:
         print(f"🧭 Fluid cells bordering ghosts: {summary['fluid_cells_adjacent_to_ghosts']}")
 
-def inject_diagnostics(snapshot: dict, ghost_registry, grid=None) -> dict:
+def inject_diagnostics(snapshot: dict, ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -> dict:
     """
     Optionally attach ghost diagnostics to snapshot, including fluid adjacency.
 
@@ -111,11 +104,12 @@ def inject_diagnostics(snapshot: dict, ghost_registry, grid=None) -> dict:
         snapshot (dict): Existing snapshot dictionary
         ghost_registry (dict or set): Registry to analyze
         grid (List[Cell], optional): Simulation grid for adjacency computation
+        spacing (tuple): Grid spacing
 
     Returns:
         dict: Updated snapshot with embedded ghost diagnostics
     """
-    diagnostics = analyze_ghost_registry(ghost_registry, grid)
+    diagnostics = analyze_ghost_registry(ghost_registry, grid, spacing)
     snapshot["ghost_diagnostics"] = diagnostics
     return snapshot
 
