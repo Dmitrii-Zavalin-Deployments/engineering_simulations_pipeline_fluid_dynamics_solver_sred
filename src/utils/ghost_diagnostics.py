@@ -54,22 +54,33 @@ def analyze_ghost_registry(ghost_registry, grid=None) -> dict:
     else:
         raise TypeError("❌ ghost_registry must be dict or set")
 
-    # 🧭 Fluid–ghost adjacency check
+    # 🧭 Fluid–ghost adjacency check (tolerant coordinate proximity)
     if grid:
-        offsets = [
-            (-1, 0, 0), (1, 0, 0),
-            (0, -1, 0), (0, 1, 0),
-            (0, 0, -1), (0, 0, 1)
-        ]
         fluid_coords = {
             (cell.x, cell.y, cell.z) for cell in grid
             if getattr(cell, "fluid_mask", False)
         }
-        for coord in fluid_coords:
-            for dx, dy, dz in offsets:
-                neighbor = (coord[0] + dx, coord[1] + dy, coord[2] + dz)
-                if neighbor in ghost_coords:
-                    adjacent_fluid_cells.add(coord)
+
+        domain = getattr(grid[0], "domain_metadata", None)
+        if domain:
+            dx = (domain.get("max_x", 1.0) - domain.get("min_x", 0.0)) / domain.get("nx", 1)
+            dy = (domain.get("max_y", 1.0) - domain.get("min_y", 0.0)) / domain.get("ny", 1)
+            dz = (domain.get("max_z", 1.0) - domain.get("min_z", 0.0)) / domain.get("nz", 1)
+        else:
+            # Fallback spacing
+            dx, dy, dz = 1.0, 1.0, 1.0
+
+        def coords_are_neighbors(a, b, tol=1e-6):
+            return (
+                abs(a[0] - b[0]) <= dx + tol and
+                abs(a[1] - b[1]) <= dy + tol and
+                abs(a[2] - b[2]) <= dz + tol
+            )
+
+        for f_coord in fluid_coords:
+            for g_coord in ghost_coords:
+                if coords_are_neighbors(f_coord, g_coord):
+                    adjacent_fluid_cells.add(f_coord)
 
     return {
         "total": total,
