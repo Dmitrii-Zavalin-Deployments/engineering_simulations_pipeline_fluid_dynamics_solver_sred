@@ -50,6 +50,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
     dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
     spacing = (dx, dy, dz)
+    print(f"[DEBUG] Grid spacing → dx={dx:.4f}, dy={dy:.4f}, dz={dz:.4f}")
 
     num_steps = int(total_time / time_step)
     snapshots = []
@@ -66,9 +67,15 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
         ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
+        print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
         if len(fluid_cells) != expected_size:
             print(f"[DEBUG] ⚠️ Unexpected fluid cell count at step {step} → expected: {expected_size}, found: {len(fluid_cells)}")
-        print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
+
+        # Optional debug: show sample fluid and ghost coordinates
+        for i, cell in enumerate(fluid_cells[:3]):
+            print(f"[DEBUG] Fluid[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
+        for i, cell in enumerate(ghost_cells[:3]):
+            print(f"[DEBUG] Ghost[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
 
         serialized_grid = []
         for cell in grid:
@@ -113,10 +120,6 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     return snapshots
 
 def run_solver(input_path: str):
-    """
-    Executes simulation using the specified input file.
-    Writes interval-based snapshots into the output folder.
-    """
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
 

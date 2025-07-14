@@ -58,11 +58,11 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
         creation_counts[face] += 1
         print(f"[DEBUG] 🧱 Created ghost → face: {face}, coord: ({x:.2f}, {y:.2f}, {z:.2f}), origin: {origin}")
 
-    for cell in grid:
+    for cell_index, cell in enumerate(grid):
         if not cell.fluid_mask:
             continue
         x, y, z = cell.x, cell.y, cell.z
-        print(f"[DEBUG] 🔍 Evaluating fluid cell at ({x:.2f}, {y:.2f}, {z:.2f})")
+        print(f"[DEBUG] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
         if "x_min" in apply_faces and abs(x - x_min) <= 0.5 * dx:
             add_ghost(x - dx, y, z, "x_min", (x, y, z))

@@ -63,7 +63,11 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
         }
 
         dx, dy, dz = spacing
-        def coords_are_neighbors(a, b, tol=1e-6):
+        print(f"[DEBUG] Spacing used → dx={dx}, dy={dy}, dz={dz}")
+        print(f"[DEBUG] Total fluid cells: {len(fluid_coords)}")
+        print(f"[DEBUG] Total ghost cells: {len(ghost_coords)}")
+
+        def coords_are_neighbors(a, b, tol=1e-3):
             return (
                 abs(a[0] - b[0]) <= dx + tol and
                 abs(a[1] - b[1]) <= dy + tol and
@@ -73,6 +77,7 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
         for f_coord in fluid_coords:
             for g_coord in ghost_coords:
                 if coords_are_neighbors(f_coord, g_coord):
+                    print(f"[DEBUG] Fluid {f_coord} ↔ Ghost {g_coord} → adjacent")
                     adjacent_fluid_cells.add(f_coord)
 
     return {
