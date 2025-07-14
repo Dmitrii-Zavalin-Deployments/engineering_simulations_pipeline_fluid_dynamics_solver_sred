@@ -5,11 +5,17 @@ import os
 import json
 import tempfile
 import pytest
+from src.grid_modules.cell import Cell
 from src.output.mutation_pathways_logger import log_mutation_pathway
 
 def test_log_file_created_and_contains_entry():
     with tempfile.TemporaryDirectory() as tmpdir:
-        log_mutation_pathway(step_index=0, pressure_mutated=True, triggered_by=["ghost_influence"], output_folder=tmpdir)
+        log_mutation_pathway(
+            step_index=0,
+            pressure_mutated=True,
+            triggered_by=["ghost_influence"],
+            output_folder=tmpdir
+        )
 
         path = os.path.join(tmpdir, "mutation_pathways_log.json")
         assert os.path.exists(path)
@@ -90,6 +96,39 @@ def test_custom_output_folder_path_works():
 
         assert len(entries) == 1
         assert entries[0]["triggered_by"] == ["ghost_influence", "boundary_override"]
+
+def test_triggered_cells_serialization_accepts_cell_objects():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        cells = [
+            Cell(x=0.0, y=1.0, z=2.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True),
+            Cell(x=1.0, y=0.0, z=2.0, velocity=None, pressure=None, fluid_mask=False)
+        ]
+        log_mutation_pathway(step_index=7, pressure_mutated=True, triggered_by=["test"], output_folder=tmpdir, triggered_cells=cells)
+
+        path = os.path.join(tmpdir, "mutation_pathways_log.json")
+        with open(path) as f:
+            log = json.load(f)
+
+        entry = log[-1]
+        assert "triggered_cells" in entry
+        assert isinstance(entry["triggered_cells"], list)
+        assert entry["triggered_cells"][0]["x"] == 0.0
+        assert entry["triggered_cells"][1]["fluid_mask"] is False
+
+def test_triggered_cells_serialization_accepts_tuples():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        coords = [(0.0, 1.0, 2.0), (3.0, 3.0, 3.0)]
+        log_mutation_pathway(step_index=8, pressure_mutated=False, triggered_by=["tuple_test"], output_folder=tmpdir, triggered_cells=coords)
+
+        path = os.path.join(tmpdir, "mutation_pathways_log.json")
+        with open(path) as f:
+            log = json.load(f)
+
+        last = log[-1]
+        assert "triggered_cells" in last
+        assert last["triggered_cells"][1]["x"] == 3.0
+        assert last["triggered_cells"][1]["y"] == 3.0
+        assert last["triggered_cells"][1]["z"] == 3.0
 
 
 
