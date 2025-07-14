@@ -44,7 +44,14 @@ def log_mutation_pathway(
 
     if triggered_cells:
         entry["triggered_cells"] = [
-            serialize_cell(c) if isinstance(c, Cell) else {"x": c[0], "y": c[1], "z": c[2]}
+            {"x": c[0], "y": c[1], "z": c[2]} if isinstance(c, tuple) else {
+                "x": getattr(c, "x", "?"),
+                "y": getattr(c, "y", "?"),
+                "z": getattr(c, "z", "?"),
+                "velocity": getattr(c, "velocity", None),
+                "pressure": getattr(c, "pressure", None),
+                "fluid_mask": getattr(c, "fluid_mask", None)
+            }
             for c in triggered_cells
         ]
 
@@ -59,9 +66,15 @@ def log_mutation_pathway(
 
     log.append(entry)
 
-    # Write updated log safely
-    with open(log_path, "w") as f:
-        json.dump(log, f, indent=2)
+    # Write updated log safely and catch serialization errors
+    try:
+        with open(log_path, "w") as f:
+            json.dump(log, f, indent=2)
+    except TypeError as e:
+        print(f"[ERROR] Failed to serialize mutation pathway log: {e}")
+        print(f"[DEBUG] Problematic entry that caused failure:")
+        print(entry)
+        raise
 
     print(f"[DEBUG] 🔄 Mutation pathway recorded → {log_path}")
 
