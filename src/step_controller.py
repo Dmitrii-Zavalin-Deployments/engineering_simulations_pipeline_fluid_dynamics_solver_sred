@@ -72,10 +72,14 @@ def evolve_step(
 
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
-    # Safely unpack all values from pressure correction
-    pressure_corrected_grid, pressure_has_changed, projection_passes, *_ = apply_pressure_correction(
-        velocity_updated_grid, input_data, step
-    )
+    # ✅ Unpack expected return values from pressure correction
+    try:
+        pressure_corrected_grid, pressure_has_changed, projection_passes = apply_pressure_correction(
+            velocity_updated_grid, input_data, step
+        )
+    except ValueError as e:
+        logging.error(f"[evolve_step] Pressure solver did not return expected values: {e}")
+        raise
 
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
