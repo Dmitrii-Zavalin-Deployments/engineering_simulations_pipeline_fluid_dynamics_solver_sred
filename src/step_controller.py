@@ -2,7 +2,7 @@
 # 🚀 Simulation Step Controller — orchestrates velocity, pressure, ghost logic, and reflex updates
 
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from src.grid_modules.cell import Cell
 from src.physics.ghost_cell_generator import generate_ghost_cells
 from src.physics.boundary_condition_solver import apply_boundary_conditions
@@ -14,7 +14,12 @@ from src.reflex.reflex_controller import apply_reflex
 from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 from src.utils.divergence_tracker import compute_divergence_stats
 
-def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], dict]:
+def evolve_step(
+    grid: List[Cell],
+    input_data: dict,
+    step: int,
+    config: Optional[dict] = None
+) -> Tuple[List[Cell], dict]:
     """
     Evolves the fluid grid by one simulation step using:
     - Ghost cell padding and boundary enforcement
@@ -28,13 +33,13 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
         grid (List[Cell]): Current grid state
         input_data (dict): Full input configuration
         step (int): Current simulation step index
+        config (dict, optional): Reflex and diagnostic config values
 
     Returns:
         Tuple[List[Cell], dict]: Updated grid and reflex metadata for snapshot
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
-    # 🧮 Compute grid spacing
     dx = (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"]
     dy = (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"]
     dz = (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
@@ -42,47 +47,46 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
 
     output_folder = "data/testing-input-output/navier_stokes_output"
 
-    # 🧱 Step 0a: Generate ghost cell padding from tagged boundary faces
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
     log_ghost_summary(ghost_registry)
 
-    # 🧪 Step 0b: Enforce boundary conditions for both ghost and adjacent edge cells
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
 
-    # 👣 Step 0c: Apply ghost influence to nearby fluid cells
-    influence_count = apply_ghost_influence(boundary_tagged_grid, spacing, verbose=True)
+    influence_count = apply_ghost_influence(
+        boundary_tagged_grid,
+        spacing,
+        verbose=(config or {}).get("reflex_verbosity", "") == "high",
+        radius=(config or {}).get("ghost_adjacency_depth", 1)
+    )
     logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
 
-    # 📈 Step 0d: Compute divergence BEFORE projection
     compute_divergence_stats(
         boundary_tagged_grid, spacing,
         label="before projection", step_index=step, output_folder=output_folder
     )
 
-    # 💨 Step 1: Apply momentum update to evolve velocity fields
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
-    # 💧 Step 2: Apply pressure correction to maintain incompressibility
     pressure_corrected_grid = apply_pressure_correction(velocity_updated_grid, input_data, step)
 
-    # 💨 Step 2.5: Project velocity using pressure gradient (∇p)
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
-    # 📈 Step 2.6: Compute divergence AFTER projection (final)
     compute_divergence_stats(
         velocity_projected_grid, spacing,
         label="after projection", step_index=step, output_folder=output_folder
     )
 
-    # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics — now with ghost tracking
-    reflex_metadata = apply_reflex(velocity_projected_grid, input_data, step, ghost_influence_count=influence_count)
+    reflex_metadata = apply_reflex(
+        velocity_projected_grid,
+        input_data,
+        step,
+        ghost_influence_count=influence_count,
+        config=config
+    )
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
-    # 📦 Inject optional ghost diagnostics into reflex metadata
     reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry, grid=velocity_projected_grid, spacing=spacing)
-
-    # 📌 Lock ghost registry and influence count into metadata for downstream tracking
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["ghost_influence_count"] = influence_count
 

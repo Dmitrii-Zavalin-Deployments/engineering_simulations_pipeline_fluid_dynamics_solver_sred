@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import logging
+import yaml
 
 # ✅ Add path adjustment for module resolution in CI or direct script execution
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -13,9 +14,23 @@ from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
-from src.output.snapshot_writer import export_influence_flags  # ✅ NEW import
+from src.output.snapshot_writer import export_influence_flags
 
-def generate_snapshots(input_data: dict, scenario_name: str) -> list:
+# ✅ Load reflex diagnostics config (with fallback)
+def load_reflex_config(path="config/reflex_debug_config.yaml"):
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f)
+    except Exception:
+        return {
+            "reflex_verbosity": "medium",
+            "include_divergence_delta": False,
+            "include_pressure_mutation_map": False,
+            "log_projection_trace": False,
+            "ghost_adjacency_depth": 1
+        }
+
+def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
     output_interval = input_data["simulation_parameters"].get("output_interval", 1)
@@ -55,7 +70,7 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        grid, reflex_metadata = evolve_step(grid, input_data, step)
+        grid, reflex_metadata = evolve_step(grid, input_data, step, config=config)
 
         fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
         ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
@@ -68,7 +83,6 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
         for i, cell in enumerate(ghost_cells[:3]):
             print(f"[DEBUG] Ghost[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
 
-        # ✅ Append per-step summary to step_summary.txt
         with open(summary_path, "a") as f:
             f.write(f"""[🔄 Step {step} Summary]
 • Ghosts: {len(reflex_metadata['ghost_registry'])}
@@ -79,7 +93,6 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
 
 """)
 
-        # ✅ Export ghost influence flag map per step
         export_influence_flags(grid, step_index=step, output_folder=output_folder)
 
         serialized_grid = []
@@ -131,11 +144,15 @@ def run_solver(input_path: str):
     output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
     os.makedirs(output_folder, exist_ok=True)
 
+    reflex_config_path = os.getenv("REFLEX_CONFIG", "config/reflex_debug_config.yaml")
+    reflex_config = load_reflex_config(reflex_config_path)
+
     print(f"🧠 [main_solver] Starting simulation for: {scenario_name}")
     print(f"📄 Input path: {input_path}")
     print(f"📁 Output folder: {output_folder}")
+    print(f"⚙️  Reflex config path: {reflex_config_path}")
 
-    snapshots = generate_snapshots(input_data, scenario_name)
+    snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
 
     for step, snapshot in snapshots:
         formatted_step = f"{step:04d}"

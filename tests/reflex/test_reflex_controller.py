@@ -3,6 +3,7 @@
 
 from src.grid_modules.cell import Cell
 from src.reflex.reflex_controller import apply_reflex
+from src.main_solver import load_reflex_config
 
 def mock_config(time_step=0.1, viscosity=0.01):
     return {
@@ -15,7 +16,13 @@ def mock_config(time_step=0.1, viscosity=0.01):
         "domain_definition": {
             "min_x": 0.0,
             "max_x": 1.0,
-            "nx": 10
+            "nx": 10,
+            "min_y": 0.0,
+            "max_y": 1.0,
+            "ny": 1,
+            "min_z": 0.0,
+            "max_z": 1.0,
+            "nz": 1
         }
     }
 
@@ -24,7 +31,8 @@ def test_reflex_output_keys_complete():
         Cell(x=0, y=0, z=0, velocity=[0.01, 0.0, 0.0], pressure=100.0, fluid_mask=True),
         Cell(x=1, y=0, z=0, velocity=None, pressure=None, fluid_mask=False)
     ]
-    flags = apply_reflex(grid, mock_config(), step=0, ghost_influence_count=3)
+    config_flags = load_reflex_config()
+    flags = apply_reflex(grid, mock_config(), step=0, ghost_influence_count=3, config=config_flags)
 
     expected_keys = {
         "max_velocity",
@@ -34,6 +42,8 @@ def test_reflex_output_keys_complete():
         "damping_enabled",
         "adjusted_time_step",
         "projection_passes",
+        "divergence_zero",
+        "projection_skipped",
         "ghost_influence_count",
         "fluid_cells_modified_by_ghost"
     }
@@ -42,11 +52,8 @@ def test_reflex_output_keys_complete():
     assert expected_keys.issubset(flags.keys())
 
 def test_reflex_flag_types():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)
-    ]
+    grid = [Cell(x=0, y=0, z=0, velocity=[0.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)]
     flags = apply_reflex(grid, mock_config(), step=1)
-
     assert isinstance(flags["damping_enabled"], bool)
     assert isinstance(flags["overflow_detected"], bool)
     assert isinstance(flags["adjusted_time_step"], float)
@@ -56,11 +63,11 @@ def test_reflex_flag_types():
     assert isinstance(flags["projection_passes"], int)
     assert isinstance(flags["ghost_influence_count"], int)
     assert isinstance(flags["fluid_cells_modified_by_ghost"], int)
+    assert isinstance(flags["divergence_zero"], bool)
+    assert isinstance(flags["projection_skipped"], bool)
 
 def test_adjusted_time_step_stability():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)
-    ]
+    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)]
     flags = apply_reflex(grid, mock_config(time_step=0.05), step=2)
     assert abs(flags["adjusted_time_step"] - 0.05) < 1e-6
 
@@ -74,16 +81,12 @@ def test_max_velocity_calculation():
     assert abs(flags["max_velocity"] - expected) < 1e-6
 
 def test_global_cfl_consistency():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.0, 0.0], pressure=101.0, fluid_mask=True)
-    ]
+    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.0, 0.0], pressure=101.0, fluid_mask=True)]
     flags = apply_reflex(grid, mock_config(time_step=0.1), step=4)
     assert 0.0 <= flags["global_cfl"] <= 1.0
 
 def test_divergence_and_projection_fields():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.02, -0.01, 0.03], pressure=100.0, fluid_mask=True)
-    ]
+    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.02, -0.01, 0.03], pressure=100.0, fluid_mask=True)]
     flags = apply_reflex(grid, mock_config(), step=5)
     assert isinstance(flags["max_divergence"], float)
     assert isinstance(flags["projection_passes"], int)

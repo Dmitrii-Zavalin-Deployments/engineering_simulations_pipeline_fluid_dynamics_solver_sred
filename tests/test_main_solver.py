@@ -4,7 +4,7 @@
 import os
 import json
 import pytest
-from src.main_solver import generate_snapshots
+from src.main_solver import generate_snapshots, load_reflex_config
 from src.grid_generator import generate_grid_with_mask
 from src.metrics.velocity_metrics import compute_max_velocity
 
@@ -53,12 +53,16 @@ MASKED_INPUT = {
 def input_with_mask():
     return MASKED_INPUT.copy()
 
-def test_snapshot_count_matches_interval(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "mask_test")
+@pytest.fixture
+def reflex_config():
+    return load_reflex_config("config/reflex_debug_config.yaml")
+
+def test_snapshot_count_matches_interval(input_with_mask, reflex_config):
+    snaps = generate_snapshots(input_with_mask, "mask_test", config=reflex_config)
     assert len(snaps) == 6
 
-def test_snapshot_includes_all_required_keys(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "key_check")
+def test_snapshot_includes_all_required_keys(input_with_mask, reflex_config):
+    snaps = generate_snapshots(input_with_mask, "key_check", config=reflex_config)
     expected_keys = {
         "step_index", "grid", "max_velocity", "max_divergence", "global_cfl",
         "overflow_detected", "damping_enabled", "adjusted_time_step", "projection_passes",
@@ -67,8 +71,8 @@ def test_snapshot_includes_all_required_keys(input_with_mask):
     for _, snap in snaps:
         assert expected_keys.issubset(snap.keys())
 
-def test_metrics_have_correct_types(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "type_check")
+def test_metrics_have_correct_types(input_with_mask, reflex_config):
+    snaps = generate_snapshots(input_with_mask, "type_check", config=reflex_config)
     for _, snap in snaps:
         assert isinstance(snap["max_velocity"], float)
         assert isinstance(snap["max_divergence"], float)
@@ -81,8 +85,8 @@ def test_metrics_have_correct_types(input_with_mask):
         assert isinstance(snap["fluid_cells_modified_by_ghost"], int)
         assert isinstance(snap["ghost_registry"], dict)
 
-def test_grid_serialization_respects_mask(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "mask_check")
+def test_grid_serialization_respects_mask(input_with_mask, reflex_config):
+    snaps = generate_snapshots(input_with_mask, "mask_check", config=reflex_config)
     for _, snap in snaps:
         for cell in snap["grid"]:
             assert isinstance(cell["x"], (int, float))
@@ -119,47 +123,47 @@ def test_velocity_magnitude_consistency(input_with_mask):
     actual_mag = compute_max_velocity(grid)
     assert round(actual_mag, 5) == round(expected_mag, 5)
 
-def test_zero_output_interval_fallback(input_with_mask):
+def test_zero_output_interval_fallback(input_with_mask, reflex_config):
     input_with_mask["simulation_parameters"]["output_interval"] = 0
-    snaps = generate_snapshots(input_with_mask, "zero_interval")
+    snaps = generate_snapshots(input_with_mask, "zero_interval", config=reflex_config)
     assert len(snaps) > 0
 
 def test_step_index_formatting_logic():
     steps = [f"{i:04d}" for i in [0, 1, 12, 123, 1234]]
     assert steps == ["0000", "0001", "0012", "0123", "1234"]
 
-def test_snapshot_nulling_on_nonfluid_cells(input_with_mask):
-    snaps = generate_snapshots(input_with_mask, "null_check")
+def test_snapshot_nulling_on_nonfluid_cells(input_with_mask, reflex_config):
+    snaps = generate_snapshots(input_with_mask, "null_check", config=reflex_config)
     for _, snap in snaps:
         for cell in snap["grid"]:
             if not cell["fluid_mask"]:
                 assert cell["velocity"] is None
                 assert cell["pressure"] is None
 
-def test_snapshot_grid_size_matches_geometry(input_with_mask):
+def test_snapshot_grid_size_matches_geometry(input_with_mask, reflex_config):
     nx = input_with_mask["domain_definition"]["nx"]
     ny = input_with_mask["domain_definition"]["ny"]
     nz = input_with_mask["domain_definition"]["nz"]
     expected_size = nx * ny * nz
-    snaps = generate_snapshots(input_with_mask, "geometry_size_check")
+    snaps = generate_snapshots(input_with_mask, "geometry_size_check", config=reflex_config)
     for _, snap in snaps:
         assert len(snap["grid"]) == expected_size
 
-def test_summary_file_written_to_disk(input_with_mask):
+def test_summary_file_written_to_disk(input_with_mask, reflex_config):
     path = os.path.join("data", "testing-input-output", "navier_stokes_output", "step_summary.txt")
     if os.path.exists(path):
         os.remove(path)
-    generate_snapshots(input_with_mask, "summary_test")
+    generate_snapshots(input_with_mask, "summary_test", config=reflex_config)
     assert os.path.exists(path)
     with open(path) as f:
         lines = f.readlines()
     assert any("Step" in line and "Summary" in line for line in lines)
 
-def test_influence_flags_log_exported(input_with_mask):
+def test_influence_flags_log_exported(input_with_mask, reflex_config):
     path = os.path.join("data", "testing-input-output", "navier_stokes_output", "influence_flags_log.json")
     if os.path.exists(path):
         os.remove(path)
-    generate_snapshots(input_with_mask, "influence_export_check")
+    generate_snapshots(input_with_mask, "influence_export_check", config=reflex_config)
     assert os.path.exists(path)
     with open(path) as f:
         data = json.load(f)

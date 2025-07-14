@@ -25,7 +25,10 @@ def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
     vx, vy, vz = cell.velocity
 
     def find_neighbor(x, y, z):
-        return next((c for c in grid if math.isclose(c.x, x) and math.isclose(c.y, y) and math.isclose(c.z, z)), None)
+        return next(
+            (c for c in grid if math.isclose(c.x, x) and math.isclose(c.y, y) and math.isclose(c.z, z)),
+            None
+        )
 
     def safe_velocity(c): return c.velocity if c and getattr(c, "fluid_mask", False) else [vx, vy, vz]
 
@@ -47,7 +50,8 @@ def compute_divergence_stats(
     spacing: tuple,
     label: Optional[str] = None,
     step_index: Optional[int] = None,
-    output_folder: Optional[str] = None
+    output_folder: Optional[str] = None,
+    config: Optional[dict] = None
 ) -> dict:
     """
     Computes summary divergence statistics across fluid cells and optionally writes to a log file.
@@ -58,31 +62,35 @@ def compute_divergence_stats(
         label (str, optional): Description for debug and logging.
         step_index (int, optional): Simulation step number.
         output_folder (str, optional): Folder to write divergence_log.txt into.
+        config (dict, optional): Configuration with reflex verbosity toggle.
 
     Returns:
         dict: Summary stats including max, mean, and count.
     """
+    verbosity = (config or {}).get("reflex_verbosity", "medium")
+    quiet_mode = verbosity == "low"
+
     divergences = [
         abs(compute_divergence(c, grid, spacing))
         for c in grid if getattr(c, "fluid_mask", False)
     ]
 
     if not divergences:
-        print(f"[DEBUG] ⚠️ No fluid cells found for divergence tracking.")
+        if not quiet_mode:
+            print(f"[DEBUG] ⚠️ No fluid cells found for divergence tracking.")
         return {"max": 0.0, "mean": 0.0, "count": 0}
 
     max_div = max(divergences)
     mean_div = sum(divergences) / len(divergences)
     count = len(divergences)
 
-    # 💬 Console log
-    if label:
-        print(f"[DEBUG] 📈 Divergence stats ({label}):")
-    print(f"   Max divergence: {max_div:.6e}")
-    print(f"   Mean divergence: {mean_div:.6e}")
-    print(f"   Cells evaluated: {count}")
+    if not quiet_mode:
+        if label:
+            print(f"[DEBUG] 📈 Divergence stats ({label}):")
+        print(f"   Max divergence: {max_div:.6e}")
+        print(f"   Mean divergence: {mean_div:.6e}")
+        print(f"   Cells evaluated: {count}")
 
-    # 📝 File log (optional)
     if output_folder and step_index is not None:
         os.makedirs(output_folder, exist_ok=True)
         log_path = os.path.join(output_folder, "divergence_log.txt")
@@ -93,7 +101,12 @@ def compute_divergence_stats(
 
     return {"max": max_div, "mean": mean_div, "count": count}
 
-def dump_divergence_map(grid: List[Cell], spacing: tuple, path: Optional[str] = None):
+def dump_divergence_map(
+    grid: List[Cell],
+    spacing: tuple,
+    path: Optional[str] = None,
+    config: Optional[dict] = None
+) -> List[dict]:
     """
     Optionally export per-cell divergence values to JSON for visualization.
 
@@ -101,6 +114,7 @@ def dump_divergence_map(grid: List[Cell], spacing: tuple, path: Optional[str] = 
         grid (List[Cell]): Full simulation grid.
         spacing (tuple): Grid spacing.
         path (str, optional): Output file path.
+        config (dict, optional): Reflex config controlling logging.
 
     Returns:
         List[dict]: List of divergence records per cell.
@@ -119,7 +133,9 @@ def dump_divergence_map(grid: List[Cell], spacing: tuple, path: Optional[str] = 
         import json
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-        print(f"[DEBUG] 📤 Divergence map written → {path}")
+        verbosity = (config or {}).get("reflex_verbosity", "medium")
+        if verbosity != "low":
+            print(f"[DEBUG] 📤 Divergence map written → {path}")
     return data
 
 

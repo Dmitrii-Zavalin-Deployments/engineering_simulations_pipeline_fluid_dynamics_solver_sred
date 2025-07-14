@@ -21,7 +21,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0)
         ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[1.0, 2.0, 3.0])
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.velocity, [1.0, 2.0, 3.0])
         self.assertTrue(fluid.influenced_by_ghost)
@@ -30,7 +30,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0, pressure=0.0)
         ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, pressure=99.0)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.pressure, 99.0)
         self.assertTrue(fluid.influenced_by_ghost)
@@ -39,7 +39,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0, velocity=[2.0, 2.0, 2.0], pressure=50.0)
         ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[2.0, 2.0, 2.0], pressure=50.0)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 0)
         self.assertFalse(getattr(fluid, "influenced_by_ghost", False))
 
@@ -48,7 +48,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         ghost1 = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[0.0, 1.0, 0.0])
         ghost2 = self.create_cell(0.0, 1.0, 1.0, fluid=False, pressure=25.0)
         grid = [fluid, ghost1, ghost2]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.velocity, [0.0, 1.0, 0.0])
         self.assertEqual(fluid.pressure, 25.0)
@@ -58,15 +58,26 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0)
         ghost = self.create_cell(10.0, 10.0, 10.0, fluid=False, velocity=[5.0, 5.0, 5.0], pressure=80.0)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 0)
         self.assertFalse(getattr(fluid, "influenced_by_ghost", False))
+
+    def test_adjacency_threshold_expansion_with_radius(self):
+        fluid = self.create_cell(1.0, 1.0, 1.0)
+        ghost = self.create_cell(3.0, 1.0, 1.0, fluid=False, velocity=[3.3, 3.3, 3.3], pressure=44.0)
+        grid = [fluid, ghost]
+        count_near = apply_ghost_influence(grid, self.spacing, radius=1)
+        count_far = apply_ghost_influence(grid, self.spacing, radius=2)
+        self.assertEqual(count_near, 0)
+        self.assertEqual(count_far, 1)
+        self.assertEqual(fluid.velocity, [3.3, 3.3, 3.3])
+        self.assertEqual(fluid.pressure, 44.0)
 
     def test_tolerance_based_adjacency(self):
         fluid = self.create_cell(1.0, 1.0, 1.0)
         ghost = self.create_cell(2.00000001, 1.0, 1.0, fluid=False, velocity=[3.0, 0.0, 0.0], pressure=77.0)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.velocity, [3.0, 0.0, 0.0])
         self.assertEqual(fluid.pressure, 77.0)
@@ -77,7 +88,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid2 = self.create_cell(2.0, 1.0, 1.0)
         ghost = self.create_cell(1.5, 1.0, 1.0, fluid=False, velocity=[0.5, 0.5, 0.5], pressure=100.0)
         grid = [fluid1, fluid2, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 2)
         self.assertEqual(fluid1.velocity, [0.5, 0.5, 0.5])
         self.assertEqual(fluid2.pressure, 100.0)
@@ -88,7 +99,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0)
         ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=None, pressure=20.0)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.velocity, [0.0, 0.0, 0.0])  # unchanged
         self.assertEqual(fluid.pressure, 20.0)
@@ -98,7 +109,7 @@ class TestGhostInfluenceApplier(unittest.TestCase):
         fluid = self.create_cell(1.0, 1.0, 1.0, pressure=0.0)
         ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[1.0, 1.0, 1.0], pressure=None)
         grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing)
+        count = apply_ghost_influence(grid, self.spacing, radius=1)
         self.assertEqual(count, 1)
         self.assertEqual(fluid.velocity, [1.0, 1.0, 1.0])
         self.assertEqual(fluid.pressure, 0.0)  # unchanged

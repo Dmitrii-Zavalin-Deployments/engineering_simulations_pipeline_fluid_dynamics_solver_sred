@@ -20,8 +20,9 @@ def make_cell(x, y, z, fluid=True, velocity=None, pressure=None, tag=False):
 
 def test_log_file_created_with_single_cell():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         cell = make_cell(0.5, 0.5, 0.5, tag=True)
-        export_influence_flags([cell], step_index=0, output_folder=tmpdir)
+        export_influence_flags([cell], step_index=0, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         assert os.path.exists(path)
@@ -37,11 +38,12 @@ def test_log_file_created_with_single_cell():
 
 def test_multiple_steps_append_correctly():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         c1 = make_cell(0, 0, 0, tag=True)
         c2 = make_cell(1, 1, 1, tag=True)
 
-        export_influence_flags([c1], step_index=1, output_folder=tmpdir)
-        export_influence_flags([c2], step_index=2, output_folder=tmpdir)
+        export_influence_flags([c1], step_index=1, output_folder=tmpdir, config=config)
+        export_influence_flags([c2], step_index=2, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path) as f:
@@ -53,8 +55,9 @@ def test_multiple_steps_append_correctly():
 
 def test_non_influenced_cells_are_ignored():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         c = make_cell(0, 0, 0, tag=False)
-        export_influence_flags([c], step_index=3, output_folder=tmpdir)
+        export_influence_flags([c], step_index=3, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path) as f:
@@ -66,8 +69,9 @@ def test_non_influenced_cells_are_ignored():
 
 def test_non_fluid_cells_are_skipped_even_if_tagged():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         c = make_cell(1, 1, 1, fluid=False, tag=True)
-        export_influence_flags([c], step_index=4, output_folder=tmpdir)
+        export_influence_flags([c], step_index=4, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path) as f:
@@ -78,11 +82,12 @@ def test_non_fluid_cells_are_skipped_even_if_tagged():
 
 def test_multiple_cells_tagged_and_logged():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         c1 = make_cell(1, 0, 0, tag=True)
         c2 = make_cell(0, 1, 0, tag=True)
         c3 = make_cell(0, 0, 1, tag=False)
 
-        export_influence_flags([c1, c2, c3], step_index=5, output_folder=tmpdir)
+        export_influence_flags([c1, c2, c3], step_index=5, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path) as f:
@@ -96,13 +101,13 @@ def test_multiple_cells_tagged_and_logged():
 
 def test_invalid_existing_log_file_recovers_cleanly():
     with tempfile.TemporaryDirectory() as tmpdir:
+        config = {"reflex_verbosity": "high"}
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path, "w") as f:
             f.write("not-a-json-structure")
 
-        # Should overwrite or replace corrupted file
         cell = make_cell(1.0, 1.0, 1.0, tag=True)
-        export_influence_flags([cell], step_index=6, output_folder=tmpdir)
+        export_influence_flags([cell], step_index=6, output_folder=tmpdir, config=config)
 
         with open(path) as f:
             contents = f.read()
@@ -112,8 +117,8 @@ def test_invalid_existing_log_file_recovers_cleanly():
 
 def test_zero_cells_logged_still_creates_entry():
     with tempfile.TemporaryDirectory() as tmpdir:
-        empty_grid = []
-        export_influence_flags(empty_grid, step_index=7, output_folder=tmpdir)
+        config = {"reflex_verbosity": "high"}
+        export_influence_flags([], step_index=7, output_folder=tmpdir, config=config)
 
         path = os.path.join(tmpdir, "influence_flags_log.json")
         with open(path) as f:

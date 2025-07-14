@@ -1,0 +1,10 @@
+# Reflex Diagnostic Configuration
+
+reflex_verbosity: high        # Options: low, medium, high
+include_divergence_delta: true
+include_pressure_mutation_map: true
+log_projection_trace: true
+ghost_adjacency_depth: 1      # Influence tagging radius (default = 1)
+
+
+

@@ -12,7 +12,13 @@ from src.metrics.projection_evaluator import calculate_projection_passes
 from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
 
-def apply_reflex(grid: List[Cell], input_data: dict, step: int, ghost_influence_count: Optional[int] = None) -> dict:
+def apply_reflex(
+    grid: List[Cell],
+    input_data: dict,
+    step: int,
+    ghost_influence_count: Optional[int] = None,
+    config: Optional[dict] = None
+) -> dict:
     """
     Applies reflex diagnostics including velocity, divergence, CFL, overflow,
     damping logic, time-step adaptation, pressure projection estimation,
@@ -22,11 +28,20 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int, ghost_influence_
         grid (List[Cell]): Simulation grid for current time step
         input_data (dict): Simulation configuration and physical parameters
         step (int): Current simulation step index
-        ghost_influence_count (int, optional): Total number of fluid cells modified via ghost influence
+        ghost_influence_count (int, optional): Fluid cells modified via ghost influence
+        config (dict, optional): Reflex verbosity and diagnostic toggles
 
     Returns:
         dict: Reflex metadata containing stability flags, physics metrics, and ghost interaction stats
     """
+    verbosity = (config or {}).get("reflex_verbosity", "medium")
+    include_div_delta = (config or {}).get("include_divergence_delta", False)
+    include_pressure_map = (config or {}).get("include_pressure_mutation_map", False)
+    log_projection_trace = (config or {}).get("log_projection_trace", False)
+
+    if verbosity == "high":
+        print(f"[DEBUG] Step {step} → Reflex diagnostics active")
+
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
 
@@ -41,15 +56,21 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int, ghost_influence_
     divergence_zero = max_divergence < 1e-8
     projection_skipped = divergence_zero or projection_passes == 0
 
-    if divergence_zero:
-        print(f"⚠️ [reflex] Step {step}: Zero divergence — projection may be skipped.")
-    else:
-        print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.6e}")
+    if verbosity != "low":
+        if divergence_zero:
+            print(f"⚠️ [reflex] Step {step}: Zero divergence — projection may be skipped.")
+        else:
+            print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.6e}")
 
-    # 👣 Count fluid cells influenced by ghosts
-    influence_tagged = sum(1 for c in grid if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False))
+        if log_projection_trace:
+            print(f"🔄 [reflex] Step {step}: Projection passes estimated → {projection_passes}")
 
-    return {
+    influence_tagged = sum(
+        1 for c in grid
+        if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
+    )
+
+    reflex_data = {
         "max_velocity": max_velocity,
         "max_divergence": max_divergence,
         "global_cfl": global_cfl,
@@ -62,6 +83,16 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int, ghost_influence_
         "ghost_influence_count": ghost_influence_count if ghost_influence_count is not None else 0,
         "fluid_cells_modified_by_ghost": influence_tagged
     }
+
+    if verbosity == "high" and include_div_delta:
+        print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
+        # placeholder: delta divergence map or stats could be injected here
+
+    if verbosity == "high" and include_pressure_map:
+        print(f"[DEBUG] Step {step} → Pressure mutation map tracing enabled")
+        # placeholder: pressure field diff or mutation map could be injected here
+
+    return reflex_data
 
 
 
