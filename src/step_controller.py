@@ -40,6 +40,8 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     dz = (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
     spacing = (dx, dy, dz)
 
+    output_folder = "data/testing-input-output/navier_stokes_output"
+
     # 🧱 Step 0a: Generate ghost cell padding from tagged boundary faces
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
@@ -53,7 +55,10 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
 
     # 📈 Step 0d: Compute divergence BEFORE projection
-    compute_divergence_stats(boundary_tagged_grid, spacing, label="before projection")
+    compute_divergence_stats(
+        boundary_tagged_grid, spacing,
+        label="before projection", step_index=step, output_folder=output_folder
+    )
 
     # 💨 Step 1: Apply momentum update to evolve velocity fields
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
@@ -65,10 +70,13 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
     # 📈 Step 2.6: Compute divergence AFTER projection (final)
-    compute_divergence_stats(velocity_projected_grid, spacing, label="after projection")
+    compute_divergence_stats(
+        velocity_projected_grid, spacing,
+        label="after projection", step_index=step, output_folder=output_folder
+    )
 
-    # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics
-    reflex_metadata = apply_reflex(velocity_projected_grid, input_data, step)
+    # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics — now with ghost tracking
+    reflex_metadata = apply_reflex(velocity_projected_grid, input_data, step, ghost_influence_count=influence_count)
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
     # 📦 Inject optional ghost diagnostics into reflex metadata

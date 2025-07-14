@@ -1,15 +1,16 @@
 # tests/test_step_controller.py
 # 🧪 Tests for simulation step controller — verifies grid evolution, ghost diagnostics, influence, and reflex metadata
 
+import os
+import io
+import sys
 import pytest
 from src.step_controller import evolve_step
 from src.grid_modules.cell import Cell
 
 def make_fluid_cell(x, y, z, velocity=None, pressure=10.0):
     return Cell(
-        x=x,
-        y=y,
-        z=z,
+        x=x, y=y, z=z,
         velocity=velocity if velocity is not None else [0.0, 0.0, 0.0],
         pressure=pressure,
         fluid_mask=True
@@ -87,10 +88,11 @@ def test_malformed_velocity_downgrades_cell():
     assert downgraded.velocity is None
     assert downgraded.pressure is None
 
-def test_divergence_tracking_runs_pre_and_post():
+def test_divergence_tracking_runs_and_writes_log():
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
-    # Capture console output from divergence tracker
-    import io, sys
+    log_path = "data/testing-input-output/navier_stokes_output/divergence_log.txt"
+    if os.path.exists(log_path):
+        os.remove(log_path)
     buffer = io.StringIO()
     sys.stdout = buffer
     evolve_step(grid, mock_config(), step=6)
@@ -98,6 +100,10 @@ def test_divergence_tracking_runs_pre_and_post():
     output = buffer.getvalue()
     assert "Divergence stats (before projection)" in output
     assert "Divergence stats (after projection)" in output
+    assert os.path.exists(log_path)
+    with open(log_path) as f:
+        contents = f.read()
+    assert "Step 0006" in contents
 
 def test_step_consistency_across_iterations():
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]

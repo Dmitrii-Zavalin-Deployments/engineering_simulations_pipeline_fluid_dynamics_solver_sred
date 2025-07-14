@@ -1,7 +1,6 @@
 # tests/reflex/test_reflex_controller.py
 # 🧪 Unit tests for reflex_controller.py — verifies reflex logic, metric generation, and snapshot metadata structure
 
-import pytest
 from src.grid_modules.cell import Cell
 from src.reflex.reflex_controller import apply_reflex
 
@@ -25,7 +24,7 @@ def test_reflex_output_keys_complete():
         Cell(x=0, y=0, z=0, velocity=[0.01, 0.0, 0.0], pressure=100.0, fluid_mask=True),
         Cell(x=1, y=0, z=0, velocity=None, pressure=None, fluid_mask=False)
     ]
-    flags = apply_reflex(grid, mock_config(), step=0)
+    flags = apply_reflex(grid, mock_config(), step=0, ghost_influence_count=3)
 
     expected_keys = {
         "max_velocity",
@@ -34,7 +33,9 @@ def test_reflex_output_keys_complete():
         "overflow_detected",
         "damping_enabled",
         "adjusted_time_step",
-        "projection_passes"
+        "projection_passes",
+        "ghost_influence_count",
+        "fluid_cells_modified_by_ghost"
     }
 
     assert isinstance(flags, dict)
@@ -53,13 +54,14 @@ def test_reflex_flag_types():
     assert isinstance(flags["max_divergence"], float)
     assert isinstance(flags["global_cfl"], float)
     assert isinstance(flags["projection_passes"], int)
+    assert isinstance(flags["ghost_influence_count"], int)
+    assert isinstance(flags["fluid_cells_modified_by_ghost"], int)
 
 def test_adjusted_time_step_stability():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)
     ]
     flags = apply_reflex(grid, mock_config(time_step=0.05), step=2)
-
     assert abs(flags["adjusted_time_step"] - 0.05) < 1e-6
 
 def test_max_velocity_calculation():
@@ -69,7 +71,6 @@ def test_max_velocity_calculation():
     ]
     flags = apply_reflex(grid, mock_config(), step=3)
     expected = (0.1**2 + 0.2**2 + 0.2**2)**0.5
-
     assert abs(flags["max_velocity"] - expected) < 1e-6
 
 def test_global_cfl_consistency():
@@ -77,23 +78,19 @@ def test_global_cfl_consistency():
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.0, 0.0], pressure=101.0, fluid_mask=True)
     ]
     flags = apply_reflex(grid, mock_config(time_step=0.1), step=4)
-
-    assert flags["global_cfl"] <= 1.0
-    assert flags["global_cfl"] >= 0.0
+    assert 0.0 <= flags["global_cfl"] <= 1.0
 
 def test_divergence_and_projection_fields():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.02, -0.01, 0.03], pressure=100.0, fluid_mask=True)
     ]
     flags = apply_reflex(grid, mock_config(), step=5)
-
     assert isinstance(flags["max_divergence"], float)
     assert isinstance(flags["projection_passes"], int)
     assert flags["projection_passes"] >= 0
 
 def test_safe_defaults_for_empty_grid():
     flags = apply_reflex([], mock_config(), step=6)
-
     assert flags["max_velocity"] == 0.0
     assert flags["max_divergence"] == 0.0
     assert flags["global_cfl"] == 0.0
@@ -101,6 +98,17 @@ def test_safe_defaults_for_empty_grid():
     assert isinstance(flags["damping_enabled"], bool)
     assert isinstance(flags["adjusted_time_step"], float)
     assert isinstance(flags["projection_passes"], int)
+    assert flags["ghost_influence_count"] == 0
+    assert flags["fluid_cells_modified_by_ghost"] == 0
+
+def test_fluid_cells_modified_by_ghost_counting():
+    cell1 = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)
+    cell2 = Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+    cell2.influenced_by_ghost = True
+    cell1.influenced_by_ghost = True
+    grid = [cell1, cell2]
+    flags = apply_reflex(grid, mock_config(), step=7)
+    assert flags["fluid_cells_modified_by_ghost"] == 2
 
 
 

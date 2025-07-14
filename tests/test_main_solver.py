@@ -1,6 +1,8 @@
 # tests/test_main_solver.py
-# 🧪 Comprehensive unit tests for main_solver.py — includes reflex metrics, masking, and snapshot integrity
+# 🧪 Comprehensive unit tests for main_solver.py — includes reflex metrics, masking, influence flag export, and snapshot integrity
 
+import os
+import json
 import pytest
 from src.main_solver import generate_snapshots
 from src.grid_generator import generate_grid_with_mask
@@ -58,10 +60,9 @@ def test_snapshot_count_matches_interval(input_with_mask):
 def test_snapshot_includes_all_required_keys(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "key_check")
     expected_keys = {
-        "step_index", "grid",
-        "max_velocity", "max_divergence", "global_cfl",
-        "overflow_detected", "damping_enabled",
-        "adjusted_time_step", "projection_passes"
+        "step_index", "grid", "max_velocity", "max_divergence", "global_cfl",
+        "overflow_detected", "damping_enabled", "adjusted_time_step", "projection_passes",
+        "ghost_influence_count", "fluid_cells_modified_by_ghost", "ghost_registry"
     }
     for _, snap in snaps:
         assert expected_keys.issubset(snap.keys())
@@ -76,6 +77,9 @@ def test_metrics_have_correct_types(input_with_mask):
         assert isinstance(snap["damping_enabled"], bool)
         assert isinstance(snap["adjusted_time_step"], float)
         assert isinstance(snap["projection_passes"], int)
+        assert isinstance(snap["ghost_influence_count"], int)
+        assert isinstance(snap["fluid_cells_modified_by_ghost"], int)
+        assert isinstance(snap["ghost_registry"], dict)
 
 def test_grid_serialization_respects_mask(input_with_mask):
     snaps = generate_snapshots(input_with_mask, "mask_check")
@@ -137,10 +141,30 @@ def test_snapshot_grid_size_matches_geometry(input_with_mask):
     ny = input_with_mask["domain_definition"]["ny"]
     nz = input_with_mask["domain_definition"]["nz"]
     expected_size = nx * ny * nz
-
     snaps = generate_snapshots(input_with_mask, "geometry_size_check")
     for _, snap in snaps:
-        assert len(snap["grid"]) == expected_size, "❌ Grid size mismatch against domain resolution"
+        assert len(snap["grid"]) == expected_size
+
+def test_summary_file_written_to_disk(input_with_mask):
+    path = os.path.join("data", "testing-input-output", "navier_stokes_output", "step_summary.txt")
+    if os.path.exists(path):
+        os.remove(path)
+    generate_snapshots(input_with_mask, "summary_test")
+    assert os.path.exists(path)
+    with open(path) as f:
+        lines = f.readlines()
+    assert any("Step" in line and "Summary" in line for line in lines)
+
+def test_influence_flags_log_exported(input_with_mask):
+    path = os.path.join("data", "testing-input-output", "navier_stokes_output", "influence_flags_log.json")
+    if os.path.exists(path):
+        os.remove(path)
+    generate_snapshots(input_with_mask, "influence_export_check")
+    assert os.path.exists(path)
+    with open(path) as f:
+        data = json.load(f)
+    assert isinstance(data, list)
+    assert all("step_index" in entry and "influenced_cell_count" in entry for entry in data)
 
 
 

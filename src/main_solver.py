@@ -13,6 +13,7 @@ from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
+from src.output.snapshot_writer import export_influence_flags  # ✅ NEW import
 
 def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -49,6 +50,10 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     snapshots = []
     mutation_report = {"pressure_mutated": 0, "velocity_projected": 0, "projection_skipped": 0}
 
+    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
+    summary_path = os.path.join(output_folder, "step_summary.txt")
+    os.makedirs(output_folder, exist_ok=True)
+
     for step in range(num_steps + 1):
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
@@ -62,6 +67,20 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
             print(f"[DEBUG] Fluid[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
         for i, cell in enumerate(ghost_cells[:3]):
             print(f"[DEBUG] Ghost[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
+
+        # ✅ Append per-step summary to step_summary.txt
+        with open(summary_path, "a") as f:
+            f.write(f"""[🔄 Step {step} Summary]
+• Ghosts: {len(reflex_metadata['ghost_registry'])}
+• Fluid–ghost adjacents: {reflex_metadata.get("fluid_cells_adjacent_to_ghosts", "?")}
+• Influence applied: {reflex_metadata.get("ghost_influence_count", 0)}
+• Max divergence: {reflex_metadata.get("max_divergence", "?"):.6e}
+• Projection skipped: {reflex_metadata.get("projection_skipped", False)}
+
+""")
+
+        # ✅ Export ghost influence flag map per step
+        export_influence_flags(grid, step_index=step, output_folder=output_folder)
 
         serialized_grid = []
         for cell in grid:
@@ -90,13 +109,9 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
             **{k: v for k, v in reflex_metadata.items() if k not in ["velocity_projected", "pressure_mutated"]}
         }
 
-        # ✅ Fallback ghost registry extraction if not tracked
-        ghost_registry = reflex_metadata.get("ghost_registry")
-        if not ghost_registry:
-            ghost_registry = {
-                id(c): {"coordinate": (c.x, c.y, c.z)}
-                for c in grid if not getattr(c, "fluid_mask", True)
-            }
+        ghost_registry = reflex_metadata.get("ghost_registry") or {
+            id(c): {"coordinate": (c.x, c.y, c.z)} for c in grid if not getattr(c, "fluid_mask", True)
+        }
 
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
 
