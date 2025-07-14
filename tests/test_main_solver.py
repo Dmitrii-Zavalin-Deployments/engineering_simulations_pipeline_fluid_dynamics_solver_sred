@@ -66,7 +66,8 @@ def test_snapshot_includes_all_required_keys(input_with_mask, reflex_config):
     expected_keys = {
         "step_index", "grid", "max_velocity", "max_divergence", "global_cfl",
         "overflow_detected", "damping_enabled", "adjusted_time_step", "projection_passes",
-        "ghost_influence_count", "fluid_cells_modified_by_ghost", "ghost_registry"
+        "ghost_influence_count", "fluid_cells_modified_by_ghost", "ghost_registry",
+        "pressure_mutated", "velocity_projected", "projection_skipped", "divergence_zero"
     }
     for _, snap in snaps:
         assert expected_keys.issubset(snap.keys())
@@ -169,6 +170,20 @@ def test_influence_flags_log_exported(input_with_mask, reflex_config):
         data = json.load(f)
     assert isinstance(data, list)
     assert all("step_index" in entry and "influenced_cell_count" in entry for entry in data)
+
+def test_mutation_pathways_log_exported(input_with_mask, reflex_config):
+    path = os.path.join("data", "testing-input-output", "navier_stokes_output", "mutation_pathways_log.json")
+    if os.path.exists(path):
+        os.remove(path)
+    generate_snapshots(input_with_mask, "mutation_export_check", config=reflex_config)
+    assert os.path.exists(path)
+    with open(path) as f:
+        data = json.load(f)
+    assert isinstance(data, list)
+    for entry in data:
+        assert "step_index" in entry
+        assert "pressure_mutated" in entry
+        assert "triggered_by" in entry
 
 
 

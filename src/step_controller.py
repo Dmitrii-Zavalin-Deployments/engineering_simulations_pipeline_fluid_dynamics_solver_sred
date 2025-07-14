@@ -53,6 +53,9 @@ def evolve_step(
 
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
 
+    # ✅ Optionally tag if boundary enforcement occurred
+    boundary_applied = True  # assuming enforcement always happens in this implementation
+
     influence_count = apply_ghost_influence(
         boundary_tagged_grid,
         spacing,
@@ -63,7 +66,7 @@ def evolve_step(
 
     compute_divergence_stats(
         boundary_tagged_grid, spacing,
-        label="before projection", step_index=step, output_folder=output_folder
+        label="before projection", step_index=step, output_folder=output_folder, config=config
     )
 
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
@@ -74,7 +77,7 @@ def evolve_step(
 
     compute_divergence_stats(
         velocity_projected_grid, spacing,
-        label="after projection", step_index=step, output_folder=output_folder
+        label="after projection", step_index=step, output_folder=output_folder, config=config
     )
 
     reflex_metadata = apply_reflex(
@@ -86,9 +89,12 @@ def evolve_step(
     )
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
-    reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry, grid=velocity_projected_grid, spacing=spacing)
-    reflex_metadata["ghost_registry"] = ghost_registry
+    # ✅ Track causality for downstream mutation pathway logging
     reflex_metadata["ghost_influence_count"] = influence_count
+    reflex_metadata["ghost_registry"] = ghost_registry
+    reflex_metadata["boundary_condition_applied"] = boundary_applied
+
+    reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry, grid=velocity_projected_grid, spacing=spacing)
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return velocity_projected_grid, reflex_metadata

@@ -70,6 +70,16 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
+    # Optional mutation causality tagging
+    triggered_by = []
+    if ghost_influence_count and ghost_influence_count > 0:
+        triggered_by.append("ghost_influence")
+    if overflow_detected:
+        triggered_by.append("overflow_detected")
+    if damping_enabled:
+        triggered_by.append("damping_enabled")
+    # "boundary_override" can optionally be added externally by main_solver or step_controller
+
     reflex_data = {
         "max_velocity": max_velocity,
         "max_divergence": max_divergence,
@@ -81,16 +91,17 @@ def apply_reflex(
         "divergence_zero": divergence_zero,
         "projection_skipped": projection_skipped,
         "ghost_influence_count": ghost_influence_count if ghost_influence_count is not None else 0,
-        "fluid_cells_modified_by_ghost": influence_tagged
+        "fluid_cells_modified_by_ghost": influence_tagged,
+        "triggered_by": triggered_by  # ✅ pressure mutation causality tags
     }
 
     if verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
-        # placeholder: delta divergence map or stats could be injected here
+        # placeholder for divergence delta logic
 
     if verbosity == "high" and include_pressure_map:
         print(f"[DEBUG] Step {step} → Pressure mutation map tracing enabled")
-        # placeholder: pressure field diff or mutation map could be injected here
+        # placeholder for pressure diff logic
 
     return reflex_data
 

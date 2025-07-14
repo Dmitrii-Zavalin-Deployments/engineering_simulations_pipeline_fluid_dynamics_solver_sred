@@ -45,7 +45,8 @@ def test_reflex_output_keys_complete():
         "divergence_zero",
         "projection_skipped",
         "ghost_influence_count",
-        "fluid_cells_modified_by_ghost"
+        "fluid_cells_modified_by_ghost",
+        "triggered_by"
     }
 
     assert isinstance(flags, dict)
@@ -65,6 +66,7 @@ def test_reflex_flag_types():
     assert isinstance(flags["fluid_cells_modified_by_ghost"], int)
     assert isinstance(flags["divergence_zero"], bool)
     assert isinstance(flags["projection_skipped"], bool)
+    assert isinstance(flags["triggered_by"], list)
 
 def test_adjusted_time_step_stability():
     grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)]
@@ -103,6 +105,7 @@ def test_safe_defaults_for_empty_grid():
     assert isinstance(flags["projection_passes"], int)
     assert flags["ghost_influence_count"] == 0
     assert flags["fluid_cells_modified_by_ghost"] == 0
+    assert isinstance(flags["triggered_by"], list)
 
 def test_fluid_cells_modified_by_ghost_counting():
     cell1 = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)
@@ -112,6 +115,7 @@ def test_fluid_cells_modified_by_ghost_counting():
     grid = [cell1, cell2]
     flags = apply_reflex(grid, mock_config(), step=7)
     assert flags["fluid_cells_modified_by_ghost"] == 2
+    assert "ghost_influence" in flags["triggered_by"]
 
 
 

@@ -15,6 +15,7 @@ from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
+from src.output.mutation_pathways_logger import log_mutation_pathway  # ✅ NEW import
 
 # ✅ Load reflex diagnostics config (with fallback)
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
@@ -93,7 +94,21 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
 """)
 
-        export_influence_flags(grid, step_index=step, output_folder=output_folder)
+        export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
+
+        # ✅ Log mutation causality
+        mutation_causes = []
+        if reflex_metadata.get("ghost_influence_count", 0) > 0:
+            mutation_causes.append("ghost_influence")
+        if reflex_metadata.get("boundary_condition_applied", False):
+            mutation_causes.append("boundary_override")
+
+        log_mutation_pathway(
+            step_index=step,
+            pressure_mutated=reflex_metadata.get("pressure_mutated", False),
+            triggered_by=mutation_causes,
+            output_folder=output_folder
+        )
 
         serialized_grid = []
         for cell in grid:

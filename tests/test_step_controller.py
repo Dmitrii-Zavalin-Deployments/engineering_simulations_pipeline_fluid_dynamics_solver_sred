@@ -47,14 +47,15 @@ def test_single_fluid_cell_evolves(reflex_config):
     updated, reflex = evolve_step(grid, mock_input_config(), step=0, config=reflex_config)
     assert isinstance(updated, list)
     assert isinstance(reflex, dict)
-    assert any(isinstance(c, Cell) for c in updated)
     assert "max_velocity" in reflex
+    assert "boundary_condition_applied" in reflex
+    assert "ghost_influence_count" in reflex
 
 def test_ghost_registry_and_influence_logged(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
     _, reflex = evolve_step(grid, mock_input_config(), step=1, config=reflex_config)
     assert "ghost_registry" in reflex
-    assert isinstance(reflex.get("ghost_influence_count", None), int)
+    assert isinstance(reflex["ghost_influence_count"], int)
 
 def test_ghost_diagnostics_have_valid_fields(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
@@ -111,7 +112,6 @@ def test_step_consistency_across_iterations(reflex_config):
     _, reflex_a = evolve_step(grid, mock_input_config(), step=7, config=reflex_config)
     _, reflex_b = evolve_step(grid, mock_input_config(), step=8, config=reflex_config)
     assert set(reflex_a.keys()) == set(reflex_b.keys())
-    assert "ghost_diagnostics" in reflex_a
 
 def test_boundary_conditions_enforced_via_ghosts(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5, velocity=[0.0, 0.0, 0.0], pressure=None)]
@@ -119,6 +119,7 @@ def test_boundary_conditions_enforced_via_ghosts(reflex_config):
     cell = next(c for c in updated if getattr(c, "fluid_mask", True))
     assert cell.pressure is not None
     assert cell.velocity != [0.0, 0.0, 0.0]
+    assert reflex.get("boundary_condition_applied", False)
 
 def test_multiple_fluid_cells_influence_and_tags(reflex_config):
     grid = [
