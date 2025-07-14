@@ -18,8 +18,8 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     """
     Evolves the fluid grid by one simulation step using:
     - Ghost cell padding and boundary enforcement
-    - Momentum update (advection + viscosity)
     - Ghost influence propagation (velocity/pressure transfer)
+    - Momentum update (advection + viscosity)
     - Pressure correction (divergence and projection)
     - Velocity projection via pressure gradient
     - Reflex logic (damping, overflow, CFL diagnostics)
@@ -34,6 +34,7 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
+    # 🧮 Compute grid spacing
     dx = (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"]
     dy = (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"]
     dz = (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
@@ -63,7 +64,7 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     # 💨 Step 2.5: Project velocity using pressure gradient (∇p)
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
-    # 📈 Step 2.6: Compute divergence AFTER projection
+    # 📈 Step 2.6: Compute divergence AFTER projection (final)
     compute_divergence_stats(velocity_projected_grid, spacing, label="after projection")
 
     # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics
@@ -72,6 +73,10 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
 
     # 📦 Inject optional ghost diagnostics into reflex metadata
     reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry, grid=velocity_projected_grid, spacing=spacing)
+
+    # 📌 Lock ghost registry and influence count into metadata for downstream tracking
+    reflex_metadata["ghost_registry"] = ghost_registry
+    reflex_metadata["ghost_influence_count"] = influence_count
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return velocity_projected_grid, reflex_metadata

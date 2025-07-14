@@ -7,7 +7,7 @@ from src.grid_modules.cell import Cell
 def apply_ghost_influence(grid: List[Cell], spacing: Tuple[float, float, float], verbose: bool = False) -> int:
     """
     Applies ghost cell pressure and velocity to adjacent fluid cells.
-    Transfers velocity and pressure only if ghost has value and fluid does not.
+    Transfers ghost values if ghost field differs from fluid field.
 
     Args:
         grid (List[Cell]): Full simulation grid including fluid and ghost cells
@@ -21,17 +21,17 @@ def apply_ghost_influence(grid: List[Cell], spacing: Tuple[float, float, float],
     tol = 1e-6
     influence_count = 0
 
-    # Index fluid cells by coordinate
+    # Fluid cell map by coordinate
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     fluid_coord_map = {
         (round(c.x, 6), round(c.y, 6), round(c.z, 6)): c
         for c in fluid_cells
     }
 
-    # Identify ghost cells
+    # Ghost cell list
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
-    def coords_are_neighbors(a, b):
+    def coords_are_neighbors(a: Tuple[float, float, float], b: Tuple[float, float, float]) -> bool:
         return (
             abs(a[0] - b[0]) <= dx + tol and
             abs(a[1] - b[1]) <= dy + tol and
@@ -39,34 +39,33 @@ def apply_ghost_influence(grid: List[Cell], spacing: Tuple[float, float, float],
         )
 
     for ghost in ghost_cells:
-        gx, gy, gz = ghost.x, ghost.y, ghost.z
-        ghost_coord = (round(gx, 6), round(gy, 6), round(gz, 6))
+        ghost_coord = (round(ghost.x, 6), round(ghost.y, 6), round(ghost.z, 6))
 
         for f_coord, fluid_cell in fluid_coord_map.items():
             if coords_are_neighbors(ghost_coord, f_coord):
                 modified = False
 
-                # Apply velocity if valid
+                # Velocity influence: allow overwrite if different
                 if (
-                    fluid_cell.velocity == [0.0, 0.0, 0.0]
-                    and isinstance(ghost.velocity, list)
-                    and ghost.velocity != [0.0, 0.0, 0.0]
+                    isinstance(ghost.velocity, list)
+                    and ghost.velocity != fluid_cell.velocity
                 ):
                     fluid_cell.velocity = ghost.velocity[:]
                     modified = True
 
-                # Apply pressure if valid
+                # Pressure influence: allow overwrite if different
                 if (
-                    fluid_cell.pressure in [None, 0.0]
-                    and isinstance(ghost.pressure, (int, float))
+                    isinstance(ghost.pressure, (int, float))
+                    and ghost.pressure != fluid_cell.pressure
                 ):
                     fluid_cell.pressure = ghost.pressure
                     modified = True
 
                 if modified:
+                    fluid_cell.influenced_by_ghost = True
                     influence_count += 1
                     if verbose:
-                        print(f"[DEBUG] Ghost @ ({gx:.2f}, {gy:.2f}, {gz:.2f}) → modified fluid @ {f_coord}")
+                        print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
