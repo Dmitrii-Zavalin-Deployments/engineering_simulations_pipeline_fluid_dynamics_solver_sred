@@ -53,6 +53,9 @@ def test_single_fluid_cell_evolves(reflex_config):
     assert "pressure_solver_invoked" in reflex
     assert "pressure_mutated" in reflex
     assert "post_projection_divergence" in reflex
+    assert "projection_passes" in reflex
+    assert isinstance(reflex["projection_passes"], int)
+    assert reflex["projection_passes"] >= 0
 
 def test_ghost_registry_and_influence_logged(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]

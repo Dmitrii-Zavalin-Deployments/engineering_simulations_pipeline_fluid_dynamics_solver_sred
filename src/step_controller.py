@@ -77,7 +77,9 @@ def evolve_step(
 
     # Core physics updates
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
-    pressure_corrected_grid, pressure_has_changed = apply_pressure_correction(velocity_updated_grid, input_data, step)
+    pressure_corrected_grid, pressure_has_changed, projection_passes = apply_pressure_correction(
+        velocity_updated_grid, input_data, step
+    )
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
     # Divergence stats after projection
@@ -105,6 +107,7 @@ def evolve_step(
     reflex_metadata["ghost_influence_count"] = influence_count
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
+    reflex_metadata["projection_passes"] = projection_passes
 
     reflex_metadata = inject_diagnostics(
         reflex_metadata, ghost_registry,
