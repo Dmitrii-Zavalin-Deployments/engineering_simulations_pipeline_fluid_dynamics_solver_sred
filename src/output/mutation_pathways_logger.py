@@ -48,7 +48,7 @@ def log_mutation_pathway(
             for c in triggered_cells
         ]
 
-    # Read or initialize
+    # Read or initialize log safely
     try:
         with open(log_path, "r") as f:
             log = json.load(f)
