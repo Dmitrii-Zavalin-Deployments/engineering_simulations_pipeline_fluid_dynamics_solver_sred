@@ -54,7 +54,10 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     for step in range(num_steps + 1):
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
-        assert len(grid) == expected_size, f"❌ Snapshot grid size mismatch at step {step}"
+        fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
+        ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
+        assert len(fluid_cells) == expected_size, f"❌ Physical grid size mismatch at step {step}"
+        print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
 
         serialized_grid = []
         for cell in grid:
