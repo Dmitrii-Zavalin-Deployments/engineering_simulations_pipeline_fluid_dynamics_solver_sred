@@ -7,14 +7,6 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
     """
     Returns ghost cell stats including per-face count, total, pressure enforcement, velocity rules,
     and optionally fluid cell adjacency counts if grid is provided.
-
-    Args:
-        ghost_registry (dict or set): Maps ghost cell id to metadata OR contains ghost cell objects
-        grid (List[Cell], optional): Full simulation grid for adjacency tracking
-        spacing (tuple): (dx, dy, dz) physical spacing of the grid
-
-    Returns:
-        dict: Summary with per-face breakdown and enforcement stats
     """
     face_counts = defaultdict(int)
     pressure_overrides = 0
@@ -98,24 +90,16 @@ def log_ghost_summary(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)):
         print(f"   {face}: {count}")
     print(f"📐 Ghost Pressure Overrides: {summary['pressure_overrides']}")
     print(f"🧊 No-slip Velocity Enforced: {summary['no_slip_enforced']}")
-    if "fluid_cells_adjacent_to_ghosts" in summary:
-        print(f"🧭 Fluid cells bordering ghosts: {summary['fluid_cells_adjacent_to_ghosts']}")
+    print(f"🧭 Fluid cells bordering ghosts: {summary['fluid_cells_adjacent_to_ghosts']}")
 
 def inject_diagnostics(snapshot: dict, ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -> dict:
     """
     Optionally attach ghost diagnostics to snapshot, including fluid adjacency.
-
-    Args:
-        snapshot (dict): Existing snapshot dictionary
-        ghost_registry (dict or set): Registry to analyze
-        grid (List[Cell], optional): Simulation grid for adjacency computation
-        spacing (tuple): Grid spacing
-
-    Returns:
-        dict: Updated snapshot with embedded ghost diagnostics
+    Logs diagnostics immediately after injecting.
     """
     diagnostics = analyze_ghost_registry(ghost_registry, grid, spacing)
     snapshot["ghost_diagnostics"] = diagnostics
+    log_ghost_summary(ghost_registry, grid, spacing)
     return snapshot
 
 
