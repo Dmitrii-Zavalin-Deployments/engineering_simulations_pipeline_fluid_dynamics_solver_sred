@@ -49,25 +49,22 @@ def apply_ghost_influence(
             if coords_are_neighbors(ghost_coord, f_coord):
                 modified = False
 
-                if (
-                    isinstance(ghost.velocity, list)
-                    and ghost.velocity != fluid_cell.velocity
-                ):
+                # Apply velocity influence
+                if isinstance(ghost.velocity, list) and ghost.velocity != fluid_cell.velocity:
                     fluid_cell.velocity = ghost.velocity[:]
                     modified = True
 
-                if (
-                    isinstance(ghost.pressure, (int, float))
-                    and ghost.pressure != fluid_cell.pressure
-                ):
+                # Apply pressure influence
+                if isinstance(ghost.pressure, (int, float)) and ghost.pressure != fluid_cell.pressure:
                     fluid_cell.pressure = ghost.pressure
                     modified = True
 
                 if modified:
-                    fluid_cell.influenced_by_ghost = True
+                    fluid_cell.influenced_by_ghost = True  # ✅ Explicitly tag cell
                     influence_count += 1
                     if verbose:
                         print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
+                        # Optional: print direction/face if metadata added (e.g., ghost.ghost_face)
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")

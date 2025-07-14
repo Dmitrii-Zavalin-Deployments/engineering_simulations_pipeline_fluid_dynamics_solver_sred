@@ -28,41 +28,53 @@ def export_influence_flags(
     quiet_mode = verbosity == "low"
     include_details = verbosity == "high"
 
-    fluid_influenced = [
-        {
-            "step_index": step_index,
-            "x": c.x,
-            "y": c.y,
-            "z": c.z,
-            "velocity": c.velocity,
-            "pressure": c.pressure
-        }
-        for c in grid
-        if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
-    ] if include_details else []  # Only collect details if verbose
+    entries = []
+    for cell in grid:
+        if getattr(cell, "fluid_mask", False) and getattr(cell, "influenced_by_ghost", False):
+            detail = {
+                "step_index": step_index,
+                "x": cell.x,
+                "y": cell.y,
+                "z": cell.z
+            }
+            if include_details:
+                # Detect mutation types
+                mutation_types = []
+                if hasattr(cell, "_ghost_velocity_source"):
+                    mutation_types.append("velocity")
+                    detail["ghost_velocity_source"] = cell._ghost_velocity_source  # (x,y,z)
+                if hasattr(cell, "_ghost_pressure_source"):
+                    mutation_types.append("pressure")
+                    detail["ghost_pressure_source"] = cell._ghost_pressure_source  # (x,y,z)
+                detail["mutation_types"] = mutation_types
+                detail["velocity"] = cell.velocity
+                detail["pressure"] = cell.pressure
+            entries.append(detail)
 
-    entry = {
+    log_entry = {
         "step_index": step_index,
-        "influenced_cell_count": sum(
-            1 for c in grid if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
-        ),
-        "cells": fluid_influenced
+        "influenced_cell_count": len(entries),
+        "cells": entries
     }
 
-    # Append to existing log or initialize
+    # Append to existing log file
     if os.path.exists(log_path):
-        with open(log_path, "r") as f:
-            log = json.load(f)
+        try:
+            with open(log_path, "r") as f:
+                existing = json.load(f)
+        except:
+            existing = []
     else:
-        log = []
+        existing = []
 
-    log.append(entry)
+    existing.append(log_entry)
 
     with open(log_path, "w") as f:
-        json.dump(log, f, indent=2)
+        json.dump(existing, f, indent=2)
 
     if not quiet_mode:
         print(f"[DEBUG] 👣 Influence flags exported → {log_path}")
+        print(f"[DEBUG] ✏️  Step {step_index}: {len(entries)} fluid cells tagged as influenced by ghosts.")
 
 
 

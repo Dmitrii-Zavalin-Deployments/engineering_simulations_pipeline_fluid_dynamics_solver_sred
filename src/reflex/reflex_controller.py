@@ -1,6 +1,6 @@
 # src/reflex/reflex_controller.py
 # 🔧 Reflex controller — gathers diagnostics and applies reflex flags and metrics:
-# damping, overflow detection, CFL monitoring, divergence, and projection estimates
+# damping, overflow detection, CFL monitoring, divergence tracking, pressure correction, mutation causality
 
 from typing import List, Optional
 from src.grid_modules.cell import Cell
@@ -17,22 +17,27 @@ def apply_reflex(
     input_data: dict,
     step: int,
     ghost_influence_count: Optional[int] = None,
-    config: Optional[dict] = None
+    config: Optional[dict] = None,
+    pressure_solver_invoked: Optional[bool] = None,
+    pressure_mutated: Optional[bool] = None,
+    post_projection_divergence: Optional[float] = None
 ) -> dict:
     """
     Applies reflex diagnostics including velocity, divergence, CFL, overflow,
-    damping logic, time-step adaptation, pressure projection estimation,
-    and ghost influence propagation tracking.
+    damping logic, time-step adaptation, projection estimation, and mutation cause tracking.
 
     Args:
-        grid (List[Cell]): Simulation grid for current time step
-        input_data (dict): Simulation configuration and physical parameters
+        grid (List[Cell]): Simulation grid
+        input_data (dict): Full simulation config
         step (int): Current simulation step index
-        ghost_influence_count (int, optional): Fluid cells modified via ghost influence
-        config (dict, optional): Reflex verbosity and diagnostic toggles
+        ghost_influence_count (Optional[int]): Fluid cells modified by ghosts
+        config (Optional[dict]): Reflex diagnostic flags
+        pressure_solver_invoked (Optional[bool]): True if pressure projection solver ran
+        pressure_mutated (Optional[bool]): True if pressure field was updated
+        post_projection_divergence (Optional[float]): Divergence after projection
 
     Returns:
-        dict: Reflex metadata containing stability flags, physics metrics, and ghost interaction stats
+        dict: Flattened reflex metadata fields for snapshot
     """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     include_div_delta = (config or {}).get("include_divergence_delta", False)
@@ -56,21 +61,12 @@ def apply_reflex(
     divergence_zero = max_divergence < 1e-8
     projection_skipped = divergence_zero or projection_passes == 0
 
-    if verbosity != "low":
-        if divergence_zero:
-            print(f"⚠️ [reflex] Step {step}: Zero divergence — projection may be skipped.")
-        else:
-            print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.6e}")
-
-        if log_projection_trace:
-            print(f"🔄 [reflex] Step {step}: Projection passes estimated → {projection_passes}")
-
     influence_tagged = sum(
         1 for c in grid
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # Optional mutation causality tagging
+    # Mutation causality tagging
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:
         triggered_by.append("ghost_influence")
@@ -78,7 +74,21 @@ def apply_reflex(
         triggered_by.append("overflow_detected")
     if damping_enabled:
         triggered_by.append("damping_enabled")
-    # "boundary_override" can optionally be added externally by main_solver or step_controller
+    # "boundary_override" may be appended externally
+
+    if verbosity != "low":
+        print(f"📊 [reflex] Step {step}: Max velocity = {max_velocity:.3e}")
+        print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.3e}")
+        if post_projection_divergence is not None:
+            print(f"📊 [reflex] Step {step}: Post-projection divergence = {post_projection_divergence:.3e}")
+        if log_projection_trace:
+            print(f"🔄 [reflex] Step {step}: Projection passes = {projection_passes}")
+        if projection_skipped:
+            print(f"⚠️ [reflex] Step {step}: Projection skipped (divergence zero or passes = 0)")
+        if pressure_mutated:
+            print(f"✅ [reflex] Step {step}: Pressure field mutated.")
+        elif pressure_solver_invoked:
+            print(f"ℹ️ [reflex] Step {step}: Solver invoked but pressure unchanged.")
 
     reflex_data = {
         "max_velocity": max_velocity,
@@ -92,16 +102,17 @@ def apply_reflex(
         "projection_skipped": projection_skipped,
         "ghost_influence_count": ghost_influence_count if ghost_influence_count is not None else 0,
         "fluid_cells_modified_by_ghost": influence_tagged,
-        "triggered_by": triggered_by  # ✅ pressure mutation causality tags
+        "triggered_by": triggered_by,
+        "pressure_solver_invoked": pressure_solver_invoked if pressure_solver_invoked is not None else False,
+        "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
+        "post_projection_divergence": post_projection_divergence if post_projection_divergence is not None else None
     }
 
     if verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
-        # placeholder for divergence delta logic
 
     if verbosity == "high" and include_pressure_map:
         print(f"[DEBUG] Step {step} → Pressure mutation map tracing enabled")
-        # placeholder for pressure diff logic
 
     return reflex_data
 

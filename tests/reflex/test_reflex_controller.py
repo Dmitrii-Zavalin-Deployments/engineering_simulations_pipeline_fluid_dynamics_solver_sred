@@ -32,21 +32,22 @@ def test_reflex_output_keys_complete():
         Cell(x=1, y=0, z=0, velocity=None, pressure=None, fluid_mask=False)
     ]
     config_flags = load_reflex_config()
-    flags = apply_reflex(grid, mock_config(), step=0, ghost_influence_count=3, config=config_flags)
+    flags = apply_reflex(
+        grid, mock_config(), step=0,
+        ghost_influence_count=3,
+        config=config_flags,
+        pressure_solver_invoked=True,
+        pressure_mutated=True,
+        post_projection_divergence=1.2e-5
+    )
 
     expected_keys = {
-        "max_velocity",
-        "max_divergence",
-        "global_cfl",
-        "overflow_detected",
-        "damping_enabled",
-        "adjusted_time_step",
-        "projection_passes",
-        "divergence_zero",
-        "projection_skipped",
-        "ghost_influence_count",
-        "fluid_cells_modified_by_ghost",
-        "triggered_by"
+        "max_velocity", "max_divergence", "global_cfl",
+        "overflow_detected", "damping_enabled", "adjusted_time_step",
+        "projection_passes", "divergence_zero", "projection_skipped",
+        "ghost_influence_count", "fluid_cells_modified_by_ghost",
+        "triggered_by", "pressure_solver_invoked",
+        "pressure_mutated", "post_projection_divergence"
     }
 
     assert isinstance(flags, dict)
@@ -54,7 +55,11 @@ def test_reflex_output_keys_complete():
 
 def test_reflex_flag_types():
     grid = [Cell(x=0, y=0, z=0, velocity=[0.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)]
-    flags = apply_reflex(grid, mock_config(), step=1)
+    flags = apply_reflex(
+        grid, mock_config(), step=1,
+        pressure_solver_invoked=False,
+        pressure_mutated=False
+    )
     assert isinstance(flags["damping_enabled"], bool)
     assert isinstance(flags["overflow_detected"], bool)
     assert isinstance(flags["adjusted_time_step"], float)
@@ -67,6 +72,9 @@ def test_reflex_flag_types():
     assert isinstance(flags["divergence_zero"], bool)
     assert isinstance(flags["projection_skipped"], bool)
     assert isinstance(flags["triggered_by"], list)
+    assert isinstance(flags["pressure_solver_invoked"], bool)
+    assert isinstance(flags["pressure_mutated"], bool)
+    assert flags.get("post_projection_divergence") is None or isinstance(flags["post_projection_divergence"], float)
 
 def test_adjusted_time_step_stability():
     grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)]
@@ -106,6 +114,8 @@ def test_safe_defaults_for_empty_grid():
     assert flags["ghost_influence_count"] == 0
     assert flags["fluid_cells_modified_by_ghost"] == 0
     assert isinstance(flags["triggered_by"], list)
+    assert isinstance(flags["pressure_solver_invoked"], bool)
+    assert isinstance(flags["pressure_mutated"], bool)
 
 def test_fluid_cells_modified_by_ghost_counting():
     cell1 = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)

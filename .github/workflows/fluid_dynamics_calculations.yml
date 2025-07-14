@@ -17,7 +17,7 @@ jobs:
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
       UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output
-      REFLEX_CONFIG: ${{ github.workspace }}/config/reflex_debug_config.yaml   # ✅ Added reflex config path
+      REFLEX_CONFIG: ${{ github.workspace }}/config/reflex_debug_config.yaml
 
     steps:
     - name: 🗂️ Checkout Repository
@@ -43,7 +43,7 @@ jobs:
     - name: 🚀 Run Main Solver
       env:
         PYTHONPATH: ${{ github.workspace }}/src
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}            # ✅ Pass reflex config into runtime
+        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
@@ -53,10 +53,15 @@ jobs:
     - name: 🧪 Run Unit Tests
       env:
         PYTHONPATH: ${{ github.workspace }}/src
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}            # ✅ Pass reflex config into tests (if needed)
+        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
       run: |
         pytest -s tests/ --verbose -ra
         echo "✅ Unit tests completed."
+
+    - name: 🧪 Run Snapshot Validation
+      run: |
+        python src/tools/snapshot_validator.py
+        echo "✅ Snapshot validation executed."
 
     - name: 🗃️ Inspect Repository Structure
       run: |

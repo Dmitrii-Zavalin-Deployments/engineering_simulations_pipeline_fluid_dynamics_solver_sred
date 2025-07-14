@@ -7,7 +7,6 @@ import json
 import logging
 import yaml
 
-# ✅ Add path adjustment for module resolution in CI or direct script execution
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.input_reader import load_simulation_input
@@ -15,9 +14,8 @@ from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
-from src.output.mutation_pathways_logger import log_mutation_pathway  # ✅ NEW import
+from src.output.mutation_pathways_logger import log_mutation_pathway
 
-# ✅ Load reflex diagnostics config (with fallback)
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
     try:
         with open(path) as f:
@@ -35,7 +33,6 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
     output_interval = input_data["simulation_parameters"].get("output_interval", 1)
-
     if output_interval <= 0:
         logging.warning(f"⚠️ output_interval was set to {output_interval}. Using fallback of 1.")
         output_interval = 1
@@ -64,51 +61,63 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
     num_steps = int(total_time / time_step)
     snapshots = []
-    mutation_report = {"pressure_mutated": 0, "velocity_projected": 0, "projection_skipped": 0}
+    mutation_report = {
+        "pressure_mutated": 0,
+        "velocity_projected": 0,
+        "projection_skipped": 0
+    }
 
     output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
     summary_path = os.path.join(output_folder, "step_summary.txt")
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        grid, reflex_metadata = evolve_step(grid, input_data, step, config=config)
+        grid, reflex = evolve_step(grid, input_data, step, config=config)
 
         fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
         ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
         print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
         if len(fluid_cells) != expected_size:
-            print(f"[DEBUG] ⚠️ Unexpected fluid cell count at step {step} → expected: {expected_size}, found: {len(fluid_cells)}")
-        for i, cell in enumerate(fluid_cells[:3]):
-            print(f"[DEBUG] Fluid[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
-        for i, cell in enumerate(ghost_cells[:3]):
-            print(f"[DEBUG] Ghost[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
-
-        with open(summary_path, "a") as f:
-            f.write(f"""[🔄 Step {step} Summary]
-• Ghosts: {len(reflex_metadata['ghost_registry'])}
-• Fluid–ghost adjacents: {reflex_metadata.get("fluid_cells_adjacent_to_ghosts", "?")}
-• Influence applied: {reflex_metadata.get("ghost_influence_count", 0)}
-• Max divergence: {reflex_metadata.get("max_divergence", "?"):.6e}
-• Projection skipped: {reflex_metadata.get("projection_skipped", False)}
-
-""")
+            print(f"[DEBUG] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
+        for i, c in enumerate(fluid_cells[:3]):
+            print(f"[DEBUG] Fluid[{i}] @ ({c.x:.2f}, {c.y:.2f}, {c.z:.2f})")
+        for i, c in enumerate(ghost_cells[:3]):
+            print(f"[DEBUG] Ghost[{i}] @ ({c.x:.2f}, {c.y:.2f}, {c.z:.2f})")
 
         export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-        # ✅ Log mutation causality
         mutation_causes = []
-        if reflex_metadata.get("ghost_influence_count", 0) > 0:
+        if reflex.get("ghost_influence_count", 0) > 0:
             mutation_causes.append("ghost_influence")
-        if reflex_metadata.get("boundary_condition_applied", False):
+        if reflex.get("boundary_condition_applied", False):
             mutation_causes.append("boundary_override")
 
         log_mutation_pathway(
             step_index=step,
-            pressure_mutated=reflex_metadata.get("pressure_mutated", False),
+            pressure_mutated=reflex.get("pressure_mutated", False),
             triggered_by=mutation_causes,
             output_folder=output_folder
         )
+
+        with open(summary_path, "a") as f:
+            f.write(f"""[🔄 Step {step} Summary]
+• Ghosts: {len(reflex.get("ghost_registry", []))}
+• Fluid–ghost adjacents: {reflex.get("fluid_cells_adjacent_to_ghosts", "?")}
+• Influence applied: {reflex.get("ghost_influence_count", 0)}
+• Max divergence: {reflex.get("max_divergence", "?"):.6e}
+• Projection attempted: {reflex.get("pressure_solver_invoked", False)}
+• Projection skipped: {reflex.get("projection_skipped", False)}
+• Pressure mutated: {reflex.get("pressure_mutated", False)}
+
+""")
+
+        if reflex.get("pressure_mutated", False):
+            mutation_report["pressure_mutated"] += 1
+        if reflex.get("velocity_projected", True):
+            mutation_report["velocity_projected"] += 1
+        if reflex.get("projection_skipped", False):
+            mutation_report["projection_skipped"] += 1
 
         serialized_grid = []
         for cell in grid:
@@ -122,23 +131,17 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
                 "pressure": cell.pressure if fluid else None
             })
 
-        if reflex_metadata.get("pressure_mutated", False):
-            mutation_report["pressure_mutated"] += 1
-        if reflex_metadata.get("velocity_projected", True):
-            mutation_report["velocity_projected"] += 1
-        if reflex_metadata.get("projection_skipped", False):
-            mutation_report["projection_skipped"] += 1
+        ghost_registry = reflex.get("ghost_registry") or {
+            id(c): {"coordinate": (c.x, c.y, c.z)}
+            for c in grid if not getattr(c, "fluid_mask", True)
+        }
 
         snapshot = {
             "step_index": step,
             "grid": serialized_grid,
-            "pressure_mutated": reflex_metadata.get("pressure_mutated", False),
-            "velocity_projected": reflex_metadata.get("velocity_projected", True),
-            **{k: v for k, v in reflex_metadata.items() if k not in ["velocity_projected", "pressure_mutated"]}
-        }
-
-        ghost_registry = reflex_metadata.get("ghost_registry") or {
-            id(c): {"coordinate": (c.x, c.y, c.z)} for c in grid if not getattr(c, "fluid_mask", True)
+            "pressure_mutated": reflex.get("pressure_mutated", False),
+            "velocity_projected": reflex.get("velocity_projected", True),
+            **{k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected"]}
         }
 
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)

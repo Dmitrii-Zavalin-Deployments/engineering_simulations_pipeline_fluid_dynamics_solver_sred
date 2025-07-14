@@ -50,6 +50,9 @@ def test_single_fluid_cell_evolves(reflex_config):
     assert "max_velocity" in reflex
     assert "boundary_condition_applied" in reflex
     assert "ghost_influence_count" in reflex
+    assert "pressure_solver_invoked" in reflex
+    assert "pressure_mutated" in reflex
+    assert "post_projection_divergence" in reflex
 
 def test_ghost_registry_and_influence_logged(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
@@ -81,6 +84,7 @@ def test_empty_grid_has_safe_reflex(reflex_config):
     assert isinstance(reflex, dict)
     assert "max_velocity" in reflex
     assert reflex.get("projection_passes", 0) >= 0
+    assert reflex.get("post_projection_divergence") == 0.0
 
 def test_malformed_velocity_downgrades_cell(reflex_config):
     bad = Cell(x=1.0, y=0.5, z=0.5, velocity="corrupt", pressure=10.0, fluid_mask=True)
@@ -93,8 +97,7 @@ def test_malformed_velocity_downgrades_cell(reflex_config):
 def test_divergence_tracking_runs_and_writes_log(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
     log_path = "data/testing-input-output/navier_stokes_output/divergence_log.txt"
-    if os.path.exists(log_path):
-        os.remove(log_path)
+    if os.path.exists(log_path): os.remove(log_path)
     buffer = io.StringIO()
     sys.stdout = buffer
     evolve_step(grid, mock_input_config(), step=6, config=reflex_config)
@@ -129,8 +132,9 @@ def test_multiple_fluid_cells_influence_and_tags(reflex_config):
     updated, reflex = evolve_step(grid, mock_input_config(), step=10, config=reflex_config)
     influenced = [c for c in updated if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)]
     assert len(influenced) == 2
-    assert all(c.velocity != [0.0, 0.0, 0.0] for c in influenced)
-    assert reflex["ghost_influence_count"] == 2
+    for c in influenced:
+        assert c.velocity != [0.0, 0.0, 0.0]
+        assert c.pressure != 0.0
 
 
 

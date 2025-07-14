@@ -8,13 +8,14 @@ from src.grid_modules.cell import Cell
 from src.utils.divergence_tracker import (
     compute_divergence,
     compute_divergence_stats,
-    dump_divergence_map
+    dump_divergence_map,
+    compute_max_divergence
 )
 
 class TestDivergenceTracker(unittest.TestCase):
     def setUp(self):
         self.spacing = (1.0, 1.0, 1.0)
-        self.config = {"reflex_verbosity": "high"}  # can toggle to "low", "medium" for different behaviors
+        self.config = {"reflex_verbosity": "high"}
 
         self.c0 = Cell(x=1.0, y=1.0, z=1.0, velocity=[1.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
         self.c_xp = Cell(x=2.0, y=1.0, z=1.0, velocity=[2.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
@@ -46,6 +47,11 @@ class TestDivergenceTracker(unittest.TestCase):
         self.assertGreater(stats["mean"], 0.0)
         self.assertEqual(stats["count"], 7)
 
+    def test_compute_max_divergence_consistency(self):
+        value = compute_max_divergence(self.grid, self.spacing)
+        stats = compute_divergence_stats(self.grid, self.spacing, config=self.config)
+        self.assertAlmostEqual(value, stats["max"], places=6)
+
     def test_compute_divergence_stats_empty_grid(self):
         stats = compute_divergence_stats([], self.spacing, config=self.config)
         self.assertEqual(stats["max"], 0.0)
@@ -54,7 +60,7 @@ class TestDivergenceTracker(unittest.TestCase):
 
     def test_compute_divergence_stats_writes_log_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            stats = compute_divergence_stats(
+            compute_divergence_stats(
                 self.grid,
                 self.spacing,
                 label="test_write",
@@ -79,7 +85,6 @@ class TestDivergenceTracker(unittest.TestCase):
             self.assertIn("divergence", entry)
 
     def test_dump_divergence_map_file_write(self):
-        import tempfile
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             path = f.name
         try:

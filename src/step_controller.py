@@ -40,22 +40,25 @@ def evolve_step(
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
-    dx = (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"]
-    dy = (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"]
-    dz = (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
+    # Spacing setup
+    domain = input_data["domain_definition"]
+    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
+    dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
+    dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
     spacing = (dx, dy, dz)
 
     output_folder = "data/testing-input-output/navier_stokes_output"
 
+    # Ghost generation and tagging
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
     log_ghost_summary(ghost_registry)
 
+    # Boundary condition enforcement
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
+    boundary_applied = True
 
-    # ✅ Optionally tag if boundary enforcement occurred
-    boundary_applied = True  # assuming enforcement always happens in this implementation
-
+    # Ghost influence phase
     influence_count = apply_ghost_influence(
         boundary_tagged_grid,
         spacing,
@@ -64,37 +67,50 @@ def evolve_step(
     )
     logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
 
-    compute_divergence_stats(
+    # Divergence stats before pressure projection
+    stats_before = compute_divergence_stats(
         boundary_tagged_grid, spacing,
-        label="before projection", step_index=step, output_folder=output_folder, config=config
+        label="before projection", step_index=step,
+        output_folder=output_folder, config=config
     )
+    divergence_before = stats_before["max"]
 
+    # Core physics updates
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
-
-    pressure_corrected_grid = apply_pressure_correction(velocity_updated_grid, input_data, step)
-
+    pressure_corrected_grid, pressure_has_changed = apply_pressure_correction(velocity_updated_grid, input_data, step)
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
-    compute_divergence_stats(
+    # Divergence stats after projection
+    stats_after = compute_divergence_stats(
         velocity_projected_grid, spacing,
-        label="after projection", step_index=step, output_folder=output_folder, config=config
+        label="after projection", step_index=step,
+        output_folder=output_folder, config=config
     )
+    divergence_after = stats_after["max"]
 
+    # Reflex diagnostics
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
         input_data,
         step,
         ghost_influence_count=influence_count,
-        config=config
+        config=config,
+        pressure_solver_invoked=True,
+        pressure_mutated=pressure_has_changed,
+        post_projection_divergence=divergence_after
     )
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
-    # ✅ Track causality for downstream mutation pathway logging
+    # Causality tagging and injection
     reflex_metadata["ghost_influence_count"] = influence_count
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
 
-    reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry, grid=velocity_projected_grid, spacing=spacing)
+    reflex_metadata = inject_diagnostics(
+        reflex_metadata, ghost_registry,
+        grid=velocity_projected_grid,
+        spacing=spacing
+    )
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return velocity_projected_grid, reflex_metadata
