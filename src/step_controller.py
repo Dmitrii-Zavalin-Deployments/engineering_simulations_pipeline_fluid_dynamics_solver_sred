@@ -8,6 +8,7 @@ from src.physics.ghost_cell_generator import generate_ghost_cells
 from src.physics.boundary_condition_solver import apply_boundary_conditions
 from src.solvers.momentum_solver import apply_momentum_update
 from src.solvers.pressure_solver import apply_pressure_correction
+from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.reflex.reflex_controller import apply_reflex
 from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 
@@ -17,6 +18,7 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     - Ghost cell padding and boundary enforcement
     - Momentum update (advection + viscosity)
     - Pressure correction (divergence and projection)
+    - Velocity projection via pressure gradient
     - Reflex logic (damping, overflow, CFL diagnostics)
 
     Args:
@@ -43,15 +45,18 @@ def evolve_step(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cel
     # 💧 Step 2: Apply pressure correction to maintain incompressibility
     pressure_corrected_grid = apply_pressure_correction(velocity_updated_grid, input_data, step)
 
+    # 💨 Step 2.5: Project velocity using pressure gradient (∇p)
+    velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
+
     # 🔄 Step 3: Evaluate reflex metrics, flags, and diagnostics
-    reflex_metadata = apply_reflex(pressure_corrected_grid, input_data, step)
+    reflex_metadata = apply_reflex(velocity_projected_grid, input_data, step)
     logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
 
     # 📦 Inject optional ghost diagnostics into reflex metadata
     reflex_metadata = inject_diagnostics(reflex_metadata, ghost_registry)
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
-    return pressure_corrected_grid, reflex_metadata
+    return velocity_projected_grid, reflex_metadata
 
 
 

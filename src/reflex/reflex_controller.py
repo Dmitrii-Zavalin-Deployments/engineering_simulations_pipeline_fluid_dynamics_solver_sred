@@ -17,20 +17,15 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
     Applies reflex diagnostics including velocity, divergence, CFL, overflow,
     damping logic, time-step adaptation, and pressure projection pass estimation.
 
+    Logs divergence behavior and warns when projection may be skipped due to equilibrium.
+
     Args:
         grid (List[Cell]): Simulation grid for current time step
         input_data (dict): Simulation configuration and physical parameters
         step (int): Current simulation step index
 
     Returns:
-        dict: Reflex metadata containing stability flags and physics metrics:
-            - "max_velocity" (float)
-            - "max_divergence" (float)
-            - "global_cfl" (float)
-            - "overflow_detected" (bool)
-            - "damping_enabled" (bool)
-            - "adjusted_time_step" (float)
-            - "projection_passes" (int)
+        dict: Reflex metadata containing stability flags and physics metrics
     """
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -43,6 +38,14 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
 
+    divergence_zero = max_divergence < 1e-8
+    projection_skipped = divergence_zero or projection_passes == 0
+
+    if divergence_zero:
+        print(f"⚠️ [reflex] Step {step}: Zero divergence — projection may be skipped.")
+    else:
+        print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.6e}")
+
     return {
         "max_velocity": max_velocity,
         "max_divergence": max_divergence,
@@ -50,7 +53,9 @@ def apply_reflex(grid: List[Cell], input_data: dict, step: int) -> dict:
         "overflow_detected": overflow_detected,
         "damping_enabled": damping_enabled,
         "adjusted_time_step": adjusted_time_step,
-        "projection_passes": projection_passes
+        "projection_passes": projection_passes,
+        "divergence_zero": divergence_zero,
+        "projection_skipped": projection_skipped
     }
 
 

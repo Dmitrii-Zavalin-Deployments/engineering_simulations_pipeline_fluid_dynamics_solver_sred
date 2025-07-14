@@ -1,14 +1,32 @@
 # src/physics/pressure_projection.py
 # 🔁 Pressure projection module for enforcing incompressibility
 
+from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
-from typing import List, Tuple
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
 from src.physics.pressure_methods.utils import index_fluid_cells, flatten_pressure_field
+from src.physics.velocity_projection import apply_pressure_velocity_projection
+
+def extract_ghost_coords(grid: List[Cell]) -> Set[Tuple[float, float, float]]:
+    """
+    Extract coordinates of ghost cells in the grid.
+
+    Args:
+        grid (List[Cell]): Full grid including fluid and ghost cells
+
+    Returns:
+        Set[Tuple]: Coordinates of ghost cells
+    """
+    return {
+        (cell.x, cell.y, cell.z)
+        for cell in grid
+        if not cell.fluid_mask and hasattr(cell, "ghost_face")
+    }
 
 def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool]:
     """
-    Computes updated pressure values for fluid cells using the selected solver method.
+    Computes updated pressure values for fluid cells using the selected solver method,
+    then projects velocity to enforce incompressibility.
 
     Args:
         grid (List[Cell]): Grid of cells with velocity and pressure fields
@@ -17,7 +35,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
 
     Returns:
         Tuple[List[Cell], bool]: 
-            - Grid with updated pressure values (fluid cells only)
+            - Grid with updated pressure and velocity values
             - pressure_mutated flag indicating if any fluid pressure changed
     """
     method = config.get("pressure_solver", {}).get("method", "jacobi").lower()
@@ -31,13 +49,16 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
             f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
         )
 
+    # 🧱 Prepare ghost info
+    ghost_coords = extract_ghost_coords(grid)
+
     # 🔁 Select solver method
     if method == "jacobi":
-        pressure_values = solve_jacobi_pressure(grid, divergence, config)
+        pressure_values = solve_jacobi_pressure(grid, divergence, config, ghost_coords)
     else:
         raise ValueError(f"Unknown or unsupported pressure solver method: '{method}'")
 
-    # 🧱 Reconstruct grid and track mutation
+    # 🧱 Reconstruct grid and track pressure mutation
     updated = []
     fluid_index = 0
     pressure_mutated = False
@@ -66,7 +87,10 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
             )
         updated.append(updated_cell)
 
-    return updated, pressure_mutated
+    # 💨 Apply pressure-based velocity projection
+    projected_grid = apply_pressure_velocity_projection(updated, config)
+
+    return projected_grid, pressure_mutated
 
 
 

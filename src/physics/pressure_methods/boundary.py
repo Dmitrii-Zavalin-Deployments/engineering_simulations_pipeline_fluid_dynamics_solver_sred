@@ -25,16 +25,18 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
                                     neighbors: List[Tuple[float, float, float]],
                                     pressure_map: Dict[Tuple[float, float, float], float],
                                     fluid_mask_map: Dict[Tuple[float, float, float], bool],
-                                    ghost_coords: Set[Tuple[float, float, float]]) -> float:
+                                    ghost_coords: Set[Tuple[float, float, float]],
+                                    ghost_pressure_map: Dict[Tuple[float, float, float], float]) -> float:
     """
     Adjust pressure update for neighbors that may be solid or ghost.
 
     Args:
         coord: Current cell coordinate
         neighbors: Neighbor coordinates (six directions)
-        pressure_map: Known pressure values
+        pressure_map: Known pressure values for fluid cells
         fluid_mask_map: Map of fluid vs solid states
         ghost_coords: Set of coordinates for ghost cells
+        ghost_pressure_map: Explicit ghost pressure values from enforced boundaries
 
     Returns:
         Sum of neighbor pressures with fallback handling for non-fluid neighbors
@@ -42,8 +44,11 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
     total = 0.0
     for n in neighbors:
         if n in ghost_coords:
-            # Ghost neighbor: treat as Neumann boundary
-            total += apply_neumann_conditions(coord, n, pressure_map)
+            # ✅ Ghost neighbor: use Dirichlet ghost pressure if available
+            if n in ghost_pressure_map:
+                total += ghost_pressure_map[n]
+            else:
+                total += apply_neumann_conditions(coord, n, pressure_map)
         elif n in fluid_mask_map:
             if fluid_mask_map[n]:
                 total += pressure_map.get(n, pressure_map.get(coord, 0.0))

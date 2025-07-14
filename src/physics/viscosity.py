@@ -1,9 +1,10 @@
 # src/physics/viscosity.py
-# 💧 Viscous diffusion module — Laplacian smoothing of velocity field
+# 💧 Viscous diffusion module — Laplacian smoothing of velocity field with mutation diagnostics
 
 from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
 from src.physics.advection_methods.helpers import vector_add, vector_scale, copy_cell
+import math
 
 def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     """
@@ -30,6 +31,7 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
     }
 
     updated = []
+    mutation_count = 0
 
     for cell in grid:
         if not cell.fluid_mask or not isinstance(cell.velocity, list):
@@ -64,7 +66,13 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
         viscosity_update = vector_scale(laplacian_term, viscosity * dt)
         new_velocity = vector_add(cell.velocity, viscosity_update)
 
+        delta = math.sqrt(sum((a - b) ** 2 for a, b in zip(new_velocity, cell.velocity)))
+        if delta > 1e-8:
+            mutation_count += 1
+
         updated.append(copy_cell(cell, velocity=new_velocity))
+
+    print(f"💧 Viscosity applied to {len(updated)} cells → {mutation_count} velocity mutations")
 
     return updated
 

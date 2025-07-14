@@ -22,22 +22,22 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Set[int], config
     apply_to = boundary_cfg.get("apply_to", [])
     no_slip = boundary_cfg.get("no_slip", False)
 
-    for i, cell in enumerate(grid):
+    for cell in grid:
         if id(cell) not in ghost_registry:
             continue
 
-        cell_type = None
-        if apply_to:
-            if "velocity" in apply_to and enforced_velocity is not None:
-                cell.velocity = enforced_velocity[:] if not no_slip else [0.0, 0.0, 0.0]
-                cell_type = "velocity"
+        # ✅ Velocity enforcement
+        if "velocity" in apply_to and enforced_velocity is not None:
+            cell.velocity = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
 
-            if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
-                cell.pressure = enforced_pressure
-                cell_type = "pressure" if cell_type is None else f"{cell_type}+pressure"
+        # ✅ Pressure enforcement
+        if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
+            cell.pressure = enforced_pressure
 
-        if cell_type is None:
+        # 💡 Null out any field not explicitly assigned
+        if "velocity" not in apply_to:
             cell.velocity = None
+        if "pressure" not in apply_to:
             cell.pressure = None
 
     return grid

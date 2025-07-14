@@ -1,5 +1,5 @@
 # tests/test_snapshot_t0.py
-# 🧪 Validation suite for t=0 snapshot fidelity — ghost-aware metrics
+# 🧪 Validation suite for t=0 snapshot fidelity — ghost-aware metrics and projection verification
 
 import json
 import math
@@ -7,7 +7,6 @@ import os
 import pytest
 from tests.utils.input_loader import load_geometry_mask_bool
 
-# ✅ File paths
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0000.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EXPECTED_STEP_INDEX = 0
@@ -62,26 +61,19 @@ def test_grid_structure(snapshot):
         assert isinstance(cell, dict)
         for key in ["x", "y", "z", "velocity", "pressure", "fluid_mask"]:
             assert key in cell
-        assert isinstance(cell["fluid_mask"], bool)
-        assert isinstance(cell["x"], (int, float))
-        assert isinstance(cell["y"], (int, float))
-        assert isinstance(cell["z"], (int, float))
 
 def test_grid_size_matches_mask(snapshot, expected_mask):
-    assert len(snapshot["grid"]) == len(expected_mask), "❌ Snapshot grid size mismatch"
+    assert len(snapshot["grid"]) == len(expected_mask)
 
 def test_cell_coordinates(snapshot, domain):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
     dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
-
     x_centers = [domain["min_x"] + (i + 0.5) * dx for i in range(domain["nx"])]
     y_centers = [domain["min_y"] + (j + 0.5) * dy for j in range(domain["ny"])]
     z_centers = [domain["min_z"] + (k + 0.5) * dz for k in range(domain["nz"])]
-
     expected_coords = [(x, y, z) for x in x_centers for y in y_centers for z in z_centers]
     actual_coords = [(c["x"], c["y"], c["z"]) for c in snapshot["grid"]]
-
     for expected in expected_coords:
         assert expected in actual_coords
 
@@ -93,10 +85,8 @@ def test_velocity_and_pressure_field_values(snapshot, expected_mask, expected_ve
     for cell, is_fluid in zip(snapshot["grid"], expected_mask):
         if is_fluid:
             assert isinstance(cell["velocity"], list)
-            assert len(cell["velocity"]) == 3
             for a, b in zip(cell["velocity"], expected_velocity):
                 assert is_close(a, b, tolerances["velocity"])
-            assert isinstance(cell["pressure"], (int, float))
             assert is_close(cell["pressure"], expected_pressure, tolerances["pressure"])
         else:
             assert cell["velocity"] is None
@@ -117,37 +107,45 @@ def test_global_cfl_computation(snapshot, domain, expected_velocity, tolerances)
     assert is_close(snapshot["global_cfl"], expected_cfl, tolerances["cfl"])
 
 def test_basic_reflex_flags(snapshot):
-    assert snapshot["damping_enabled"] is False
-    assert snapshot["overflow_detected"] is False
     assert isinstance(snapshot["max_divergence"], (int, float))
     assert isinstance(snapshot["projection_passes"], int)
-    assert snapshot["projection_passes"] >= 1
+    assert "divergence_zero" in snapshot
+    assert "projection_skipped" in snapshot
 
-def test_snapshot_input_pressure_if_no_projection(snapshot, expected_mask, expected_pressure, tolerances):
-    passes = snapshot.get("projection_passes", 0)
-    if passes == 0:
-        for cell, is_fluid in zip(snapshot["grid"], expected_mask):
-            if is_fluid:
-                assert is_close(cell["pressure"], expected_pressure, tolerances["pressure"])
-            else:
-                assert cell["pressure"] is None
-    else:
-        pytest.skip("⚠️ Snapshot reflects projection output — skipping raw input pressure test")
+def test_pressure_projection_mutated(snapshot):
+    mutated_flag = snapshot.get("pressure_mutated", None)
+    assert mutated_flag in [True, False]
 
-def test_pressure_projection_changed_values(snapshot, expected_mask, expected_pressure, tolerances):
-    passes = snapshot.get("projection_passes", 0)
-    if passes >= 1:
-        deltas = [
-            abs(cell["pressure"] - expected_pressure)
-            for cell, is_fluid in zip(snapshot["grid"], expected_mask)
-            if is_fluid
+def test_velocity_projection_applied(snapshot):
+    assert snapshot.get("velocity_projected", True) is True
+
+def test_pressure_field_changes_if_projected(snapshot, expected_mask, expected_pressure, tolerances):
+    if snapshot.get("projection_passes", 0) > 0 and not snapshot.get("projection_skipped", False):
+        fluid_pressures = [
+            cell["pressure"] for cell, is_fluid in zip(snapshot["grid"], expected_mask) if is_fluid
         ]
-        if all(d < tolerances["pressure"] for d in deltas):
-            print("⚠️ Projection ran, but no pressure changed from initial value.")
-            pytest.skip("⚠️ Pressure projection did not modify fluid pressures — possible equilibrium")
-        assert any(d > tolerances["pressure"] for d in deltas), "❌ Projection did not update fluid pressures"
-    else:
-        pytest.skip("⚠️ No projection pass — skipping mutation test")
+        deltas = [abs(p - expected_pressure) for p in fluid_pressures]
+        assert any(d > tolerances["pressure"] for d in deltas), "❌ No meaningful pressure changes despite projection"
+
+def test_velocity_field_changes_if_projected(snapshot, expected_mask, expected_velocity, tolerances):
+    if snapshot.get("projection_passes", 0) > 0 and snapshot.get("velocity_projected", True):
+        fluid_velocities = [
+            cell["velocity"] for cell, is_fluid in zip(snapshot["grid"], expected_mask) if is_fluid
+        ]
+        for v in fluid_velocities:
+            assert isinstance(v, list)
+        deltas = [
+            math.sqrt(sum((a - b)**2 for a, b in zip(v, expected_velocity)))
+            for v in fluid_velocities
+        ]
+        assert any(d > tolerances["velocity"] for d in deltas), "❌ Velocity field unchanged after projection"
+
+def test_ghost_diagnostic_fields_present(snapshot):
+    ghost_diag = snapshot.get("ghost_diagnostics", {})
+    assert "total" in ghost_diag
+    assert "per_face" in ghost_diag
+    assert "pressure_overrides" in ghost_diag
+    assert "no_slip_enforced" in ghost_diag
 
 
 

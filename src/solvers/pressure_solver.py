@@ -16,7 +16,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         step (int): Current simulation step index
 
     Returns:
-        List[Cell]: Grid with updated pressure values (fluid cells only)
+        List[Cell]: Grid with updated pressure and velocity values
     """
     # 🧼 Step 0: Downgrade malformed fluid cells to solid (invalid velocity structure)
     safe_grid = [
@@ -33,25 +33,27 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     # 🔍 Step 1: Compute divergence of velocity field for valid fluid cells
     divergence = compute_divergence(safe_grid)
+    max_div = max(abs(d) for d in divergence) if divergence else 0.0
+    print(f"📊 Step {step}: Max divergence = {max_div:.6e}")
 
     # ⚡ Step 2: Solve pressure Poisson equation based on divergence
     grid_with_pressure, pressure_mutated = solve_pressure_poisson(safe_grid, divergence, input_data)
 
-    # 🧪 Step 2.5: Optional mutation diagnostics (non-functional logging only)
+    # 🧪 Step 2.5: Mutation diagnostics and pressure delta tracking
     mutation_count = 0
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
             initial = old.pressure if isinstance(old.pressure, float) else 0.0
             final = updated.pressure if isinstance(updated.pressure, float) else 0.0
-            if abs(final - initial) > 1e-6:
+            if abs(final - initial) > 1e-8:  # ✅ Lower threshold for sensitive tracking
                 mutation_count += 1
 
     if mutation_count == 0:
-        print(f"⚠️ Pressure solver ran at step {step}, but no pressure values changed.")
+        print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
     else:
-        print(f"✅ Pressure correction modified {mutation_count} fluid cells at step {step}.")
+        print(f"✅ Step {step}: Pressure correction modified {mutation_count} fluid cells.")
 
-    # 📤 Step 3: Return grid with updated pressure values (projection of velocity added later)
+    # 📤 Step 3: Return grid with updated pressure and velocity
     return grid_with_pressure
 
 

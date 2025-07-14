@@ -18,7 +18,7 @@ def solve_jacobi_pressure(grid: List[Cell],
         grid (List[Cell]): Grid of cells with fluid_mask and pressure fields
         divergence (List[float]): Divergence values for fluid cells
         config (dict): Simulation config with domain resolution and solver params
-        ghost_coords (Set[Tuple]): Coordinates of ghost cells to exclude from neighbor logic
+        ghost_coords (Set[Tuple]): Coordinates of ghost cells
 
     Returns:
         List[float]: Updated pressure values for fluid cells (same order as input)
@@ -49,6 +49,13 @@ def solve_jacobi_pressure(grid: List[Cell],
         (cell.x, cell.y, cell.z): cell.fluid_mask for cell in grid
     }
 
+    # 🧱 Build ghost pressure map
+    ghost_pressure_map = {
+        (cell.x, cell.y, cell.z): cell.pressure
+        for cell in grid
+        if not cell.fluid_mask and cell.pressure is not None
+    }
+
     # 🔁 Jacobi iterations
     for _ in range(max_iter):
         new_map = {}
@@ -62,7 +69,11 @@ def solve_jacobi_pressure(grid: List[Cell],
                 (x, y, z - dz), (x, y, z + dz)
             ]
 
-            neighbor_sum = handle_solid_or_ghost_neighbors(coord, neighbors, pressure_map, fluid_mask_map, ghost_coords)
+            neighbor_sum = handle_solid_or_ghost_neighbors(
+                coord, neighbors, pressure_map,
+                fluid_mask_map, ghost_coords, ghost_pressure_map
+            )
+
             rhs = spacing_sq * divergence_map.get(coord, 0.0)
             new_p = (neighbor_sum - rhs) / 6.0
 

@@ -4,6 +4,7 @@
 from src.grid_modules.cell import Cell
 from typing import List, Set, Dict
 from src.physics.advection_methods.euler import compute_euler_velocity
+import math
 
 def compute_advection(grid: List[Cell],
                       dt: float,
@@ -30,14 +31,27 @@ def compute_advection(grid: List[Cell],
         if id(cell) in ghost_registry:
             meta = ghost_metadata.get(id(cell), {})
             if meta.get("boundary_type") == "symmetry":
-                # TODO: Implement mirroring logic if needed
-                continue  # skip for now
-            continue  # skip all ghost cells from advection
+                # Future: Implement symmetry mirror logic
+                continue
+            continue
         physical_cells.append(cell)
 
-    updated = compute_euler_velocity(physical_cells, dt, config)
+    # 🔁 Compute velocity updates via Euler method
+    updated_cells = compute_euler_velocity(physical_cells, dt, config)
 
-    return updated
+    # 🧪 Diagnostic: Track mutation per fluid cell
+    mutation_count = 0
+    for before, after in zip(physical_cells, updated_cells):
+        if before.fluid_mask:
+            v0 = before.velocity if isinstance(before.velocity, list) else [0.0, 0.0, 0.0]
+            v1 = after.velocity if isinstance(after.velocity, list) else [0.0, 0.0, 0.0]
+            delta = math.sqrt(sum((a - b) ** 2 for a, b in zip(v1, v0)))
+            if delta > 1e-8:
+                mutation_count += 1
+
+    print(f"📦 Advection applied to {len(updated_cells)} physical cells → {mutation_count} velocity mutations")
+
+    return updated_cells
 
 
 

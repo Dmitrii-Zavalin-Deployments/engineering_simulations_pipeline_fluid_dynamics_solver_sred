@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.input_reader import load_simulation_input
 from src.grid_generator import generate_grid, generate_grid_with_mask
 from src.step_controller import evolve_step
+from src.utils.ghost_diagnostics import inject_diagnostics
 
 def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     """
@@ -44,14 +45,17 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
     snapshots = []
 
     expected_size = domain["nx"] * domain["ny"] * domain["nz"]
+    mutation_report = {
+        "pressure_mutated": 0,
+        "velocity_projected": 0,
+        "projection_skipped": 0
+    }
 
     for step in range(num_steps + 1):
-        # ✅ Evolve grid and collect reflex diagnostics
         grid, reflex_metadata = evolve_step(grid, input_data, step)
 
         assert len(grid) == expected_size, f"❌ Snapshot grid size mismatch at step {step}"
 
-        # ✅ Clean and serialize each cell
         serialized_grid = []
         for cell in grid:
             fluid = getattr(cell, "fluid_mask", True)
@@ -64,15 +68,31 @@ def generate_snapshots(input_data: dict, scenario_name: str) -> list:
                 "pressure": cell.pressure if fluid else None
             })
 
-        # ✅ Assemble snapshot with step index and flat reflex metrics
+        # ✅ Update mutation counters
+        if reflex_metadata.get("pressure_mutated", False):
+            mutation_report["pressure_mutated"] += 1
+        if reflex_metadata.get("velocity_projected", True):
+            mutation_report["velocity_projected"] += 1
+        if reflex_metadata.get("projection_skipped", False):
+            mutation_report["projection_skipped"] += 1
+
         snapshot = {
             "step_index": step,
             "grid": serialized_grid,
-            **reflex_metadata
+            "pressure_mutated": reflex_metadata.get("pressure_mutated", False),
+            "velocity_projected": reflex_metadata.get("velocity_projected", True),
+            "ghost_diagnostics": reflex_metadata.get("ghost_diagnostics", {}),
+            **{k: v for k, v in reflex_metadata.items() if k not in ["ghost_diagnostics", "velocity_projected", "pressure_mutated"]}
         }
 
         if step % output_interval == 0:
             snapshots.append((step, snapshot))
+
+    # 🧾 Final mutation summary
+    print("🧾 Final Simulation Summary:")
+    print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
+    print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
+    print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
 
     return snapshots
 

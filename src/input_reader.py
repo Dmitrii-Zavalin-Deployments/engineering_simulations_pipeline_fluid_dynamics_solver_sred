@@ -7,6 +7,7 @@ def load_simulation_input(filepath: str) -> dict:
     """
     Reads and parses the fluid simulation input JSON file.
     Returns a structured dictionary with all validated fields.
+    Also logs key solver and boundary configuration metadata.
     """
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"❌ Input file not found: {filepath}")
@@ -29,12 +30,27 @@ def load_simulation_input(filepath: str) -> dict:
         if section not in data:
             raise KeyError(f"❌ Missing required section: {section}")
 
-    # Optional: Log scenario resolution and basic metadata
+    # ✅ Domain resolution
     domain = data["domain_definition"]
     nx, ny, nz = domain.get("nx"), domain.get("ny"), domain.get("nz")
     print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
 
-    print(f"⚙️  Output interval: {data['simulation_parameters'].get('output_interval', 'N/A')}")
+    # ✅ Output interval
+    sim_params = data["simulation_parameters"]
+    print(f"⚙️  Output interval: {sim_params.get('output_interval', 'N/A')}")
+
+    # ✅ Pressure solver config
+    pressure_cfg = data.get("pressure_solver", {})
+    method = pressure_cfg.get("method", "jacobi")
+    tolerance = pressure_cfg.get("tolerance", 1e-6)
+    print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
+
+    # ✅ Boundary condition config
+    bc = data["boundary_conditions"]
+    print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
+    print(f"   Velocity Enforced: {bc.get('velocity')}")
+    print(f"   Pressure Enforced: {bc.get('pressure')}")
+    print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
 
     return data
 

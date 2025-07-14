@@ -6,7 +6,7 @@ from src.grid_modules.cell import Cell
 
 def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Dict[int, dict]]:
     """
-    Generates ghost cells at domain boundaries based on tagged faces.
+    Generates ghost cells at domain boundaries based on tagged faces and no-slip enforcement.
 
     Args:
         grid (List[Cell]): Physical simulation grid.
@@ -17,6 +17,8 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     """
     domain = config.get("domain_definition", {})
     boundaries = config.get("boundary_conditions", {})
+    no_slip = boundaries.get("no_slip", False)
+    tagged_faces = boundaries.get("faces", [])
 
     nx = domain.get("nx", 1)
     ny = domain.get("ny", 1)
@@ -38,7 +40,7 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
 
     def add_ghost(x, y, z, face, origin):
         ghost = Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=False)
-        ghost.ghost_face = face  # ✅ Attach face metadata for diagnostics
+        ghost.ghost_face = face  # ✅ Face metadata for diagnostics
         ghost_cells.append(ghost)
         ghost_registry[id(ghost)] = {
             "face": face,
@@ -48,18 +50,25 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     for cell in grid:
         x, y, z = cell.x, cell.y, cell.z
 
-        if boundaries.get("x_min") and abs(x - x_min) < 0.5 * dx:
-            add_ghost(x - dx, y, z, "x_min", (x, y, z))
-        if boundaries.get("x_max") and abs(x - x_max) < 0.5 * dx:
-            add_ghost(x + dx, y, z, "x_max", (x, y, z))
-        if boundaries.get("y_min") and abs(y - y_min) < 0.5 * dy:
-            add_ghost(x, y - dy, z, "y_min", (x, y, z))
-        if boundaries.get("y_max") and abs(y - y_max) < 0.5 * dy:
-            add_ghost(x, y + dy, z, "y_max", (x, y, z))
-        if boundaries.get("z_min") and abs(z - z_min) < 0.5 * dz:
-            add_ghost(x, y, z - dz, "z_min", (x, y, z))
-        if boundaries.get("z_max") and abs(z - z_max) < 0.5 * dz:
-            add_ghost(x, y, z + dz, "z_max", (x, y, z))
+        # Only pad domain faces if tagged or no_slip is active
+        if "x_min" in boundaries and (1 in tagged_faces or no_slip):
+            if abs(x - x_min) < 0.5 * dx:
+                add_ghost(x - dx, y, z, "x_min", (x, y, z))
+        if "x_max" in boundaries and (2 in tagged_faces or no_slip):
+            if abs(x - x_max) < 0.5 * dx:
+                add_ghost(x + dx, y, z, "x_max", (x, y, z))
+        if "y_min" in boundaries and (3 in tagged_faces or no_slip):
+            if abs(y - y_min) < 0.5 * dy:
+                add_ghost(x, y - dy, z, "y_min", (x, y, z))
+        if "y_max" in boundaries and (4 in tagged_faces or no_slip):
+            if abs(y - y_max) < 0.5 * dy:
+                add_ghost(x, y + dy, z, "y_max", (x, y, z))
+        if "z_min" in boundaries and (5 in tagged_faces or no_slip):
+            if abs(z - z_min) < 0.5 * dz:
+                add_ghost(x, y, z - dz, "z_min", (x, y, z))
+        if "z_max" in boundaries and (6 in tagged_faces or no_slip):
+            if abs(z - z_max) < 0.5 * dz:
+                add_ghost(x, y, z + dz, "z_max", (x, y, z))
 
     padded_grid = grid + ghost_cells
     return padded_grid, ghost_registry
