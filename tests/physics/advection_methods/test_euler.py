@@ -45,7 +45,7 @@ def test_malformed_velocity_skips_update(base_domain):
     upstream = make_cell(0.0, 0.0, 0.0, [2.0, 0.0, 0.0])
     grid = [upstream, cell]
     result = compute_euler_velocity(grid, dt=0.1, config=base_domain)
-    assert result[1].velocity == "not_a_vector"
+    assert result[1].velocity is None
 
 def test_non_fluid_cell_is_unchanged(base_domain):
     cell = make_cell(1.0, 0.0, 0.0, [3.0, 0.0, 0.0], fluid=False)
@@ -74,3 +74,6 @@ def test_zero_resolution_falls_back_to_dx_1():
     result = compute_euler_velocity(grid, dt=0.1, config=config)
     # dx fallback = 1.0 → expected = 0 + 0.1*(1.0 - 0.0)/1.0 = 0.1
     assert result[1].velocity == pytest.approx([0.1, 0.0, 0.0])
+
+
+

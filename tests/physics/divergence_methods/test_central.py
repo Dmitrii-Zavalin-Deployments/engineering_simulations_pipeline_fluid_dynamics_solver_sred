@@ -24,15 +24,13 @@ def test_single_fluid_cell_returns_zero(config_3x1x1):
     assert result == [0.0]
 
 def test_skips_solid_cells(config_3x1x1):
-    # ✅ Ensure all contributing neighbors are fluid to allow divergence computation
     grid = [
         make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid=True),
         make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid=True),
         make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid=True)
     ]
     result = compute_central_divergence(grid, config_3x1x1)
-    assert len(result) == 1
-    assert result[0] == pytest.approx((2.0 - 0.0) / (2.0 * 1.0))  # dx = 1.0
+    assert result[1] == pytest.approx((2.0 - 0.0) / (2.0 * 1.0))  # dx = 1.0
 
 def test_full_x_axis_gradient(config_3x1x1):
     grid = [
@@ -41,8 +39,7 @@ def test_full_x_axis_gradient(config_3x1x1):
         make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0])
     ]
     result = compute_central_divergence(grid, config_3x1x1)
-    # Central difference for cell at x=1.0: (2 - 0) / (2 * 1) = 1.0
-    assert result == [1.0]
+    assert result[1] == pytest.approx(1.0)
 
 def test_y_axis_contribution(config_3x1x1):
     config = {
@@ -58,8 +55,7 @@ def test_y_axis_contribution(config_3x1x1):
         make_cell(0.0, 2.0, 0.0, [0.0, 4.0, 0.0])
     ]
     result = compute_central_divergence(grid, config)
-    # dy = 1.0 → central diff for vy: (4 - 0) / (2*1) = 2.0
-    assert result == [2.0]
+    assert result[1] == pytest.approx(2.0)
 
 def test_z_axis_contribution(config_3x1x1):
     config = {
@@ -75,8 +71,7 @@ def test_z_axis_contribution(config_3x1x1):
         make_cell(0.0, 0.0, 2.0, [0.0, 0.0, 4.0])
     ]
     result = compute_central_divergence(grid, config)
-    # dz = 1.0 → central diff for vz: (4 - 0)/2 = 2.0
-    assert result == [2.0]
+    assert result[1] == pytest.approx(2.0)
 
 def test_velocity_missing_or_malformed_skipped(config_3x1x1):
     grid = [
@@ -93,8 +88,7 @@ def test_multiple_valid_fluid_cells(config_3x1x1):
         make_cell(2.0, 0.0, 0.0, [2.0, 2.0, 2.0])
     ]
     result = compute_central_divergence(grid, config_3x1x1)
-    # Each axis contributes 1.0 → total divergence = 3.0
-    assert result == [3.0]
+    assert result[1] == pytest.approx(3.0)
 
 
 

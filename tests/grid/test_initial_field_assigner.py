@@ -5,8 +5,10 @@ import pytest
 from src.grid_modules.cell import Cell
 from src.grid_modules.initial_field_assigner import assign_fields
 
-def make_cell(fluid_mask=True):
-    return Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=fluid_mask)
+def make_cell(is_fluid=True):
+    v = [0.0, 0.0, 0.0] if is_fluid else None
+    p = 0.0 if is_fluid else None
+    return Cell(x=0.0, y=0.0, z=0.0, velocity=v, pressure=p, fluid_mask=is_fluid)
 
 def test_valid_assignment_to_fluid_cells():
     cells = [make_cell(True), make_cell(True)]
@@ -26,7 +28,7 @@ def test_valid_assignment_skips_solid_cells():
     assert result[1].pressure == 42.0
 
 def test_fluid_mask_missing_defaults_to_true():
-    cell = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=None)
+    cell = Cell(x=0.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 1.0], pressure=25.0, fluid_mask=None)
     del cell.fluid_mask  # Remove attribute entirely
     init = {"initial_velocity": [0.0, 0.0, 1.0], "initial_pressure": 25.0}
     result = assign_fields([cell], init)
@@ -72,3 +74,6 @@ def test_multiple_cell_masks_applied_correctly():
     assert result[0].velocity == [1.0, 1.0, 1.0]
     assert result[1].velocity is None
     assert result[2].pressure == 10.0
+
+
+
