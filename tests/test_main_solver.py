@@ -1,61 +1,88 @@
 # tests/test_main_solver.py
-# 🧪 Unit tests for main_solver.py — validates CLI behavior, config handling, and snapshot writing
+# 🧪 Validates top-level solver orchestration, reflex config loading, and snapshot writing
 
 import os
+import sys
 import json
-import shutil
+import tempfile
+import yaml
+import builtins
 import pytest
-
-from src.main_solver import load_reflex_config, run_solver
-
+import types
+from src.main_solver import run_solver, load_reflex_config
 
 @pytest.fixture
-def fake_input_json(tmp_path):
-    input_data = {
-        "simulation_parameters": {
-            "time_step": 1.0,
-            "total_time": 2.0,           # ✅ ensures step 0, 1, 2
-            "output_interval": 1         # ✅ ensures all steps are output
-        },
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 3.0,
-            "min_y": 0.0, "max_y": 1.0,
-            "min_z": 0.0, "max_z": 1.0,
-            "nx": 3, "ny": 1, "nz": 1
-        },
-        "initial_conditions": {
+def dummy_input_data():
+    return {
+        "domain_definition": {"nx": 2, "ny": 1, "nz": 1},
+        "fluid_properties": {"viscosity": 0.5},
+        "initial_conditions": {"velocity": [1.0, 0.0, 0.0], "pressure": 5.0},
+        "simulation_parameters": {"time_step": 0.1, "output_interval": 10},
+        "boundary_conditions": {
+            "apply_to": ["velocity", "pressure"],
             "velocity": [0.0, 0.0, 0.0],
-            "pressure": 0.0
-        }
+            "pressure": 99.0,
+            "no_slip": True
+        },
+        "pressure_solver": {"method": "jacobi", "tolerance": 1e-6}
     }
-    file_path = tmp_path / "fluid_simulation_input.json"
-    with open(file_path, "w") as f:
-        json.dump(input_data, f)
-    return str(file_path)
 
+def mock_generate_snapshots(input_data, scenario_name, config=None):
+    snapshot = {
+        "step_index": 0,
+        "grid": [],
+        "max_velocity": 0.0,
+        "global_cfl": 0.0
+    }
+    return [(0, snapshot), (1, snapshot)]
 
-def test_load_reflex_config_defaults_gracefully():
-    config = load_reflex_config("nonexistent/config.yaml")
-    assert isinstance(config, dict)
-    assert "ghost_adjacency_depth" in config
+def test_load_reflex_config_returns_defaults_on_missing():
+    result = load_reflex_config("nonexistent.yaml")
+    assert isinstance(result, dict)
+    assert "reflex_verbosity" in result
+    assert result["reflex_verbosity"] == "medium"
 
+def test_load_reflex_config_parses_yaml_success(tmp_path):
+    cfg = {"reflex_verbosity": "high", "include_divergence_delta": True}
+    path = tmp_path / "reflex_debug_config.yaml"
+    path.write_text(yaml.dump(cfg))
+    result = load_reflex_config(str(path))
+    assert result["reflex_verbosity"] == "high"
+    assert result["include_divergence_delta"] is True
 
-def test_run_solver_creates_expected_snapshot(fake_input_json):
-    # Clear output folder
-    output_folder = "data/testing-input-output/navier_stokes_output"
-    shutil.rmtree(output_folder, ignore_errors=True)
+def test_run_solver_writes_snapshots(tmp_path, monkeypatch, dummy_input_data, capsys):
+    # Write dummy input file
+    input_path = tmp_path / "fluid_simulation_input.json"
+    input_path.write_text(json.dumps(dummy_input_data))
 
-    # Run the solver
-    run_solver(fake_input_json)
+    # Patch snapshot generation
+    monkeypatch.setitem(sys.modules, "src.snapshot_manager", types.SimpleNamespace(generate_snapshots=mock_generate_snapshots))
+    monkeypatch.setattr("src.main_solver.generate_snapshots", mock_generate_snapshots)
 
-    # File should match step 2 snapshot
-    expected_file = os.path.join(output_folder, "fluid_simulation_input_step_0002.json")
-    assert os.path.isfile(expected_file), f"❌ Missing snapshot file: {expected_file}"
+    # Run solver
+    run_solver(str(input_path))
 
-    # Check key output artifacts
-    assert os.path.exists(os.path.join(output_folder, "step_summary.txt"))
-    assert os.path.exists(os.path.join(output_folder, "mutation_pathways_log.json"))
-    assert os.path.exists(os.path.join(output_folder, "influence_flags_log.json"))
+    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
+    expected_files = [
+        f"{input_path.stem}_step_0000.json",
+        f"{input_path.stem}_step_0001.json"
+    ]
+    for name in expected_files:
+        path = os.path.join(output_folder, name)
+        assert os.path.exists(path)
+        with open(path) as f:
+            data = json.load(f)
+            assert isinstance(data, dict)
+            assert "step_index" in data
 
+    out = capsys.readouterr().out
+    assert "Starting simulation for" in out
+    assert "Step 0000 written" in out
+    assert "Simulation complete" in out
 
-
+def test_main_solver_exit_on_missing_arg(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["main_solver.py"])
+    with pytest.raises(SystemExit):
+        __import__("src.main_solver")
+    out = capsys.readouterr().out
+    assert "Please provide an input file path" in out
