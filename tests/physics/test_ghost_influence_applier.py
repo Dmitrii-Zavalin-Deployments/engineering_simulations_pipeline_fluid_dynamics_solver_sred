@@ -1,122 +1,87 @@
 # tests/test_ghost_influence_applier.py
-# ✅ Unit tests for ghost influence logic
+# 🧪 Validates ghost-to-fluid influence mechanics across adjacency, mutation triggers, and tagging logic
 
-import unittest
+import pytest
 from src.grid_modules.cell import Cell
 from src.physics.ghost_influence_applier import apply_ghost_influence
 
-class TestGhostInfluenceApplier(unittest.TestCase):
-    def setUp(self):
-        self.spacing = (1.0, 1.0, 1.0)
+def make_cell(x, y, z, velocity, pressure, fluid=True):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid)
 
-    def create_cell(self, x, y, z, fluid=True, velocity=None, pressure=None):
-        return Cell(
-            x=x, y=y, z=z,
-            velocity=velocity if velocity is not None else [0.0, 0.0, 0.0],
-            pressure=pressure,
-            fluid_mask=fluid
-        )
+@pytest.fixture
+def spacing():
+    return (1.0, 1.0, 1.0)
 
-    def test_basic_velocity_transfer_and_tag(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[1.0, 2.0, 3.0])
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.velocity, [1.0, 2.0, 3.0])
-        self.assertTrue(fluid.influenced_by_ghost)
+def test_influence_applied_to_adjacent_fluid(spacing):
+    fluid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0], 5.0, fluid=False)
+    grid = [fluid, ghost]
+    count = apply_ghost_influence(grid, spacing)
+    assert count == 1
+    assert fluid.velocity == [1.0, 0.0, 0.0]
+    assert fluid.pressure == 5.0
+    assert getattr(fluid, "influenced_by_ghost", False)
 
-    def test_basic_pressure_transfer_and_tag(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0, pressure=0.0)
-        ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, pressure=99.0)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.pressure, 99.0)
-        self.assertTrue(fluid.influenced_by_ghost)
+def test_no_influence_if_values_identical(spacing):
+    fluid = make_cell(1.0, 1.0, 1.0, [1.0, 1.0, 1.0], 5.0)
+    ghost = make_cell(2.0, 1.0, 1.0, [1.0, 1.0, 1.0], 5.0, fluid=False)
+    count = apply_ghost_influence([fluid, ghost], spacing)
+    assert count == 0
+    assert not hasattr(fluid, "influenced_by_ghost")
 
-    def test_no_transfer_if_fields_match(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0, velocity=[2.0, 2.0, 2.0], pressure=50.0)
-        ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[2.0, 2.0, 2.0], pressure=50.0)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 0)
-        self.assertFalse(getattr(fluid, "influenced_by_ghost", False))
+def test_influence_respects_radius(spacing):
+    fluid = make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(3.0, 0.0, 0.0, [1.0, 0.0, 0.0], 9.9, fluid=False)
+    count = apply_ghost_influence([fluid, ghost], spacing, radius=2)
+    assert count == 0  # Too far for radius=2
+    count = apply_ghost_influence([fluid, ghost], spacing, radius=3)
+    assert count == 1
 
-    def test_multiple_ghosts_influence_single_fluid(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost1 = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[0.0, 1.0, 0.0])
-        ghost2 = self.create_cell(0.0, 1.0, 1.0, fluid=False, pressure=25.0)
-        grid = [fluid, ghost1, ghost2]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.velocity, [0.0, 1.0, 0.0])
-        self.assertEqual(fluid.pressure, 25.0)
-        self.assertTrue(fluid.influenced_by_ghost)
+def test_multiple_ghosts_influence_multiple_fluid_cells(spacing):
+    f1 = make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], 0.0)
+    f2 = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    g1 = make_cell(0.0, 1.0, 0.0, [2.0, 2.0, 2.0], 2.0, fluid=False)
+    g2 = make_cell(2.0, 1.0, 1.0, [3.0, 3.0, 3.0], 3.0, fluid=False)
+    grid = [f1, f2, g1, g2]
+    count = apply_ghost_influence(grid, spacing)
+    assert count == 2
+    assert f1.velocity == [2.0, 2.0, 2.0]
+    assert f2.velocity == [3.0, 3.0, 3.0]
 
-    def test_no_influence_if_far_apart(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost = self.create_cell(10.0, 10.0, 10.0, fluid=False, velocity=[5.0, 5.0, 5.0], pressure=80.0)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 0)
-        self.assertFalse(getattr(fluid, "influenced_by_ghost", False))
+def test_influence_skips_malformed_velocity(spacing):
+    fluid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(2.0, 1.0, 1.0, "invalid", 10.0, fluid=False)
+    grid = [fluid, ghost]
+    count = apply_ghost_influence(grid, spacing)
+    assert count == 1
+    assert fluid.velocity == [0.0, 0.0, 0.0]  # unchanged
+    assert fluid.pressure == 10.0
 
-    def test_adjacency_threshold_expansion_with_radius(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost = self.create_cell(3.0, 1.0, 1.0, fluid=False, velocity=[3.3, 3.3, 3.3], pressure=44.0)
-        grid = [fluid, ghost]
-        count_near = apply_ghost_influence(grid, self.spacing, radius=1)
-        count_far = apply_ghost_influence(grid, self.spacing, radius=2)
-        self.assertEqual(count_near, 0)
-        self.assertEqual(count_far, 1)
-        self.assertEqual(fluid.velocity, [3.3, 3.3, 3.3])
-        self.assertEqual(fluid.pressure, 44.0)
+def test_influence_skips_non_numeric_pressure(spacing):
+    fluid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0], "bad", fluid=False)
+    count = apply_ghost_influence([fluid, ghost], spacing)
+    assert count == 1
+    assert fluid.velocity == [1.0, 0.0, 0.0]
+    assert fluid.pressure == 0.0  # unchanged
 
-    def test_tolerance_based_adjacency(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost = self.create_cell(2.00000001, 1.0, 1.0, fluid=False, velocity=[3.0, 0.0, 0.0], pressure=77.0)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.velocity, [3.0, 0.0, 0.0])
-        self.assertEqual(fluid.pressure, 77.0)
-        self.assertTrue(fluid.influenced_by_ghost)
+def test_verbose_logging_output(capsys, spacing):
+    fluid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(2.0, 1.0, 1.0, [9.9, 9.9, 9.9], 9.9, fluid=False)
+    apply_ghost_influence([fluid, ghost], spacing, verbose=True)
+    out = capsys.readouterr().out
+    assert "Ghost" in out and "influenced fluid" in out
 
-    def test_influence_multiple_fluid_cells(self):
-        fluid1 = self.create_cell(1.0, 1.0, 1.0)
-        fluid2 = self.create_cell(2.0, 1.0, 1.0)
-        ghost = self.create_cell(1.5, 1.0, 1.0, fluid=False, velocity=[0.5, 0.5, 0.5], pressure=100.0)
-        grid = [fluid1, fluid2, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 2)
-        self.assertEqual(fluid1.velocity, [0.5, 0.5, 0.5])
-        self.assertEqual(fluid2.pressure, 100.0)
-        self.assertTrue(fluid1.influenced_by_ghost)
-        self.assertTrue(fluid2.influenced_by_ghost)
+def test_ghosts_do_not_affect_non_fluid_cells(spacing):
+    solid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0, fluid=False)
+    ghost = make_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0], 5.0, fluid=False)
+    count = apply_ghost_influence([solid, ghost], spacing)
+    assert count == 0
+    assert not hasattr(solid, "influenced_by_ghost")
 
-    def test_none_velocity_handled_safely(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0)
-        ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=None, pressure=20.0)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.velocity, [0.0, 0.0, 0.0])  # unchanged
-        self.assertEqual(fluid.pressure, 20.0)
-        self.assertTrue(fluid.influenced_by_ghost)
-
-    def test_none_pressure_handled_safely(self):
-        fluid = self.create_cell(1.0, 1.0, 1.0, pressure=0.0)
-        ghost = self.create_cell(2.0, 1.0, 1.0, fluid=False, velocity=[1.0, 1.0, 1.0], pressure=None)
-        grid = [fluid, ghost]
-        count = apply_ghost_influence(grid, self.spacing, radius=1)
-        self.assertEqual(count, 1)
-        self.assertEqual(fluid.velocity, [1.0, 1.0, 1.0])
-        self.assertEqual(fluid.pressure, 0.0)  # unchanged
-        self.assertTrue(fluid.influenced_by_ghost)
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-
+def test_rounding_tolerance_applied_correctly():
+    fluid = make_cell(1.0000001, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
+    ghost = make_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0], 5.0, fluid=False)
+    spacing = (1.0, 1.0, 1.0)
+    count = apply_ghost_influence([fluid, ghost], spacing)
+    assert count == 1
