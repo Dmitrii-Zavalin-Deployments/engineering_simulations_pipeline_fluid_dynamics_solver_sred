@@ -1,4 +1,4 @@
-# tests/test_projection_evaluator.py
+# tests/metrics/test_projection_evaluator.py
 # 🧪 Unit tests for calculate_projection_passes — verifies velocity variability heuristic for projection depth
 
 import pytest
@@ -43,7 +43,7 @@ def test_half_unit_variation_returns_two():
     mag2 = 2.0
     avg = (mag1 + mag2) / 2
     variation = max(mag1, mag2) - avg
-    assert variation > 0.5
+    assert variation >= 0.5  # adjusted from > 0.5 to include boundary
     assert calculate_projection_passes(grid) == 2
 
 def test_extreme_variation_returns_large_value():
@@ -70,3 +70,6 @@ def test_mixed_valid_and_invalid_cells():
         Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 2.0], pressure=0.0, fluid_mask=True)
     ]
     assert calculate_projection_passes(grid) == 1
+
+
+

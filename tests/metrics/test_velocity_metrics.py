@@ -1,4 +1,4 @@
-# tests/test_velocity_metrics.py
+# tests/metrics/test_velocity_metrics.py
 # 🧪 Unit tests for velocity_metrics.py — ensures velocity magnitude calculations across varied inputs
 
 import pytest

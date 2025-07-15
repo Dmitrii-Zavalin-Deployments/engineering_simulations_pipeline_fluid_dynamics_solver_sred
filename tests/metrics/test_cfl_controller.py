@@ -1,4 +1,4 @@
-# tests/test_cfl_controller.py
+# tests/metrics/test_cfl_controller.py
 # 🧪 Unit tests for CFL calculation — verifies CFL number across velocity magnitudes and domain configs
 
 import pytest

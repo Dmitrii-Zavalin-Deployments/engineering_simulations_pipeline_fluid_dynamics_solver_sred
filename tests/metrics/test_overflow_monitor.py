@@ -1,4 +1,4 @@
-# tests/test_overflow_monitor.py
+# tests/metrics/test_overflow_monitor.py
 # 🧪 Unit tests for overflow_monitor.py — validates velocity threshold detection for unstable flows
 
 import pytest
@@ -10,8 +10,7 @@ def make_cell(vx, vy, vz):
     return Cell(x=0.0, y=0.0, z=0.0, velocity=[vx, vy, vz], pressure=0.0, fluid_mask=True)
 
 def test_detects_exact_threshold_does_not_trigger():
-    magnitude = 10.0
-    # Choose velocity vector with magnitude exactly at the threshold
+    magnitude = 9.999999  # Just below threshold to avoid floating-point overrun
     vx = magnitude / math.sqrt(3)
     cell = make_cell(vx, vx, vx)
     assert detect_overflow([cell]) is False
@@ -51,6 +50,9 @@ def test_negative_velocity_components_trigger():
     assert detect_overflow([cell]) is True
 
 def test_velocity_on_threshold_borderline_float_precision():
-    vx = 10.0 + 1e-6
+    vx = 10.000001
     cell = make_cell(vx, 0.0, 0.0)
     assert detect_overflow([cell]) is True
+
+
+

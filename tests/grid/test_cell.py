@@ -1,4 +1,4 @@
-# tests/test_cell.py
+# tests/grid/test_cell.py
 # 🧪 Unit tests for Cell dataclass — verifies structure, types, and behavioral expectations
 
 import pytest
@@ -46,10 +46,18 @@ def test_cell_repr_and_equality():
     assert repr(c1) == repr(c2)
     assert c1 == c2
 
-def test_invalid_velocity_length_fails():
-    with pytest.raises(AssertionError):
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.0, 0.0], pressure=0.0, fluid_mask=True)
+def test_invalid_velocity_length_downgrades_cell():
+    cell = Cell(x=0.0, y=0.0, z=0.0, velocity=[0.0, 0.0], pressure=0.0, fluid_mask=True)
+    # Expect simulation to downgrade invalid fluid cells
+    assert cell.velocity is None or not isinstance(cell.velocity, list)
+    assert cell.fluid_mask is False
+    assert cell.pressure is None
 
 def test_invalid_velocity_type():
     cell = Cell(x=0.0, y=0.0, z=0.0, velocity="not-a-vector", pressure=0.0, fluid_mask=True)
     assert not isinstance(cell.velocity, list)
+    assert cell.fluid_mask is False
+    assert cell.pressure is None
+
+
+

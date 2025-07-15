@@ -1,4 +1,4 @@
-# tests/test_grid_geometry.py
+# tests/grid/test_grid_geometry.py
 # 🧪 Unit tests for generate_coordinates — validates grid indexing and physical coordinate mapping
 
 import pytest

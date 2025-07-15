@@ -1,4 +1,4 @@
-# tests/test_initial_field_assigner.py
+# tests/grid/test_initial_field_assigner.py
 # 🧪 Unit tests for initial_field_assigner — validates velocity and pressure assignment based on fluid mask
 
 import pytest

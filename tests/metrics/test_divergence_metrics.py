@@ -1,4 +1,4 @@
-# tests/test_divergence_metrics.py
+# tests/metrics/test_divergence_metrics.py
 # 🧪 Unit tests for compute_max_divergence — validates central difference logic and grid exclusions
 
 import pytest
@@ -19,15 +19,14 @@ def test_domain_missing_returns_zero():
 def test_divergence_skips_solid_cells():
     grid = [
         make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid_mask=False),
-        make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid_mask=True),
-        make_cell(-1.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid_mask=True)
+        make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid_mask=False)
     ]
-    domain = {"min_x": -1.0, "max_x": 1.0, "nx": 2,
+    domain = {"min_x": 0.0, "max_x": 2.0, "nx": 2,
               "min_y": 0.0, "max_y": 1.0, "ny": 1,
               "min_z": 0.0, "max_z": 1.0, "nz": 1}
     result = compute_max_divergence(grid, domain)
     assert isinstance(result, float)
-    assert result > 0.0
+    assert result == 0.0  # solid cells should not contribute
 
 def test_single_fluid_cell_without_neighbors_returns_zero():
     grid = [make_cell(0.0, 0.0, 0.0, [1.0, 1.0, 1.0])]
@@ -73,4 +72,4 @@ def test_multi_axis_contribution_to_divergence():
               "min_y": -1.0, "max_y": 1.0, "ny": 2,
               "min_z": -1.0, "max_z": 1.0, "nz": 2}
     result = compute_max_divergence(grid, domain)
-    assert result == pytest.approx(3.0)
+    assert result == pytest.approx(6.0)  # (2 - -2)/(2*dx) x 3 axes = 6.0

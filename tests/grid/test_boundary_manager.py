@@ -1,9 +1,10 @@
-# tests/test_boundary_manager.py
+# tests/grid/test_boundary_manager.py
 # 🧪 Unit tests for boundary_manager.py — tags edge cells using resolution-based logic
 
 import pytest
 from src.grid_modules.cell import Cell
 from src.grid_modules.boundary_manager import apply_boundaries
+from src.utils.domain_normalizer import normalize_domain
 
 def make_cell(ix, iy, iz):
     # Creates a test cell with integer coordinates
@@ -68,7 +69,13 @@ def test_empty_grid_returns_empty():
     assert result == []
 
 def test_zero_resolution_sets_all_to_wall():
+    raw_domain = {"nx": 0, "ny": 0, "nz": 0}
     grid = [make_cell(0, 0, 0), make_cell(1, 1, 1)]
-    tagged = apply_boundaries(grid, {"nx": 0, "ny": 0, "nz": 0})
+    # Ensure consistent fallback behavior using domain normalization
+    normalized_domain = normalize_domain(raw_domain)
+    tagged = apply_boundaries(grid, normalized_domain)
     for cell in tagged:
-        assert cell.boundary_type == "wall"
+        assert cell.boundary_type == "wall", f"❌ Expected 'wall' but got '{cell.boundary_type}' at ({cell.x}, {cell.y}, {cell.z})"
+
+
+

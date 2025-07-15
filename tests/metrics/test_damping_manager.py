@@ -1,4 +1,4 @@
-# tests/test_damping_manager.py
+# tests/metrics/test_damping_manager.py
 # 🧪 Unit tests for damping_manager.py — validates flow damping triggers based on velocity volatility
 
 import pytest
