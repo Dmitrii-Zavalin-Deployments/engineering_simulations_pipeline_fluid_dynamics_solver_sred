@@ -7,12 +7,13 @@ import pytest
 from collections import defaultdict
 
 SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
+skip_reason = "❌ Snapshot files not found — run simulation before testing."
 
 def discover_snapshot_series():
-    """
-    Groups snapshot files by scenario prefix and sorts them by step index.
-    Returns: dict { "fluid_simulation_input": [filename, filename, ...], ... }
-    """
+    """Groups snapshot files by scenario prefix and sorts them by step index."""
+    if not os.path.isdir(SNAPSHOT_ROOT):
+        return {}
+
     snapshots = defaultdict(list)
     pattern = re.compile(r"^(.*?)_step_(\d{4})\.json$")
     for fname in os.listdir(SNAPSHOT_ROOT):
@@ -20,18 +21,26 @@ def discover_snapshot_series():
         if match:
             prefix, step = match.groups()
             snapshots[prefix].append((int(step), fname))
+
     return {
         prefix: [fname for _, fname in sorted(files)]
         for prefix, files in snapshots.items()
     }
 
-@pytest.mark.parametrize("scenario_prefix,snapshot_files", discover_snapshot_series().items())
+SCENARIO_SERIES = discover_snapshot_series()
+
+@pytest.mark.parametrize("scenario_prefix,snapshot_files", SCENARIO_SERIES.items() or [("_placeholder", [])])
 def test_volatility_metrics_across_timesteps(scenario_prefix, snapshot_files):
+    if scenario_prefix == "_placeholder":
+        pytest.skip(skip_reason)
+
     divergence_values = []
     overflow_flags = []
 
     for filename in snapshot_files:
         path = os.path.join(SNAPSHOT_ROOT, filename)
+        if not os.path.isfile(path):
+            pytest.skip(f"❌ Missing snapshot file: {filename}")
         with open(path) as f:
             snap = json.load(f)
 
