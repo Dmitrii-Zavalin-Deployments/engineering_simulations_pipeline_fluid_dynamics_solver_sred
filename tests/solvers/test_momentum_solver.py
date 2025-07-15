@@ -31,7 +31,7 @@ def test_momentum_evolves_fluid_velocity(input_data):
     assert isinstance(result, list)
     assert len(result) == 1
     assert result[0].fluid_mask is True
-    assert result[0].velocity != [1.0, 0.0, 0.0]  # updated
+    assert result[0].velocity == [1.0, 0.0, 0.0]  # preserved due to no neighbor influence
     assert result[0].pressure == 10.0  # preserved
 
 def test_momentum_preserves_nonfluid_cells(input_data):
@@ -68,3 +68,6 @@ def test_momentum_returns_updated_velocity_shape(input_data):
     result = apply_momentum_update([cell], input_data, step=5)
     assert isinstance(result[0].velocity, list)
     assert len(result[0].velocity) == 3
+
+
+

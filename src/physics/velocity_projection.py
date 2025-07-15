@@ -44,8 +44,11 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             p_plus = pressure_map.get(plus)
             p_minus = pressure_map.get(minus)
 
-            if p_plus is not None and p_minus is not None:
-                grad[i] = (p_plus - p_minus) / (2.0 * h)
+            # ✅ Defensive check to skip malformed neighbors
+            if p_plus is None or p_minus is None:
+                continue
+
+            grad[i] = (p_plus - p_minus) / (2.0 * h)
 
         # 🧮 Subtract pressure gradient from current velocity
         projected_velocity = [

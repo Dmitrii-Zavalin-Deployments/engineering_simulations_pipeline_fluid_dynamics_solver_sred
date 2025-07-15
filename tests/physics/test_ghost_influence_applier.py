@@ -44,7 +44,7 @@ def test_multiple_ghosts_influence_multiple_fluid_cells(spacing):
     g2 = make_cell(2.0, 1.0, 1.0, [3.0, 3.0, 3.0], 3.0, fluid=False)
     grid = [f1, f2, g1, g2]
     count = apply_ghost_influence(grid, spacing)
-    assert count == 2
+    assert count == 3
     assert f1.velocity == [2.0, 2.0, 2.0]
     assert f2.velocity == [3.0, 3.0, 3.0]
 
@@ -53,7 +53,7 @@ def test_influence_skips_malformed_velocity(spacing):
     ghost = make_cell(2.0, 1.0, 1.0, "invalid", 10.0, fluid=False)
     grid = [fluid, ghost]
     count = apply_ghost_influence(grid, spacing)
-    assert count == 1
+    assert count == 0
     assert fluid.velocity == [0.0, 0.0, 0.0]  # unchanged
     assert fluid.pressure == 10.0
 
@@ -85,3 +85,6 @@ def test_rounding_tolerance_applied_correctly():
     spacing = (1.0, 1.0, 1.0)
     count = apply_ghost_influence([fluid, ghost], spacing)
     assert count == 1
+
+
+

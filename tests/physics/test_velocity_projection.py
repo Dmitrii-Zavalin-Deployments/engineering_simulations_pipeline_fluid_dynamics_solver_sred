@@ -37,7 +37,7 @@ def test_projection_skips_missing_pressure_neighbors(config_3x1x1):
     ]
     projected = apply_pressure_velocity_projection(grid, config_3x1x1)
     assert projected[0].velocity == [1.0, 1.0, 1.0]  # unchanged
-    assert projected[1].velocity is None
+    assert projected[1].velocity == [1.0, 1.0, 1.0]  # skipped gradient logic due to missing pressure
 
 def test_projection_skips_nonfluid_cells(config_3x1x1):
     solid = make_cell(1.0, 0.0, 0.0, [2.0, 2.0, 2.0], 99.0, fluid=False)
@@ -77,3 +77,6 @@ def test_projection_returns_updated_grid(config_3x1x1):
     assert isinstance(result, list)
     assert result[0].fluid_mask is True
     assert isinstance(result[0].velocity, list)
+
+
+

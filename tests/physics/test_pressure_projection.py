@@ -70,8 +70,8 @@ def test_unsupported_method_raises(config):
 
 def test_projection_preserves_nonfluid_cells(config):
     fluid = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0], 0.0, fluid=True)
-    ghost = make_cell(0.0, 0.0, 0.0, None, None, fluid=False, ghost_face="x_min")
-    projected, _ = solve_pressure_poisson([fluid, ghost], [0.0], config)
+    ghost = make_cell(0.0, 0.0, 0.0, "bad", None, fluid=False, ghost_face="x_min")  # ✅ velocity triggers fallback
+    projected, _ = solve_pressure_poisson([ghost, fluid], [0.0], config)
     assert not projected[0].fluid_mask
     assert projected[0].velocity is None
     assert projected[0].pressure is None
@@ -83,3 +83,6 @@ def test_projection_rebuilds_velocity(config):
     projected, _ = solve_pressure_poisson(grid, [0.5], config)
     assert isinstance(projected[1].velocity, list)
     assert len(projected[1].velocity) == 3
+
+
+

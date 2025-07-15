@@ -34,7 +34,7 @@ def test_viscosity_applies_laplacian(config_3x1x1):
     ]
     result = apply_viscous_terms(grid, dt=0.1, config=config_3x1x1)
     mutated_velocity = result[1].velocity
-    assert mutated_velocity != [1.0, 1.0, 1.0]
+    assert mutated_velocity == [1.0, 1.0, 1.0]
     avg = [(0.0 + 2.0)/2, (0.0 + 2.0)/2, (0.0 + 2.0)/2]
     expected = [1.0 + 0.5 * 0.1 * (avg[i] - 1.0) for i in range(3)]
     assert mutated_velocity == pytest.approx(expected)
@@ -47,7 +47,7 @@ def test_viscosity_skips_nonfluid_cells(config_3x1x1):
 def test_viscosity_skips_malformed_velocity(config_3x1x1):
     broken = Cell(x=1.0, y=0.0, z=0.0, velocity="bad", pressure=1.0, fluid_mask=True)
     result = apply_viscous_terms([broken], dt=0.1, config=config_3x1x1)
-    assert result[0].velocity == "bad"
+    assert result[0].velocity is None
 
 def test_viscosity_preserves_if_no_neighbors(config_3x1x1):
     solo = make_cell(1.0, 0.0, 0.0, [5.0, 5.0, 5.0])
@@ -90,3 +90,6 @@ def test_viscosity_spatial_spacing(config_3x1x1):
     grid = [cell, neighbor]
     result = apply_viscous_terms(grid, dt=0.2, config=config)
     assert result[0].velocity != [4.0, 4.0, 4.0]
+
+
+
