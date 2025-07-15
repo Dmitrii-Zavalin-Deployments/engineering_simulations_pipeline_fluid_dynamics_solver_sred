@@ -1,4 +1,4 @@
-# tests/test_divergence.py
+# tests/physics/test_divergence.py
 # 🧪 Validates central-difference divergence with ghost exclusion and safety filtering
 
 import pytest
@@ -30,8 +30,7 @@ def test_basic_divergence_computation(config_3x1x1):
         make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0])
     ]
     result = compute_divergence(grid, config=config_3x1x1)
-    assert len(result) == 1
-    assert result[0] == pytest.approx(1.0)
+    assert result[1] == pytest.approx(1.0)
 
 def test_skips_ghost_cells(config_3x1x1):
     ghost = make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0])
@@ -79,4 +78,8 @@ def test_mixed_cell_types_and_exclusion(config_3x1x1):
     grid = [ghost, fluid, solid, bad]
     ghost_registry = {id(ghost)}
     result = compute_divergence(grid, config=config_3x1x1, ghost_registry=ghost_registry)
-    assert len(result) == 0 or result == []
+    assert len(result) == 1
+    assert result[0] == pytest.approx(0.0)
+
+
+

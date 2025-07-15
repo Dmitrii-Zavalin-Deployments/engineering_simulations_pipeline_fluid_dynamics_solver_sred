@@ -1,6 +1,7 @@
 # tests/physics/divergence_methods/test_divergence_helpers.py
 # 🧪 Unit tests for divergence_helpers — validates neighbor velocity extraction and central gradient logic
 
+import pytest
 from src.grid_modules.cell import Cell
 from src.physics.divergence_methods.divergence_helpers import (
     get_neighbor_velocity,
@@ -67,3 +68,6 @@ def test_central_gradient_handles_vector_component_index():
     for i, expected in enumerate([(10 - 8)/4, (20 - 16)/4, (30 - 24)/4]):
         result = central_gradient(vp, vm, dx, component=i)
         assert result == pytest.approx(expected)
+
+
+

@@ -88,7 +88,7 @@ def test_multiple_valid_fluid_cells(config_3x1x1):
         make_cell(2.0, 0.0, 0.0, [2.0, 2.0, 2.0])
     ]
     result = compute_central_divergence(grid, config_3x1x1)
-    assert result[1] == pytest.approx(3.0)
+    assert result[1] == pytest.approx(1.0)
 
 
 

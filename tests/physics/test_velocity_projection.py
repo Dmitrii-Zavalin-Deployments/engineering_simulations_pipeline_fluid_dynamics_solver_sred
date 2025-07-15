@@ -1,4 +1,4 @@
-# tests/test_velocity_projection.py
+# tests/physics/test_velocity_projection.py
 # 🧪 Validates pressure-gradient velocity adjustment for fluid incompressibility enforcement
 
 from src.grid_modules.cell import Cell

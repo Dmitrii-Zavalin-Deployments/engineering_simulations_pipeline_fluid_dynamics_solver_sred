@@ -94,3 +94,6 @@ def test_solver_converges_under_custom_tolerance():
     pressure = solve_jacobi_pressure(grid, divergence, config)
     assert len(pressure) == 3
     assert any(p != 0.0 for p in pressure)
+
+
+

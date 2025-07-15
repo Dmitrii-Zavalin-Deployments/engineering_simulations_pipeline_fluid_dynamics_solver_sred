@@ -1,4 +1,4 @@
-# tests/test_ghost_influence_applier.py
+# tests/physics/test_ghost_influence_applier.py
 # 🧪 Validates ghost-to-fluid influence mechanics across adjacency, mutation triggers, and tagging logic
 
 import pytest

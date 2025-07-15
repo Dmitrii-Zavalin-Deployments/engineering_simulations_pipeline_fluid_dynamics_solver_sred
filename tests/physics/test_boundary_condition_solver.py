@@ -1,4 +1,4 @@
-# tests/test_boundary_condition_solver.py
+# tests/physics/test_boundary_condition_solver.py
 # 🧪 Validates ghost and fluid field enforcement per boundary config options
 
 from src.grid_modules.cell import Cell

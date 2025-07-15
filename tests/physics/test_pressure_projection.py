@@ -1,4 +1,4 @@
-# tests/test_pressure_projection.py
+# tests/physics/test_pressure_projection.py
 # 🧪 Validates pressure Poisson solve and ghost-aware projection across fluid cells
 
 import pytest

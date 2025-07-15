@@ -1,4 +1,4 @@
-# tests/test_viscosity.py
+# tests/physics/test_viscosity.py
 # 🧪 Validates Laplacian-based viscosity smoothing and fluid-only mutation logic
 
 import pytest

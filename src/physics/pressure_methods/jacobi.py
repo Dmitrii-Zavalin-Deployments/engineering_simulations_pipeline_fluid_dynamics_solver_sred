@@ -23,11 +23,14 @@ def solve_jacobi_pressure(grid: List[Cell],
     Returns:
         List[float]: Updated pressure values for fluid cells (same order as input)
     """
-    # 🧮 Grid spacing
+    # 🧮 Grid spacing with fallback for zero resolution
     domain = config.get("domain_definition", {})
-    dx = (domain.get("max_x", 1.0) - domain.get("min_x", 0.0)) / domain.get("nx", 1)
-    dy = (domain.get("max_y", 1.0) - domain.get("min_y", 0.0)) / domain.get("ny", 1)
-    dz = (domain.get("max_z", 1.0) - domain.get("min_z", 0.0)) / domain.get("nz", 1)
+    nx = domain.get("nx", 1)
+    dx = (domain.get("max_x", 1.0) - domain.get("min_x", 0.0)) / nx if nx > 0 else 1.0
+    ny = domain.get("ny", 1)
+    dy = (domain.get("max_y", 1.0) - domain.get("min_y", 0.0)) / ny if ny > 0 else 1.0
+    nz = domain.get("nz", 1)
+    dz = (domain.get("max_z", 1.0) - domain.get("min_z", 0.0)) / nz if nz > 0 else 1.0
     spacing_sq = dx * dx  # Assuming uniform spacing
 
     # 🔧 Solver settings

@@ -1,4 +1,4 @@
-# tests/test_ghost_cell_generator.py
+# tests/physics/test_ghost_cell_generator.py
 # 🧪 Validates ghost creation across boundary faces, fluid proximity, and registry accuracy
 
 import pytest
