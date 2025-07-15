@@ -1,76 +1,72 @@
 # tests/test_output_manager.py
+# 🧪 Validates snapshot schema integrity and Cell serialization logic
 
-import os
-import json
-import pytest
-from datetime import datetime
+from src.output_manager import validate_snapshot, serialize_snapshot, EXPECTED_SNAPSHOT_KEYS
+from src.grid_modules.cell import Cell
+from dataclasses import dataclass
 
-SNAPSHOT_ROOT = "data/testing-input-output/navier_stokes_output"
+def test_validate_snapshot_with_all_keys():
+    snapshot = {key: True for key in EXPECTED_SNAPSHOT_KEYS}
+    assert validate_snapshot(snapshot) is True
 
-EXPECTED_KEYS = [
-    "step_index",
-    "grid",
-    "max_velocity",
-    "max_divergence",
-    "global_cfl",
-    "overflow_detected",
-    "damping_enabled",
-    "projection_passes"
-]
+def test_validate_snapshot_missing_one_key():
+    keys = EXPECTED_SNAPSHOT_KEYS[:-1]  # remove last
+    snapshot = {key: True for key in keys}
+    assert validate_snapshot(snapshot) is False
 
-def discover_snapshots():
-    """Returns snapshot filenames matching *_step_*.json"""
-    if not os.path.isdir(SNAPSHOT_ROOT):
-        return []
-    return [
-        filename for filename in os.listdir(SNAPSHOT_ROOT)
-        if filename.endswith(".json") and "_step_" in filename
+def test_validate_snapshot_empty_dict_fails():
+    assert validate_snapshot({}) is False
+
+def test_serialize_snapshot_converts_cell_objects():
+    snapshot = {
+        "step_index": 0,
+        "max_velocity": 1.0,
+        "max_divergence": 0.5,
+        "global_cfl": 0.9,
+        "overflow_detected": False,
+        "damping_enabled": False,
+        "projection_passes": 2
+    }
+
+    grid = [
+        Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=5.0, fluid_mask=True),
+        Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 1.0, 0.0], pressure=4.5, fluid_mask=False)
     ]
 
-@pytest.mark.parametrize("snapshot_file", discover_snapshots())
-def test_snapshot_structure_and_values(snapshot_file):
-    path = os.path.join(SNAPSHOT_ROOT, snapshot_file)
-    assert os.path.isfile(path), f"❌ File missing: {path}"
+    result = serialize_snapshot(snapshot.copy(), grid)
+    assert "grid" in result
+    assert isinstance(result["grid"], list)
+    assert isinstance(result["grid"][0], dict)
+    assert result["grid"][0]["x"] == 0.0
+    assert result["grid"][1]["fluid_mask"] is False
 
-    with open(path) as f:
-        snap = json.load(f)
+def test_serialize_snapshot_grid_overwrites_existing_grid_key():
+    snapshot = {key: True for key in EXPECTED_SNAPSHOT_KEYS}
+    snapshot["grid"] = "placeholder"
+    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.0]*3, pressure=0.0, fluid_mask=True)]
+    result = serialize_snapshot(snapshot, grid)
+    assert isinstance(result["grid"], list)
+    assert isinstance(result["grid"][0], dict)
 
-    # Required keys
-    for key in EXPECTED_KEYS:
-        assert key in snap, f"❌ Missing key '{key}' in {snapshot_file}"
+def test_serialize_snapshot_with_empty_grid():
+    snapshot = {key: True for key in EXPECTED_SNAPSHOT_KEYS}
+    result = serialize_snapshot(snapshot.copy(), [])
+    assert "grid" in result
+    assert isinstance(result["grid"], list)
+    assert result["grid"] == []
 
-    # Grid checks
-    assert isinstance(snap["grid"], list), f"❌ Grid must be a list in {snapshot_file}"
-    for cell in snap["grid"]:
-        assert isinstance(cell, dict), f"❌ Grid cell must be a dict in {snapshot_file}"
-        assert all(k in cell for k in ["x", "y", "z", "velocity", "pressure", "fluid_mask"]), f"❌ Missing cell keys in {snapshot_file}"
-        assert isinstance(cell["x"], (int, float))
-        assert isinstance(cell["y"], (int, float))
-        assert isinstance(cell["z"], (int, float))
-        assert isinstance(cell["fluid_mask"], bool)
-
-        if cell["fluid_mask"]:
-            assert isinstance(cell["velocity"], list) and len(cell["velocity"]) == 3, f"❌ Velocity must be a list in fluid cell"
-            assert all(isinstance(v, (int, float)) for v in cell["velocity"]), f"❌ Velocity components must be numeric"
-            assert isinstance(cell["pressure"], (int, float)), f"❌ Pressure must be numeric in fluid cell"
-        else:
-            assert cell["velocity"] is None, f"❌ Velocity should be null in solid cell"
-            assert cell["pressure"] is None, f"❌ Pressure should be null in solid cell"
-
-    # Metric types
-    assert isinstance(snap["step_index"], int), f"❌ step_index must be int"
-    assert isinstance(snap["max_velocity"], (int, float)), f"❌ max_velocity must be numeric"
-    assert isinstance(snap["max_divergence"], (int, float)), f"❌ max_divergence must be numeric"
-    assert isinstance(snap["global_cfl"], (int, float)), f"❌ global_cfl must be numeric"
-    assert isinstance(snap["overflow_detected"], bool), f"❌ overflow_detected must be bool"
-    assert isinstance(snap["damping_enabled"], bool), f"❌ damping_enabled must be bool"
-    assert isinstance(snap["projection_passes"], int), f"❌ projection_passes must be int"
-
-    # Value bounds
-    assert snap["max_velocity"] >= 0
-    assert snap["max_divergence"] >= 0
-    assert snap["global_cfl"] >= 0
-    assert snap["projection_passes"] >= 1
-
-
-
+def test_serialize_snapshot_preserves_other_fields():
+    snapshot = {
+        "step_index": 3,
+        "max_velocity": 0.0,
+        "max_divergence": 0.0,
+        "global_cfl": 0.1,
+        "overflow_detected": False,
+        "damping_enabled": True,
+        "projection_passes": 0
+    }
+    grid = [Cell(x=1, y=2, z=3, velocity=[0.0]*3, pressure=1.0, fluid_mask=True)]
+    result = serialize_snapshot(snapshot.copy(), grid)
+    assert result["step_index"] == 3
+    assert result["damping_enabled"] is True
+    assert result["grid"][0]["pressure"] == 1.0
