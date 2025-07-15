@@ -1,94 +1,92 @@
-# tests/physics/test_viscosity.py
-# ✅ Unit tests for Laplacian-based velocity damping in apply_viscous_terms
+# tests/test_viscosity.py
+# 🧪 Validates Laplacian-based viscosity smoothing and fluid-only mutation logic
 
 import pytest
 from src.grid_modules.cell import Cell
 from src.physics.viscosity import apply_viscous_terms
 
-def make_fluid_cell(x, y, z, velocity):
+def make_cell(x, y, z, velocity, fluid=True):
     return Cell(
-        x=x,
-        y=y,
-        z=z,
+        x=x, y=y, z=z,
         velocity=velocity,
         pressure=1.0,
-        fluid_mask=True
+        fluid_mask=fluid
     )
 
-def make_solid_cell(x, y, z):
-    return Cell(
-        x=x,
-        y=y,
-        z=z,
-        velocity=None,
-        pressure=None,
-        fluid_mask=False
-    )
-
-def config_with_viscosity(viscosity=0.1):
+@pytest.fixture
+def config_3x1x1():
     return {
-        "fluid_properties": {"viscosity": viscosity},
         "domain_definition": {
             "min_x": 0.0, "max_x": 3.0, "nx": 3,
-            "min_y": 0.0, "max_y": 3.0, "ny": 3,
-            "min_z": 0.0, "max_z": 3.0, "nz": 3
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
+        },
+        "fluid_properties": {
+            "viscosity": 0.5
         }
     }
 
-def test_viscosity_applied_to_fluid_cell_with_neighbors():
-    c0 = make_fluid_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
-    c1 = make_fluid_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
-    c2 = make_fluid_cell(0.0, 1.0, 1.0, [0.0, 0.0, 0.0])
-    grid = [c0, c1, c2]
-    updated = apply_viscous_terms(grid, dt=0.5, config=config_with_viscosity(0.2))
+def test_viscosity_applies_laplacian(config_3x1x1):
+    grid = [
+        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0]),
+        make_cell(1.0, 0.0, 0.0, [1.0, 1.0, 1.0]),
+        make_cell(2.0, 0.0, 0.0, [2.0, 2.0, 2.0])
+    ]
+    result = apply_viscous_terms(grid, dt=0.1, config=config_3x1x1)
+    mutated_velocity = result[1].velocity
+    assert mutated_velocity != [1.0, 1.0, 1.0]
+    avg = [(0.0 + 2.0)/2, (0.0 + 2.0)/2, (0.0 + 2.0)/2]
+    expected = [1.0 + 0.5 * 0.1 * (avg[i] - 1.0) for i in range(3)]
+    assert mutated_velocity == pytest.approx(expected)
 
-    v0 = updated[0].velocity
-    # Laplacian = ((2.0 + 0.0)/2 - 1.0) = 0.0 → no change if symmetrical
-    assert isinstance(v0, list)
-    assert abs(v0[0] - 1.0) < 0.5  # Should slightly shift toward neighbor avg
+def test_viscosity_skips_nonfluid_cells(config_3x1x1):
+    solid = make_cell(1.0, 0.0, 0.0, [9.9, 9.9, 9.9], fluid=False)
+    result = apply_viscous_terms([solid], dt=0.1, config=config_3x1x1)
+    assert result[0].velocity == [9.9, 9.9, 9.9]
 
-def test_viscosity_skips_cells_without_neighbors():
-    c0 = make_fluid_cell(1.0, 1.0, 1.0, [3.0, 3.0, 3.0])
-    grid = [c0]
-    updated = apply_viscous_terms(grid, dt=1.0, config=config_with_viscosity(0.5))
-    assert updated[0].velocity == [3.0, 3.0, 3.0]
+def test_viscosity_skips_malformed_velocity(config_3x1x1):
+    broken = Cell(x=1.0, y=0.0, z=0.0, velocity="bad", pressure=1.0, fluid_mask=True)
+    result = apply_viscous_terms([broken], dt=0.1, config=config_3x1x1)
+    assert result[0].velocity == "bad"
 
-def test_viscosity_preserves_solid_cells():
-    c0 = make_solid_cell(0.0, 0.0, 0.0)
-    updated = apply_viscous_terms([c0], dt=1.0, config=config_with_viscosity(0.1))
-    assert updated[0].velocity is None
-    assert updated[0].fluid_mask is False
+def test_viscosity_preserves_if_no_neighbors(config_3x1x1):
+    solo = make_cell(1.0, 0.0, 0.0, [5.0, 5.0, 5.0])
+    result = apply_viscous_terms([solo], dt=0.1, config=config_3x1x1)
+    assert result[0].velocity == [5.0, 5.0, 5.0]
 
-def test_viscosity_applied_with_zero_viscosity():
-    c0 = make_fluid_cell(1.0, 1.0, 1.0, [2.0, 0.0, 0.0])
-    c1 = make_fluid_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0])
-    grid = [c0, c1]
-    config = config_with_viscosity(viscosity=0.0)
-    updated = apply_viscous_terms(grid, dt=0.5, config=config)
-    assert updated[0].velocity == [2.0, 0.0, 0.0]
-    assert updated[1].velocity == [1.0, 0.0, 0.0]
+def test_zero_viscosity_produces_no_mutation(config_3x1x1):
+    config_3x1x1["fluid_properties"]["viscosity"] = 0.0
+    grid = [
+        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0]),
+        make_cell(1.0, 0.0, 0.0, [1.0, 1.0, 1.0]),
+        make_cell(2.0, 0.0, 0.0, [2.0, 2.0, 2.0])
+    ]
+    result = apply_viscous_terms(grid, dt=0.1, config=config_3x1x1)
+    assert result[1].velocity == [1.0, 1.0, 1.0]
 
-def test_velocity_damping_direction():
-    c0 = make_fluid_cell(1.0, 1.0, 1.0, [5.0, 0.0, 0.0])
-    c1 = make_fluid_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0])
-    c2 = make_fluid_cell(0.0, 1.0, 1.0, [1.0, 0.0, 0.0])
-    grid = [c0, c1, c2]
-    updated = apply_viscous_terms(grid, dt=1.0, config=config_with_viscosity(0.25))
+def test_viscosity_mutation_count_prints(capsys, config_3x1x1):
+    grid = [
+        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0]),
+        make_cell(1.0, 0.0, 0.0, [9.0, 9.0, 9.0]),
+        make_cell(2.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    ]
+    apply_viscous_terms(grid, dt=0.1, config=config_3x1x1)
+    output = capsys.readouterr().out
+    assert "velocity mutations" in output
 
-    damped = updated[0].velocity[0]
-    assert damped < 5.0
-    assert damped > 1.0  # Should move toward average of neighbors
-
-def test_viscosity_vector_component_integrity():
-    c0 = make_fluid_cell(1.0, 1.0, 1.0, [2.0, 4.0, 6.0])
-    c1 = make_fluid_cell(2.0, 1.0, 1.0, [0.0, 0.0, 0.0])
-    c2 = make_fluid_cell(0.0, 1.0, 1.0, [0.0, 0.0, 0.0])
-    grid = [c0, c1, c2]
-    updated = apply_viscous_terms(grid, dt=0.1, config=config_with_viscosity(0.2))
-
-    v_new = updated[0].velocity
-    assert len(v_new) == 3
-    assert all(isinstance(v, float) for v in v_new)
-
-
-
+def test_viscosity_spatial_spacing(config_3x1x1):
+    config = {
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 4.0, "nx": 4,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
+        },
+        "fluid_properties": {
+            "viscosity": 1.0
+        }
+    }
+    cell = make_cell(1.0, 0.0, 0.0, [4.0, 4.0, 4.0])
+    neighbor = make_cell(2.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    grid = [cell, neighbor]
+    result = apply_viscous_terms(grid, dt=0.2, config=config)
+    assert result[0].velocity != [4.0, 4.0, 4.0]
