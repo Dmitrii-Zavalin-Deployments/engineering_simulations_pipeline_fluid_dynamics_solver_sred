@@ -1,153 +1,113 @@
-# tests/output/test_snapshot_writer.py
-# 🧪 Unit tests for snapshot_writer.py — validates influence flag export and log structure
+# tests/test_snapshot_writer.py
+# 🧪 Unit tests for export_influence_flags — verifies ghost influence logging across reflex verbosity modes
 
 import os
 import json
-import tempfile
-from src.grid_modules.cell import Cell
+import shutil
+import pytest
 from src.output.snapshot_writer import export_influence_flags
+from src.grid_modules.cell import Cell
 
-def make_cell(x, y, z, fluid=True, velocity=None, pressure=None, tag=False, tag_pressure=False, tag_velocity=False):
-    cell = Cell(
-        x=x, y=y, z=z,
-        velocity=velocity if velocity is not None else [1.0, 0.0, 0.0],
-        pressure=pressure if pressure is not None else 100.0,
-        fluid_mask=fluid
-    )
-    if tag:
-        cell.influenced_by_ghost = True
-    if tag_pressure:
-        cell._ghost_pressure_source = (x + 0.1, y + 0.1, z + 0.1)
-    if tag_velocity:
-        cell._ghost_velocity_source = (x - 0.1, y - 0.1, z - 0.1)
+TEST_DIR = "data/testing-output/influence_flags_tests"
+
+@pytest.fixture
+def clean_output_dir():
+    if os.path.exists(TEST_DIR):
+        shutil.rmtree(TEST_DIR)
+    os.makedirs(TEST_DIR)
+    yield TEST_DIR
+    shutil.rmtree(TEST_DIR)
+
+def make_cell(x=0.0, y=0.0, z=0.0, influenced=True, fluid=True):
+    cell = Cell(x=x, y=y, z=z, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=fluid)
+    setattr(cell, "influenced_by_ghost", influenced)
     return cell
 
-def test_log_file_created_with_single_cell():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        cell = make_cell(0.5, 0.5, 0.5, tag=True, tag_pressure=True)
-        export_influence_flags([cell], step_index=0, output_folder=tmpdir, config=config)
+def make_detailed_cell(x=0.0, y=0.0, z=0.0):
+    cell = make_cell(x, y, z, influenced=True, fluid=True)
+    setattr(cell, "_ghost_velocity_source", (x-1, y, z))
+    setattr(cell, "_ghost_pressure_source", (x, y-1, z))
+    return cell
 
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        assert os.path.exists(path)
+def test_low_verbosity_suppress_output(clean_output_dir):
+    grid = [make_cell(x=1.0, y=2.0, z=3.0)]
+    config = {"reflex_verbosity": "low"}
+    export_influence_flags(grid, step_index=0, output_folder=clean_output_dir, config=config)
 
-        with open(path) as f:
-            data = json.load(f)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    assert log[0]["influenced_cell_count"] == 1
+    assert "ghost_pressure_source" not in log[0]["cells"][0]
 
-        assert isinstance(data, list)
-        assert len(data) == 1
-        assert data[0]["step_index"] == 0
-        assert data[0]["influenced_cell_count"] == 1
-        assert len(data[0]["cells"]) == 1
-        assert "mutation_types" in data[0]["cells"][0]
-        assert "pressure" in data[0]["cells"][0]["mutation_types"]
+def test_high_verbosity_includes_mutation_fields(clean_output_dir):
+    grid = [make_detailed_cell(x=5.0, y=5.0, z=5.0)]
+    config = {"reflex_verbosity": "high"}
+    export_influence_flags(grid, step_index=1, output_folder=clean_output_dir, config=config)
 
-def test_multiple_steps_append_correctly():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        c1 = make_cell(0, 0, 0, tag=True)
-        c2 = make_cell(1, 1, 1, tag=True)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    cell_entry = log[0]["cells"][0]
+    assert "ghost_pressure_source" in cell_entry
+    assert "ghost_velocity_source" in cell_entry
+    assert cell_entry["mutation_types"] == ["velocity", "pressure"]
+    assert isinstance(cell_entry["velocity"], list)
+    assert isinstance(cell_entry["pressure"], (int, float))
 
-        export_influence_flags([c1], step_index=1, output_folder=tmpdir, config=config)
-        export_influence_flags([c2], step_index=2, output_folder=tmpdir, config=config)
+def test_medium_verbosity_excludes_mutation_fields(clean_output_dir):
+    grid = [make_detailed_cell()]
+    export_influence_flags(grid, step_index=2, output_folder=clean_output_dir)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    cell_entry = log[0]["cells"][0]
+    assert "mutation_types" not in cell_entry
+    assert "ghost_pressure_source" not in cell_entry
+    assert "ghost_velocity_source" not in cell_entry
 
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
+def test_solid_cell_skipped(clean_output_dir):
+    grid = [
+        make_cell(x=1.0, y=1.0, z=1.0, influenced=True, fluid=False),
+        make_cell(x=2.0, y=2.0, z=2.0, influenced=True, fluid=True),
+    ]
+    export_influence_flags(grid, step_index=3, output_folder=clean_output_dir)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    assert log[0]["influenced_cell_count"] == 1
+    coords = [(c["x"], c["y"], c["z"]) for c in log[0]["cells"]]
+    assert (2.0, 2.0, 2.0) in coords
+    assert (1.0, 1.0, 1.0) not in coords
 
-        assert len(log) == 2
-        assert log[0]["step_index"] == 1
-        assert log[1]["step_index"] == 2
+def test_uninfluenced_cell_not_logged(clean_output_dir):
+    grid = [make_cell(influenced=False)]
+    export_influence_flags(grid, step_index=4, output_folder=clean_output_dir)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    assert log[0]["influenced_cell_count"] == 0
+    assert log[0]["cells"] == []
 
-def test_non_influenced_cells_are_ignored():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        c = make_cell(0, 0, 0, tag=False)
-        export_influence_flags([c], step_index=3, output_folder=tmpdir, config=config)
+def test_multiple_steps_appended(clean_output_dir):
+    grid = [make_cell(influenced=True)]
+    for i in range(3):
+        export_influence_flags(grid, step_index=i, output_folder=clean_output_dir)
 
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
+    path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(path) as f:
+        log = json.load(f)
+    assert len(log) == 3
+    steps = [entry["step_index"] for entry in log]
+    assert steps == [0, 1, 2]
 
-        assert log[0]["step_index"] == 3
-        assert log[0]["influenced_cell_count"] == 0
-        assert log[0]["cells"] == []
-
-def test_non_fluid_cells_are_skipped_even_if_tagged():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        c = make_cell(1, 1, 1, fluid=False, tag=True)
-        export_influence_flags([c], step_index=4, output_folder=tmpdir, config=config)
-
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
-
-        assert log[0]["influenced_cell_count"] == 0
-        assert log[0]["cells"] == []
-
-def test_multiple_cells_tagged_and_logged():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        c1 = make_cell(1, 0, 0, tag=True, tag_velocity=True)
-        c2 = make_cell(0, 1, 0, tag=True, tag_pressure=True)
-        c3 = make_cell(0, 0, 1, tag=False)
-
-        export_influence_flags([c1, c2, c3], step_index=5, output_folder=tmpdir, config=config)
-
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
-
-        assert log[0]["influenced_cell_count"] == 2
-        coords = {(c["x"], c["y"], c["z"]) for c in log[0]["cells"]}
-        assert (1, 0, 0) in coords
-        assert (0, 1, 0) in coords
-        assert (0, 0, 1) not in coords
-
-def test_invalid_existing_log_file_recovers_cleanly():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path, "w") as f:
-            f.write("not-a-json-structure")
-
-        cell = make_cell(1.0, 1.0, 1.0, tag=True)
-        export_influence_flags([cell], step_index=6, output_folder=tmpdir, config=config)
-
-        with open(path) as f:
-            contents = f.read()
-
-        assert "step_index" in contents
-        assert "influenced_cell_count" in contents
-
-def test_zero_cells_logged_still_creates_entry():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        export_influence_flags([], step_index=7, output_folder=tmpdir, config=config)
-
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
-
-        assert len(log) == 1
-        assert log[0]["step_index"] == 7
-        assert log[0]["influenced_cell_count"] == 0
-        assert log[0]["cells"] == []
-
-def test_mutation_type_details_are_complete():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        config = {"reflex_verbosity": "high"}
-        c = make_cell(1, 1, 1, tag=True, tag_pressure=True, tag_velocity=True)
-        export_influence_flags([c], step_index=99, output_folder=tmpdir, config=config)
-
-        path = os.path.join(tmpdir, "influence_flags_log.json")
-        with open(path) as f:
-            log = json.load(f)
-        cell_entry = log[0]["cells"][0]
-        assert set(cell_entry["mutation_types"]) == {"pressure", "velocity"}
-        assert "ghost_pressure_source" in cell_entry
-        assert "ghost_velocity_source" in cell_entry
-
-
-
+def test_existing_corrupt_log_recovered(clean_output_dir):
+    log_path = os.path.join(clean_output_dir, "influence_flags_log.json")
+    with open(log_path, "w") as f:
+        f.write("corrupt-non-json")
+    grid = [make_cell(influenced=True)]
+    export_influence_flags(grid, step_index=7, output_folder=clean_output_dir)
+    with open(log_path) as f:
+        log = json.load(f)
+    assert isinstance(log, list)
+    assert log[0]["step_index"] == 7
