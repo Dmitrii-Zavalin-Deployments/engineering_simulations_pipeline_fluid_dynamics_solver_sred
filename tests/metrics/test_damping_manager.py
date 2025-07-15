@@ -1,87 +1,53 @@
-# tests/metrics/test_damping_manager.py
+# tests/test_damping_manager.py
+# 🧪 Unit tests for damping_manager.py — validates flow damping triggers based on velocity volatility
 
 import pytest
-from src.metrics.damping_manager import should_dampen
 from src.grid_modules.cell import Cell
+from src.metrics.damping_manager import should_dampen
 
-def test_uniform_velocity_no_damping():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is False
+def make_cell(vx, vy, vz):
+    return Cell(x=0.0, y=0.0, z=0.0, velocity=[vx, vy, vz], pressure=0.0, fluid_mask=True)
 
-def test_velocity_spike_triggers_damping():
+def test_damping_triggers_on_velocity_spike():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[3.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+        make_cell(1.0, 0.0, 0.0),
+        make_cell(1.0, 0.0, 0.0),
+        make_cell(3.0, 0.0, 0.0)
     ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is True
+    assert should_dampen(grid, time_step=0.01) is True
 
-def test_low_variation_no_damping():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.1, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.2, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is False
+def test_damping_does_not_trigger_on_uniform_flow():
+    grid = [make_cell(2.0, 0.0, 0.0)] * 5
+    assert should_dampen(grid, time_step=0.01) is False
 
 def test_empty_grid_returns_false():
-    grid = []
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is False
+    assert should_dampen([], time_step=0.01) is False
 
-def test_negative_time_step_returns_false():
+def test_zero_time_step_returns_false():
+    grid = [make_cell(1.0, 0.0, 0.0)]
+    assert should_dampen(grid, time_step=0.0) is False
+
+def test_none_velocity_skipped():
+    bad = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=0.0, fluid_mask=True)
+    good = make_cell(2.0, 2.0, 2.0)
+    assert should_dampen([bad, good], time_step=0.01) is False
+
+def test_malformed_velocity_skipped():
+    bad = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 2.0], pressure=0.0, fluid_mask=True)
+    good = make_cell(1.0, 1.0, 1.0)
+    assert should_dampen([bad, good], time_step=0.01) is False
+
+def test_low_spread_does_not_trigger():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[2.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+        make_cell(1.0, 0.0, 0.0),
+        make_cell(1.1, 0.0, 0.0),
+        make_cell(0.9, 0.0, 0.0)
     ]
-    time_step = -0.01
-    assert should_dampen(grid, time_step) is False
+    assert should_dampen(grid, time_step=0.01) is False
 
-def test_velocity_format_invalid():
-    class BadCell:
-        def __init__(self, velocity):
-            self.velocity = velocity
+def test_extreme_magnitude_triggers_damping():
+    grid = [make_cell(1.0, 1.0, 1.0), make_cell(10.0, 0.0, 0.0)]
+    assert should_dampen(grid, time_step=0.01) is True
 
-    grid = [
-        BadCell("invalid"),
-        BadCell([1.0]),
-        BadCell(None)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is False
-
-def test_velocity_with_yz_component():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[0.0, 0.0, 2.5], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[0.0, 0.5, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is True
-
-def test_extreme_spike_vs_average_velocity():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.2, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[0.2, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is True
-
-def test_edge_case_equal_max_and_avg():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    time_step = 0.1
-    assert should_dampen(grid, time_step) is False
-
-
-
+def test_single_cell_never_triggers_damping():
+    assert should_dampen([make_cell(5.0, 0.0, 0.0)], time_step=0.01) is False
