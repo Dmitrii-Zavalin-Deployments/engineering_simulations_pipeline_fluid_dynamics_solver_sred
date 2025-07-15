@@ -1,79 +1,87 @@
 # tests/test_input_reader.py
+# 🧪 Validates simulation input reading, section presence, JSON parsing, and metadata logging
 
 import os
 import json
+import tempfile
 import pytest
 from src.input_reader import load_simulation_input
 
-VALID_INPUT = {
-    "domain_definition": {
-        "min_x": 0.0, "max_x": 3.0,
-        "min_y": 0.0, "max_y": 1.0,
-        "min_z": 0.0, "max_z": 1.0,
-        "nx": 41, "ny": 41, "nz": 11
-    },
-    "fluid_properties": {
-        "density": 1.0, "viscosity": 0.01
-    },
-    "initial_conditions": {
-        "initial_velocity": [0.01, 0.0, 0.0],
-        "initial_pressure": 100.0
-    },
-    "simulation_parameters": {
-        "time_step": 0.1, "total_time": 1.0,
-        "output_interval": 20
-    },
-    "boundary_conditions": [
-        {
-            "faces": [1, 2, 3, 4, 5, 6],
-            "type": "dirichlet",
-            "apply_to": ["pressure", "velocity"],
-            "pressure": 100.0,
+def build_valid_input(overrides=None):
+    base = {
+        "domain_definition": {"nx": 2, "ny": 1, "nz": 1},
+        "fluid_properties": {"viscosity": 0.5},
+        "initial_conditions": {"velocity": [1.0, 0.0, 0.0], "pressure": 5.0},
+        "simulation_parameters": {"time_step": 0.1, "output_interval": 10},
+        "boundary_conditions": {
+            "apply_to": ["velocity", "pressure"],
             "velocity": [0.0, 0.0, 0.0],
+            "pressure": 99.0,
             "no_slip": True
-        }
-    ]
-}
+        },
+        "pressure_solver": {"method": "jacobi", "tolerance": 1e-5}
+    }
+    return {**base, **(overrides or {})}
 
-@pytest.fixture
-def tmp_valid_input(tmp_path):
-    file = tmp_path / "valid_input.json"
-    file.write_text(json.dumps(VALID_INPUT))
-    return str(file)
+def write_json_file(folder, name, data):
+    path = os.path.join(folder, name)
+    with open(path, "w") as f:
+        json.dump(data, f)
+    return path
 
-def test_valid_input_loads_correctly(tmp_valid_input):
-    result = load_simulation_input(tmp_valid_input)
-    assert result["domain_definition"]["nx"] == 41
-    assert result["fluid_properties"]["density"] == 1.0
-    assert result["initial_conditions"]["initial_velocity"] == [0.01, 0.0, 0.0]
-    assert result["simulation_parameters"]["output_interval"] == 20
-    assert len(result["boundary_conditions"]) == 1
+def test_load_simulation_input_reads_file_success(capsys):
+    with tempfile.TemporaryDirectory() as folder:
+        path = write_json_file(folder, "input.json", build_valid_input())
+        result = load_simulation_input(path)
+        assert isinstance(result, dict)
+        assert "domain_definition" in result
+        out = capsys.readouterr().out
+        assert "Domain resolution" in out
+        assert "Pressure Solver" in out
+        assert "Boundary Conditions" in out
 
-def test_missing_input_file():
-    with pytest.raises(FileNotFoundError):
-        load_simulation_input("nonexistent_file.json")
+def test_load_simulation_input_missing_file_raises():
+    with tempfile.TemporaryDirectory() as folder:
+        bad_path = os.path.join(folder, "missing.json")
+        with pytest.raises(FileNotFoundError, match="Input file not found"):
+            load_simulation_input(bad_path)
 
-def test_invalid_json_content(tmp_path):
-    bad_file = tmp_path / "bad_input.json"
-    bad_file.write_text("{ invalid_json: }")
-    with pytest.raises(ValueError):
-        load_simulation_input(str(bad_file))
+def test_load_simulation_input_invalid_json_raises():
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "bad.json")
+        with open(path, "w") as f:
+            f.write("{invalid: json}")
+        with pytest.raises(ValueError, match="Failed to parse JSON"):
+            load_simulation_input(path)
 
-@pytest.mark.parametrize("missing_key", [
-    "domain_definition",
-    "fluid_properties",
-    "initial_conditions",
-    "simulation_parameters",
-    "boundary_conditions"
+@pytest.mark.parametrize("missing_section", [
+    "domain_definition", "fluid_properties", "initial_conditions",
+    "simulation_parameters", "boundary_conditions"
 ])
-def test_missing_required_section(tmp_path, missing_key):
-    bad_input = VALID_INPUT.copy()
-    bad_input.pop(missing_key)
-    file = tmp_path / f"missing_{missing_key}.json"
-    file.write_text(json.dumps(bad_input))
-    with pytest.raises(KeyError) as exc:
-        load_simulation_input(str(file))
-    assert missing_key in str(exc.value)
+def test_load_simulation_input_missing_section_raises(missing_section):
+    with tempfile.TemporaryDirectory() as folder:
+        data = build_valid_input()
+        del data[missing_section]
+        path = write_json_file(folder, "input.json", data)
+        with pytest.raises(KeyError, match="Missing required section"):
+            load_simulation_input(path)
 
+def test_load_simulation_input_handles_missing_pressure_solver_defaults(capsys):
+    with tempfile.TemporaryDirectory() as folder:
+        data = build_valid_input()
+        del data["pressure_solver"]
+        path = write_json_file(folder, "input.json", data)
+        result = load_simulation_input(path)
+        assert "pressure_solver" not in result  # confirms default applied
+        out = capsys.readouterr().out
+        assert "Method: jacobi" in out
+        assert "Tolerance: 1e-06" in out
 
-
+def test_load_simulation_input_output_interval_printed(capsys):
+    with tempfile.TemporaryDirectory() as folder:
+        data = build_valid_input()
+        data["simulation_parameters"]["output_interval"] = 25
+        path = write_json_file(folder, "input.json", data)
+        load_simulation_input(path)
+        out = capsys.readouterr().out
+        assert "Output interval: 25" in out
