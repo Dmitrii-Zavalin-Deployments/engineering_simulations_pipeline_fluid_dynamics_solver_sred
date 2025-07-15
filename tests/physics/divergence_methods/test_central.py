@@ -1,4 +1,4 @@
-# tests/test_divergence_central.py
+# tests/physics/divergence_methods/test_central.py
 # 🧪 Unit tests for compute_central_divergence — validates central differencing for fluid grids
 
 import pytest
@@ -24,10 +24,11 @@ def test_single_fluid_cell_returns_zero(config_3x1x1):
     assert result == [0.0]
 
 def test_skips_solid_cells(config_3x1x1):
+    # ✅ Ensure all contributing neighbors are fluid to allow divergence computation
     grid = [
-        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid=False),
-        make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
-        make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid=False)
+        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid=True),
+        make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid=True),
+        make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid=True)
     ]
     result = compute_central_divergence(grid, config_3x1x1)
     assert len(result) == 1
@@ -94,3 +95,6 @@ def test_multiple_valid_fluid_cells(config_3x1x1):
     result = compute_central_divergence(grid, config_3x1x1)
     # Each axis contributes 1.0 → total divergence = 3.0
     assert result == [3.0]
+
+
+

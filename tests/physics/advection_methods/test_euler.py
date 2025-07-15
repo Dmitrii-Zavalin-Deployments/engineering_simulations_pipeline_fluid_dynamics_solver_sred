@@ -1,4 +1,4 @@
-# tests/test_euler_advection.py
+# tests/physics/advection_methods/test_euler.py
 # 🧪 Unit tests for Euler advection method — ensures velocity updates via upstream neighbors and fallback logic
 
 import pytest

@@ -1,4 +1,4 @@
-# tests/test_advection_helpers.py
+# tests/physics/advection_methods/test_helpers.py
 # 🧪 Unit tests for advection_helpers — validates vector math, interpolation, and cell cloning
 
 import pytest
@@ -15,7 +15,11 @@ from src.physics.advection_methods.helpers import (
 def test_copy_cell_preserves_all_attributes():
     original = Cell(x=1.0, y=2.0, z=3.0, velocity=[1.0, 0.0, 0.0], pressure=42.0, fluid_mask=True)
     cloned = copy_cell(original)
-    assert cloned != original
+    # ✅ Confirm object identity is distinct
+    assert cloned is not original
+    # ✅ Confirm content equivalence
+    assert cloned == original
+    # ✅ Confirm field values preserved
     assert cloned.x == 1.0
     assert cloned.y == 2.0
     assert cloned.z == 3.0
@@ -79,3 +83,6 @@ def test_interpolate_velocity_nontrivial_weight():
     v2 = [3.0, 3.0, 3.0]
     result = interpolate_velocity(v1, v2, 0.25)
     assert result == [1.5, 1.5, 1.5]
+
+
+

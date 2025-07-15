@@ -1,4 +1,4 @@
-# tests/test_divergence_helpers.py
+# tests/physics/divergence_methods/test_divergence_helpers.py
 # 🧪 Unit tests for divergence_helpers — validates neighbor velocity extraction and central gradient logic
 
 from src.grid_modules.cell import Cell
