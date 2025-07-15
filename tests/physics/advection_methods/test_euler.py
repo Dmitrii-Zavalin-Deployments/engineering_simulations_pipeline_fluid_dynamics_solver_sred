@@ -1,92 +1,76 @@
-# tests/physics/advection_methods/test_euler.py
-# 🧪 Unit tests for compute_euler_velocity — Forward Euler advection method
+# tests/test_euler_advection.py
+# 🧪 Unit tests for Euler advection method — ensures velocity updates via upstream neighbors and fallback logic
 
 import pytest
-from src.physics.advection_methods.euler import compute_euler_velocity
 from src.grid_modules.cell import Cell
+from src.physics.advection_methods.euler import compute_euler_velocity
 
-def make_cell(x, y, z, velocity, pressure=1.0, fluid_mask=True):
-    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid_mask)
+def make_cell(x, y, z, velocity, fluid=True):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=1.0, fluid_mask=fluid)
 
-def make_config(nx=10, ny=1, nz=1, min_x=0.0, max_x=1.0):
+@pytest.fixture
+def base_domain():
     return {
         "domain_definition": {
-            "nx": nx,
-            "ny": ny,
-            "nz": nz,
-            "min_x": min_x,
-            "max_x": max_x
+            "min_x": 0.0, "max_x": 3.0,
+            "min_y": 0.0, "max_y": 1.0,
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 3, "ny": 1, "nz": 1
         }
     }
 
-# ------------------------------
-# Grid Structure and Edge Cases
-# ------------------------------
-
-def test_advection_preserves_velocity_with_no_neighbor():
-    cell = make_cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0])
-    grid = [cell]
-    config = make_config()
-    result = compute_euler_velocity(grid, dt=0.1, config=config)
+def test_no_upstream_neighbor_keeps_velocity(base_domain):
+    grid = [make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])]
+    result = compute_euler_velocity(grid, dt=0.1, config=base_domain)
     assert result[0].velocity == [1.0, 0.0, 0.0]
 
-def test_advection_modifies_velocity_with_valid_upwind_neighbor():
-    dx = 0.1
-    cell = make_cell(x=0.1, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0])
-    neighbor = make_cell(x=0.0, y=0.0, z=0.0, velocity=[2.0, 0.0, 0.0])
-    grid = [cell, neighbor]
-    config = make_config(nx=10, min_x=0.0, max_x=1.0)
+def test_upstream_neighbor_applies_euler_update(base_domain):
+    dx = 1.0  # (3.0 - 0.0)/3
+    cell = make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    upstream = make_cell(0.0, 0.0, 0.0, [2.0, 0.0, 0.0])
+    grid = [upstream, cell]
+    result = compute_euler_velocity(grid, dt=0.1, config=base_domain)
+    expected = [1.0 + 0.1 * (2.0 - 1.0) / dx, 0.0, 0.0]
+    assert result[1].velocity == pytest.approx(expected)
+
+def test_upstream_solid_cell_skipped(base_domain):
+    cell = make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    upstream = make_cell(0.0, 0.0, 0.0, [2.0, 0.0, 0.0], fluid=False)
+    grid = [upstream, cell]
+    result = compute_euler_velocity(grid, dt=0.1, config=base_domain)
+    assert result[1].velocity == [1.0, 0.0, 0.0]
+
+def test_malformed_velocity_skips_update(base_domain):
+    cell = make_cell(1.0, 0.0, 0.0, "not_a_vector")
+    upstream = make_cell(0.0, 0.0, 0.0, [2.0, 0.0, 0.0])
+    grid = [upstream, cell]
+    result = compute_euler_velocity(grid, dt=0.1, config=base_domain)
+    assert result[1].velocity == "not_a_vector"
+
+def test_non_fluid_cell_is_unchanged(base_domain):
+    cell = make_cell(1.0, 0.0, 0.0, [3.0, 0.0, 0.0], fluid=False)
+    result = compute_euler_velocity([cell], dt=0.1, config=base_domain)
+    assert result[0].velocity == [3.0, 0.0, 0.0]
+
+def test_multiple_cells_updated_correctly(base_domain):
+    dx = 1.0
+    dt = 0.2
+    grid = [
+        make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0]),
+        make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0]),
+        make_cell(2.0, 0.0, 0.0, [2.0, 0.0, 0.0])
+    ]
+    result = compute_euler_velocity(grid, dt=dt, config=base_domain)
+    # Middle cell updates from first: v = 1 + 0.2*(0 - 1)/1 = 0.8
+    assert result[1].velocity == pytest.approx([0.8, 0.0, 0.0])
+    # Last cell updates from second: v = 2 + 0.2*(1 - 2)/1 = 1.8
+    assert result[2].velocity == pytest.approx([1.8, 0.0, 0.0])
+
+def test_zero_resolution_falls_back_to_dx_1():
+    config = {"domain_definition": {"min_x": 0.0, "max_x": 1.0, "nx": 0}}
+    cell = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    upstream = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    grid = [upstream, cell]
     result = compute_euler_velocity(grid, dt=0.1, config=config)
-
-    expected_vx = 1.0 + (0.1 / dx) * (2.0 - 1.0)  # = 2.0
-    assert pytest.approx(result[0].velocity[0]) == expected_vx
-    assert result[0].velocity[1] == 0.0
-    assert result[0].velocity[2] == 0.0
-
-def test_advection_ignores_solid_neighbors():
-    cell = make_cell(x=0.1, y=0.0, z=0.0, velocity=[1.0, 1.0, 0.0])
-    solid = make_cell(x=0.0, y=0.0, z=0.0, velocity=[9.0, 9.0, 9.0], fluid_mask=False)
-    grid = [cell, solid]
-    config = make_config()
-    result = compute_euler_velocity(grid, dt=0.1, config=config)
-    assert result[0].velocity == [1.0, 1.0, 0.0]  # unchanged
-
-def test_advection_returns_safe_output_for_empty_grid():
-    result = compute_euler_velocity([], dt=0.1, config=make_config())
-    assert result == []
-
-# ---------------------------------
-# Input Validation and Type Safety
-# ---------------------------------
-
-def test_advection_handles_malformed_velocity_vector():
-    bad_cell = make_cell(x=0.0, y=0.0, z=0.0, velocity="bad", pressure=1.0)
-    result = compute_euler_velocity([bad_cell], dt=0.1, config=make_config())
-    assert result[0].velocity == "bad"
-
-def test_advection_preserves_coordinates_and_mask():
-    cell = make_cell(x=2.0, y=3.0, z=4.0, velocity=[0.5, 0.5, 0.5], fluid_mask=True)
-    result = compute_euler_velocity([cell], dt=0.1, config=make_config())
-    updated = result[0]
-    assert (updated.x, updated.y, updated.z) == (2.0, 3.0, 4.0)
-    assert updated.fluid_mask is True
-
-# ------------------------------------
-# Domain Resolution and dx Handling
-# ------------------------------------
-
-def test_advection_fallback_to_dx_one_for_zero_resolution():
-    cell = make_cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0])
-    neighbor = make_cell(x=-1.0, y=0.0, z=0.0, velocity=[2.0, 0.0, 0.0])
-    config = make_config(nx=0)  # fallback dx = 1.0
-    result = compute_euler_velocity([cell, neighbor], dt=0.1, config=config)
-    expected_vx = 1.0 + 0.1 * (2.0 - 1.0) / 1.0  # = 1.1
-    assert pytest.approx(result[0].velocity[0]) == expected_vx
-
-def test_advection_dx_calculation_matches_config():
-    config = make_config(nx=10, min_x=0.0, max_x=1.0)
-    dx = (1.0 - 0.0) / 10
-    assert dx == 0.1
-
-
-
+    # dx fallback = 1.0 → expected = 0 + 0.1*(1.0 - 0.0)/1.0 = 0.1
+    assert result[1].velocity == pytest.approx([0.1, 0.0, 0.0])
