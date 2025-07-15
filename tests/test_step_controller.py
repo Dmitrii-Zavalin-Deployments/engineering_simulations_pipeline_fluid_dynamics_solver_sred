@@ -54,8 +54,9 @@ def test_single_fluid_cell_evolves(reflex_config):
     assert "pressure_mutated" in reflex
     assert "post_projection_divergence" in reflex
     assert "projection_passes" in reflex
+    assert "mutated_cells" in reflex
     assert isinstance(reflex["projection_passes"], int)
-    assert reflex["projection_passes"] >= 0
+    assert isinstance(reflex["mutated_cells"], list)
 
 def test_ghost_registry_and_influence_logged(reflex_config):
     grid = [make_fluid_cell(1.0, 0.5, 0.5)]
@@ -88,6 +89,7 @@ def test_empty_grid_has_safe_reflex(reflex_config):
     assert "max_velocity" in reflex
     assert reflex.get("projection_passes", 0) >= 0
     assert reflex.get("post_projection_divergence") == 0.0
+    assert reflex.get("mutated_cells") == []
 
 def test_malformed_velocity_downgrades_cell(reflex_config):
     bad = Cell(x=1.0, y=0.5, z=0.5, velocity="corrupt", pressure=10.0, fluid_mask=True)

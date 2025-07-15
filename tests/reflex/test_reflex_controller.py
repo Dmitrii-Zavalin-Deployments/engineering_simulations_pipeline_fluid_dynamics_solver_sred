@@ -101,6 +101,7 @@ def test_divergence_and_projection_fields():
     assert isinstance(flags["max_divergence"], float)
     assert isinstance(flags["projection_passes"], int)
     assert flags["projection_passes"] >= 0
+    assert flags["projection_skipped"] == (flags["projection_passes"] == 0)
 
 def test_safe_defaults_for_empty_grid():
     flags = apply_reflex([], mock_config(), step=6)
@@ -116,6 +117,7 @@ def test_safe_defaults_for_empty_grid():
     assert isinstance(flags["triggered_by"], list)
     assert isinstance(flags["pressure_solver_invoked"], bool)
     assert isinstance(flags["pressure_mutated"], bool)
+    assert flags["projection_skipped"] == (flags["projection_passes"] == 0)
 
 def test_fluid_cells_modified_by_ghost_counting():
     cell1 = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)

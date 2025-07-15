@@ -59,7 +59,7 @@ def apply_reflex(
     projection_passes = calculate_projection_passes(grid)
 
     divergence_zero = max_divergence < 1e-8
-    projection_skipped = divergence_zero or projection_passes == 0
+    projection_skipped = projection_passes == 0  # ✅ Corrected logic
 
     influence_tagged = sum(
         1 for c in grid
@@ -84,7 +84,7 @@ def apply_reflex(
         if log_projection_trace:
             print(f"🔄 [reflex] Step {step}: Projection passes = {projection_passes}")
         if projection_skipped:
-            print(f"⚠️ [reflex] Step {step}: Projection skipped (divergence zero or passes = 0)")
+            print(f"⚠️ [reflex] Step {step}: Projection skipped (passes = 0)")
         if pressure_mutated:
             print(f"✅ [reflex] Step {step}: Pressure field mutated.")
         elif pressure_solver_invoked:

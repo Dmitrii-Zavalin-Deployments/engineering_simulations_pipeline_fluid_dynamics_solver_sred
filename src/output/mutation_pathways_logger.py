@@ -6,14 +6,20 @@ import json
 from typing import List, Union, Optional
 from src.grid_modules.cell import Cell
 
-def serialize_cell(cell: Cell) -> dict:
+def serialize_cell(cell: Union[Cell, tuple]) -> dict:
+    if isinstance(cell, tuple):
+        return {
+            "x": cell[0],
+            "y": cell[1],
+            "z": cell[2]
+        }
     return {
-        "x": cell.x,
-        "y": cell.y,
-        "z": cell.z,
-        "velocity": cell.velocity,
-        "pressure": cell.pressure,
-        "fluid_mask": cell.fluid_mask
+        "x": getattr(cell, "x", "?"),
+        "y": getattr(cell, "y", "?"),
+        "z": getattr(cell, "z", "?"),
+        "velocity": getattr(cell, "velocity", None),
+        "pressure": getattr(cell, "pressure", None),
+        "fluid_mask": getattr(cell, "fluid_mask", None)
     }
 
 def log_mutation_pathway(
@@ -43,19 +49,9 @@ def log_mutation_pathway(
     }
 
     if triggered_cells:
-        entry["triggered_cells"] = [
-            {"x": c[0], "y": c[1], "z": c[2]} if isinstance(c, tuple) else {
-                "x": getattr(c, "x", "?"),
-                "y": getattr(c, "y", "?"),
-                "z": getattr(c, "z", "?"),
-                "velocity": getattr(c, "velocity", None),
-                "pressure": getattr(c, "pressure", None),
-                "fluid_mask": getattr(c, "fluid_mask", None)
-            }
-            for c in triggered_cells
-        ]
+        entry["triggered_cells"] = [serialize_cell(cell) for cell in triggered_cells]
 
-    # Read or initialize log safely
+    # Safely load or initialize JSON log
     try:
         with open(log_path, "r") as f:
             log = json.load(f)
@@ -66,7 +62,7 @@ def log_mutation_pathway(
 
     log.append(entry)
 
-    # Write updated log safely and catch serialization errors
+    # Write back to file with error guard
     try:
         with open(log_path, "w") as f:
             json.dump(log, f, indent=2)

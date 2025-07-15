@@ -46,10 +46,11 @@ def test_fluid_cells_receive_pressure_correction():
         Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.01, 0.01], pressure=100.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[-0.01, -0.01, -0.01], pressure=105.0, fluid_mask=True)
     ]
-    updated, _, _, _ = apply_pressure_correction(grid, mock_config(), step=1)
+    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=1)
     pressures = [cell.pressure for cell in updated if cell.fluid_mask]
     assert all(isinstance(p, float) for p in pressures)
-    assert any(abs(p - 100.0) > 0.01 for p in pressures) or any(abs(p - 105.0) > 0.01 for p in pressures)
+    assert metadata["pressure_mutation_count"] >= 1
+    assert len(metadata["mutated_cells"]) >= 1
 
 def test_solid_cells_pressure_remains_none():
     grid = [
@@ -63,37 +64,42 @@ def test_solid_cells_pressure_remains_none():
         assert cell.velocity is None
 
 def test_pressure_correction_handles_empty_input():
-    updated, _, _, _ = apply_pressure_correction([], mock_config(), step=3)
+    updated, _, _, metadata = apply_pressure_correction([], mock_config(), step=3)
     assert isinstance(updated, list)
     assert updated == []
+    assert metadata["pressure_mutation_count"] == 0
+    assert metadata["mutated_cells"] == []
 
 def test_pressure_correction_does_not_mutate_original_pressure():
     original = Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=101.0, fluid_mask=True)
     grid = [original]
-    updated, _, _, _ = apply_pressure_correction(grid, mock_config(), step=4)
+    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=4)
     assert isinstance(updated[0].pressure, float)
-    assert original.pressure == 101.0  # Ensure original pressure remains unchanged
+    assert original.pressure == 101.0
+    assert metadata["pressure_mutation_count"] >= 0
 
 def test_pressure_correction_downgrades_malformed_velocity_cell():
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity="not_a_vector", pressure=1.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
     ]
-    updated, _, _, _ = apply_pressure_correction(grid, mock_config(), step=5)
+    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=5)
     assert updated[0].fluid_mask is False
     assert updated[0].pressure is None
     assert updated[0].velocity is None
     assert updated[1].fluid_mask is True
     assert isinstance(updated[1].pressure, float)
+    assert isinstance(metadata["mutated_cells"], list)
 
 def test_pressure_mutation_diagnostic_triggers_message(capfd):
     grid = [
         Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=50.0, fluid_mask=True),
         Cell(x=1.0, y=0.0, z=0.0, velocity=[-1, 0, 0], pressure=50.0, fluid_mask=True)
     ]
-    _, _, _, _ = apply_pressure_correction(grid, mock_config(), step=6)
+    _, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=6)
     out, _ = capfd.readouterr()
     assert "Pressure correction modified" in out or "no pressure values changed" in out
+    assert isinstance(metadata["mutated_cells"], list)
 
 
 

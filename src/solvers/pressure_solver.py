@@ -20,7 +20,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         - List[Cell]: Grid with updated pressure and velocity values
         - bool: Whether any pressure values changed
         - int: Number of projection iterations or passes
-        - dict: Metadata about the correction process
+        - dict: Metadata about the correction process, including mutated_cells
     """
     # 🧼 Step 0: Downgrade malformed fluid cells to solid (invalid velocity structure)
     safe_grid = [
@@ -45,12 +45,14 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     # 🧪 Step 2.5: Mutation diagnostics and pressure delta tracking
     mutation_count = 0
+    mutated_cells = []
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
             initial = old.pressure if isinstance(old.pressure, float) else 0.0
             final = updated.pressure if isinstance(updated.pressure, float) else 0.0
-            if abs(final - initial) > 1e-8:  # ✅ Lower threshold for sensitive tracking
+            if abs(final - initial) > 1e-8:
                 mutation_count += 1
+                mutated_cells.append((updated.x, updated.y, updated.z))
 
     if mutation_count == 0:
         print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
@@ -61,7 +63,8 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     metadata = {
         "max_divergence": max_div,
         "pressure_mutation_count": mutation_count,
-        "pressure_solver_passes": 1  # Placeholder: adapt if iteration count available
+        "pressure_solver_passes": 1,  # Placeholder: adapt if iteration count available
+        "mutated_cells": mutated_cells
     }
 
     # 📤 Step 4: Return all expected outputs

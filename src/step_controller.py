@@ -72,7 +72,6 @@ def evolve_step(
 
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
-    # ✅ Unpack all values from pressure correction safely
     try:
         pressure_corrected_grid, pressure_has_changed, projection_passes, pressure_metadata = apply_pressure_correction(
             velocity_updated_grid, input_data, step
@@ -107,6 +106,7 @@ def evolve_step(
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
 
+    # ✅ Inject mutated_cells and other pressure diagnostics from metadata
     if isinstance(pressure_metadata, dict):
         reflex_metadata.update(pressure_metadata)
 
