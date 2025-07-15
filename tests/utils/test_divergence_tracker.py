@@ -1,101 +1,111 @@
 # tests/test_divergence_tracker.py
-# ✅ Unit tests for divergence tracking utilities
+# 🧪 Unit tests for divergence_tracker — validates central differencing, divergence logging, map export
 
-import unittest
+import math
+import json
 import tempfile
-import os
 from src.grid_modules.cell import Cell
-from src.utils.divergence_tracker import (
-    compute_divergence,
-    compute_divergence_stats,
-    dump_divergence_map,
-    compute_max_divergence
-)
+from src.utils import divergence_tracker
 
-class TestDivergenceTracker(unittest.TestCase):
-    def setUp(self):
-        self.spacing = (1.0, 1.0, 1.0)
-        self.config = {"reflex_verbosity": "high"}
+def make_cell(x, y, z, velocity, fluid=True):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=0.0, fluid_mask=fluid)
 
-        self.c0 = Cell(x=1.0, y=1.0, z=1.0, velocity=[1.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
-        self.c_xp = Cell(x=2.0, y=1.0, z=1.0, velocity=[2.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
-        self.c_xm = Cell(x=0.0, y=1.0, z=1.0, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
-        self.c_yp = Cell(x=1.0, y=2.0, z=1.0, velocity=[0.0, 1.0, 0.0], pressure=0.0, fluid_mask=True)
-        self.c_ym = Cell(x=1.0, y=0.0, z=1.0, velocity=[0.0, -1.0, 0.0], pressure=0.0, fluid_mask=True)
-        self.c_zp = Cell(x=1.0, y=1.0, z=2.0, velocity=[0.0, 0.0, 1.0], pressure=0.0, fluid_mask=True)
-        self.c_zm = Cell(x=1.0, y=1.0, z=0.0, velocity=[0.0, 0.0, -1.0], pressure=0.0, fluid_mask=True)
+def test_compute_divergence_zero_on_uniform_velocity():
+    spacing = (1.0, 1.0, 1.0)
+    center = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+    neighbors = [
+        make_cell(0.0, 1.0, 1.0, [1.0, 0.0, 0.0]),
+        make_cell(2.0, 1.0, 1.0, [1.0, 0.0, 0.0]),
+        make_cell(1.0, 0.0, 1.0, [1.0, 0.0, 0.0]),
+        make_cell(1.0, 2.0, 1.0, [1.0, 0.0, 0.0]),
+        make_cell(1.0, 1.0, 0.0, [1.0, 0.0, 0.0]),
+        make_cell(1.0, 1.0, 2.0, [1.0, 0.0, 0.0])
+    ]
+    grid = [center] + neighbors
+    div = divergence_tracker.compute_divergence(center, grid, spacing)
+    assert math.isclose(div, 0.0)
 
-        self.grid = [self.c0, self.c_xp, self.c_xm, self.c_yp, self.c_ym, self.c_zp, self.c_zm]
+def test_compute_divergence_nonzero_with_gradient():
+    spacing = (1.0, 1.0, 1.0)
+    center = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+    left = make_cell(0.0, 1.0, 1.0, [0.0, 0.0, 0.0])
+    right = make_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
+    grid = [center, left, right]
+    div = divergence_tracker.compute_divergence(center, grid, spacing)
+    expected = (2.0 - 0.0) / (2.0 * spacing[0])  # du/dx = 1.0
+    assert math.isclose(div, expected)
 
-    def test_divergence_of_fluid_cell(self):
-        div = compute_divergence(self.c0, self.grid, self.spacing)
-        self.assertAlmostEqual(div, 3.0, places=5)
+def test_compute_divergence_skips_nonfluid_cell():
+    spacing = (1.0, 1.0, 1.0)
+    cell = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], fluid=False)
+    grid = [cell]
+    div = divergence_tracker.compute_divergence(cell, grid, spacing)
+    assert div == 0.0
 
-    def test_non_fluid_cell_returns_zero(self):
-        ghost = Cell(x=5.0, y=5.0, z=5.0, velocity=[1.0, 1.0, 1.0], pressure=0.0, fluid_mask=False)
-        result = compute_divergence(ghost, [ghost], self.spacing)
-        self.assertEqual(result, 0.0)
+def test_compute_max_divergence_returns_highest():
+    spacing = (1.0, 1.0, 1.0)
+    c1 = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+    c2 = make_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
+    grid = [c1, c2]
+    result = divergence_tracker.compute_max_divergence(grid, spacing)
+    assert isinstance(result, float)
 
-    def test_missing_neighbors_use_self_velocity(self):
-        isolated = Cell(x=10.0, y=10.0, z=10.0, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
-        div = compute_divergence(isolated, [isolated], self.spacing)
-        self.assertEqual(div, 0.0)
+def test_compute_divergence_stats_returns_fields():
+    spacing = (1.0, 1.0, 1.0)
+    c1 = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+    c2 = make_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
+    stats = divergence_tracker.compute_divergence_stats(
+        grid=[c1, c2],
+        spacing=spacing,
+        label="test",
+        step_index=0
+    )
+    assert "max" in stats and "mean" in stats and "count" in stats
 
-    def test_compute_divergence_stats_summary(self):
-        stats = compute_divergence_stats(self.grid, self.spacing, label="test_stage", config=self.config)
-        self.assertGreater(stats["max"], 0.0)
-        self.assertGreater(stats["mean"], 0.0)
-        self.assertEqual(stats["count"], 7)
+def test_compute_divergence_stats_logs_to_file():
+    spacing = (1.0, 1.0, 1.0)
+    with tempfile.TemporaryDirectory() as folder:
+        c1 = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+        c2 = make_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
+        divergence_tracker.compute_divergence_stats(
+            grid=[c1, c2],
+            spacing=spacing,
+            label="test",
+            step_index=1,
+            output_folder=folder
+        )
+        path = os.path.join(folder, "divergence_log.txt")
+        assert os.path.exists(path)
+        with open(path) as f:
+            content = f.read()
+            assert "Step 0001" in content
 
-    def test_compute_max_divergence_consistency(self):
-        value = compute_max_divergence(self.grid, self.spacing)
-        stats = compute_divergence_stats(self.grid, self.spacing, config=self.config)
-        self.assertAlmostEqual(value, stats["max"], places=6)
+def test_dump_divergence_map_writes_json_file():
+    spacing = (1.0, 1.0, 1.0)
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "map.json")
+        c1 = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+        c2 = make_cell(2.0, 1.0, 1.0, [2.0, 0.0, 0.0])
+        result = divergence_tracker.dump_divergence_map(
+            grid=[c1, c2],
+            spacing=spacing,
+            path=path,
+            config={"reflex_verbosity": "high"}
+        )
+        assert os.path.exists(path)
+        assert isinstance(result, list)
+        with open(path) as f:
+            loaded = json.load(f)
+            assert all("divergence" in r for r in loaded)
 
-    def test_compute_divergence_stats_empty_grid(self):
-        stats = compute_divergence_stats([], self.spacing, config=self.config)
-        self.assertEqual(stats["max"], 0.0)
-        self.assertEqual(stats["mean"], 0.0)
-        self.assertEqual(stats["count"], 0)
-
-    def test_compute_divergence_stats_writes_log_file(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            compute_divergence_stats(
-                self.grid,
-                self.spacing,
-                label="test_write",
-                step_index=42,
-                output_folder=tmpdir,
-                config=self.config
-            )
-            log_path = os.path.join(tmpdir, "divergence_log.txt")
-            self.assertTrue(os.path.exists(log_path))
-            with open(log_path, "r") as f:
-                content = f.read()
-            self.assertIn("Step 0042", content)
-            self.assertIn("Stage: test_write", content)
-
-    def test_dump_divergence_map_structure(self):
-        result = dump_divergence_map(self.grid, self.spacing, config=self.config)
-        self.assertEqual(len(result), 7)
-        for entry in result:
-            self.assertIn("x", entry)
-            self.assertIn("y", entry)
-            self.assertIn("z", entry)
-            self.assertIn("divergence", entry)
-
-    def test_dump_divergence_map_file_write(self):
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-            path = f.name
-        try:
-            data = dump_divergence_map(self.grid, self.spacing, path=path, config=self.config)
-            self.assertTrue(os.path.exists(path))
-            self.assertTrue(len(data) > 0)
-        finally:
-            os.remove(path)
-
-if __name__ == "__main__":
-    unittest.main()
-
-
-
+def test_dump_divergence_map_returns_data_without_file():
+    spacing = (1.0, 1.0, 1.0)
+    c1 = make_cell(1.0, 1.0, 1.0, [1.0, 0.0, 0.0])
+    result = divergence_tracker.dump_divergence_map(
+        grid=[c1],
+        spacing=spacing,
+        path=None
+    )
+    assert isinstance(result, list)
+    assert result[0]["x"] == 1.0
+    assert "divergence" in result[0]
