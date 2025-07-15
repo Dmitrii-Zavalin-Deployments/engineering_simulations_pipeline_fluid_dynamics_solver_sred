@@ -1,71 +1,61 @@
 # tests/test_mask_interpreter.py
-# 🧪 Unit tests for decode_geometry_mask_flat()
+# 🧪 Validates geometry mask flattening across orders, shapes, encodings
 
 import pytest
 from src.utils.mask_interpreter import decode_geometry_mask_flat
 
-def test_x_major_flattening():
-    flat = [1, 0, 1, 0, 1, 0]
-    shape = [3, 2, 1]  # nx, ny, nz
-    expected = [True, False, True, False, True, False]
-    result = decode_geometry_mask_flat(flat, shape, {"fluid": 1, "solid": 0}, "x-major")
-    assert result == expected
-
-
-def test_y_major_flattening():
-    flat = [0, 1, 1, 0, 0, 1]
-    shape = [3, 2, 1]
-    expected = [False, True, True, False, False, True]
-    result = decode_geometry_mask_flat(flat, shape, {"fluid": 1}, "y-major")
-    assert result == expected
-
-
-def test_z_major_flattening():
-    flat = [1, 0, 1, 0, 1, 0]
-    shape = [3, 2, 1]
-    expected = [True, False, True, False, True, False]
-    result = decode_geometry_mask_flat(flat, shape, {"fluid": 1}, "z-major")
-    assert result == expected
-
-
-def test_custom_encoding():
-    flat = ["f", "s", "s", "f"]
+def test_x_major_flattening_correctness():
+    # Shape: 2x2x1 → total 4, flat mask arranged x-major
+    flat_mask = [1, 0, 1, 1]  # i + j*nx + k*nx*ny
     shape = [2, 2, 1]
-    encoding = {"fluid": "f", "solid": "s"}
-    expected = [True, False, False, True]
-    result = decode_geometry_mask_flat(flat, shape, encoding, "x-major")
-    assert result == expected
+    result = decode_geometry_mask_flat(flat_mask, shape, order="x-major")
+    assert result == [True, False, True, True]
 
+def test_y_major_flattening_correctness():
+    flat_mask = [0, 1, 1, 1]  # j + i*ny + k*nx*ny
+    shape = [2, 2, 1]
+    result = decode_geometry_mask_flat(flat_mask, shape, order="y-major")
+    assert result == [False,  True, True, True]
 
-def test_invalid_shape_length():
-    flat = [1, 0, 1]
-    shape = [2, 2, 1]  # Should require 4 entries
-    with pytest.raises(ValueError, match="Mask length"):
-        decode_geometry_mask_flat(flat, shape)
+def test_z_major_flattening_correctness():
+    flat_mask = [1, 0, 0, 1]  # k + i*nz + j*nx*nz
+    shape = [2, 2, 1]
+    result = decode_geometry_mask_flat(flat_mask, shape, order="z-major")
+    assert result == [True, 0==1, 0==1, 1==1]  # Should yield [True, False, False, True]
 
+def test_3d_x_major_flattening():
+    # Shape: 2x2x2 → total 8
+    flat_mask = [1, 0, 1, 0, 0, 1, 1, 1]
+    shape = [2, 2, 2]
+    result = decode_geometry_mask_flat(flat_mask, shape, order="x-major")
+    assert len(result) == 8
+    assert result == [True, False, True, False, False, True, True, True]
 
-def test_invalid_order():
-    flat = [1, 1]
-    shape = [2, 1, 1]
+def test_custom_encoding_values():
+    flat_mask = [9, 2, 9, 2]
+    shape = [2, 2, 1]
+    encoding = {"fluid": 9, "solid": 2}
+    result = decode_geometry_mask_flat(flat_mask, shape, encoding=encoding)
+    assert result == [True, False, True, False]
+
+def test_shape_length_mismatch_raises():
+    flat_mask = [1, 0, 1]
+    shape = [2, 2, 1]  # Expect 4
+    with pytest.raises(ValueError, match="Mask length 3 does not match expected shape"):
+        decode_geometry_mask_flat(flat_mask, shape)
+
+def test_unsupported_order_raises():
+    flat_mask = [1, 0, 1, 1]
+    shape = [2, 2, 1]
     with pytest.raises(ValueError, match="Unsupported flattening order"):
-        decode_geometry_mask_flat(flat, shape, {"fluid": 1}, "invalid-order")
+        decode_geometry_mask_flat(flat_mask, shape, order="unknown-order")
 
+def test_empty_mask_and_shape_zero():
+    with pytest.raises(ValueError):
+        decode_geometry_mask_flat([], [0, 0, 0])
 
-def test_default_encoding():
-    flat = [1, 0, 0, 1]
-    shape = [2, 2, 1]
-    expected = [True, False, False, True]
-    result = decode_geometry_mask_flat(flat, shape)  # Uses default encoding
-    assert result == expected
-
-
-def test_nonstandard_types():
-    flat = [True, False, False, True]
-    shape = [2, 2, 1]
-    encoding = {"fluid": True, "solid": False}
-    expected = [True, False, False, True]
-    result = decode_geometry_mask_flat(flat, shape, encoding, "x-major")
-    assert result == expected
-
-
-
+def test_all_solid_returns_false_only():
+    flat_mask = [0] * 6
+    shape = [3, 2, 1]
+    result = decode_geometry_mask_flat(flat_mask, shape)
+    assert result == [False] * 6
