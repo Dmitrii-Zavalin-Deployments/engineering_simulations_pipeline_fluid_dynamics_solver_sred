@@ -1,105 +1,86 @@
-# tests/solvers/test_pressure_solver.py
-# 🧪 Unit tests for pressure_solver.py — validates pressure correction flow and mutation diagnostics
+# tests/test_pressure_solver.py
+# 🧪 Validates divergence correction and pressure mutation logic via apply_pressure_correction()
 
 import pytest
 from src.grid_modules.cell import Cell
 from src.solvers.pressure_solver import apply_pressure_correction
 
-def mock_config():
+def make_cell(x, y, z, velocity, pressure, fluid=True):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid)
+
+@pytest.fixture
+def input_data():
     return {
+        "simulation_parameters": {"time_step": 0.1},
         "domain_definition": {
-            "min_x": 0.0, "max_x": 3.0, "nx": 3,
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
             "min_y": 0.0, "max_y": 1.0, "ny": 1,
             "min_z": 0.0, "max_z": 1.0, "nz": 1
         },
-        "simulation_parameters": {
-            "time_step": 0.1
-        },
-        "fluid_properties": {
-            "viscosity": 0.01
-        },
         "pressure_solver": {
             "method": "jacobi",
-            "max_iterations": 50,
+            "max_iterations": 20,
             "tolerance": 1e-6
+        },
+        "boundary_conditions": {
+            "apply_faces": ["x_min", "x_max"],
+            "pressure": 99.0,
+            "velocity": [0.0, 0.0, 0.0]
         }
     }
 
-def test_pressure_correction_preserves_grid_shape():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=101.0, fluid_mask=True),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False),
-        Cell(x=2.0, y=0.0, z=0.0, velocity=[0.0, 1.0, 0.0], pressure=99.0, fluid_mask=True)
-    ]
-    updated, _, _, _ = apply_pressure_correction(grid, mock_config(), step=0)
-    assert isinstance(updated, list)
-    assert len(updated) == len(grid)
-    for cell, original in zip(updated, grid):
-        assert isinstance(cell, Cell)
-        assert cell.x == original.x
-        assert cell.y == original.y
-        assert cell.z == original.z
-        assert isinstance(cell.fluid_mask, bool)
+def test_pressure_correction_mutates_fluid_cells(input_data):
+    cell = make_cell(1.0, 0.0, 0.0, [2.0, 0.0, 0.0], 0.0)
+    grid, mutated, passes, meta = apply_pressure_correction([cell], input_data, step=0)
+    assert mutated is True
+    assert passes == 1
+    assert isinstance(grid[0].pressure, float)
+    assert meta["pressure_mutation_count"] >= 1
 
-def test_fluid_cells_receive_pressure_correction():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.01, 0.01], pressure=100.0, fluid_mask=True),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=[-0.01, -0.01, -0.01], pressure=105.0, fluid_mask=True)
-    ]
-    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=1)
-    pressures = [cell.pressure for cell in updated if cell.fluid_mask]
-    assert all(isinstance(p, float) for p in pressures)
-    assert metadata["pressure_mutation_count"] >= 1
-    assert len(metadata["mutated_cells"]) >= 1
+def test_pressure_correction_preserves_solid_cells(input_data):
+    solid = make_cell(1.0, 0.0, 0.0, [1.0, 1.0, 1.0], 10.0, fluid=False)
+    grid, mutated, _, meta = apply_pressure_correction([solid], input_data, step=1)
+    assert grid[0].fluid_mask is False
+    assert grid[0].velocity is None
+    assert grid[0].pressure is None
+    assert mutated is False
+    assert meta["pressure_mutation_count"] == 0
 
-def test_solid_cells_pressure_remains_none():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
-    ]
-    updated, _, _, _ = apply_pressure_correction(grid, mock_config(), step=2)
-    for cell in updated:
-        assert not cell.fluid_mask
-        assert cell.pressure is None
-        assert cell.velocity is None
+def test_pressure_correction_metadata_fields(input_data):
+    cell = make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], 0.0)
+    _, _, _, meta = apply_pressure_correction([cell], input_data, step=2)
+    keys = ["max_divergence", "pressure_mutation_count", "pressure_solver_passes", "mutated_cells"]
+    for key in keys:
+        assert key in meta
 
-def test_pressure_correction_handles_empty_input():
-    updated, _, _, metadata = apply_pressure_correction([], mock_config(), step=3)
-    assert isinstance(updated, list)
-    assert updated == []
-    assert metadata["pressure_mutation_count"] == 0
-    assert metadata["mutated_cells"] == []
+def test_pressure_correction_tracks_mutated_coordinates(input_data):
+    cell = make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], 0.0)
+    _, _, _, meta = apply_pressure_correction([cell], input_data, step=3)
+    assert isinstance(meta["mutated_cells"], list)
+    assert (1.0, 0.0, 0.0) in meta["mutated_cells"]
 
-def test_pressure_correction_does_not_mutate_original_pressure():
-    original = Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=101.0, fluid_mask=True)
-    grid = [original]
-    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=4)
-    assert isinstance(updated[0].pressure, float)
-    assert original.pressure == 101.0
-    assert metadata["pressure_mutation_count"] >= 0
+def test_pressure_correction_handles_malformed_velocity(input_data):
+    broken = Cell(x=1.0, y=0.0, z=0.0, velocity="bad", pressure=0.0, fluid_mask=True)
+    grid, mutated, passes, meta = apply_pressure_correction([broken], input_data, step=4)
+    assert grid[0].fluid_mask is False
+    assert mutated is False
+    assert meta["pressure_mutation_count"] == 0
 
-def test_pressure_correction_downgrades_malformed_velocity_cell():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity="not_a_vector", pressure=1.0, fluid_mask=True),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    updated, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=5)
-    assert updated[0].fluid_mask is False
-    assert updated[0].pressure is None
-    assert updated[0].velocity is None
-    assert updated[1].fluid_mask is True
-    assert isinstance(updated[1].pressure, float)
-    assert isinstance(metadata["mutated_cells"], list)
+def test_pressure_correction_empty_grid(input_data):
+    grid, mutated, passes, meta = apply_pressure_correction([], input_data, step=5)
+    assert grid == []
+    assert mutated is False
+    assert passes == 1
+    assert meta["pressure_mutation_count"] == 0
 
-def test_pressure_mutation_diagnostic_triggers_message(capfd):
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[1, 0, 0], pressure=50.0, fluid_mask=True),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=[-1, 0, 0], pressure=50.0, fluid_mask=True)
-    ]
-    _, _, _, metadata = apply_pressure_correction(grid, mock_config(), step=6)
-    out, _ = capfd.readouterr()
-    assert "Pressure correction modified" in out or "no pressure values changed" in out
-    assert isinstance(metadata["mutated_cells"], list)
+def test_pressure_correction_preserves_pressure_type(input_data):
+    cell = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0], 22.5)
+    grid, _, _, _ = apply_pressure_correction([cell], input_data, step=6)
+    assert isinstance(grid[0].pressure, float)
 
-
-
+def test_pressure_correction_prints_status(capsys, input_data):
+    cell = make_cell(1.0, 0.0, 0.0, [1.0, 0.0, 0.0], 0.0)
+    apply_pressure_correction([cell], input_data, step=7)
+    out = capsys.readouterr().out
+    assert "Step 7" in out
+    assert "Max divergence" in out
