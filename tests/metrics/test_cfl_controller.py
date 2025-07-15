@@ -1,77 +1,74 @@
-# tests/metrics/test_cfl_controller.py
+# tests/test_cfl_controller.py
+# 🧪 Unit tests for CFL calculation — verifies CFL number across velocity magnitudes and domain configs
 
 import pytest
-from src.metrics.cfl_controller import compute_global_cfl
 from src.grid_modules.cell import Cell
+from src.metrics.cfl_controller import compute_global_cfl
 
-def test_uniform_velocity_grid():
+def make_cell(vx, vy, vz):
+    return Cell(x=0.0, y=0.0, z=0.0, velocity=[vx, vy, vz], pressure=0.0, fluid_mask=True)
+
+def test_basic_cfl_computation():
     grid = [
-        Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+        make_cell(1.0, 0.0, 0.0),
+        make_cell(0.0, 2.0, 0.0),
+        make_cell(0.0, 0.0, 3.0)
     ]
     domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
-    time_step = 0.1
-    result = compute_global_cfl(grid, time_step, domain)
-    expected_cfl = 1.0 * time_step / (1.0 / domain["nx"])
-    assert result == round(expected_cfl, 5)
-
-def test_varied_velocity_grid():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[1.5, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=2, y=0, z=0, velocity=[0.1, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-    ]
-    domain = {"nx": 20, "min_x": 0.0, "max_x": 2.0}
-    time_step = 0.1
-    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
-    expected_cfl = 1.5 * time_step / dx
-    result = compute_global_cfl(grid, time_step, domain)
-    assert result == round(expected_cfl, 5)
+    time_step = 0.01
+    cfl = compute_global_cfl(grid, time_step, domain)
+    expected_magnitude = 3.0
+    dx = 0.1
+    expected_cfl = round(expected_magnitude * time_step / dx, 5)
+    assert cfl == expected_cfl
 
 def test_empty_grid_returns_zero():
-    grid = []
     domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
-    time_step = 0.1
-    assert compute_global_cfl(grid, time_step, domain) == 0.0
+    time_step = 0.01
+    assert compute_global_cfl([], time_step, domain) == 0.0
 
-def test_missing_domain_keys_returns_zero():
-    grid = [Cell(x=0, y=0, z=0, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)]
-    incomplete_domains = [
-        {"min_x": 0.0, "max_x": 1.0},
-        {"nx": 10, "max_x": 1.0},
-        {"nx": 10, "min_x": 0.0}
-    ]
-    for domain in incomplete_domains:
-        assert compute_global_cfl(grid, 0.1, domain) == 0.0
+@pytest.mark.parametrize("missing_key", ["nx", "min_x", "max_x"])
+def test_missing_domain_keys_returns_zero(missing_key):
+    domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
+    del domain[missing_key]
+    grid = [make_cell(1.0, 0.0, 0.0)]
+    assert compute_global_cfl(grid, 0.01, domain) == 0.0
 
-def test_invalid_velocity_format():
-    class BadCell:
-        def __init__(self, velocity):
-            self.velocity = velocity
+def test_cell_with_none_velocity_skipped():
+    bad_cell = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=0.0, fluid_mask=True)
+    grid = [bad_cell, make_cell(0.0, 0.0, 2.0)]
+    domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
+    cfl = compute_global_cfl(grid, 0.01, domain)
+    expected = round(2.0 * 0.01 / 0.1, 5)
+    assert cfl == expected
 
+def test_cell_with_invalid_velocity_shape_skipped():
+    bad_cell = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 2.0], pressure=0.0, fluid_mask=True)
+    grid = [bad_cell, make_cell(0.0, 0.0, 1.0)]
+    domain = {"nx": 5, "min_x": 0.0, "max_x": 1.0}
+    cfl = compute_global_cfl(grid, 0.02, domain)
+    expected = round(1.0 * 0.02 / 0.2, 5)
+    assert cfl == expected
+
+def test_negative_velocity_values():
     grid = [
-        BadCell("not a vector"),
-        BadCell([1.0, 0.0]),  # wrong length
-        BadCell(None)
+        make_cell(-1.0, -1.0, -1.0),
+        make_cell(0.0, 0.0, -2.0)
     ]
-    domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
-    time_step = 0.1
-    result = compute_global_cfl(grid, time_step, domain)
-    assert result == 0.0
+    domain = {"nx": 4, "min_x": 0.0, "max_x": 2.0}
+    time_step = 0.05
+    magnitude = max(
+        (3**0.5),  # sqrt(1^2 + 1^2 + 1^2)
+        abs(2.0)
+    )
+    dx = 0.5
+    expected_cfl = round(magnitude * time_step / dx, 5)
+    assert compute_global_cfl(grid, time_step, domain) == expected_cfl
 
-def test_velocity_with_yz_components():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=[0.0, 0.0, 2.0], pressure=1.0, fluid_mask=True)
-    ]
-    domain = {"nx": 10, "min_x": 0.0, "max_x": 1.0}
-    time_step = 0.1
-    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
-    expected_magnitude = 2.0
-    expected_cfl = expected_magnitude * time_step / dx
-    result = compute_global_cfl(grid, time_step, domain)
-    assert result == round(expected_cfl, 5)
-
-
-
+def test_large_grid_max_cfl():
+    grid = [make_cell(0.1 * i, 0.2 * i, 0.3 * i) for i in range(10)]
+    domain = {"nx": 100, "min_x": 0.0, "max_x": 1.0}
+    time_step = 0.01
+    last_magnitude = ( (0.9)**2 + (1.8)**2 + (2.7)**2 ) ** 0.5
+    expected = round(last_magnitude * time_step / 0.01, 5)
+    assert compute_global_cfl(grid, time_step, domain) == expected
