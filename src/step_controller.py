@@ -80,6 +80,7 @@ def evolve_step(
         logging.error(f"[evolve_step] Pressure solver did not return expected values: {e}")
         raise
 
+    # ✅ Apply velocity projection on pressure-corrected grid
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
     stats_after = compute_divergence_stats(
@@ -89,6 +90,7 @@ def evolve_step(
     )
     divergence_after = stats_after["max"]
 
+    # ✅ Pass post-projection divergence for reflex flag accuracy
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
         input_data,
@@ -106,7 +108,7 @@ def evolve_step(
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
 
-    # ✅ Inject mutated_cells and other pressure diagnostics from metadata
+    # ✅ Merge pressure diagnostics (including mutated_cells)
     if isinstance(pressure_metadata, dict):
         reflex_metadata.update(pressure_metadata)
 

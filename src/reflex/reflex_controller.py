@@ -58,8 +58,9 @@ def apply_reflex(
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
 
-    divergence_zero = max_divergence < 1e-8
-    projection_skipped = projection_passes == 0  # ✅ Corrected logic
+    # ✅ Use post-projection divergence for flag consistency
+    divergence_zero = post_projection_divergence is not None and post_projection_divergence < 1e-8
+    projection_skipped = projection_passes == 0
 
     influence_tagged = sum(
         1 for c in grid
@@ -105,7 +106,7 @@ def apply_reflex(
         "triggered_by": triggered_by,
         "pressure_solver_invoked": pressure_solver_invoked if pressure_solver_invoked is not None else False,
         "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
-        "post_projection_divergence": post_projection_divergence if post_projection_divergence is not None else None
+        "post_projection_divergence": post_projection_divergence
     }
 
     if verbosity == "high" and include_div_delta:
