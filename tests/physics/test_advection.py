@@ -1,86 +1,82 @@
-# tests/physics/test_advection.py
-# 🧪 Integration tests for advection.py — default Euler method routing + ghost cell exclusion
+# tests/test_advection.py
+# 🧪 Unit tests for compute_advection — verifies ghost exclusion, symmetry skipping, and velocity evolution
 
 import pytest
-from src.physics.advection import compute_advection
 from src.grid_modules.cell import Cell
+from src.physics.advection import compute_advection
 
-def make_cell(x, y, z, velocity, pressure=1.0, fluid_mask=True):
-    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid_mask)
+def make_cell(x, y, z, velocity, fluid=True):
+    return Cell(x=x, y=y, z=z, velocity=velocity, pressure=1.0, fluid_mask=fluid)
 
-# ------------------------------
-# compute_advection() test cases
-# ------------------------------
+@pytest.fixture
+def domain_config():
+    return {
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 3.0,
+            "min_y": 0.0, "max_y": 1.0,
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 3, "ny": 1, "nz": 1
+        }
+    }
 
-def test_advection_preserves_velocity_for_simple_grid():
-    grid = [make_cell(0, 0, 0, [1.0, 0.0, 0.0])]
-    config = {"simulation_parameters": {"time_step": 0.1}}
-    dt = 0.1
-    updated = compute_advection(grid, dt, config)
-
+def test_advection_applies_euler_to_fluid_cells(domain_config):
+    cell1 = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    cell2 = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    grid = [cell1, cell2]
+    updated = compute_advection(grid, dt=0.1, config=domain_config)
     assert isinstance(updated, list)
-    assert len(updated) == 1
-    assert updated[0].velocity == [1.0, 0.0, 0.0]
+    assert len(updated) == 2
+    assert updated[1].velocity != [0.0, 0.0, 0.0]
 
-def test_advection_does_not_modify_solid_cells():
-    solid_cell = make_cell(1, 0, 0, None, pressure=None, fluid_mask=False)
-    grid = [solid_cell]
-    config = {"simulation_parameters": {"time_step": 0.05}}
-    dt = 0.05
-    result = compute_advection(grid, dt, config)
+def test_advection_skips_ghost_cells(domain_config):
+    cell1 = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    cell2 = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    grid = [cell1, cell2]
+    ghost_registry = {id(cell2)}
+    updated = compute_advection(grid, dt=0.1, config=domain_config, ghost_registry=ghost_registry)
+    ids = [id(cell) for cell in updated]
+    assert id(cell2) not in ids
+    assert id(cell1) in ids
 
-    assert len(result) == 1
-    assert result[0].fluid_mask is False
-    assert result[0].velocity is None
-    assert result[0].pressure is None
-
-def test_advection_handles_mixed_grid():
-    grid = [
-        make_cell(0, 0, 0, [1.0, 1.0, 0.0], fluid_mask=True),
-        make_cell(1, 0, 0, None, pressure=None, fluid_mask=False),
-        make_cell(2, 0, 0, [0.0, 0.0, 1.0], fluid_mask=True)
-    ]
-    config = {"simulation_parameters": {"time_step": 0.1}}
-    dt = 0.1
-    result = compute_advection(grid, dt, config)
-
-    assert len(result) == 3
-    assert result[0].velocity == [1.0, 1.0, 0.0]
-    assert result[1].velocity is None
-    assert result[2].velocity == [0.0, 0.0, 1.0]
-
-def test_advection_returns_safe_output_for_empty_grid():
-    updated = compute_advection([], dt=0.1, config={})
+def test_advection_skips_symmetry_ghost_cells(domain_config):
+    cell = make_cell(1.0, 0.0, 0.0, [0.0, 1.0, 0.0])
+    grid = [cell]
+    ghost_registry = {id(cell)}
+    ghost_metadata = {id(cell): {"boundary_type": "symmetry"}}
+    updated = compute_advection(grid, dt=0.1, config=domain_config, ghost_registry=ghost_registry, ghost_metadata=ghost_metadata)
     assert updated == []
 
-def test_advection_preserves_cell_coordinates_and_mask():
-    grid = [make_cell(3, 2, 1, [0.5, 0.5, 0.5])]
-    config = {"simulation_parameters": {"time_step": 0.1}}
-    result = compute_advection(grid, dt=0.1, config=config)
+def test_advection_handles_nonfluid_cells(domain_config):
+    fluid = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0], fluid=True)
+    solid = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0], fluid=False)
+    grid = [solid, fluid]
+    updated = compute_advection(grid, dt=0.1, config=domain_config)
+    assert len(updated) == 2
+    assert updated[0].velocity == [1.0, 0.0, 0.0]  # unchanged
+    assert updated[1].velocity != [0.0, 0.0, 0.0]  # updated
 
-    cell = result[0]
-    assert (cell.x, cell.y, cell.z) == (3, 2, 1)
-    assert cell.fluid_mask is True
-    assert isinstance(cell.velocity, list)
-    assert len(cell.velocity) == 3
+def test_advection_tracks_velocity_mutation_count(capsys, domain_config):
+    cell1 = make_cell(0.0, 0.0, 0.0, [1.0, 0.0, 0.0])
+    cell2 = make_cell(1.0, 0.0, 0.0, [0.5, 0.0, 0.0])
+    grid = [cell1, cell2]
+    compute_advection(grid, dt=0.1, config=domain_config)
+    output = capsys.readouterr().out
+    assert "velocity mutations" in output
+    assert "Advection applied to 2 physical cells" in output
 
-def test_advection_ignores_malformed_velocity_vector():
-    bad_cell = make_cell(0, 0, 0, "invalid_velocity")
-    result = compute_advection([bad_cell], dt=0.1, config={})
-    assert isinstance(result, list)
-    assert len(result) == 1
-    assert result[0].velocity == "invalid_velocity"
+def test_advection_with_malformed_velocity_skips_mutation(domain_config):
+    fluid = Cell(x=1.0, y=0.0, z=0.0, velocity="bad", pressure=1.0, fluid_mask=True)
+    result = compute_advection([fluid], dt=0.1, config=domain_config)
+    assert isinstance(result[0].velocity, str)
 
-def test_advection_excludes_ghost_cells():
-    physical = make_cell(0, 0, 0, [1.0, 0.0, 0.0])
-    ghost = make_cell(-1, 0, 0, None, pressure=None, fluid_mask=False)
-    grid = [physical, ghost]
+def test_advection_returns_empty_if_all_ghosts(domain_config):
+    ghost = make_cell(1.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    grid = [ghost]
     ghost_registry = {id(ghost)}
-    config = {"simulation_parameters": {"time_step": 0.1}}
+    result = compute_advection(grid, dt=0.1, config=domain_config, ghost_registry=ghost_registry)
+    assert result == []
 
-    result = compute_advection(grid, dt=0.1, config=config, ghost_registry=ghost_registry)
-    assert len(result) == 1
-    assert result[0].velocity == [1.0, 0.0, 0.0]
-
-
-
+def test_advection_returns_unchanged_velocity_if_no_neighbors(domain_config):
+    cell = make_cell(0.0, 0.0, 0.0, [0.0, 0.0, 0.0])
+    result = compute_advection([cell], dt=0.1, config=domain_config)
+    assert result[0].velocity == [0.0, 0.0, 0.0]
