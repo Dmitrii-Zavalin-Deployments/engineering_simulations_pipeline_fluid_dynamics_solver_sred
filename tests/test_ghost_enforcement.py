@@ -18,6 +18,7 @@ def make_config():
             "nx": 3, "ny": 2, "nz": 1
         },
         "boundary_conditions": {
+            "apply_faces": ["x_min", "x_max"],
             "apply_to": ["pressure", "velocity"],
             "velocity": [0.4, 0.0, 0.0],
             "pressure": 20.0,
@@ -27,9 +28,10 @@ def make_config():
 
 def test_ghost_creation_and_face_tagging():
     config = make_config()
+    dx = (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"]
     grid = [
-        make_fluid_cell(0.0 + 0.5, 0.5, 0.5),  # x_min face
-        make_fluid_cell(3.0 - 0.5, 1.5, 0.5)   # x_max face
+        make_fluid_cell(0.5 * dx, 1.0, 0.5),               # near x_min
+        make_fluid_cell(2.5 * dx, 1.0, 0.5)                # near x_max
     ]
     padded, registry = generate_ghost_cells(grid, config)
 
@@ -42,9 +44,10 @@ def test_ghost_creation_and_face_tagging():
 
 def test_ghost_field_enforcement():
     config = make_config()
+    dx = (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"]
     grid = [
-        make_fluid_cell(0.5, 0.5, 0.5),  # near x_min
-        make_fluid_cell(2.5, 1.5, 0.5)   # near x_max
+        make_fluid_cell(0.5 * dx, 0.5, 0.5),               # near x_min
+        make_fluid_cell(2.5 * dx, 1.5, 0.5)                # near x_max
     ]
     padded, registry = generate_ghost_cells(grid, config)
     updated = apply_boundary_conditions(padded, registry, config)
@@ -56,9 +59,10 @@ def test_ghost_field_enforcement():
 
 def test_fluid_cells_receive_boundary_velocity():
     config = make_config()
+    dx = (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"]
     grid = [
-        make_fluid_cell(0.5, 0.5, 0.5),
-        make_fluid_cell(2.5, 1.5, 0.5)
+        make_fluid_cell(0.5 * dx, 0.5, 0.5),
+        make_fluid_cell(2.5 * dx, 1.5, 0.5)
     ]
     padded, registry = generate_ghost_cells(grid, config)
     updated = apply_boundary_conditions(padded, registry, config)
@@ -70,7 +74,8 @@ def test_fluid_cells_receive_boundary_velocity():
 
 def test_ghost_registry_metadata_integrity():
     config = make_config()
-    grid = [make_fluid_cell(0.5, 0.5, 0.5)]
+    dx = (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"]
+    grid = [make_fluid_cell(0.5 * dx, 0.5, 0.5)]
     _, registry = generate_ghost_cells(grid, config)
 
     for meta in registry.values():

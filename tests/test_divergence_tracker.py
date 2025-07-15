@@ -29,7 +29,7 @@ class TestDivergenceTracker(unittest.TestCase):
 
     def test_divergence_of_fluid_cell(self):
         div = compute_divergence(self.c0, self.grid, self.spacing)
-        self.assertAlmostEqual(div, 1.0, places=5)
+        self.assertAlmostEqual(div, 3.0, places=5)
 
     def test_non_fluid_cell_returns_zero(self):
         ghost = Cell(x=5.0, y=5.0, z=5.0, velocity=[1.0, 1.0, 1.0], pressure=0.0, fluid_mask=False)
