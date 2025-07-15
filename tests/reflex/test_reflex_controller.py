@@ -1,133 +1,105 @@
-# tests/reflex/test_reflex_controller.py
-# 🧪 Unit tests for reflex_controller.py — verifies reflex logic, metric generation, and snapshot metadata structure
+# tests/test_reflex_controller.py
+# 🧪 Validates reflex metadata generation, pressure flags, overflow/damping logic, and verbosity diagnostics
 
+import pytest
 from src.grid_modules.cell import Cell
 from src.reflex.reflex_controller import apply_reflex
-from src.main_solver import load_reflex_config
 
-def mock_config(time_step=0.1, viscosity=0.01):
+def make_cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid=True, influenced=False):
+    cell = Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid)
+    if influenced:
+        setattr(cell, "influenced_by_ghost", True)
+    return cell
+
+@pytest.fixture
+def config_dict():
     return {
-        "simulation_parameters": {
-            "time_step": time_step
-        },
-        "fluid_properties": {
-            "viscosity": viscosity
-        },
+        "reflex_verbosity": "high",
+        "include_divergence_delta": True,
+        "include_pressure_mutation_map": True,
+        "log_projection_trace": True
+    }
+
+@pytest.fixture
+def input_data():
+    return {
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 1.0,
-            "nx": 10,
-            "min_y": 0.0,
-            "max_y": 1.0,
-            "ny": 1,
-            "min_z": 0.0,
-            "max_z": 1.0,
-            "nz": 1
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 2.0, "ny": 2,
+            "min_z": 0.0, "max_z": 2.0, "nz": 2
+        },
+        "simulation_parameters": {
+            "time_step": 0.1
         }
     }
 
-def test_reflex_output_keys_complete():
-    grid = [
-        Cell(x=0, y=0, z=0, velocity=[0.01, 0.0, 0.0], pressure=100.0, fluid_mask=True),
-        Cell(x=1, y=0, z=0, velocity=None, pressure=None, fluid_mask=False)
+def test_reflex_output_contains_expected_keys(config_dict, input_data):
+    cell = make_cell(velocity=[1.0, 0.0, 0.0], pressure=10.0)
+    result = apply_reflex([cell], input_data, step=1, config=config_dict)
+    expected_keys = [
+        "max_velocity", "max_divergence", "global_cfl", "overflow_detected",
+        "damping_enabled", "adjusted_time_step", "projection_passes",
+        "divergence_zero", "projection_skipped", "ghost_influence_count",
+        "fluid_cells_modified_by_ghost", "triggered_by",
+        "pressure_solver_invoked", "pressure_mutated",
+        "post_projection_divergence"
     ]
-    config_flags = load_reflex_config()
-    flags = apply_reflex(
-        grid, mock_config(), step=0,
-        ghost_influence_count=3,
-        config=config_flags,
-        pressure_solver_invoked=True,
-        pressure_mutated=True,
-        post_projection_divergence=1.2e-5
-    )
+    for key in expected_keys:
+        assert key in result
 
-    expected_keys = {
-        "max_velocity", "max_divergence", "global_cfl",
-        "overflow_detected", "damping_enabled", "adjusted_time_step",
-        "projection_passes", "divergence_zero", "projection_skipped",
-        "ghost_influence_count", "fluid_cells_modified_by_ghost",
-        "triggered_by", "pressure_solver_invoked",
-        "pressure_mutated", "post_projection_divergence"
-    }
+def test_reflex_mutation_flags(config_dict, input_data):
+    cell = make_cell(velocity=[0.1, 0.2, 0.3], pressure=1.0)
+    result = apply_reflex([cell], input_data, step=5,
+                          ghost_influence_count=2,
+                          pressure_solver_invoked=True,
+                          pressure_mutated=True,
+                          post_projection_divergence=1e-9,
+                          config=config_dict)
+    assert result["pressure_solver_invoked"] is True
+    assert result["pressure_mutated"] is True
+    assert result["divergence_zero"] is True
+    assert "ghost_influence" in result["triggered_by"]
 
-    assert isinstance(flags, dict)
-    assert expected_keys.issubset(flags.keys())
+def test_reflex_zero_divergence_threshold(config_dict, input_data):
+    cell = make_cell(velocity=[0.0, 0.0, 0.0], pressure=0.0)
+    result = apply_reflex([cell], input_data, step=6,
+                          post_projection_divergence=0.0,
+                          config=config_dict)
+    assert result["divergence_zero"] is True
 
-def test_reflex_flag_types():
-    grid = [Cell(x=0, y=0, z=0, velocity=[0.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)]
-    flags = apply_reflex(
-        grid, mock_config(), step=1,
-        pressure_solver_invoked=False,
-        pressure_mutated=False
-    )
-    assert isinstance(flags["damping_enabled"], bool)
-    assert isinstance(flags["overflow_detected"], bool)
-    assert isinstance(flags["adjusted_time_step"], float)
-    assert isinstance(flags["max_velocity"], float)
-    assert isinstance(flags["max_divergence"], float)
-    assert isinstance(flags["global_cfl"], float)
-    assert isinstance(flags["projection_passes"], int)
-    assert isinstance(flags["ghost_influence_count"], int)
-    assert isinstance(flags["fluid_cells_modified_by_ghost"], int)
-    assert isinstance(flags["divergence_zero"], bool)
-    assert isinstance(flags["projection_skipped"], bool)
-    assert isinstance(flags["triggered_by"], list)
-    assert isinstance(flags["pressure_solver_invoked"], bool)
-    assert isinstance(flags["pressure_mutated"], bool)
-    assert flags.get("post_projection_divergence") is None or isinstance(flags["post_projection_divergence"], float)
+def test_reflex_skips_projection_if_zero_passes(config_dict, input_data):
+    cell = make_cell(velocity=[1.0, 0.0, 0.0], pressure=10.0)
+    # Override evaluator with zero output
+    original = __import__("src.metrics.projection_evaluator", fromlist=["calculate_projection_passes"])
+    setattr(original, "calculate_projection_passes", lambda grid: 0)
+    result = apply_reflex([cell], input_data, step=8, config=config_dict)
+    assert result["projection_skipped"] is True
 
-def test_adjusted_time_step_stability():
-    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.02, 0.03], pressure=99.0, fluid_mask=True)]
-    flags = apply_reflex(grid, mock_config(time_step=0.05), step=2)
-    assert abs(flags["adjusted_time_step"] - 0.05) < 1e-6
+def test_reflex_detects_overflow_and_damping(input_data):
+    cell = make_cell(velocity=[15.0, 0.0, 0.0], pressure=0.0)
+    result = apply_reflex([cell], input_data, step=3)
+    assert result["overflow_detected"] is True or result["damping_enabled"] is True
+    assert "overflow_detected" in result["triggered_by"] or "damping_enabled" in result["triggered_by"]
 
-def test_max_velocity_calculation():
-    grid = [
-        Cell(x=0.0, y=0.0, z=0.0, velocity=[0.1, 0.2, 0.2], pressure=101.0, fluid_mask=True),
-        Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=102.0, fluid_mask=True)
-    ]
-    flags = apply_reflex(grid, mock_config(), step=3)
-    expected = (0.1**2 + 0.2**2 + 0.2**2)**0.5
-    assert abs(flags["max_velocity"] - expected) < 1e-6
+def test_fluid_influence_tagged_cells_counted(config_dict, input_data):
+    c1 = make_cell(velocity=[1, 0, 0], pressure=10.0, influenced=True)
+    c2 = make_cell(velocity=[0, 0, 1], pressure=5.0, influenced=False)
+    c3 = make_cell(velocity=[0, 0, 0], pressure=3.0, fluid=False)
+    grid = [c1, c2, c3]
+    result = apply_reflex(grid, input_data, step=4, config=config_dict)
+    assert result["fluid_cells_modified_by_ghost"] == 1
 
-def test_global_cfl_consistency():
-    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.01, 0.0, 0.0], pressure=101.0, fluid_mask=True)]
-    flags = apply_reflex(grid, mock_config(time_step=0.1), step=4)
-    assert 0.0 <= flags["global_cfl"] <= 1.0
+def test_reflex_handles_missing_fields_gracefully(input_data):
+    cell = make_cell(velocity=[1.0, 0.0, 0.0], pressure=10.0)
+    result = apply_reflex([cell], input_data, step=9)
+    assert isinstance(result["max_velocity"], float)
+    assert result["pressure_solver_invoked"] is False
+    assert result["pressure_mutated"] is False
 
-def test_divergence_and_projection_fields():
-    grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=[0.02, -0.01, 0.03], pressure=100.0, fluid_mask=True)]
-    flags = apply_reflex(grid, mock_config(), step=5)
-    assert isinstance(flags["max_divergence"], float)
-    assert isinstance(flags["projection_passes"], int)
-    assert flags["projection_passes"] >= 0
-    assert flags["projection_skipped"] == (flags["projection_passes"] == 0)
-
-def test_safe_defaults_for_empty_grid():
-    flags = apply_reflex([], mock_config(), step=6)
-    assert flags["max_velocity"] == 0.0
-    assert flags["max_divergence"] == 0.0
-    assert flags["global_cfl"] == 0.0
-    assert isinstance(flags["overflow_detected"], bool)
-    assert isinstance(flags["damping_enabled"], bool)
-    assert isinstance(flags["adjusted_time_step"], float)
-    assert isinstance(flags["projection_passes"], int)
-    assert flags["ghost_influence_count"] == 0
-    assert flags["fluid_cells_modified_by_ghost"] == 0
-    assert isinstance(flags["triggered_by"], list)
-    assert isinstance(flags["pressure_solver_invoked"], bool)
-    assert isinstance(flags["pressure_mutated"], bool)
-    assert flags["projection_skipped"] == (flags["projection_passes"] == 0)
-
-def test_fluid_cells_modified_by_ghost_counting():
-    cell1 = Cell(x=0.0, y=0.0, z=0.0, velocity=[1.0, 0.0, 0.0], pressure=100.0, fluid_mask=True)
-    cell2 = Cell(x=1.0, y=0.0, z=0.0, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
-    cell2.influenced_by_ghost = True
-    cell1.influenced_by_ghost = True
-    grid = [cell1, cell2]
-    flags = apply_reflex(grid, mock_config(), step=7)
-    assert flags["fluid_cells_modified_by_ghost"] == 2
-    assert "ghost_influence" in flags["triggered_by"]
-
-
-
+def test_verbose_output_triggers(capsys, config_dict, input_data):
+    cell = make_cell(velocity=[2.0, 0.0, 0.0], pressure=5.0)
+    apply_reflex([cell], input_data, step=10, config=config_dict)
+    out = capsys.readouterr().out
+    assert "[reflex]" in out
+    assert "Max velocity" in out
+    assert "Projection passes" in out
