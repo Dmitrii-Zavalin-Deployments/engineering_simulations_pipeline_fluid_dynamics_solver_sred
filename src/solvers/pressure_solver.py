@@ -53,6 +53,8 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             if abs(final - initial) > 1e-8:
                 mutation_count += 1
                 mutated_cells.append((updated.x, updated.y, updated.z))
+                source = "ghost" if getattr(updated, "influenced_by_ghost", False) else "solver"
+                print(f"[DEBUG] Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: {source}")
 
     if mutation_count == 0:
         print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")

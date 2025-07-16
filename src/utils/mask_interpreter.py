@@ -52,6 +52,8 @@ def decode_geometry_mask_flat(
     else:
         raise ValueError(f"❌ Unsupported flattening order: {order}")
 
+    print(f"[DEBUG] Decoded mask → fluid cells: {sum(interpreted)} / {len(interpreted)}")
+
     return interpreted
 
 

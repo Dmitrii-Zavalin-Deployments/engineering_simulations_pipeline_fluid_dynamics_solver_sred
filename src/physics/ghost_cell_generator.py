@@ -42,7 +42,7 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     ghost_registry = {}
     creation_counts = {face: 0 for face in ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]}
 
-    def add_ghost(x, y, z, face, origin):
+    def add_ghost(x, y, z, face, origin, fluid_cell: Cell):
         vel = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
         pressure = enforced_pressure if isinstance(enforced_pressure, (int, float)) else None
         ghost = Cell(x=x, y=y, z=z, velocity=vel, pressure=pressure, fluid_mask=False)
@@ -56,7 +56,7 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
             "pressure": pressure
         }
         creation_counts[face] += 1
-        print(f"[DEBUG] 🧱 Created ghost → face: {face}, coord: ({x:.2f}, {y:.2f}, {z:.2f}), origin: {origin}")
+        print(f"[DEBUG] 🧱 Ghost created @ ({ghost.x:.2f}, {ghost.y:.2f}, {ghost.z:.2f}) ← from fluid @ ({fluid_cell.x:.2f}, {fluid_cell.y:.2f}, {fluid_cell.z:.2f}) → face: {face}")
 
     for cell_index, cell in enumerate(grid):
         if not cell.fluid_mask:
@@ -65,17 +65,17 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
         print(f"[DEBUG] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
         if "x_min" in apply_faces and abs(x - x_min) <= 0.5 * dx:
-            add_ghost(x - dx, y, z, "x_min", (x, y, z))
+            add_ghost(x - dx, y, z, "x_min", (x, y, z), cell)
         if "x_max" in apply_faces and abs(x - x_max) <= 0.5 * dx:
-            add_ghost(x + dx, y, z, "x_max", (x, y, z))
+            add_ghost(x + dx, y, z, "x_max", (x, y, z), cell)
         if "y_min" in apply_faces and abs(y - y_min) <= 0.5 * dy:
-            add_ghost(x, y - dy, z, "y_min", (x, y, z))
+            add_ghost(x, y - dy, z, "y_min", (x, y, z), cell)
         if "y_max" in apply_faces and abs(y - y_max) <= 0.5 * dy:
-            add_ghost(x, y + dy, z, "y_max", (x, y, z))
+            add_ghost(x, y + dy, z, "y_max", (x, y, z), cell)
         if "z_min" in apply_faces and abs(z - z_min) <= 0.5 * dz:
-            add_ghost(x, y, z - dz, "z_min", (x, y, z))
+            add_ghost(x, y, z - dz, "z_min", (x, y, z), cell)
         if "z_max" in apply_faces and abs(z - z_max) <= 0.5 * dz:
-            add_ghost(x, y, z + dz, "z_max", (x, y, z))
+            add_ghost(x, y, z + dz, "z_max", (x, y, z), cell)
 
     total_ghosts = len(ghost_cells)
     print(f"[DEBUG] 📊 Ghost generation complete → total: {total_ghosts}")

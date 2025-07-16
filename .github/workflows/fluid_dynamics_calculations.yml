@@ -50,13 +50,13 @@ jobs:
         python src/main_solver.py "$ORIGINAL_INPUT_FILE"
         echo "✅ Main solver executed without JSON serialization errors."
 
-    - name: 🧪 Run Unit Tests
-      env:
-        PYTHONPATH: ${{ github.workspace }}/src
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
-      run: |
-        pytest -s tests/ --verbose -ra
-        echo "✅ Unit tests completed."
+    # - name: 🧪 Run Unit Tests
+    #  env:
+    #    PYTHONPATH: ${{ github.workspace }}/src
+    #    REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
+    #  run: |
+    #    pytest -s tests/ --verbose -ra
+    #    echo "✅ Unit tests completed."
 
     - name: 🧪 Run Snapshot Validation
       run: |

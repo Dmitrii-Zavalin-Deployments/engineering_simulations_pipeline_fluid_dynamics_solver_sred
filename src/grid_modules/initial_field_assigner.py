@@ -36,6 +36,7 @@ def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
         if fluid:
             cell.velocity = velocity[:]
             cell.pressure = pressure
+            print(f"[DEBUG] Initial fluid @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity: {velocity}, pressure: {pressure}")
         else:
             cell.velocity = None
             cell.pressure = None

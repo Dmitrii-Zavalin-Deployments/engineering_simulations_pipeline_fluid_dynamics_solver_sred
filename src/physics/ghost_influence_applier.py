@@ -27,6 +27,7 @@ def apply_ghost_influence(
     tol = 1e-6
     influence_count = 0
     bordering_fluid_count = 0
+    skipped_due_to_match = 0
 
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     fluid_coord_map = {
@@ -51,28 +52,35 @@ def apply_ghost_influence(
                 bordering_fluid_count += 1
                 modified = False
 
+                velocity_match = isinstance(ghost.velocity, list) and ghost.velocity == fluid_cell.velocity
+                pressure_match = isinstance(ghost.pressure, (int, float)) and ghost.pressure == fluid_cell.pressure
+
                 # Apply velocity influence
-                if isinstance(ghost.velocity, list) and ghost.velocity != fluid_cell.velocity:
+                if isinstance(ghost.velocity, list) and not velocity_match:
                     fluid_cell.velocity = ghost.velocity[:]
                     modified = True
 
                 # Apply pressure influence
-                if isinstance(ghost.pressure, (int, float)) and ghost.pressure != fluid_cell.pressure:
+                if isinstance(ghost.pressure, (int, float)) and not pressure_match:
                     fluid_cell.pressure = ghost.pressure
                     modified = True
 
                 if modified:
-                    fluid_cell.influenced_by_ghost = True  # ✅ Explicitly tag cell
+                    fluid_cell.influenced_by_ghost = True
                     influence_count += 1
                     if verbose:
                         print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
-                        # Optional: print direction/face if metadata added (e.g., ghost.ghost_face)
+                elif velocity_match and pressure_match and verbose:
+                    skipped_due_to_match += 1
+                    print(f"[DEBUG] ⏸️ Skipped influence: Ghost @ {ghost_coord} matches Fluid @ {f_coord}")
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
         print(f"[DEBUG] Total fluid cells adjacent to ghosts: {bordering_fluid_count}")
         if bordering_fluid_count > 0 and influence_count == 0:
             print("⚠️ Ghosts adjacent to fluid cells did not trigger influence propagation.")
+        if skipped_due_to_match > 0:
+            print(f"[DEBUG] Skipped influence due to field match: {skipped_due_to_match} fluid cells")
 
     return influence_count
 
