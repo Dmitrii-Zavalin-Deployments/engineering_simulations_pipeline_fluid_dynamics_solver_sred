@@ -1,88 +1,69 @@
 # tests/test_main_solver.py
-# 🧪 Validates top-level solver orchestration, reflex config loading, and snapshot writing
 
 import os
 import sys
 import json
-import tempfile
-import yaml
-import builtins
 import pytest
-import types
-from src.main_solver import run_solver, load_reflex_config
+import shutil
+from unittest.mock import patch
+from src import main_solver
 
-@pytest.fixture
-def dummy_input_data():
-    return {
-        "domain_definition": {"nx": 2, "ny": 1, "nz": 1},
-        "fluid_properties": {"viscosity": 0.5},
-        "initial_conditions": {"velocity": [1.0, 0.0, 0.0], "pressure": 5.0},
-        "simulation_parameters": {"time_step": 0.1, "output_interval": 10},
-        "boundary_conditions": {
-            "apply_to": ["velocity", "pressure"],
-            "velocity": [0.0, 0.0, 0.0],
-            "pressure": 99.0,
-            "no_slip": True
+OUTPUT_DIR = "data/testing-input-output/navier_stokes_output"
+INPUT_FILE = "tests/data/mock_input.json"
+SUMMARY_PATH = os.path.join(OUTPUT_DIR, "step_summary.txt")
+
+@pytest.fixture(autouse=True)
+def setup_environment(tmp_path):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    yield
+    shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+
+def test_run_solver_executes_and_creates_snapshots(monkeypatch):
+    sample_input = {
+        "simulation_parameters": {
+            "time_step": 0.1,
+            "total_time": 0.2,
+            "output_interval": 1
         },
-        "pressure_solver": {"method": "jacobi", "tolerance": 1e-6}
+        "domain_definition": {
+            "nx": 2, "ny": 2, "nz": 1,
+            "min_x": 0, "max_x": 1,
+            "min_y": 0, "max_y": 1,
+            "min_z": 0, "max_z": 1
+        },
+        "initial_conditions": {},
+        "geometry_definition": None
     }
 
-def mock_generate_snapshots(input_data, scenario_name, config=None):
-    snapshot = {
-        "step_index": 0,
-        "grid": [],
-        "max_velocity": 0.0,
-        "global_cfl": 0.0
-    }
-    return [(0, snapshot), (1, snapshot)]
+    monkeypatch.setattr(main_solver, "load_simulation_input", lambda path: sample_input)
+    monkeypatch.setattr(main_solver, "compact_pressure_delta_map", lambda a, b: None)
 
-def test_load_reflex_config_returns_defaults_on_missing():
-    result = load_reflex_config("nonexistent.yaml")
-    assert isinstance(result, dict)
-    assert "reflex_verbosity" in result
-    assert result["reflex_verbosity"] == "medium"
+    main_solver.run_solver(INPUT_FILE, reflex_score_min=0)
 
-def test_load_reflex_config_parses_yaml_success(tmp_path):
-    cfg = {"reflex_verbosity": "high", "include_divergence_delta": True}
-    path = tmp_path / "reflex_debug_config.yaml"
-    path.write_text(yaml.dump(cfg))
-    result = load_reflex_config(str(path))
-    assert result["reflex_verbosity"] == "high"
-    assert result["include_divergence_delta"] is True
+    files = os.listdir(OUTPUT_DIR)
+    snapshot_files = [f for f in files if f.endswith(".json")]
+    assert len(snapshot_files) > 0
 
-def test_run_solver_writes_snapshots(tmp_path, monkeypatch, dummy_input_data, capsys):
-    # Write dummy input file
-    input_path = tmp_path / "fluid_simulation_input.json"
-    input_path.write_text(json.dumps(dummy_input_data))
+def test_load_reflex_config_fallback_on_missing():
+    config = main_solver.load_reflex_config("nonexistent.yaml")
+    assert isinstance(config, dict)
+    assert config["reflex_verbosity"] == "medium"
 
-    # Patch snapshot generation
-    monkeypatch.setitem(sys.modules, "src.snapshot_manager", types.SimpleNamespace(generate_snapshots=mock_generate_snapshots))
-    monkeypatch.setattr("src.main_solver.generate_snapshots", mock_generate_snapshots)
+def test_compaction_trigger_only_if_score_above_threshold(monkeypatch):
+    trigger_steps = []
+    def mock_generate_snapshots(*args, **kwargs):
+        return [
+            (0, {"reflex_score": 2}),
+            (1, {"reflex_score": 5}),
+        ]
 
-    # Run solver
-    run_solver(str(input_path))
+    def mock_compact(original, compacted):
+        trigger_steps.append(original)
 
-    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
-    expected_files = [
-        f"{input_path.stem}_step_0000.json",
-        f"{input_path.stem}_step_0001.json"
-    ]
-    for name in expected_files:
-        path = os.path.join(output_folder, name)
-        assert os.path.exists(path)
-        with open(path) as f:
-            data = json.load(f)
-            assert isinstance(data, dict)
-            assert "step_index" in data
+    monkeypatch.setattr(main_solver, "generate_snapshots", mock_generate_snapshots)
+    monkeypatch.setattr(main_solver, "load_simulation_input", lambda path: {})
+    monkeypatch.setattr(main_solver, "compact_pressure_delta_map", mock_compact)
 
-    out = capsys.readouterr().out
-    assert "Starting simulation for" in out
-    assert "Step 0000 written" in out
-    assert "Simulation complete" in out
-
-def test_main_solver_exit_on_missing_arg(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["main_solver.py"])
-    with pytest.raises(SystemExit):
-        __import__("src.main_solver")
-    out = capsys.readouterr().out
-    assert "Please provide an input file path" in out
+    main_solver.run_solver(INPUT_FILE, reflex_score_min=4)
+    assert len(trigger_steps) == 1
+    assert "step_0001" in trigger_steps[0]

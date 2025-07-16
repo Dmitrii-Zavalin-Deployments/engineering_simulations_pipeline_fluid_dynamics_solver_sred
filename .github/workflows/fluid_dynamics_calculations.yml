@@ -63,6 +63,11 @@ jobs:
         python src/tools/snapshot_validator.py
         echo "✅ Snapshot validation executed."
 
+    - name: 📊 Evaluate Reflex Scoring
+      run: |
+        python scripts/ci_score_report.py
+        echo "✅ Reflex scoring completed."
+
     - name: 🗃️ Inspect Repository Structure
       run: |
         echo "📦 Full repository structure:"

@@ -6,6 +6,7 @@ import sys
 import json
 import logging
 import yaml
+import argparse
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -26,7 +27,7 @@ def load_reflex_config(path="config/reflex_debug_config.yaml"):
             "ghost_adjacency_depth": 1
         }
 
-def run_solver(input_path: str):
+def run_solver(input_path: str, reflex_score_min: int = 0):
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
     output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
@@ -39,6 +40,7 @@ def run_solver(input_path: str):
     print(f"📄 Input path: {input_path}")
     print(f"📁 Output folder: {output_folder}")
     print(f"⚙️  Reflex config path: {reflex_config_path}")
+    print(f"📊 Reflex compaction threshold: {reflex_score_min}")
 
     snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
 
@@ -52,7 +54,7 @@ def run_solver(input_path: str):
 
         # ✅ Patch: trigger compaction for reflex-complete steps
         reflex_score = snapshot.get("reflex_score", 0)
-        if reflex_score >= 4:
+        if reflex_score >= reflex_score_min:
             original = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
             compacted = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
             compact_pressure_delta_map(original, compacted)
@@ -60,12 +62,13 @@ def run_solver(input_path: str):
     print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("⚠️ Please provide an input file path.")
-        print("   Example: python src/main_solver.py data/testing-input-output/fluid_simulation_input.json")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Run fluid simulation and generate snapshots.")
+    parser.add_argument("input_file", type=str, help="Path to simulation input file.")
+    parser.add_argument("--reflex_score_min", type=int, default=0,
+                        help="Minimum reflex score required to trigger compaction.")
+    args = parser.parse_args()
 
-    run_solver(sys.argv[1])
+    run_solver(args.input_file, reflex_score_min=args.reflex_score_min)
 
 
 

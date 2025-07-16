@@ -5,7 +5,7 @@ from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 from src.physics.pressure_projection import solve_pressure_poisson
-from src.exporters.pressure_delta_map_writer import export_pressure_delta_map  # ✅ NEW IMPORT
+from src.exporters.pressure_delta_map_writer import export_pressure_delta_map
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
@@ -23,7 +23,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         - int: Number of projection iterations or passes
         - dict: Metadata about the correction process, including mutated_cells
     """
-    # 🧼 Step 0: Downgrade malformed fluid cells to solid (invalid velocity structure)
     safe_grid = [
         Cell(
             x=cell.x,
@@ -36,15 +35,12 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         for cell in grid
     ]
 
-    # 🔍 Step 1: Compute divergence of velocity field for valid fluid cells
     divergence = compute_divergence(safe_grid)
     max_div = max(abs(d) for d in divergence) if divergence else 0.0
     print(f"📊 Step {step}: Max divergence = {max_div:.6e}")
 
-    # ⚡ Step 2: Solve pressure Poisson equation based on divergence
     grid_with_pressure, pressure_mutated = solve_pressure_poisson(safe_grid, divergence, input_data)
 
-    # 🧪 Step 2.5: Mutation diagnostics and pressure delta tracking
     mutation_count = 0
     mutated_cells = []
     pressure_delta_map = {}
@@ -58,10 +54,8 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             if delta > 1e-8:
                 mutation_count += 1
                 mutated_cells.append((updated.x, updated.y, updated.z))
-                source = "ghost" if getattr(updated, "influenced_by_ghost", False) else "solver"
-                print(f"[DEBUG] Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: {source}")
+                print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")  # ✅ Patch applied
 
-            # ✅ Pressure delta logging (always recorded)
             pressure_delta_map[(updated.x, updated.y, updated.z)] = {
                 "before": initial,
                 "after": final,
@@ -73,18 +67,15 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     else:
         print(f"✅ Step {step}: Pressure correction modified {mutation_count} fluid cells.")
 
-    # 📦 Step 3: Prepare solver metadata
     metadata = {
         "max_divergence": max_div,
         "pressure_mutation_count": mutation_count,
-        "pressure_solver_passes": 1,  # Placeholder: adapt if iteration count available
+        "pressure_solver_passes": 1,
         "mutated_cells": mutated_cells
     }
 
-    # 📤 Step 4: Export pressure delta map (if delta tracking used)
     export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
 
-    # 📤 Step 5: Return all expected outputs
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
 
 

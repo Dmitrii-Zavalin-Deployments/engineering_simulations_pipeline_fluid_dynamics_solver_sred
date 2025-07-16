@@ -6,7 +6,7 @@ import math
 import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
-from src.exporters.divergence_field_writer import export_divergence_map  # ✅ NEW IMPORT
+from src.exporters.divergence_field_writer import export_divergence_map
 
 def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
     if not getattr(cell, "fluid_mask", False):
@@ -53,22 +53,6 @@ def compute_divergence_stats(
     config: Optional[dict] = None,
     reference_divergence: Optional[dict] = None
 ) -> dict:
-    """
-    Computes summary divergence statistics across fluid cells and optionally logs them.
-    If reference_divergence provided, will log pre/post values for each cell and export.
-
-    Args:
-        grid (List[Cell]): Grid after advection or projection.
-        spacing (tuple): Grid spacing.
-        label (str, optional): Label for debug/tracing.
-        step_index (int, optional): Step index for logging.
-        output_folder (str, optional): Folder to write divergence logs.
-        config (dict, optional): Reflex config dict.
-        reference_divergence (dict, optional): Map of pre-projection divergences keyed by (x,y,z)
-
-    Returns:
-        dict: Contains max, mean, and count of divergence values.
-    """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     quiet = verbosity == "low"
 
@@ -90,6 +74,7 @@ def compute_divergence_stats(
     count = len(values)
 
     if not quiet:
+        print("Divergence stats (after projection):")  # ✅ Patch applied
         if label:
             print(f"[DEBUG] 📈 Divergence stats ({label}):")
         print(f"   Max divergence: {max_div:.6e}")
@@ -104,7 +89,6 @@ def compute_divergence_stats(
                 f"Step {step_index:04d} | Stage: {label or 'n/a'} | Max: {max_div:.6e} | Mean: {mean_div:.6e} | Count: {count}\n"
             )
 
-        # ✅ Patch applied: divergence delta logging
         if reference_divergence:
             divergence_map = {}
             for coord, post_val in divergences.items():
@@ -113,7 +97,6 @@ def compute_divergence_stats(
                     "pre": round(pre_val, 6),
                     "post": round(post_val, 6)
                 }
-            from src.exporters.divergence_field_writer import export_divergence_map
             export_divergence_map(divergence_map, step_index, output_folder)
 
     return {"max": max_div, "mean": mean_div, "count": count}

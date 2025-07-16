@@ -31,7 +31,7 @@ def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_
     with open(full_path, "w") as f:
         json.dump(serialized, f, indent=2)
 
-    print(f"[EXPORT] ✅ Pressure delta map saved → {full_path}")
+    print(f"Pressure delta map saved → {full_path}")  # ✅ Patch applied: CI reflex anchor
 
 
 

@@ -77,7 +77,7 @@ def log_mutation_pathway(
         print(entry)
         raise
 
-    print(f"[DEBUG] 🔄 Mutation pathway recorded → {log_path}")
+    print(f"Mutation pathway recorded → {log_path}")  # ✅ Patch applied
 
 
 

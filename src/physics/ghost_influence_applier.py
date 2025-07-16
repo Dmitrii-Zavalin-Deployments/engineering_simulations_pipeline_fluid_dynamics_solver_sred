@@ -40,7 +40,7 @@ def apply_ghost_influence(
         for f_coord, fluid_cell in fluid_coord_map.items():
             if coords_are_neighbors(ghost_coord, f_coord):
                 bordering_fluid_count += 1
-                fluid_cell.ghost_influence_attempted = True  # ✅ Patch begins here
+                fluid_cell.ghost_influence_attempted = True
                 modified = False
 
                 velocity_match = isinstance(ghost.velocity, list) and fuzzy_equal(ghost.velocity, fluid_cell.velocity)
@@ -56,16 +56,16 @@ def apply_ghost_influence(
 
                 if modified:
                     fluid_cell.influenced_by_ghost = True
-                    fluid_cell.ghost_influence_applied = True  # Optional enrichment
+                    fluid_cell.ghost_influence_applied = True
                     influence_count += 1
                     if verbose:
                         print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
                 else:
                     fluid_cell.influence_skipped_due_to_match = True
-                    fluid_cell.triggered_by = "ghost adjacency — no mutation (fields matched)"  # ✅ Patch ends here
+                    fluid_cell.triggered_by = "ghost adjacency — no mutation (fields matched)"
                     if verbose and velocity_match and pressure_match:
                         skipped_due_to_match += 1
-                        print(f"[DEBUG] ⏸️ Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")
+                        print(f"Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")  # ✅ Patch applied
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
