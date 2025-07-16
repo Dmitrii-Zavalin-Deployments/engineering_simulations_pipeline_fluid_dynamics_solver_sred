@@ -21,8 +21,8 @@ def initial_conditions():
 def geometry_mask():
     return {
         "geometry_mask_shape": [2, 1, 1],
-        "geometry_mask_flat": [1, 0],
-        "mask_encoding": {"fluid": 1, "solid": 0},
+        "geometry_mask_flat": [9, 2],
+        "mask_encoding": {"fluid": 9, "solid": 2},
         "flattening_order": "x-major"
     }
 
@@ -81,6 +81,3 @@ def test_generate_grid_zero_resolution_warning():
 def test_generate_grid_with_mask_returns_cell_instances():
     result = generate_grid_with_mask(domain(), initial_conditions(), geometry_mask())
     assert all(isinstance(c, Cell) for c in result)
-
-
-
