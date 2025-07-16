@@ -81,3 +81,6 @@ def test_generate_grid_zero_resolution_warning():
 def test_generate_grid_with_mask_returns_cell_instances():
     result = generate_grid_with_mask(domain(), initial_conditions(), geometry_mask())
     assert all(isinstance(c, Cell) for c in result)
+
+
+
