@@ -12,10 +12,9 @@ def normalize_domain(domain: dict) -> dict:
     """
     Ensures domain dictionary contains all required physical bounds and resolution keys.
     Fills in missing keys with safe defaults and logs a warning if normalization occurs.
-    Also substitutes defaults for keys explicitly set to None.
 
     Args:
-        domain (dict): Raw domain input (may be incomplete or contain None values)
+        domain (dict): Raw domain input (may be incomplete)
 
     Returns:
         dict: Fully populated domain dictionary with defaults applied where necessary
@@ -25,9 +24,6 @@ def normalize_domain(domain: dict) -> dict:
 
     for key, default in REQUIRED_KEYS.items():
         if key not in normalized:
-            normalized[key] = default
-            missing_keys.append(key)
-        elif normalized[key] is None:
             normalized[key] = default
             missing_keys.append(key)
 

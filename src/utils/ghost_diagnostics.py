@@ -29,7 +29,7 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
                 no_slip_enforced += 1
         total = len(ghost_registry)
 
-    elif isinstance(ghost_registry, (set, list)):
+    elif isinstance(ghost_registry, set):
         for cell in ghost_registry:
             coord = (cell.x, cell.y, cell.z)
             ghost_coords.add(coord)
@@ -44,7 +44,7 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
         total = len(ghost_registry)
 
     else:
-        raise TypeError("❌ ghost_registry must be dict, set, or list")
+        raise TypeError("❌ ghost_registry must be dict or set")
 
     # 🧭 Fluid–ghost adjacency detection using tolerant physical proximity
     if grid:
