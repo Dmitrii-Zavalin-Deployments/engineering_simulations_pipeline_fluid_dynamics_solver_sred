@@ -8,6 +8,7 @@ from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
+from src.visualization.influence_overlay import render_influence_overlay  # ✅ Added
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -64,6 +65,15 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             print(f"[DEBUG] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
 
         export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
+
+        # ✅ Patch: Render influence overlay if reflex-complete score meets threshold
+        influence_log = {
+            "step_score": reflex.get("reflex_score", 0.0),
+            "adjacency_zones": reflex.get("adjacency_zones", []),
+            "suppression_zones": reflex.get("suppression_zones", [])
+        }
+        overlay_path = os.path.join(output_folder, "overlays", f"step_{step:03d}.png")
+        render_influence_overlay(influence_log, overlay_path)
 
         mutation_causes = []
         if reflex.get("ghost_influence_count", 0) > 0:
