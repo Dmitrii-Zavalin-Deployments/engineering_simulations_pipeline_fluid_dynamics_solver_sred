@@ -86,6 +86,3 @@ def test_main_solver_exit_on_missing_arg(monkeypatch, capsys):
         __import__("src.main_solver")
     out = capsys.readouterr().out
     assert "Please provide an input file path" in out
-
-
-
