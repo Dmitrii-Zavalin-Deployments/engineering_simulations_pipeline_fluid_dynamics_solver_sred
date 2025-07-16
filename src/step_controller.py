@@ -22,7 +22,7 @@ def evolve_step(
     config: Optional[dict] = None,
     reflex_score: Optional[int] = None  # ✅ Optional score input
 ) -> Tuple[List[Cell], dict]:
-     """
+    """
     Evolves the fluid grid by one simulation step using:
     - Ghost cell padding and boundary enforcement
     - Ghost influence propagation (velocity/pressure transfer)
