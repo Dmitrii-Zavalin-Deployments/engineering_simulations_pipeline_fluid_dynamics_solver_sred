@@ -1,4 +1,4 @@
-# tests/test_domain_normalizer.py
+# tests/utils/test_domain_normalizer.py
 # 🧪 Validates domain normalization logic and default injection behavior
 
 import pytest
@@ -10,7 +10,7 @@ def capture_logs(caplog):
     caplog.set_level(logging.WARNING)
     yield
 
-def test_normalize_domain_preserves_complete_input():
+def test_normalize_domain_preserves_complete_input(caplog):
     domain = REQUIRED_KEYS.copy()
     result = normalize_domain(domain)
     assert result == REQUIRED_KEYS
@@ -75,3 +75,6 @@ def test_normalize_domain_warns_once_per_call(caplog):
     normalize_domain(input2)
     warnings = [record.message for record in caplog.records if "Domain normalization applied" in record.message]
     assert len(warnings) == 2  # one warning per call
+
+
+

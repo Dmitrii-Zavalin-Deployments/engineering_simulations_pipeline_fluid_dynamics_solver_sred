@@ -1,4 +1,4 @@
-# tests/test_mask_interpreter.py
+# tests/utils/test_mask_interpreter.py
 # 🧪 Validates geometry mask flattening across orders, shapes, encodings
 
 import pytest

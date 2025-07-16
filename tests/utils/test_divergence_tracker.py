@@ -1,6 +1,7 @@
-# tests/test_divergence_tracker.py
+# tests/utils/test_divergence_tracker.py
 # 🧪 Unit tests for divergence_tracker — validates central differencing, divergence logging, map export
 
+import os
 import math
 import json
 import tempfile
@@ -109,3 +110,6 @@ def test_dump_divergence_map_returns_data_without_file():
     assert isinstance(result, list)
     assert result[0]["x"] == 1.0
     assert "divergence" in result[0]
+
+
+

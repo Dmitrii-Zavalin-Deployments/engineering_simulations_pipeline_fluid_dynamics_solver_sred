@@ -1,4 +1,4 @@
-# tests/test_snapshot_validator.py
+# tests/tools/test_snapshot_validator.py
 # 🧪 Unit tests for snapshot_validator.py — validates snapshot structure, reflex flags, influence and divergence consistency
 
 import os
@@ -8,6 +8,7 @@ import pytest
 from src.tools import snapshot_validator
 
 def create_dummy_snapshot(folder, step_index, grid=None, reflex=None):
+    reflex = reflex or {}
     path = os.path.join(folder, f"snapshot_step_{step_index:04d}.json")
     snap = {
         "step_index": step_index,
@@ -113,3 +114,6 @@ def test_run_snapshot_validation_integrates_all(capsys):
         out = capsys.readouterr().out
         assert "Snapshot validation complete" in out
         assert "[Step 7]" in out
+
+
+

@@ -1,6 +1,7 @@
 # tests/test_step_controller.py
 # 🧪 Validates evolve_step orchestration, reflex field injection, ghost handling, divergence reporting
 
+import os
 import pytest
 from src.step_controller import evolve_step
 from src.grid_modules.cell import Cell
@@ -86,3 +87,6 @@ def test_evolve_step_divergence_stats_logged(tmp_path, dummy_grid, input_data):
         lines = f.readlines()
     assert any("before projection" in line for line in lines)
     assert any("after projection" in line for line in lines)
+
+
+
