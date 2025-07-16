@@ -1,7 +1,7 @@
 # src/physics/ghost_influence_applier.py
 # 🧱 Ghost Influence Applier — applies pressure/velocity from ghosts to adjacent fluid cells
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from src.grid_modules.cell import Cell
 
 def apply_ghost_influence(
@@ -26,6 +26,7 @@ def apply_ghost_influence(
     dx, dy, dz = spacing
     tol = 1e-6
     influence_count = 0
+    bordering_fluid_count = 0
 
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     fluid_coord_map = {
@@ -47,6 +48,7 @@ def apply_ghost_influence(
 
         for f_coord, fluid_cell in fluid_coord_map.items():
             if coords_are_neighbors(ghost_coord, f_coord):
+                bordering_fluid_count += 1
                 modified = False
 
                 # Apply velocity influence
@@ -68,6 +70,10 @@ def apply_ghost_influence(
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
+        print(f"[DEBUG] Total fluid cells adjacent to ghosts: {bordering_fluid_count}")
+        if bordering_fluid_count > 0 and influence_count == 0:
+            print("⚠️ Ghosts adjacent to fluid cells did not trigger influence propagation.")
+
     return influence_count
 
 
