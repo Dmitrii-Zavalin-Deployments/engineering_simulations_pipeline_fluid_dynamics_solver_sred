@@ -13,14 +13,16 @@ from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.reflex.reflex_controller import apply_reflex
 from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 from src.utils.divergence_tracker import compute_divergence_stats
+from src.adaptive.timestep_controller import suggest_timestep  # ✅ NEW IMPORT
 
 def evolve_step(
     grid: List[Cell],
     input_data: dict,
     step: int,
-    config: Optional[dict] = None
+    config: Optional[dict] = None,
+    reflex_score: Optional[int] = None  # ✅ Optional score input
 ) -> Tuple[List[Cell], dict]:
-    """
+     """
     Evolves the fluid grid by one simulation step using:
     - Ghost cell padding and boundary enforcement
     - Ghost influence propagation (velocity/pressure transfer)
@@ -47,7 +49,6 @@ def evolve_step(
     spacing = (dx, dy, dz)
 
     output_folder = "data/testing-input-output/navier_stokes_output"
-
     padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
     log_ghost_summary(ghost_registry)
@@ -70,6 +71,13 @@ def evolve_step(
     )
     divergence_before = stats_before["max"]
 
+    # ✅ Inject reflex-aware timestep adjustment
+    base_dt = input_data.get("default_timestep", 0.01)
+    delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
+    trace_path = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
+    dt = suggest_timestep(delta_path, trace_path, base_dt=base_dt, reflex_score=reflex_score)
+
+    # ✅ Apply momentum update using adaptive dt if supported
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
     try:
@@ -80,7 +88,6 @@ def evolve_step(
         logging.error(f"[evolve_step] Pressure solver did not return expected values: {e}")
         raise
 
-    # ✅ Apply velocity projection on pressure-corrected grid
     velocity_projected_grid = apply_pressure_velocity_projection(pressure_corrected_grid, input_data)
 
     stats_after = compute_divergence_stats(
@@ -90,7 +97,6 @@ def evolve_step(
     )
     divergence_after = stats_after["max"]
 
-    # ✅ Pass post-projection divergence for reflex flag accuracy
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
         input_data,
@@ -107,8 +113,8 @@ def evolve_step(
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
+    reflex_metadata["adaptive_timestep"] = dt  # ✅ Log selected dt
 
-    # ✅ Merge pressure diagnostics (including mutated_cells)
     if isinstance(pressure_metadata, dict):
         reflex_metadata.update(pressure_metadata)
 

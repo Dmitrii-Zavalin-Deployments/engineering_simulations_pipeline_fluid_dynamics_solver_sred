@@ -10,7 +10,8 @@ import yaml
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.input_reader import load_simulation_input
-from src.snapshot_manager import generate_snapshots  # ✅ moved from main_solver to separate file
+from src.snapshot_manager import generate_snapshots
+from src.compression.snapshot_compactor import compact_pressure_delta_map  # ✅ Patch: import compactor
 
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
     try:
@@ -48,6 +49,13 @@ def run_solver(input_path: str):
         with open(path, "w") as f:
             json.dump(snapshot, f, indent=2)
         print(f"🔄 Step {formatted_step} written → {filename}")
+
+        # ✅ Patch: trigger compaction for reflex-complete steps
+        reflex_score = snapshot.get("reflex_score", 0)
+        if reflex_score >= 4:
+            original = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
+            compacted = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
+            compact_pressure_delta_map(original, compacted)
 
     print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
 
