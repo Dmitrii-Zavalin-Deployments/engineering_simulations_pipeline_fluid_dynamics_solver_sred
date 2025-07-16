@@ -3,21 +3,12 @@
 
 import os
 import math
+import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
+from src.exporters.divergence_field_writer import export_divergence_map  # ✅ NEW IMPORT
 
 def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
-    """
-    Computes central differenced divergence for a single fluid cell.
-
-    Args:
-        cell (Cell): The cell to evaluate.
-        grid (List[Cell]): Full grid for neighbor lookup.
-        spacing (tuple): (dx, dy, dz) grid spacing.
-
-    Returns:
-        float: ∇·u divergence at cell
-    """
     if not getattr(cell, "fluid_mask", False):
         return 0.0
 
@@ -47,16 +38,6 @@ def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
     return du_dx + dv_dy + dw_dz
 
 def compute_max_divergence(grid: List[Cell], spacing: tuple) -> float:
-    """
-    Returns the maximum absolute divergence across fluid cells.
-
-    Args:
-        grid (List[Cell]): Simulation grid.
-        spacing (tuple): Grid spacing.
-
-    Returns:
-        float: Max divergence value
-    """
     divergences = [
         abs(compute_divergence(c, grid, spacing))
         for c in grid if getattr(c, "fluid_mask", False)
@@ -69,18 +50,21 @@ def compute_divergence_stats(
     label: Optional[str] = None,
     step_index: Optional[int] = None,
     output_folder: Optional[str] = None,
-    config: Optional[dict] = None
+    config: Optional[dict] = None,
+    reference_divergence: Optional[dict] = None
 ) -> dict:
     """
     Computes summary divergence statistics across fluid cells and optionally logs them.
+    If reference_divergence provided, will log pre/post values for each cell and export.
 
     Args:
         grid (List[Cell]): Grid after advection or projection.
         spacing (tuple): Grid spacing.
         label (str, optional): Label for debug/tracing.
         step_index (int, optional): Step index for logging.
-        output_folder (str, optional): Folder to write divergence_log.txt.
+        output_folder (str, optional): Folder to write divergence logs.
         config (dict, optional): Reflex config dict.
+        reference_divergence (dict, optional): Map of pre-projection divergences keyed by (x,y,z)
 
     Returns:
         dict: Contains max, mean, and count of divergence values.
@@ -88,19 +72,22 @@ def compute_divergence_stats(
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     quiet = verbosity == "low"
 
-    divergences = [
-        abs(compute_divergence(c, grid, spacing))
-        for c in grid if getattr(c, "fluid_mask", False)
-    ]
+    divergences = {}
+    for cell in grid:
+        if getattr(cell, "fluid_mask", False):
+            div = compute_divergence(cell, grid, spacing)
+            key = (cell.x, cell.y, cell.z)
+            divergences[key] = div
 
-    if not divergences:
+    values = [abs(v) for v in divergences.values()]
+    if not values:
         if not quiet:
             print(f"[DEBUG] ⚠️ No fluid cells found for divergence tracking.")
         return {"max": 0.0, "mean": 0.0, "count": 0}
 
-    max_div = max(divergences)
-    mean_div = sum(divergences) / len(divergences)
-    count = len(divergences)
+    max_div = max(values)
+    mean_div = sum(values) / len(values)
+    count = len(values)
 
     if not quiet:
         if label:
@@ -117,6 +104,18 @@ def compute_divergence_stats(
                 f"Step {step_index:04d} | Stage: {label or 'n/a'} | Max: {max_div:.6e} | Mean: {mean_div:.6e} | Count: {count}\n"
             )
 
+        # ✅ Patch applied: divergence delta logging
+        if reference_divergence:
+            divergence_map = {}
+            for coord, post_val in divergences.items():
+                pre_val = reference_divergence.get(coord, 0.0)
+                divergence_map[coord] = {
+                    "pre": round(pre_val, 6),
+                    "post": round(post_val, 6)
+                }
+            from src.exporters.divergence_field_writer import export_divergence_map
+            export_divergence_map(divergence_map, step_index, output_folder)
+
     return {"max": max_div, "mean": mean_div, "count": count}
 
 def dump_divergence_map(
@@ -125,18 +124,6 @@ def dump_divergence_map(
     path: Optional[str] = None,
     config: Optional[dict] = None
 ) -> List[dict]:
-    """
-    Writes divergence values to file for visualization if path is provided.
-
-    Args:
-        grid (List[Cell]): Full simulation grid.
-        spacing (tuple): Grid spacing.
-        path (str, optional): Destination file.
-        config (dict, optional): Reflex verbosity config.
-
-    Returns:
-        List[dict]: Cell-level divergence records.
-    """
     data = []
     for cell in grid:
         if getattr(cell, "fluid_mask", False):
@@ -149,7 +136,6 @@ def dump_divergence_map(
             })
 
     if path:
-        import json
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
         verbosity = (config or {}).get("reflex_verbosity", "medium")

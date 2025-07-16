@@ -11,7 +11,8 @@ def serialize_cell(cell: Union[Cell, tuple]) -> dict:
         return {
             "x": cell[0],
             "y": cell[1],
-            "z": cell[2]
+            "z": cell[2],
+            "pressure_changed": True
         }
     return {
         "x": getattr(cell, "x", "?"),
@@ -19,7 +20,11 @@ def serialize_cell(cell: Union[Cell, tuple]) -> dict:
         "z": getattr(cell, "z", "?"),
         "velocity": getattr(cell, "velocity", None),
         "pressure": getattr(cell, "pressure", None),
-        "fluid_mask": getattr(cell, "fluid_mask", None)
+        "fluid_mask": getattr(cell, "fluid_mask", None),
+        "pressure_changed": False,
+        "triggered_by": getattr(cell, "triggered_by", None),
+        "influence_attempted": getattr(cell, "ghost_influence_attempted", False),
+        "influence_applied": getattr(cell, "ghost_influence_applied", False)
     }
 
 def log_mutation_pathway(

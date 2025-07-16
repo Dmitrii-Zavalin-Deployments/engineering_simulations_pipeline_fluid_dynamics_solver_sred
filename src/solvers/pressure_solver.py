@@ -5,6 +5,7 @@ from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 from src.physics.pressure_projection import solve_pressure_poisson
+from src.exporters.pressure_delta_map_writer import export_pressure_delta_map  # ✅ NEW IMPORT
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
@@ -46,15 +47,26 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     # 🧪 Step 2.5: Mutation diagnostics and pressure delta tracking
     mutation_count = 0
     mutated_cells = []
+    pressure_delta_map = {}
+
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
             initial = old.pressure if isinstance(old.pressure, float) else 0.0
             final = updated.pressure if isinstance(updated.pressure, float) else 0.0
-            if abs(final - initial) > 1e-8:
+            delta = abs(final - initial)
+
+            if delta > 1e-8:
                 mutation_count += 1
                 mutated_cells.append((updated.x, updated.y, updated.z))
                 source = "ghost" if getattr(updated, "influenced_by_ghost", False) else "solver"
                 print(f"[DEBUG] Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: {source}")
+
+            # ✅ Pressure delta logging (always recorded)
+            pressure_delta_map[(updated.x, updated.y, updated.z)] = {
+                "before": initial,
+                "after": final,
+                "delta": delta
+            }
 
     if mutation_count == 0:
         print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
@@ -69,7 +81,10 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         "mutated_cells": mutated_cells
     }
 
-    # 📤 Step 4: Return all expected outputs
+    # 📤 Step 4: Export pressure delta map (if delta tracking used)
+    export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
+
+    # 📤 Step 5: Return all expected outputs
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
 
 
