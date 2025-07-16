@@ -54,7 +54,7 @@ def test_generate_grid_with_mask_shape_mismatch_raises():
 
 def test_generate_grid_with_mask_invalid_flat_mask_length_raises():
     geometry = {**geometry_mask(), "geometry_mask_flat": [1, 0, 1]}
-    with pytest.raises(ValueError, match="does not match coordinate count"):
+    with pytest.raises(ValueError, match="Failed to decode fluid mask: ❌ Mask length 3"):
         generate_grid_with_mask(domain(), initial_conditions(), geometry)
 
 def test_generate_grid_with_mask_custom_encoding():
