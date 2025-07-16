@@ -73,10 +73,10 @@ def test_generate_grid_with_mask_invalid_order_raises():
     with pytest.raises(ValueError, match="Failed to decode fluid mask"):
         generate_grid_with_mask(domain(), initial_conditions(), geom)
 
-def test_generate_grid_zero_resolution_warning(caplog):
+def test_generate_grid_zero_resolution_warning():
     d = {**domain(), "nx": 0, "ny": 1, "nz": 1}
-    generate_grid(d, initial_conditions())
-    assert "Empty grid generated" in caplog.text
+    with pytest.raises(ValueError, match="Resolution values must be greater than zero"):
+        generate_grid(d, initial_conditions())
 
 def test_generate_grid_with_mask_returns_cell_instances():
     result = generate_grid_with_mask(domain(), initial_conditions(), geometry_mask())

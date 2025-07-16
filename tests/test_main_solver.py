@@ -81,8 +81,11 @@ def test_run_solver_writes_snapshots(tmp_path, monkeypatch, dummy_input_data, ca
     assert "Simulation complete" in out
 
 def test_main_solver_exit_on_missing_arg(monkeypatch, capsys):
-    monkeypatch.setattr(sys, "argv", ["main_solver.py"])
+    monkeypatch.setattr(sys, "argv", ["main_solver.py", "--invalid"])
     with pytest.raises(SystemExit):
         __import__("src.main_solver")
     out = capsys.readouterr().out
     assert "Please provide an input file path" in out
+
+
+

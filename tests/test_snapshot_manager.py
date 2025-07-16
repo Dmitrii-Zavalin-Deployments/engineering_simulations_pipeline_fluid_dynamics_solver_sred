@@ -17,7 +17,7 @@ def input_data():
             "min_z": 0.0, "max_z": 1.0, "nz": 1
         },
         "fluid_properties": {"viscosity": 0.5},
-        "initial_conditions": {"velocity": [1.0, 0.0, 0.0], "pressure": 5.0},
+        "initial_conditions": {"initial_velocity": [1.0, 0.0, 0.0], "initial_pressure": 5.0},
         "simulation_parameters": {
             "time_step": 0.1,
             "total_time": 0.2,
@@ -96,7 +96,7 @@ def test_output_interval_filters_snapshots(monkeypatch_evolve):
     test_input = {
         "domain_definition": {"min_x":0,"max_x":1,"nx":1,"min_y":0,"max_y":1,"ny":1,"min_z":0,"max_z":1,"nz":1},
         "fluid_properties": {},
-        "initial_conditions": {"velocity":[0,0,0],"pressure":0},
+        "initial_conditions": {"initial_velocity":[0,0,0],"initial_pressure":0},
         "simulation_parameters": {"time_step":0.1,"total_time":0.5,"output_interval":2},
         "boundary_conditions": {},
         "pressure_solver": {}
@@ -110,7 +110,7 @@ def test_mutation_report_prints_summary(monkeypatch_evolve, capsys):
     test_input = {
         "domain_definition": {"min_x":0,"max_x":1,"nx":1,"min_y":0,"max_y":1,"ny":1,"min_z":0,"max_z":1,"nz":1},
         "fluid_properties": {},
-        "initial_conditions": {"velocity":[0,0,0],"pressure":0},
+        "initial_conditions": {"initial_velocity":[0,0,0],"initial_pressure":0},
         "simulation_parameters": {"time_step":0.1,"total_time":0.2,"output_interval":1},
         "boundary_conditions": {},
         "pressure_solver": {}
@@ -121,3 +121,6 @@ def test_mutation_report_prints_summary(monkeypatch_evolve, capsys):
     assert "Pressure mutated steps" in out
     assert "Velocity projected steps" in out
     assert "Projection skipped steps" in out
+
+
+
