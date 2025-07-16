@@ -14,8 +14,8 @@ def domain():
 
 def initial_conditions():
     return {
-        "velocity": [1.0, 0.0, 0.0],
-        "pressure": 5.0
+        "initial_velocity": [1.0, 0.0, 0.0],
+        "initial_pressure": 5.0
     }
 
 def geometry_mask():
@@ -81,3 +81,6 @@ def test_generate_grid_zero_resolution_warning(caplog):
 def test_generate_grid_with_mask_returns_cell_instances():
     result = generate_grid_with_mask(domain(), initial_conditions(), geometry_mask())
     assert all(isinstance(c, Cell) for c in result)
+
+
+

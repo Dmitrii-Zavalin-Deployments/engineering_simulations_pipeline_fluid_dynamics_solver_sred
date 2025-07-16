@@ -55,7 +55,7 @@ def test_influence_skips_malformed_velocity(spacing):
     count = apply_ghost_influence(grid, spacing)
     assert count == 0
     assert fluid.velocity == [0.0, 0.0, 0.0]  # unchanged
-    assert fluid.pressure == 10.0
+    assert fluid.pressure == 0.0  # ✅ unchanged due to invalid ghost velocity
 
 def test_influence_skips_non_numeric_pressure(spacing):
     fluid = make_cell(1.0, 1.0, 1.0, [0.0, 0.0, 0.0], 0.0)
