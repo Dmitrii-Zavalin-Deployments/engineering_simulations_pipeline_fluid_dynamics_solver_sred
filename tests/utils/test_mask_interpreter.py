@@ -2,7 +2,7 @@
 # 🧪 Validates geometry mask flattening across orders, shapes, encodings
 
 import pytest
-from src.utils.mask_interpreter import decode_geometry_mask_flat, decode_fluid_mask
+from src.utils.mask_interpreter import decode_geometry_mask_flat
 
 def test_x_major_flattening_correctness():
     flat_mask = [1, 0, 1, 1]
@@ -52,15 +52,13 @@ def test_empty_mask_and_shape_zero():
     with pytest.raises(ValueError):
         decode_geometry_mask_flat([], [0, 0, 0])
 
-def test_empty_mask_in_fluid_decoder_raises():
-    bad_mask = {
-        "geometry_mask_shape": [0, 0, 0],
-        "geometry_mask_flat": [],
-        "mask_encoding": {"fluid": 1, "solid": 0},
-        "flattening_order": "x-major"
-    }
+def test_empty_mask_inputs_to_geometry_decoder_raises():
+    shape = [0, 0, 0]
+    flat = []
+    encoding = {"fluid": 1, "solid": 0}
+    order = "x-major"
     with pytest.raises(ValueError, match="Mask length 0 does not match expected shape"):
-        decode_fluid_mask(bad_mask, domain_resolution=(2, 1, 1))
+        decode_geometry_mask_flat(flat, shape, encoding=encoding, order=order)
 
 def test_all_solid_returns_false_only():
     flat_mask = [0] * 6
