@@ -4,6 +4,10 @@
 from typing import List, Tuple
 from src.grid_modules.cell import Cell
 
+def fuzzy_equal(v1: List[float], v2: List[float], tol: float = 1e-6) -> bool:
+    """Compare two vectors with tolerance to avoid false mismatches."""
+    return all(abs(a - b) <= tol for a, b in zip(v1, v2))
+
 def apply_ghost_influence(
     grid: List[Cell],
     spacing: Tuple[float, float, float],
@@ -52,8 +56,8 @@ def apply_ghost_influence(
                 bordering_fluid_count += 1
                 modified = False
 
-                velocity_match = isinstance(ghost.velocity, list) and ghost.velocity == fluid_cell.velocity
-                pressure_match = isinstance(ghost.pressure, (int, float)) and ghost.pressure == fluid_cell.pressure
+                velocity_match = isinstance(ghost.velocity, list) and fuzzy_equal(ghost.velocity, fluid_cell.velocity)
+                pressure_match = isinstance(ghost.pressure, (int, float)) and abs(ghost.pressure - fluid_cell.pressure) < tol
 
                 # Apply velocity influence
                 if isinstance(ghost.velocity, list) and not velocity_match:
@@ -72,7 +76,7 @@ def apply_ghost_influence(
                         print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
                 elif velocity_match and pressure_match and verbose:
                     skipped_due_to_match += 1
-                    print(f"[DEBUG] ⏸️ Skipped influence: Ghost @ {ghost_coord} matches Fluid @ {f_coord}")
+                    print(f"[DEBUG] ⏸️ Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
