@@ -8,7 +8,8 @@ from src.step_controller import evolve_step
 from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
-from src.visualization.influence_overlay import render_influence_overlay  # ✅ Added
+from src.visualization.influence_overlay import render_influence_overlay
+from src.utils.snapshot_summary_writer import write_step_summary  # ✅ Patch: summary writer
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -66,7 +67,6 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
         export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-        # ✅ Patch: Render influence overlay if reflex-complete score meets threshold
         influence_log = {
             "step_score": reflex.get("reflex_score", 0.0),
             "adjacency_zones": reflex.get("adjacency_zones", []),
@@ -84,7 +84,6 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         mutated_cells_raw = reflex.get("mutated_cells", [])
         print(f"[DEBUG] mutated_cells (step {step}): {[type(c) for c in mutated_cells_raw[:3]]}")
 
-        # ✅ Coerce pressure_mutated to boolean to avoid Cell leakage
         raw_pm = reflex.get("pressure_mutated", False)
         if isinstance(raw_pm, bool):
             pressure_mutated = raw_pm
@@ -151,6 +150,10 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         }
 
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
+
+        # ✅ Patch: write summary CSV row per step
+        from src.utils.snapshot_summary_writer import write_step_summary
+        write_step_summary(step, snapshot, output_folder="data/summaries")
 
         if step % output_interval == 0:
             snapshots.append((step, snapshot))
