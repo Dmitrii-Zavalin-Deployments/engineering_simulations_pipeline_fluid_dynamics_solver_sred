@@ -1,4 +1,4 @@
-# tests/ci/test_reflex_log_score.py
+# tests/scripts/test_reflex_log_score.py
 
 import pytest
 from ci import reflex_log_score
