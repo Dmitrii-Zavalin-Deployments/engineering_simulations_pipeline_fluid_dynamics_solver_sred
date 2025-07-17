@@ -1,59 +1,26 @@
-# src/ci/reflex_log_score.py
+# src/scripts/ci_score_report.py
 
-from metrics.reflex_score_evaluator import evaluate_reflex_score
+import os
+from ci.reflex_log_score import score_combined
 
-MARKERS = {
-    "Pressure updated @": "pressure_mutation",
-    "Divergence stats (after projection):": "divergence_tracking",
-    "Influence skipped: matched fields": "ghost_suppression",
-    "Mutation pathway recorded →": "mutation_pathway",
-    "Pressure delta map saved →": "pressure_delta"
-}
+SUMMARY_PATH = "data/testing-input-output/navier_stokes_output/step_summary.txt"
 
-def score_reflex_log_text(log_text: str) -> dict:
-    """
-    Scans CI logs for key diagnostic markers and computes a simple reflex score.
+if __name__ == "__main__":
+    if not os.path.exists(SUMMARY_PATH):
+        print(f"❌ Summary file not found → {SUMMARY_PATH}")
+    else:
+        with open(SUMMARY_PATH, "r") as f:
+            log_text = f.read()
 
-    Parameters:
-    - log_text: string containing raw build logs
+        scores = score_combined(log_text, SUMMARY_PATH)
+        print("📊 CI Reflex Scoring Results:")
+        print(f"↪️ Matched markers: {scores['ci_log_score']['markers_matched']}")
+        print(f"↪️ Marker score: {scores['ci_log_score']['reflex_score']}")
+        print(f"↪️ Summary score: {scores['summary_score']['average_score']:.2f} (avg)")
 
-    Returns:
-    - dict with reflex score summary
-    """
-    found = sum(1 for marker in MARKERS if marker in log_text)
-    total = len(MARKERS)
-    return {
-        "reflex_score": f"{found} / {total}",
-        "markers_matched": [MARKERS[m] for m in MARKERS if m in log_text]
-    }
-
-def score_from_summary_file(summary_path: str) -> dict:
-    """
-    Evaluates per-step reflex score based on exported simulation summary file.
-
-    Parameters:
-    - summary_path: path to step_summary.txt from simulation output
-
-    Returns:
-    - dict containing step scores and summary statistics
-    """
-    return evaluate_reflex_score(summary_path)
-
-def score_combined(log_text: str, summary_path: str) -> dict:
-    """
-    Computes both CI marker score and simulation summary score.
-
-    Parameters:
-    - log_text: string log text from CI build
-    - summary_path: path to summary file from simulation pipeline
-
-    Returns:
-    - Combined dict with CI and simulation score results
-    """
-    return {
-        "ci_log_score": score_reflex_log_text(log_text),
-        "summary_score": score_from_summary_file(summary_path)
-    }
+        # ✅ Optionally write to file if needed:
+        # with open("reflex_ci_scores.json", "w") as out:
+        #     json.dump(scores, out, indent=2)
 
 
 
