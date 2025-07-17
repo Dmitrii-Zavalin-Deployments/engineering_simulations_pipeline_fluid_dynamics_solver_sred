@@ -11,6 +11,7 @@ from src.metrics.divergence_metrics import compute_max_divergence
 from src.metrics.projection_evaluator import calculate_projection_passes
 from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
+from src.metrics.reflex_score_evaluator import compute_score  # ✅ Patch: reflex score injection
 
 def apply_reflex(
     grid: List[Cell],
@@ -58,7 +59,6 @@ def apply_reflex(
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
 
-    # ✅ Use post-projection divergence for flag consistency
     divergence_zero = post_projection_divergence is not None and post_projection_divergence < 1e-8
     projection_skipped = projection_passes == 0
 
@@ -67,7 +67,6 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # Mutation causality tagging
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:
         triggered_by.append("ghost_influence")
@@ -75,7 +74,6 @@ def apply_reflex(
         triggered_by.append("overflow_detected")
     if damping_enabled:
         triggered_by.append("damping_enabled")
-    # "boundary_override" may be appended externally
 
     if verbosity != "low":
         print(f"📊 [reflex] Step {step}: Max velocity = {max_velocity:.3e}")
@@ -108,6 +106,14 @@ def apply_reflex(
         "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
         "post_projection_divergence": post_projection_divergence
     }
+
+    # ✅ Patch: compute reflex score using core metrics
+    score_inputs = {
+        "influence": reflex_data["ghost_influence_count"],
+        "adjacency": reflex_data["fluid_cells_modified_by_ghost"],
+        "mutation": reflex_data["pressure_mutated"]
+    }
+    reflex_data["reflex_score"], _ = compute_score(score_inputs)
 
     if verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")

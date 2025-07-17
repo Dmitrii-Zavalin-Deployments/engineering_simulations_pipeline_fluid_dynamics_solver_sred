@@ -71,13 +71,11 @@ def evolve_step(
     )
     divergence_before = stats_before["max"]
 
-    # ✅ Inject reflex-aware timestep adjustment
     base_dt = input_data.get("default_timestep", 0.01)
     delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
     trace_path = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
     dt = suggest_timestep(delta_path, trace_path, base_dt=base_dt, reflex_score=reflex_score)
 
-    # ✅ Apply momentum update using adaptive dt if supported
     velocity_updated_grid = apply_momentum_update(boundary_tagged_grid, input_data, step)
 
     try:
@@ -114,6 +112,7 @@ def evolve_step(
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
     reflex_metadata["adaptive_timestep"] = dt  # ✅ Log selected dt
+    reflex_metadata["reflex_score"] = reflex_score  # ✅ Patch: propagate reflex score
 
     if isinstance(pressure_metadata, dict):
         reflex_metadata.update(pressure_metadata)

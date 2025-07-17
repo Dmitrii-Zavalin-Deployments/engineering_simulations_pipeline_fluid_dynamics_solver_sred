@@ -9,7 +9,9 @@ from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
 from src.visualization.influence_overlay import render_influence_overlay
-from src.utils.snapshot_summary_writer import write_step_summary  # ✅ Patch: summary writer
+from src.visualization.reflex_overlay_mapper import render_reflex_overlay  # ✅ Patch: reflex overlay
+from src.utils.snapshot_summary_writer import write_step_summary
+from src.adaptive.grid_refiner import propose_refinement_zones
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -151,9 +153,28 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
 
-        # ✅ Patch: write summary CSV row per step
-        from src.utils.snapshot_summary_writer import write_step_summary
+        # ✅ Summary export
         write_step_summary(step, snapshot, output_folder="data/summaries")
+
+        # ✅ Adaptive refinement trigger
+        delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
+        propose_refinement_zones(delta_path, spacing, step_index=step)
+
+        # ✅ Reflex overlay visualization if score is sufficient
+        reflex_score = snapshot.get("reflex_score", 0.0)
+        mutation_coords = [(cell["x"], cell["y"]) for cell in snapshot.get("mutated_cells", [])]
+        adjacency_coords = reflex.get("adjacency_zones", [])
+        suppression_coords = reflex.get("suppression_zones", [])
+
+        overlay_reflex_path = os.path.join("data", "overlays", f"reflex_overlay_step_{step:03d}.png")
+        render_reflex_overlay(
+            step_index=step,
+            reflex_score=reflex_score,
+            mutation_coords=mutation_coords,
+            adjacency_coords=adjacency_coords,
+            suppression_coords=suppression_coords,
+            output_path=overlay_reflex_path
+        )
 
         if step % output_interval == 0:
             snapshots.append((step, snapshot))

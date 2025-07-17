@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from src.input_reader import load_simulation_input
 from src.snapshot_manager import generate_snapshots
-from src.compression.snapshot_compactor import compact_pressure_delta_map  # ✅ Patch: import compactor
+from src.compression.snapshot_compactor import compact_pressure_delta_map
+from src.metrics.reflex_score_evaluator import batch_evaluate_trace
 
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
     try:
@@ -27,7 +28,7 @@ def load_reflex_config(path="config/reflex_debug_config.yaml"):
             "ghost_adjacency_depth": 1
         }
 
-def run_solver(input_path: str, reflex_score_min: int = 0):
+def run_solver(input_path: str):
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
     output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
@@ -40,7 +41,6 @@ def run_solver(input_path: str, reflex_score_min: int = 0):
     print(f"📄 Input path: {input_path}")
     print(f"📁 Output folder: {output_folder}")
     print(f"⚙️  Reflex config path: {reflex_config_path}")
-    print(f"📊 Reflex compaction threshold: {reflex_score_min}")
 
     snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
 
@@ -52,23 +52,33 @@ def run_solver(input_path: str, reflex_score_min: int = 0):
             json.dump(snapshot, f, indent=2)
         print(f"🔄 Step {formatted_step} written → {filename}")
 
-        # ✅ Patch: trigger compaction for reflex-complete steps
-        reflex_score = snapshot.get("reflex_score", 0)
-        if reflex_score >= reflex_score_min:
-            original = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
-            compacted = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
-            compact_pressure_delta_map(original, compacted)
+        # ✅ Patch: compact snapshot if reflex_score ≥ 4
+        if snapshot.get("reflex_score", 0) >= 4:
+            original_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
+            compacted_path = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
+            compact_pressure_delta_map(original_path, compacted_path)
 
     print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
+
+    trace_dir = "data/snapshots"
+    pathway_log = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
+    reflex_snapshots = [snap for (_, snap) in snapshots]
+
+    audit_report = batch_evaluate_trace(trace_dir, pathway_log, reflex_snapshots)
+    print(f"\n📋 Reflex Snapshot Audit:")
+    for entry in audit_report:
+        print(f"[AUDIT] Step {entry['step_index']:04d} → "
+              f"Mutations={entry['mutated_cells']}, "
+              f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
+              f"Projection={'✓' if entry['has_projection'] else '✗'}, "
+              f"Score={entry['reflex_score']}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run fluid simulation and generate snapshots.")
     parser.add_argument("input_file", type=str, help="Path to simulation input file.")
-    parser.add_argument("--reflex_score_min", type=int, default=0,
-                        help="Minimum reflex score required to trigger compaction.")
     args = parser.parse_args()
 
-    run_solver(args.input_file, reflex_score_min=args.reflex_score_min)
+    run_solver(args.input_file)
 
 
 

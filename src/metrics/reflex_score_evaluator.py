@@ -1,19 +1,13 @@
 # src/metrics/reflex_score_evaluator.py
+# 📊 Reflex Score Evaluator — audits both summary logs and snapshot trace integrity
 
 import os
 import json
 import statistics
+from typing import List
 
+# 🔍 Existing step_summary.txt scoring (line-based)
 def evaluate_reflex_score(summary_file_path: str) -> dict:
-    """
-    Computes reflex-related metrics across simulation steps.
-
-    Parameters:
-    - summary_file_path: Path to step_summary.txt file containing simulation logs.
-
-    Returns:
-    - Dictionary with step-wise reflex scores and key statistics.
-    """
     if not os.path.isfile(summary_file_path):
         raise FileNotFoundError(f"🔍 Summary file not found → {summary_file_path}")
 
@@ -52,21 +46,76 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
     }
 
 def compute_score(components: dict) -> float:
-    """
-    Calculates a composite reflex score from extracted metrics.
-
-    Weights:
-    - influence: 0.5
-    - adjacency: 0.3
-    - mutation: 0.2
-    """
     influence_score = min(1.0, components.get("influence", 0) / 10.0)
     adjacency_score = min(1.0, components.get("adjacency", 0) / 10.0)
     mutation_score = 1.0 if components.get("mutation", False) else 0.0
-
     return round(
         0.5 * influence_score +
         0.3 * adjacency_score +
         0.2 * mutation_score,
         4
     )
+
+# 🆕 Patch: Structured trace scoring (snapshot-based)
+def load_json_safe(path: str):
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def score_pressure_mutation_volume(delta_map: dict) -> int:
+    return sum(1 for cell in delta_map.values() if abs(cell.get("delta", 0.0)) > 0.0)
+
+def score_mutation_pathway_presence(trace: list, step_index: int) -> bool:
+    return any(entry.get("step_index") == step_index for entry in trace)
+
+def score_reflex_metadata_fields(reflex: dict) -> dict:
+    return {
+        "has_projection": reflex.get("pressure_solver_invoked", False),
+        "divergence_logged": "post_projection_divergence" in reflex,
+        "reflex_score": reflex.get("reflex_score", 0)
+    }
+
+def evaluate_snapshot_health(
+    step_index: int,
+    delta_map_path: str,
+    pathway_log_path: str,
+    reflex_metadata: dict
+) -> dict:
+    delta_map = load_json_safe(delta_map_path) or {}
+    pathway_trace = load_json_safe(pathway_log_path) or []
+
+    mutation_count = score_pressure_mutation_volume(delta_map)
+    pathway_exists = score_mutation_pathway_presence(pathway_trace, step_index)
+    field_checks = score_reflex_metadata_fields(reflex_metadata)
+
+    return {
+        "step_index": step_index,
+        "mutated_cells": mutation_count,
+        "pathway_recorded": pathway_exists,
+        "has_projection": field_checks["has_projection"],
+        "divergence_logged": field_checks["divergence_logged"],
+        "reflex_score": field_checks["reflex_score"]
+    }
+
+def batch_evaluate_trace(
+    trace_folder: str,
+    pathway_log_path: str,
+    reflex_snapshots: List[dict]
+) -> List[dict]:
+    evaluations = []
+    for snapshot in reflex_snapshots:
+        step = snapshot.get("step_index")
+        delta_path = os.path.join(trace_folder, f"pressure_delta_map_step_{step:04d}.json")
+        report = evaluate_snapshot_health(
+            step_index=step,
+            delta_map_path=delta_path,
+            pathway_log_path=pathway_log_path,
+            reflex_metadata=snapshot
+        )
+        evaluations.append(report)
+    return evaluations
+
+
+

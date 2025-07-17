@@ -1,101 +1,109 @@
-# src/metrics/reflex_score_evaluator.py
+# tests/metrics/test_reflex_score_evaluator.py
+# ✅ Unit tests for src/metrics/reflex_score_evaluator.py
 
 import os
 import json
-import statistics
+import pytest
+from src.metrics.reflex_score_evaluator import (
+    evaluate_reflex_score,
+    compute_score,
+    evaluate_snapshot_health,
+    batch_evaluate_trace,
+    ADJACENCY_BONUS
+)
 
-ADJACENCY_BONUS = 0.15  # Partial credit when ghost adjacency occurs but mutation is suppressed
+@pytest.fixture
+def summary_file(tmp_path):
+    path = tmp_path / "step_summary.txt"
+    content = """
+[🔄 Step 0 Summary]
+• Influence applied: 8
+• Fluid–ghost adjacents: 6
+• Pressure mutated: True
 
-def evaluate_reflex_score(summary_file_path: str) -> dict:
-    """
-    Computes reflex-related metrics across simulation steps.
+[🔄 Step 1 Summary]
+• Influence applied: 2
+• Fluid–ghost adjacents: 3
+• Pressure mutated: False
+• Influence suppressed: 2
+"""
+    path.write_text(content.strip())
+    return str(path)
 
-    Parameters:
-    - summary_file_path: Path to step_summary.txt file containing simulation logs.
+def test_evaluate_reflex_score_from_summary(summary_file):
+    result = evaluate_reflex_score(summary_file)
+    assert result["step_count"] == 2
+    assert result["step_scores"][0] > result["step_scores"][1]
+    assert isinstance(result["average_score"], float)
+    assert "ghost_adjacency_no_mutation" in result["score_tags"][1]
 
-    Returns:
-    - Dictionary with step-wise reflex scores and key statistics.
-    """
-    if not os.path.isfile(summary_file_path):
-        raise FileNotFoundError(f"🔍 Summary file not found → {summary_file_path}")
+def test_compute_score_with_bonus_applied():
+    score, tags = compute_score({
+        "influence": 1,
+        "adjacency": 2,
+        "mutation": False,
+        "suppressed": 1
+    })
+    expected_base = round(0.5 * 0.1 + 0.3 * 0.2 + 0.2 * 0.0, 4)
+    expected_total = round(expected_base + ADJACENCY_BONUS, 4)
+    assert score == expected_total
+    assert "ghost_adjacency_no_mutation" in tags
 
-    with open(summary_file_path, "r") as f:
-        lines = f.readlines()
+def test_compute_score_with_mutation_detected():
+    score, tags = compute_score({
+        "influence": 5,
+        "adjacency": 2,
+        "mutation": True
+    })
+    assert "mutation_detected" in tags
+    assert 0.0 < score <= 1.0
 
-    step_scores = {}
-    score_tags = {}  # Optional: capture reasoning behind scores
-    current_step = None
-    score_components = {}
+@pytest.fixture
+def delta_map_file(tmp_path):
+    path = tmp_path / "pressure_delta_map_step_0000.json"
+    json.dump({
+        "(0.0, 0.0, 0.0)": {"delta": 0.02},
+        "(1.0, 0.0, 0.0)": {"delta": 0.0}
+    }, path.open("w"))
+    return str(path)
 
-    for line in lines:
-        line = line.strip()
-        if line.startswith("[🔄 Step"):
-            if current_step is not None and score_components:
-                score, tags = compute_score(score_components)
-                step_scores[current_step] = score
-                score_tags[current_step] = tags
-            current_step = int(line.split("Step")[1].split("Summary")[0].strip())
-            score_components = {}
-        elif "Influence applied" in line:
-            score_components["influence"] = int(line.split(":")[1].strip())
-        elif "Fluid–ghost adjacents" in line:
-            raw = line.split(":")[1].strip()
-            score_components["adjacency"] = int(raw) if raw.isdigit() else 0
-        elif "Pressure mutated" in line:
-            score_components["mutation"] = "True" in line
-        elif "Influence suppressed" in line:
-            raw = line.split(":")[1].strip()
-            score_components["suppressed"] = int(raw) if raw.isdigit() else 0
+@pytest.fixture
+def pathway_log_file(tmp_path):
+    path = tmp_path / "mutation_pathways_log.json"
+    json.dump([
+        {"step_index": 0},
+        {"step_index": 1}
+    ], path.open("w"))
+    return str(path)
 
-    if current_step is not None and score_components:
-        score, tags = compute_score(score_components)
-        step_scores[current_step] = score
-        score_tags[current_step] = tags
-
-    return {
-        "step_scores": step_scores,
-        "score_tags": score_tags,
-        "average_score": statistics.mean(step_scores.values()) if step_scores else 0.0,
-        "max_score": max(step_scores.values(), default=0.0),
-        "min_score": min(step_scores.values(), default=0.0),
-        "step_count": len(step_scores)
+def test_evaluate_snapshot_health_passes(delta_map_file, pathway_log_file):
+    reflex_meta = {
+        "step_index": 0,
+        "pressure_solver_invoked": True,
+        "post_projection_divergence": 0.1,
+        "reflex_score": 5
     }
-
-def compute_score(components: dict) -> tuple:
-    """
-    Calculates a composite reflex score from extracted metrics.
-
-    Weights:
-    - influence: 0.5
-    - adjacency: 0.3
-    - mutation: 0.2
-
-    Bonus:
-    - Partial credit if ghost adjacency occurs but mutation is suppressed
-    """
-    tags = []
-
-    influence_score = min(1.0, components.get("influence", 0) / 10.0)
-    adjacency_score = min(1.0, components.get("adjacency", 0) / 10.0)
-    mutation_score = 1.0 if components.get("mutation", False) else 0.0
-
-    reflex_score = round(
-        0.5 * influence_score +
-        0.3 * adjacency_score +
-        0.2 * mutation_score,
-        4
+    report = evaluate_snapshot_health(
+        step_index=0,
+        delta_map_path=delta_map_file,
+        pathway_log_path=pathway_log_file,
+        reflex_metadata=reflex_meta
     )
+    assert report["mutated_cells"] == 1
+    assert report["pathway_recorded"] is True
+    assert report["has_projection"] is True
+    assert report["divergence_logged"] is True
+    assert report["reflex_score"] == 5
 
-    # Apply bonus if ghost adjacency occurred but pressure mutation was suppressed
-    if not components.get("mutation", False):
-        if components.get("adjacency", 0) > 0 or components.get("suppressed", 0) > 0:
-            reflex_score = round(reflex_score + ADJACENCY_BONUS, 4)
-            tags.append("ghost_adjacency_no_mutation")
-
-    if components.get("mutation", False):
-        tags.append("mutation_detected")
-
-    return reflex_score, tags
+def test_batch_evaluate_trace_runs(delta_map_file, pathway_log_file):
+    snapshots = [{"step_index": 0, "pressure_solver_invoked": True, "reflex_score": 3}]
+    reports = batch_evaluate_trace(
+        trace_folder=os.path.dirname(delta_map_file),
+        pathway_log_path=pathway_log_file,
+        reflex_snapshots=snapshots
+    )
+    assert len(reports) == 1
+    assert "mutated_cells" in reports[0]
 
 
 

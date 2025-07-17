@@ -1,14 +1,19 @@
 # src/ci/reflex_log_score.py
+# 📊 Reflex Log Score — CI log parser and simulation summary evaluator
 
 import os
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
 MARKERS = {
     "Pressure updated @": "pressure_mutation",
-    "Divergence stats (after projection):": "divergence_tracking",
+    "Divergence stats (before projection):": "divergence_tracking_pre",
+    "Divergence stats (after projection):": "divergence_tracking_post",
     "Influence skipped: matched fields": "ghost_suppression",
     "Mutation pathway recorded →": "mutation_pathway",
-    "Pressure delta map saved →": "pressure_delta"
+    "Pressure delta map saved →": "pressure_delta",
+    "Step summary": "step_summary_detected",
+    "[AUDIT] Step": "audit_report_triggered",
+    "[COMPACTOR] ✅ Compacted snapshot saved": "snapshot_compacted"
 }
 
 def score_reflex_log_text(log_text: str) -> dict:
@@ -55,3 +60,6 @@ def score_combined(log_text: str, summary_path: str) -> dict:
         "ci_log_score": score_reflex_log_text(log_text),
         "summary_score": score_from_summary_file(summary_path)
     }
+
+
+
