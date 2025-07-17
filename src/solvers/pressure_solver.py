@@ -62,6 +62,10 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
                 "delta": delta
             }
 
+            # ✅ Optional audit: capture ghost flag if present on mutated cell
+            if hasattr(updated, "influenced_by_ghost") and updated.influenced_by_ghost:
+                print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
+
     if mutation_count == 0:
         print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
     else:

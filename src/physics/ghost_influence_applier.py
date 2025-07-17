@@ -75,6 +75,9 @@ def apply_ghost_influence(
                     logger.debug(f"[influence] ghost.v={ghost.velocity}, fluid.v={fluid_cell.velocity}")
                     logger.debug(f"[influence] suppression reason: fields matched within tolerance")
 
+                # ✅ Optional audit: log adjacency context even if no pressure mutation occurred
+                logger.debug(f"[audit] Ghost→Fluid neighbor match @ {f_coord}, enforced={modified}")
+
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
         print(f"[DEBUG] Total fluid cells adjacent to ghosts: {bordering_fluid_count}")
