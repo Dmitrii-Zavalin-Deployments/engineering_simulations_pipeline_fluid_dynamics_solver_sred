@@ -52,7 +52,7 @@ def run_solver(input_path: str):
             json.dump(snapshot, f, indent=2)
         print(f"🔄 Step {formatted_step} written → {filename}")
 
-        # ✅ Patch: compact snapshot if reflex_score ≥ 4
+        # ✅ Score validation patch: compact snapshot only if reflex_score is numeric and meets threshold
         score = snapshot.get("reflex_score")
         if not isinstance(score, (int, float)):
             score = 0.0

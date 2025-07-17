@@ -45,7 +45,7 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
         "step_count": len(step_scores)
     }
 
-# ✅ Patch: debug instrumentation for scoring logic
+# ✅ Patch: fallback scoring logic for suppressed influence
 def compute_score(inputs: dict) -> float:
     mutation = inputs.get("mutation", False)
     adjacency = inputs.get("adjacency", 0)
@@ -58,7 +58,8 @@ def compute_score(inputs: dict) -> float:
         if influence > 0:
             score += 2.0
         elif adjacency > 0:
-            print("[DEBUG] [score] Influence skipped due to field match → assigning score=0.0")
+            print("[DEBUG] [score] Mutation near ghost but influence was suppressed")
+            score += 0.2  # Soft fallback heuristic
         else:
             print("[DEBUG] [score] Mutation occurred without ghost relation")
 

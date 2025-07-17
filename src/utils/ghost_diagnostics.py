@@ -66,11 +66,27 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
                 abs(a[2] - b[2]) <= dz + tol
             )
 
-        for f_coord in fluid_coords:
+        for cell in grid:
+            if not getattr(cell, "fluid_mask", False):
+                continue
+            fluid_coord = (cell.x, cell.y, cell.z)
             for g_coord in ghost_coords:
-                if coords_are_neighbors(f_coord, g_coord):
-                    print(f"[DEBUG] Fluid {f_coord} ↔ Ghost {g_coord} → adjacent")
-                    adjacent_fluid_cells.add(f_coord)
+                if coords_are_neighbors(fluid_coord, g_coord):
+                    print(f"[DEBUG] Fluid {fluid_coord} ↔ Ghost {g_coord} → adjacent")
+                    adjacent_fluid_cells.add(fluid_coord)
+
+                    # ✅ Patch: context-based influence tagging
+                    ghost_meta = None
+                    if isinstance(ghost_registry, dict):
+                        ghost_meta = next((meta for meta in ghost_registry.values() if meta.get("coordinate") == g_coord), None)
+                    elif isinstance(ghost_registry, set):
+                        ghost_meta = next((g for g in ghost_registry if (g.x, g.y, g.z) == g_coord), None)
+
+                    if ghost_meta:
+                        was_enforced = getattr(ghost_meta, "was_enforced", False)
+                        from_boundary = getattr(ghost_meta, "originated_from_boundary", False)
+                        if was_enforced or from_boundary:
+                            cell.influenced_by_ghost = True
 
     return {
         "total": total,

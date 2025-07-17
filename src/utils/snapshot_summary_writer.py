@@ -30,8 +30,14 @@ def write_step_summary(
         "projection_passes",
         "ghost_influence_count",
         "max_divergence",
-        "mean_divergence"
+        "mean_divergence",
+        "ghost_adjacent_but_influence_suppressed"  # ✅ Patch: audit flag
     ]
+
+    # Diagnostic flag: suppression event
+    adjacency = reflex_metadata.get("fluid_cells_adjacent_to_ghosts", 0)
+    influence = reflex_metadata.get("fluid_cells_modified_by_ghost", 0)
+    suppression_flag = adjacency > 0 and influence == 0
 
     # Construct row
     row = {
@@ -43,7 +49,8 @@ def write_step_summary(
         "projection_passes": reflex_metadata.get("projection_passes", ""),
         "ghost_influence_count": reflex_metadata.get("ghost_influence_count", ""),
         "max_divergence": reflex_metadata.get("post_projection_divergence", ""),
-        "mean_divergence": reflex_metadata.get("mean_divergence", "")
+        "mean_divergence": reflex_metadata.get("mean_divergence", ""),
+        "ghost_adjacent_but_influence_suppressed": suppression_flag
     }
 
     # Write header if new file
@@ -55,3 +62,6 @@ def write_step_summary(
         writer.writerow(row)
 
     print(f"[SUMMARY] 📊 Step {step_index} summary written → {summary_path}")
+
+
+
