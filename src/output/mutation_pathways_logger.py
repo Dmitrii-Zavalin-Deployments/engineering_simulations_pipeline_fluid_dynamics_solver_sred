@@ -47,6 +47,12 @@ def log_mutation_pathway(
 
     if triggered_cells:
         entry["triggered_cells"] = [serialize_cell(cell) for cell in triggered_cells]
+        # ✅ Patch: export coordinate tuples for mutated_cells
+        entry["mutated_cells"] = [
+            (cell.x, cell.y, cell.z)
+            for cell in triggered_cells
+            if hasattr(cell, "x") and hasattr(cell, "y") and hasattr(cell, "z")
+        ]
 
     try:
         with open(log_path, "r") as f:
