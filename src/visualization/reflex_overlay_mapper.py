@@ -26,6 +26,9 @@ def render_reflex_overlay(
         output_path (str): Path to write PNG image
         score_threshold (float): Minimum reflex score to trigger rendering
     """
+    # ✅ Defensive fallback patch
+    if not isinstance(reflex_score, (int, float)):
+        reflex_score = 0.0
     if reflex_score < score_threshold:
         print(f"[OVERLAY] 🛑 Skipping overlay: score {reflex_score} below threshold {score_threshold}")
         return

@@ -161,7 +161,9 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         propose_refinement_zones(delta_path, spacing, step_index=step)
 
         # ✅ Reflex overlay visualization if score is sufficient
-        reflex_score = snapshot.get("reflex_score", 0.0)
+        reflex_score = snapshot.get("reflex_score")
+        if not isinstance(reflex_score, (int, float)):
+            reflex_score = 0.0  # ✅ Defensive fallback: ensure numeric
         mutation_coords = [
             (cell["x"], cell["y"]) if isinstance(cell, dict)
             else cell if isinstance(cell, tuple) and len(cell) == 2
