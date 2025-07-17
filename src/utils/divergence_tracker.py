@@ -74,9 +74,10 @@ def compute_divergence_stats(
     count = len(values)
 
     if not quiet:
-        print("Divergence stats (after projection):")  # ✅ Patch applied
         if label:
             print(f"[DEBUG] 📈 Divergence stats ({label}):")
+        else:
+            print(f"[DEBUG] 📈 Divergence stats:")
         print(f"   Max divergence: {max_div:.6e}")
         print(f"   Mean divergence: {mean_div:.6e}")
         print(f"   Cells evaluated: {count}")

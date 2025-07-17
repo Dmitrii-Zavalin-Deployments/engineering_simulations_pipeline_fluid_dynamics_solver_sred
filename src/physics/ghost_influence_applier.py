@@ -1,8 +1,11 @@
 # src/physics/ghost_influence_applier.py
 # 🧱 Ghost Influence Applier — applies pressure/velocity from ghosts to adjacent fluid cells
 
+import logging
 from typing import List, Tuple
 from src.grid_modules.cell import Cell
+
+logger = logging.getLogger(__name__)
 
 def fuzzy_equal(v1: List[float], v2: List[float], tol: float = 1e-6) -> bool:
     return all(abs(a - b) <= tol for a, b in zip(v1, v2))
@@ -37,6 +40,9 @@ def apply_ghost_influence(
     for ghost in ghost_cells:
         ghost_coord = (round(ghost.x, 6), round(ghost.y, 6), round(ghost.z, 6))
 
+        if verbose:
+            print(f"[ghost_gen] ghost.cell @ {ghost_coord} → velocity={ghost.velocity}, pressure={ghost.pressure}")
+
         for f_coord, fluid_cell in fluid_coord_map.items():
             if coords_are_neighbors(ghost_coord, f_coord):
                 bordering_fluid_count += 1
@@ -65,7 +71,9 @@ def apply_ghost_influence(
                     fluid_cell.triggered_by = "ghost adjacency — no mutation (fields matched)"
                     if verbose and velocity_match and pressure_match:
                         skipped_due_to_match += 1
-                        print(f"Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")  # ✅ Patch applied
+                        print(f"Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")
+                    logger.debug(f"[influence] ghost.v={ghost.velocity}, fluid.v={fluid_cell.velocity}")
+                    logger.debug(f"[influence] suppression reason: fields matched within tolerance")
 
     if verbose:
         print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
