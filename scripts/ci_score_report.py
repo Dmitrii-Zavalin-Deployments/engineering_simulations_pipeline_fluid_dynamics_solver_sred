@@ -1,8 +1,5 @@
 # src/ci/reflex_log_score.py
 
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
 MARKERS = {
@@ -57,3 +54,6 @@ def score_combined(log_text: str, summary_path: str) -> dict:
         "ci_log_score": score_reflex_log_text(log_text),
         "summary_score": score_from_summary_file(summary_path)
     }
+
+
+
