@@ -67,7 +67,7 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}/src
       run: |
-        python src/scripts/ci_score_report.py
+        python src/ci_score_report.py
         echo "✅ Reflex scoring completed."
 
     - name: 🗃️ Inspect Repository Structure
