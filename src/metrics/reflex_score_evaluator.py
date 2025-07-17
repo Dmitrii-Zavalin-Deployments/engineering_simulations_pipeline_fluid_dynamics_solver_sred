@@ -60,6 +60,9 @@ def compute_score(inputs: dict) -> float:
         elif adjacency > 0:
             print("[DEBUG] [score] Mutation near ghost but influence was suppressed")
             score += 0.2  # Soft fallback heuristic
+        elif adjacency == 0 and influence == 0:
+            print("[DEBUG] [score] Mutation near ghost but tagging suppressed → soft fallback applied")
+            score += 0.2
         else:
             print("[DEBUG] [score] Mutation occurred without ghost relation")
 

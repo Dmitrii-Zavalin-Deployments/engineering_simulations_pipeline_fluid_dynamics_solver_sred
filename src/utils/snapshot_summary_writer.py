@@ -31,10 +31,10 @@ def write_step_summary(
         "ghost_influence_count",
         "max_divergence",
         "mean_divergence",
-        "ghost_adjacent_but_influence_suppressed"  # ✅ Audit flag via tagging
+        "ghost_adjacent_but_influence_suppressed"  # ✅ Suppression audit refinement
     ]
 
-    # Diagnostic suppression check based on influence tagging only
+    # ✅ Updated logic for suppression detection
     suppression_flag = (
         reflex_metadata.get("fluid_cells_modified_by_ghost", 0) == 0 and
         reflex_metadata.get("ghost_influence_count", 0) > 0

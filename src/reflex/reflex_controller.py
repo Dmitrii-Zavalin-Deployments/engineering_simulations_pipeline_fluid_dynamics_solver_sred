@@ -23,23 +23,6 @@ def apply_reflex(
     pressure_mutated: Optional[bool] = None,
     post_projection_divergence: Optional[float] = None
 ) -> dict:
-    """
-    Applies reflex diagnostics including velocity, divergence, CFL, overflow,
-    damping logic, time-step adaptation, projection estimation, and mutation cause tracking.
-
-    Args:
-        grid (List[Cell]): Simulation grid
-        input_data (dict): Full simulation config
-        step (int): Current simulation step index
-        ghost_influence_count (Optional[int]): Fluid cells modified by ghosts
-        config (Optional[dict]): Reflex diagnostic flags
-        pressure_solver_invoked (Optional[bool]): True if pressure projection solver ran
-        pressure_mutated (Optional[bool]): True if pressure field was updated
-        post_projection_divergence (Optional[float]): Divergence after projection
-
-    Returns:
-        dict: Flattened reflex metadata fields for snapshot
-    """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     include_div_delta = (config or {}).get("include_divergence_delta", False)
     include_pressure_map = (config or {}).get("include_pressure_mutation_map", False)
@@ -107,7 +90,6 @@ def apply_reflex(
         "post_projection_divergence": post_projection_divergence
     }
 
-    # ✅ Patch: scoring inputs without fallback logic
     score_inputs = {
         "influence": reflex_data["ghost_influence_count"],
         "adjacency": reflex_data["fluid_cells_modified_by_ghost"],
@@ -118,6 +100,14 @@ def apply_reflex(
     score = compute_score(score_inputs)
     print(f"[DEBUG] Step {step} → computed reflex score: {score}")
     reflex_data["reflex_score"] = score if isinstance(score, (int, float)) else 0.0
+
+    # ✅ Patch: log tagging suppression anomalies
+    if (
+        reflex_data["pressure_mutated"]
+        and reflex_data["ghost_influence_count"] > 0
+        and reflex_data["fluid_cells_modified_by_ghost"] == 0
+    ):
+        print(f"[SUPPRESSION] Step {step}: ghost influence present but no fluid cells tagged — check tagging logic")
 
     if verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
