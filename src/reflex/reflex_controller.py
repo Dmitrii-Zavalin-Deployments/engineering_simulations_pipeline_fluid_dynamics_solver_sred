@@ -113,7 +113,7 @@ def apply_reflex(
         "adjacency": reflex_data["fluid_cells_modified_by_ghost"],
         "mutation": reflex_data["pressure_mutated"]
     }
-    reflex_data["reflex_score"], _ = compute_score(score_inputs)
+    reflex_data["reflex_score"] = compute_score(score_inputs)
 
     if verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
