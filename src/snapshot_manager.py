@@ -9,7 +9,7 @@ from src.utils.ghost_diagnostics import inject_diagnostics
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
 from src.visualization.influence_overlay import render_influence_overlay
-from src.visualization.reflex_overlay_mapper import render_reflex_overlay  # ✅ Patch: reflex overlay
+from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
 from src.adaptive.grid_refiner import propose_refinement_zones
 
@@ -151,23 +151,21 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             **{k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected"]}
         }
 
-        # ✅ Patch: Ensure reflex_score is present and numeric
+        # ✅ Patch applied: preserve reflex_score as float
         score = reflex.get("reflex_score")
-        snapshot["reflex_score"] = score if isinstance(score, (int, float)) else 0.0
+        snapshot["reflex_score"] = float(score) if isinstance(score, (int, float)) else 0.0
 
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
 
-        # ✅ Summary export
         write_step_summary(step, snapshot, output_folder="data/summaries")
 
-        # ✅ Adaptive refinement trigger
         delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
         propose_refinement_zones(delta_path, spacing, step_index=step)
 
-        # ✅ Reflex overlay visualization if score is sufficient
         reflex_score = snapshot.get("reflex_score")
         if not isinstance(reflex_score, (int, float)):
-            reflex_score = 0.0  # ✅ Defensive fallback: ensure numeric
+            reflex_score = 0.0
+
         mutation_coords = [
             (cell["x"], cell["y"]) if isinstance(cell, dict)
             else cell if isinstance(cell, tuple) and len(cell) == 2

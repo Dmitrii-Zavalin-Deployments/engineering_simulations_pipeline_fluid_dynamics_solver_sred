@@ -13,7 +13,9 @@ MARKERS = {
     "Pressure delta map saved →": "pressure_delta",
     "Step summary": "step_summary_detected",
     "[AUDIT] Step": "audit_report_triggered",
-    "[COMPACTOR] ✅ Compacted snapshot saved": "snapshot_compacted"
+    "[COMPACTOR] ✅ Compacted snapshot saved": "snapshot_compacted",
+    # ✅ Patch: fallback scoring detection
+    "Mutation near ghost but tagging suppressed": "fallback_applied"
 }
 
 def score_reflex_log_text(log_text: str) -> dict:

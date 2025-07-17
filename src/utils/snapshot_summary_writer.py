@@ -40,10 +40,13 @@ def write_step_summary(
         reflex_metadata.get("ghost_influence_count", 0) > 0
     )
 
-    # ✅ Safety check: confirm reflex_score is numeric
-    reflex_score = reflex_metadata.get("reflex_score", "")
+    # ✅ Defensive type check for scoring field
+    reflex_score = reflex_metadata.get("reflex_score", 0.0)
     if not isinstance(reflex_score, (int, float)):
-        reflex_score = 0.0
+        try:
+            reflex_score = float(reflex_score)
+        except:
+            reflex_score = 0.0
 
     print(f"[SUMMARY DEBUG] Reflex score for step {step_index}: {reflex_score}")
 

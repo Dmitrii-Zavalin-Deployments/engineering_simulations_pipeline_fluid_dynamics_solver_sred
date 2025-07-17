@@ -23,7 +23,7 @@ if __name__ == "__main__":
         print(f"↪️ Marker score: {scores['ci_log_score']['reflex_score']}")
         print(f"↪️ Summary score: {scores['summary_score']['average_score']:.2f} (avg)")
 
-        # ✅ Patch: threshold awareness
+        # ✅ Patch: threshold awareness for audit visibility
         if scores["summary_score"]["average_score"] < 0.5:
             print("⚠️ Reflex score below expected threshold.")
 
