@@ -53,7 +53,10 @@ def run_solver(input_path: str):
         print(f"🔄 Step {formatted_step} written → {filename}")
 
         # ✅ Patch: compact snapshot if reflex_score ≥ 4
-        if snapshot.get("reflex_score", 0) >= 4:
+        score = snapshot.get("reflex_score")
+        if not isinstance(score, (int, float)):
+            score = 0.0
+        if score >= 4:
             original_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
             compacted_path = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
             compact_pressure_delta_map(original_path, compacted_path)
