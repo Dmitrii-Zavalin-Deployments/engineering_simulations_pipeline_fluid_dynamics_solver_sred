@@ -65,7 +65,7 @@ jobs:
 
     - name: 📊 Evaluate Reflex Scoring
       run: |
-        python scripts/ci_score_report.py
+        PYTHONPATH=src python scripts/ci_score_report.py
         echo "✅ Reflex scoring completed."
 
     - name: 🗃️ Inspect Repository Structure
