@@ -64,9 +64,9 @@ jobs:
         echo "✅ Snapshot validation executed."
 
     - name: 📊 Evaluate Reflex Scoring
+      env:
+        PYTHONPATH: ${{ github.workspace }}/src
       run: |
-        run: |
-        export PYTHONPATH=$PYTHONPATH:./src
         python src/scripts/ci_score_report.py
         echo "✅ Reflex scoring completed."
 

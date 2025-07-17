@@ -1,7 +1,11 @@
 # src/scripts/ci_score_report.py
 
 import os
-from ci.reflex_log_score import score_combined
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from src.ci.reflex_log_score import score_combined
 
 SUMMARY_PATH = "data/testing-input-output/navier_stokes_output/step_summary.txt"
 
