@@ -151,6 +151,10 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             **{k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected"]}
         }
 
+        # ✅ Patch: Ensure reflex_score is present and numeric
+        score = reflex.get("reflex_score")
+        snapshot["reflex_score"] = score if isinstance(score, (int, float)) else 0.0
+
         snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
 
         # ✅ Summary export

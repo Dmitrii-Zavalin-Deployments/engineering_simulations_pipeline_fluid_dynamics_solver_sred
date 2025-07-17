@@ -45,16 +45,25 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
         "step_count": len(step_scores)
     }
 
-def compute_score(components: dict) -> float:
-    influence_score = min(1.0, components.get("influence", 0) / 10.0)
-    adjacency_score = min(1.0, components.get("adjacency", 0) / 10.0)
-    mutation_score = 1.0 if components.get("mutation", False) else 0.0
-    return round(
-        0.5 * influence_score +
-        0.3 * adjacency_score +
-        0.2 * mutation_score,
-        4
-    )
+# ✅ Patch: debug instrumentation for scoring logic
+def compute_score(inputs: dict) -> float:
+    mutation = inputs.get("mutation", False)
+    adjacency = inputs.get("adjacency", 0)
+    influence = inputs.get("influence", 0)
+
+    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}")
+
+    score = 0.0
+    if mutation:
+        if influence > 0:
+            score += 2.0
+        elif adjacency > 0:
+            print("[DEBUG] [score] Influence skipped due to field match → assigning score=0.0")
+        else:
+            print("[DEBUG] [score] Mutation occurred without ghost relation")
+
+    print(f"[DEBUG] [score] Final score={score}")
+    return score
 
 # 🆕 Patch: Structured trace scoring (snapshot-based)
 def load_json_safe(path: str):
