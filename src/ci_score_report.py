@@ -1,8 +1,9 @@
-# src/scripts/ci_score_report.py
+# src/ci_score_report.py
 
 import os
 import sys
 
+# Ensure src/ is available on import path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.ci.reflex_log_score import score_combined
@@ -21,6 +22,10 @@ if __name__ == "__main__":
         print(f"↪️ Matched markers: {scores['ci_log_score']['markers_matched']}")
         print(f"↪️ Marker score: {scores['ci_log_score']['reflex_score']}")
         print(f"↪️ Summary score: {scores['summary_score']['average_score']:.2f} (avg)")
+
+        # ✅ Patch: threshold awareness
+        if scores["summary_score"]["average_score"] < 0.5:
+            print("⚠️ Reflex score below expected threshold.")
 
         # ✅ Optionally write to file if needed:
         # with open("reflex_ci_scores.json", "w") as out:

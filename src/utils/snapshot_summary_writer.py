@@ -14,7 +14,7 @@ def write_step_summary(
 
     Args:
         step_index (int): Simulation step index
-        reflex_metadata (dict): Reflex metadata dictionary from evolve_step
+        reflex_metadata (dict): Snapshot metadata dictionary containing reflex metrics
         output_folder (str): Directory to store summary file
     """
     os.makedirs(output_folder, exist_ok=True)
@@ -34,16 +34,23 @@ def write_step_summary(
         "ghost_adjacent_but_influence_suppressed"  # ✅ Suppression audit refinement
     ]
 
-    # ✅ Patch applied: detect suppression cases via influence tags
+    # ✅ Patch: detect suppression cases via influence tags
     suppression_flag = (
         reflex_metadata.get("fluid_cells_modified_by_ghost", 0) == 0 and
         reflex_metadata.get("ghost_influence_count", 0) > 0
     )
 
+    # ✅ Safety check: confirm reflex_score is numeric
+    reflex_score = reflex_metadata.get("reflex_score", "")
+    if not isinstance(reflex_score, (int, float)):
+        reflex_score = 0.0
+
+    print(f"[SUMMARY DEBUG] Reflex score for step {step_index}: {reflex_score}")
+
     # Construct row
     row = {
         "step_index": step_index,
-        "reflex_score": reflex_metadata.get("reflex_score", ""),
+        "reflex_score": reflex_score,
         "adaptive_timestep": reflex_metadata.get("adaptive_timestep", ""),
         "mutation_density": reflex_metadata.get("mutation_density", ""),
         "pressure_mutated": reflex_metadata.get("pressure_mutated", ""),
