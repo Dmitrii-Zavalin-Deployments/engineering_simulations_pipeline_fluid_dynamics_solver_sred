@@ -162,7 +162,12 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
         # ✅ Reflex overlay visualization if score is sufficient
         reflex_score = snapshot.get("reflex_score", 0.0)
-        mutation_coords = [(cell["x"], cell["y"]) for cell in snapshot.get("mutated_cells", [])]
+        mutation_coords = [
+            (cell["x"], cell["y"]) if isinstance(cell, dict)
+            else cell if isinstance(cell, tuple) and len(cell) == 2
+            else (0, 0)
+            for cell in snapshot.get("mutated_cells", [])
+        ]
         adjacency_coords = reflex.get("adjacency_zones", [])
         suppression_coords = reflex.get("suppression_zones", [])
 
