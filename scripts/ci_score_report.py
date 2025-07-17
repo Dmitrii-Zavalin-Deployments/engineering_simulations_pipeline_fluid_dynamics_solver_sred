@@ -1,6 +1,8 @@
 # src/ci/reflex_log_score.py
 
+import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
 MARKERS = {
