@@ -14,7 +14,11 @@ def render_influence_overlay(influence_log, output_path, score_threshold=0.85):
     - output_path: string path to save the generated visual
     - score_threshold: float, reflex-complete threshold
     """
-    score = influence_log.get("step_score", 0.0)
+    # ✅ Patch: use fallback to prevent NoneType comparison
+    score = influence_log.get("step_score")
+    if not isinstance(score, (int, float)):
+        score = 0.0
+
     if score < score_threshold:
         print(f"🛑 Skipping overlay: score {score} below threshold {score_threshold}")
         return
@@ -46,3 +50,6 @@ def render_influence_overlay(influence_log, output_path, score_threshold=0.85):
     plt.savefig(output_path)
     plt.close()
     print(f"✅ Influence overlay saved to {output_path}")
+
+
+
