@@ -12,7 +12,6 @@ from src.metrics.projection_evaluator import calculate_projection_passes
 from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
 from src.metrics.reflex_score_evaluator import compute_score
-from src.metrics.ghost_proximity_evaluator import count_fluid_cells_adjacent_to_ghosts  # ✅ Patch: adjacency fallback
 
 def apply_reflex(
     grid: List[Cell],
@@ -108,19 +107,12 @@ def apply_reflex(
         "post_projection_divergence": post_projection_divergence
     }
 
-    # ✅ Patch: adjacency fallback for resilient scoring
-    reflex_data["fluid_cells_adjacent_to_ghosts"] = count_fluid_cells_adjacent_to_ghosts(grid)
-
+    # ✅ Patch: scoring inputs without fallback logic
     score_inputs = {
         "influence": reflex_data["ghost_influence_count"],
+        "adjacency": reflex_data["fluid_cells_modified_by_ghost"],
         "mutation": reflex_data["pressure_mutated"]
     }
-
-    # Use influence-tagged cells if available; fallback to adjacency otherwise
-    if reflex_data["fluid_cells_modified_by_ghost"] > 0:
-        score_inputs["adjacency"] = reflex_data["fluid_cells_modified_by_ghost"]
-    else:
-        score_inputs["adjacency"] = reflex_data["fluid_cells_adjacent_to_ghosts"]
 
     print(f"[DEBUG] Step {step} → reflex scoring inputs: {score_inputs}")
     score = compute_score(score_inputs)

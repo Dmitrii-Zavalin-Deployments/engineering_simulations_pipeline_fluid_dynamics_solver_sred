@@ -31,13 +31,14 @@ def write_step_summary(
         "ghost_influence_count",
         "max_divergence",
         "mean_divergence",
-        "ghost_adjacent_but_influence_suppressed"  # ✅ Patch: audit flag
+        "ghost_adjacent_but_influence_suppressed"  # ✅ Audit flag via tagging
     ]
 
-    # Diagnostic flag: suppression event
-    adjacency = reflex_metadata.get("fluid_cells_adjacent_to_ghosts", 0)
-    influence = reflex_metadata.get("fluid_cells_modified_by_ghost", 0)
-    suppression_flag = adjacency > 0 and influence == 0
+    # Diagnostic suppression check based on influence tagging only
+    suppression_flag = (
+        reflex_metadata.get("fluid_cells_modified_by_ghost", 0) == 0 and
+        reflex_metadata.get("ghost_influence_count", 0) > 0
+    )
 
     # Construct row
     row = {
