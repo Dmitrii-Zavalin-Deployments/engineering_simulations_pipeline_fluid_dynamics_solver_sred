@@ -89,7 +89,7 @@ def process_snapshot_step(
         ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
         print(f"[DEBUG] ghost_registry count = {ghost_count}")
 
-        # All other fields with fallback and debug
+        # Other reflex metrics with fallback
         influence_applied = reflex.get("ghost_influence_count", "?")
         print(f"[DEBUG] ghost_influence_count = {influence_applied}")
 
@@ -106,6 +106,17 @@ def process_snapshot_step(
         )
         print(f"[DEBUG] pressure_mutated = {pressure_mutated_str}")
 
+        reflex_score_val = reflex.get("reflex_score")
+        reflex_score_str = f"{reflex_score_val:.2f}" if isinstance(reflex_score_val, (int, float)) else "?"
+        print(f"[DEBUG] reflex_score = {reflex_score_str}")
+
+        mutated_cells_count = len(reflex.get("mutated_cells", []))
+        print(f"[DEBUG] mutated_cells count = {mutated_cells_count}")
+
+        adaptive_timestep_val = reflex.get("adaptive_timestep")
+        adaptive_timestep_str = f"{adaptive_timestep_val:.3f}" if isinstance(adaptive_timestep_val, (int, float)) else "?"
+        print(f"[DEBUG] adaptive_timestep = {adaptive_timestep_str}")
+
         # Write formatted summary block
         f.write(f"""[🔄 Step {step} Summary]
     • Ghosts: {ghost_count}
@@ -115,6 +126,9 @@ def process_snapshot_step(
     • Projection attempted: {projection_attempted}
     • Projection skipped: {projection_skipped}
     • Pressure mutated: {pressure_mutated_str}
+    • Reflex score: {reflex_score_str}
+    • Mutated cells: {mutated_cells_count}
+    • Adaptive timestep: {adaptive_timestep_str}
 
     """)
 
