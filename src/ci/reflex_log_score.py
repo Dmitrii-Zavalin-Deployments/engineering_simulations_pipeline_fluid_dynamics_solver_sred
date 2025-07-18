@@ -4,26 +4,22 @@
 import os
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
+# ✅ Updated markers for boolean-style summary detection
 MARKERS = {
-    "Pressure updated @": "pressure_mutation",
-    "Divergence stats (before projection):": "divergence_tracking_pre",
-    "Divergence stats (after projection):": "divergence_tracking_post",
-    "Influence skipped: matched fields": "ghost_suppression",
-    "Mutation pathway recorded →": "mutation_pathway",
-    "Pressure delta map saved →": "pressure_delta",
-    "Step summary": "step_summary_detected",
-    "[AUDIT] Step": "audit_report_triggered",
-    "[COMPACTOR] ✅ Compacted snapshot saved": "snapshot_compacted",
-    # ✅ Patch: fallback scoring detection
-    "Mutation near ghost but tagging suppressed → soft fallback applied": "fallback_applied"
+    "Pressure mutated: True": "pressure_mutation",
+    "Pressure solver invoked: True": "projection_triggered",
+    "Projection attempted: True": "projection_attempted",
+    "Projection skipped: True": "projection_skipped",
+    "[🔄 Step": "step_summary_detected"
 }
 
 def score_reflex_log_text(log_text: str) -> dict:
     """
-    Scans CI logs for key diagnostic markers and computes a simple reflex score.
+    Scans simulation summaries or CI logs for boolean diagnostic markers
+    and computes a simple reflex score.
 
     Parameters:
-    - log_text: string containing raw build logs
+    - log_text: string containing raw log or summary content
 
     Returns:
     - dict with reflex score summary
@@ -53,7 +49,7 @@ def score_combined(log_text: str, summary_path: str) -> dict:
     Computes both CI marker score and simulation summary score.
 
     Parameters:
-    - log_text: string log text from CI build
+    - log_text: string log text or summary file content
     - summary_path: path to summary file from simulation pipeline
 
     Returns:
