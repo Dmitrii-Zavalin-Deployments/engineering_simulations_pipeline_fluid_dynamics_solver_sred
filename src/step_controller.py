@@ -112,7 +112,6 @@ def evolve_step(
     reflex_metadata["boundary_condition_applied"] = boundary_applied
     reflex_metadata["projection_passes"] = projection_passes
     reflex_metadata["adaptive_timestep"] = dt  # ✅ Log selected dt
-    reflex_metadata["reflex_score"] = reflex_score  # ✅ Patch: propagate reflex score
 
     if isinstance(pressure_metadata, dict):
         reflex_metadata.update(pressure_metadata)
