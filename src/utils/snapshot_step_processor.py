@@ -67,6 +67,8 @@ def process_snapshot_step(
         ]
     )
 
+    print(f"[DEBUG] reflex data for step summary {reflex}")
+
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
         f.write(f"""[🔄 Step {step} Summary]
