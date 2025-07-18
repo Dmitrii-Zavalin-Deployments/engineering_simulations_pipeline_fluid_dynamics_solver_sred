@@ -71,13 +71,17 @@ def process_snapshot_step(
     print(f"[DEBUG] reflex data testing {reflex.get("fluid_cells_adjacent_to_ghosts")}")
     key_to_check = "fluid_cells_adjacent_to_ghosts"
 
-    if key_to_check in reflex:
-        print(f"[DEBUG] ✅ Key '{key_to_check}' exists with value: {reflex[key_to_check]}")
+    # Direct test with nested fallback for ghost_diagnostics
+    value = reflex.get(key_to_check)
+    if value is not None:
+        print(f"[DEBUG] ✅ Key '{key_to_check}' exists at top level with value: {value}")
+    elif "ghost_diagnostics" in reflex and key_to_check in reflex["ghost_diagnostics"]:
+        nested_value = reflex["ghost_diagnostics"][key_to_check]
+        print(f"[DEBUG] ✅ Key '{key_to_check}' found in reflex['ghost_diagnostics'] with value: {nested_value}")
     else:
         available_keys = list(reflex.keys())
         print(f"[DEBUG] ❌ Key '{key_to_check}' not found in reflex.")
-        print(f"[DEBUG] 🔎 Available reflex keys: {available_keys}")
-
+        print(f"[DEBUG] 🔎 Available top-level reflex keys: {available_keys}")
 
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
