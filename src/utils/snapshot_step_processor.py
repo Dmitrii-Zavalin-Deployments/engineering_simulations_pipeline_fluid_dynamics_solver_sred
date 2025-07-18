@@ -71,16 +71,22 @@ def process_snapshot_step(
 
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
-        f.write(f"""[🔄 Step {step} Summary]
-• Ghosts: {len(reflex.get("ghost_registry", []))}
-• Fluid–ghost adjacents: {reflex.get("fluid_cells_adjacent_to_ghosts", "?")}
-• Influence applied: {reflex.get("ghost_influence_count", 0)}
-• Max divergence: {reflex.get("max_divergence", "?"):.6e}
-• Projection attempted: {reflex.get("pressure_solver_invoked", False)}
-• Projection skipped: {reflex.get("projection_skipped", False)}
-• Pressure mutated: {pressure_mutated}
+        try:
+            divergence_value = reflex["max_divergence"]
+            divergence_str = f"{divergence_value:.6e}"
+        except (KeyError, TypeError):
+            divergence_str = "?"
 
-""")
+        f.write(f"""[🔄 Step {step} Summary]
+    • Ghosts: {len(reflex["ghost_registry"])}
+    • Fluid–ghost adjacents: {reflex["fluid_cells_adjacent_to_ghosts"]}
+    • Influence applied: {reflex["ghost_influence_count"]}
+    • Max divergence: {divergence_str}
+    • Projection attempted: {reflex["pressure_solver_invoked"]}
+    • Projection skipped: {reflex["projection_skipped"]}
+    • Pressure mutated: {pressure_mutated}
+
+    """)
 
     serialized_grid = []
     for cell in grid:
