@@ -99,7 +99,7 @@ def test_max_velocity(snapshot, domain, expected_mask):
             magnitudes.append(mag)
 
     max_computed = max(magnitudes) if magnitudes else 0.0
-    assert abs(snapshot["max_velocity"] - max_computed) < EPSILON, "❌ max_velocity mismatch with grid data"
+    assert math.isclose(snapshot["max_velocity"], max_computed, rel_tol=1e-5), "❌ max_velocity mismatch with grid data"
 
 def test_global_cfl(snapshot, domain, config):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
