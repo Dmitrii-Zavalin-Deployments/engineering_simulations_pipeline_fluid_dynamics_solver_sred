@@ -23,6 +23,7 @@ def process_snapshot_step(
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
+    print(f"[DEBUG] reflex {reflex}")
     print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
     if len(fluid_cells) != expected_size:
         print(f"[DEBUG] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
