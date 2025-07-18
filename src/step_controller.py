@@ -105,7 +105,7 @@ def evolve_step(
         pressure_mutated=pressure_has_changed,
         post_projection_divergence=divergence_after
     )
-    logging.debug(f"📋 Reflex Flags: {reflex_metadata}")
+    print(f"[DEBUG] 📋 Reflex Flags: {reflex_metadata}")
 
     reflex_metadata["ghost_influence_count"] = influence_count
     reflex_metadata["ghost_registry"] = ghost_registry
