@@ -108,6 +108,8 @@ def process_snapshot_step(
         "reflex_score": float(score) if isinstance(score, (int, float)) else 0.0
     }
     print(f"[VERIFY] Injected reflex_score: {snapshot['reflex_score']} ({type(snapshot['reflex_score'])})")
+    print(f"[VERIFY] is instance true: {isinstance(score, (int, float))}")
+    print(f"[VERIFY] score is: {score}")
 
     snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
     write_step_summary(step, snapshot, output_folder="data/summaries")
