@@ -26,6 +26,12 @@ def get_domain_cells(snapshot, domain):
 def is_close(actual, expected, tolerance):
     return abs(actual - expected) <= tolerance
 
+def get_effective_timestep(snapshot, config):
+    """
+    Returns adjusted_time_step if present, else falls back to static config time_step
+    """
+    return snapshot.get("adjusted_time_step", config["simulation_parameters"]["time_step"])
+
 @pytest.fixture(scope="module")
 def config():
     if not os.path.isfile(INPUT_FILE):

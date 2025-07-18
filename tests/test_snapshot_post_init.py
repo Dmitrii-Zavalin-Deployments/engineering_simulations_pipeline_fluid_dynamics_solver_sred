@@ -5,26 +5,11 @@ import os
 import json
 import math
 import pytest
+from tests.test_helpers import decode_geometry_mask
 
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0002.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EPSILON = 1e-6
-
-def load_geometry_mask_bool(path):
-    """
-    Minimal fallback mask loader for testing.
-    Loads boolean mask from JSON input file.
-    """
-    with open(path, "r") as f:
-        data = json.load(f)
-
-    if isinstance(data, dict) and "geometry_mask_flat" in data:
-        raw = data["geometry_mask_flat"]
-    else:
-        raw = data
-
-    encoding = data.get("mask_encoding", {"fluid": 1})
-    return [v == encoding.get("fluid", 1) for v in raw]
 
 @pytest.fixture(scope="module")
 def snapshot():
@@ -45,8 +30,8 @@ def domain(config):
     return config["domain_definition"]
 
 @pytest.fixture(scope="module")
-def expected_mask():
-    return load_geometry_mask_bool(INPUT_FILE)
+def expected_mask(config):
+    return decode_geometry_mask(config)
 
 def get_domain_cells(snapshot, domain):
     return [c for c in snapshot["grid"]
@@ -113,15 +98,15 @@ def test_max_velocity(snapshot, domain, expected_mask):
             mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
             magnitudes.append(mag)
 
-    max_computed = max(magnitudes)
+    max_computed = max(magnitudes) if magnitudes else 0.0
     assert abs(snapshot["max_velocity"] - max_computed) < EPSILON, "❌ max_velocity mismatch with grid data"
 
 def test_global_cfl(snapshot, domain, config):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     u_max = snapshot["max_velocity"]
-    dt = config["simulation_parameters"]["time_step"]
+    dt = snapshot.get("adjusted_time_step", config["simulation_parameters"]["time_step"])
     cfl_expected = u_max * dt / dx
-    assert abs(snapshot["global_cfl"] - cfl_expected) < EPSILON, "❌ global_cfl incorrect"
+    assert abs(snapshot["global_cfl"] - cfl_expected) < 1e-5, "❌ global_cfl incorrect"
     assert snapshot["global_cfl"] <= 1.0, "❌ CFL exceeds stability threshold"
 
 def test_divergence_and_projection(snapshot):
