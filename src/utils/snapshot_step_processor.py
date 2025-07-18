@@ -69,6 +69,15 @@ def process_snapshot_step(
 
     print(f"[DEBUG] reflex data for step summary {reflex}")
     print(f"[DEBUG] reflex data testing {reflex.get("fluid_cells_adjacent_to_ghosts")}")
+    key_to_check = "fluid_cells_adjacent_to_ghosts"
+
+    if key_to_check in reflex:
+        print(f"[DEBUG] ✅ Key '{key_to_check}' exists with value: {reflex[key_to_check]}")
+    else:
+        available_keys = list(reflex.keys())
+        print(f"[DEBUG] ❌ Key '{key_to_check}' not found in reflex.")
+        print(f"[DEBUG] 🔎 Available reflex keys: {available_keys}")
+
 
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
