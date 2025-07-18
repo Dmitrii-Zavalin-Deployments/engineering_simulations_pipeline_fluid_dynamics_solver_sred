@@ -18,6 +18,7 @@ if __name__ == "__main__":
             log_text = f.read()
 
         scores = score_combined(log_text, SUMMARY_PATH)
+        print(f"[DEBUG] scores: {scores}")
         print("📊 CI Reflex Scoring Results:")
         print(f"↪️ Matched markers: {scores['ci_log_score']['markers_matched']}")
         print(f"↪️ Marker score: {scores['ci_log_score']['reflex_score']}")
