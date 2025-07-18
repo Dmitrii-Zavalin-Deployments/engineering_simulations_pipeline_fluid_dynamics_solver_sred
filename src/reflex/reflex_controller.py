@@ -101,6 +101,8 @@ def apply_reflex(
     print(f"[DEBUG] Step {step} → computed reflex score: {score}")
     reflex_data["reflex_score"] = score if isinstance(score, (int, float)) else 0.0
 
+    print(f"[DEBUG] reflex_data from reflex controller {reflex_data}")
+
     # ✅ Patch: log tagging suppression anomalies
     if (
         reflex_data["pressure_mutated"]
