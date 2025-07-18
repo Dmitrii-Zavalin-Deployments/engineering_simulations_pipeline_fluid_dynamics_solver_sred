@@ -15,7 +15,7 @@ MARKERS = {
     "[AUDIT] Step": "audit_report_triggered",
     "[COMPACTOR] ✅ Compacted snapshot saved": "snapshot_compacted",
     # ✅ Patch: fallback scoring detection
-    "Mutation near ghost but tagging suppressed": "fallback_applied"
+    "Mutation near ghost but tagging suppressed → soft fallback applied": "fallback_applied"
 }
 
 def score_reflex_log_text(log_text: str) -> dict:
@@ -28,11 +28,12 @@ def score_reflex_log_text(log_text: str) -> dict:
     Returns:
     - dict with reflex score summary
     """
-    found = sum(1 for marker in MARKERS if marker in log_text)
+    matched = [label for marker, label in MARKERS.items() if marker in log_text]
+    found = len(matched)
     total = len(MARKERS)
     return {
         "reflex_score": f"{found} / {total}",
-        "markers_matched": [MARKERS[m] for m in MARKERS if m in log_text]
+        "markers_matched": matched
     }
 
 def score_from_summary_file(summary_path: str) -> dict:

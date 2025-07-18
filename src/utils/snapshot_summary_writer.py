@@ -40,7 +40,7 @@ def write_step_summary(
         reflex_metadata.get("ghost_influence_count", 0) > 0
     )
 
-    # ✅ Defensive type check for scoring field
+    # ✅ Defensive cast improvement for reflex_score field
     reflex_score = reflex_metadata.get("reflex_score", 0.0)
     if not isinstance(reflex_score, (int, float)):
         try:
