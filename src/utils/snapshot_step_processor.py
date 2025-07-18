@@ -68,37 +68,53 @@ def process_snapshot_step(
     )
 
     print(f"[DEBUG] reflex data for step summary {reflex}")
-    print(f"[DEBUG] reflex data testing {reflex.get("fluid_cells_adjacent_to_ghosts")}")
-    key_to_check = "fluid_cells_adjacent_to_ghosts"
-
-    # Direct test with nested fallback for ghost_diagnostics
-    value = reflex.get(key_to_check)
-    if value is not None:
-        print(f"[DEBUG] ✅ Key '{key_to_check}' exists at top level with value: {value}")
-    elif "ghost_diagnostics" in reflex and key_to_check in reflex["ghost_diagnostics"]:
-        nested_value = reflex["ghost_diagnostics"][key_to_check]
-        print(f"[DEBUG] ✅ Key '{key_to_check}' found in reflex['ghost_diagnostics'] with value: {nested_value}")
-    else:
-        available_keys = list(reflex.keys())
-        print(f"[DEBUG] ❌ Key '{key_to_check}' not found in reflex.")
-        print(f"[DEBUG] 🔎 Available top-level reflex keys: {available_keys}")
-
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
-        try:
-            divergence_value = reflex["max_divergence"]
-            divergence_str = f"{divergence_value:.6e}"
-        except (KeyError, TypeError):
-            divergence_str = "?"
+        # Format divergence safely and debug
+        divergence_value = reflex.get("max_divergence")
+        divergence_str = f"{divergence_value:.6e}" if isinstance(divergence_value, (int, float)) else "?"
+        print(f"[DEBUG] max_divergence = {divergence_value} → formatted: {divergence_str}")
 
+        # Resolve ghost adjacency count — top-level or nested
+        if "fluid_cells_adjacent_to_ghosts" in reflex:
+            adjacent_count = reflex["fluid_cells_adjacent_to_ghosts"]
+            print(f"[DEBUG] fluid_cells_adjacent_to_ghosts (top-level) = {adjacent_count}")
+        else:
+            adjacent_count = reflex.get("ghost_diagnostics", {}).get("fluid_cells_adjacent_to_ghosts", "?")
+            print(f"[DEBUG] fluid_cells_adjacent_to_ghosts (nested) = {adjacent_count}")
+        adjacent_str = adjacent_count if isinstance(adjacent_count, (int, float)) else "?"
+
+        # Safely resolve ghost registry length
+        ghost_registry = reflex.get("ghost_registry")
+        ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
+        print(f"[DEBUG] ghost_registry count = {ghost_count}")
+
+        # All other fields with fallback and debug
+        influence_applied = reflex.get("ghost_influence_count", "?")
+        print(f"[DEBUG] ghost_influence_count = {influence_applied}")
+
+        projection_attempted = reflex.get("pressure_solver_invoked", "?")
+        print(f"[DEBUG] pressure_solver_invoked = {projection_attempted}")
+
+        projection_skipped = reflex.get("projection_skipped", "?")
+        print(f"[DEBUG] projection_skipped = {projection_skipped}")
+
+        pressure_mutated_str = (
+            pressure_mutated
+            if isinstance(pressure_mutated, bool)
+            else reflex.get("pressure_mutated", "?")
+        )
+        print(f"[DEBUG] pressure_mutated = {pressure_mutated_str}")
+
+        # Write formatted summary block
         f.write(f"""[🔄 Step {step} Summary]
-    • Ghosts: {len(reflex["ghost_registry"])}
-    • Fluid–ghost adjacents: {reflex["fluid_cells_adjacent_to_ghosts"]}
-    • Influence applied: {reflex["ghost_influence_count"]}
+    • Ghosts: {ghost_count}
+    • Fluid–ghost adjacents: {adjacent_str}
+    • Influence applied: {influence_applied}
     • Max divergence: {divergence_str}
-    • Projection attempted: {reflex["pressure_solver_invoked"]}
-    • Projection skipped: {reflex["projection_skipped"]}
-    • Pressure mutated: {pressure_mutated}
+    • Projection attempted: {projection_attempted}
+    • Projection skipped: {projection_skipped}
+    • Pressure mutated: {pressure_mutated_str}
 
     """)
 
