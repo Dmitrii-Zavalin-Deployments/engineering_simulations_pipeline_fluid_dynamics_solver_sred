@@ -1,14 +1,29 @@
+# tests/test_snapshot_post_init.py
 # 🧪 Snapshot Validation for t > 0 in Fluid Simulation
 
 import os
 import json
 import math
 import pytest
-from tests.utils.input_loader import load_geometry_mask_bool
 
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0002.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EPSILON = 1e-6
+
+def load_geometry_mask_bool(path):
+    """
+    Minimal fallback mask loader for testing.
+    Loads boolean mask from JSON input file.
+    """
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    if isinstance(data, dict) and "geometry_mask_flat" in data:
+        raw = data["geometry_mask_flat"]
+    else:
+        raw = data
+
+    return [bool(v) for v in raw]
 
 @pytest.fixture(scope="module")
 def snapshot():

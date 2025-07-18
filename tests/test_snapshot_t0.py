@@ -1,14 +1,29 @@
+# tests/test_snapshot_t0.py
 # 🧪 Validation suite for t=0 snapshot fidelity — ghost-aware metrics and projection verification
 
 import json
 import math
 import os
 import pytest
-from tests.utils.input_loader import load_geometry_mask_bool
 
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0000.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EXPECTED_STEP_INDEX = 0
+
+def load_geometry_mask_bool(path):
+    """
+    Minimal fallback mask loader for testing.
+    Loads boolean mask from JSON input file.
+    """
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    if isinstance(data, dict) and "geometry_mask_flat" in data:
+        raw = data["geometry_mask_flat"]
+    else:
+        raw = data
+
+    return [bool(v) for v in raw]
 
 def is_close(actual, expected, tolerance):
     return abs(actual - expected) <= tolerance
