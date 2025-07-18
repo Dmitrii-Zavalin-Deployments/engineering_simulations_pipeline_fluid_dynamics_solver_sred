@@ -96,17 +96,17 @@ def process_snapshot_step(
         for c in grid if not getattr(c, "fluid_mask", True)
     }
 
+    # ✅ Reflex score injection preserved correctly, avoiding overwrite
+    score = reflex.get("reflex_score")
+    reflex_clean = {k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected", "reflex_score"]}
     snapshot = {
         "step_index": step,
         "grid": serialized_grid,
         "pressure_mutated": pressure_mutated,
         "velocity_projected": reflex.get("velocity_projected", True),
-        **{k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected", "reflex_score"]}
+        **reflex_clean,
+        "reflex_score": float(score) if isinstance(score, (int, float)) else 0.0
     }
-
-    # ✅ Reflex score injection
-    score = reflex.get("reflex_score")
-    snapshot["reflex_score"] = float(score) if isinstance(score, (int, float)) else 0.0
     print(f"[VERIFY] Injected reflex_score: {snapshot['reflex_score']} ({type(snapshot['reflex_score'])})")
 
     snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
