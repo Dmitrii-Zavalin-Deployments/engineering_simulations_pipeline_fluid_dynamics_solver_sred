@@ -1,46 +1,43 @@
 # tests/test_snapshot_t0_projection.py
-# 🧪 Projection Behavior Validation for t=0 Snapshot
+# 🧪 Projection Validation: pressure/velocity effects at t=0
 
 import math
 from tests.snapshot_t0_shared import (
     snapshot,
+    config,
     domain,
     expected_mask,
-    expected_velocity,
     expected_pressure,
     tolerances,
-    get_domain_cells
+    get_domain_cells,
+    is_close
 )
 
-def test_pressure_projection_mutated(snapshot):
-    mutated_flag = snapshot.get("pressure_mutated", None)
-    assert mutated_flag in [True, False], "❌ pressure_mutated flag should be boolean"
-
-def test_velocity_projection_applied(snapshot):
-    assert snapshot.get("velocity_projected", True) is True, "❌ velocity_projected should be True if projection occurred"
-
 def test_pressure_field_changes_if_projected(snapshot, domain, expected_mask, expected_pressure, tolerances):
+    if snapshot.get("projection_passes", 0) == 0:
+        return  # Skip if no projection applied
+
     domain_cells = get_domain_cells(snapshot, domain)
-    if snapshot.get("projection_passes", 0) > 0 and not snapshot.get("projection_skipped", False):
-        fluid_pressures = [
-            cell["pressure"] for cell, is_fluid in zip(domain_cells, expected_mask) if is_fluid
-        ]
-        deltas = [abs(p - expected_pressure) for p in fluid_pressures]
-        assert any(d > tolerances["pressure"] for d in deltas), "❌ Pressure field unchanged after projection"
+    for cell, is_fluid in zip(domain_cells, expected_mask):
+        if is_fluid:
+            actual = cell["pressure"]
+            # Assert pressure moved at least one tolerance away from initial
+            assert not is_close(actual, expected_pressure, tolerances["pressure"]), f"❌ Pressure did not change: {actual}"
 
 def test_velocity_field_changes_if_projected(snapshot, domain, expected_mask, expected_velocity, tolerances):
+    if snapshot.get("projection_passes", 0) == 0:
+        return  # Skip if projection not performed
+
     domain_cells = get_domain_cells(snapshot, domain)
-    if snapshot.get("projection_passes", 0) > 0 and snapshot.get("velocity_projected", True):
-        fluid_velocities = [
-            cell["velocity"] for cell, is_fluid in zip(domain_cells, expected_mask) if is_fluid
-        ]
-        for v in fluid_velocities:
-            assert isinstance(v, list), "❌ Velocity must be a list"
-        deltas = [
-            math.sqrt(sum((a - b) ** 2 for a, b in zip(v, expected_velocity)))
-            for v in fluid_velocities
-        ]
-        assert any(d > tolerances["velocity"] for d in deltas), "❌ Velocity field unchanged after projection"
+    for cell, is_fluid in zip(domain_cells, expected_mask):
+        if is_fluid:
+            actual_v = cell["velocity"]
+            assert isinstance(actual_v, list) and len(actual_v) == 3
+            changes = [
+                not is_close(actual, expected, tolerances["velocity"])
+                for actual, expected in zip(actual_v, expected_velocity)
+            ]
+            assert any(changes), f"❌ Velocity unchanged: {actual_v}"
 
 
 

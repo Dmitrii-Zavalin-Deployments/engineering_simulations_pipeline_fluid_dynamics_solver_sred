@@ -4,6 +4,7 @@
 import math
 from tests.snapshot_t0_shared import (
     snapshot,
+    config,
     domain,
     expected_mask,
     expected_velocity,
