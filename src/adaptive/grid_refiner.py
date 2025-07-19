@@ -46,7 +46,8 @@ def propose_refinement_zones(
     delta_map_path: str,
     spacing: Tuple[float, float, float],
     step_index: int,
-    output_folder: str = "data/refinement"
+    output_folder: str = "data/refinement",
+    threshold: int = 5  # ✅ Newly added for configurability
 ) -> List[Tuple[float, float, float]]:
     os.makedirs(output_folder, exist_ok=True)
     active_coords = load_delta_map(delta_map_path)
@@ -55,7 +56,7 @@ def propose_refinement_zones(
         print(f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}")
         return []
 
-    clusters = detect_mutation_clusters(active_coords, spacing)  # Can now pass `threshold` if needed
+    clusters = detect_mutation_clusters(active_coords, spacing, threshold=threshold)  # ✅ patched
 
     if clusters:
         output_path = os.path.join(output_folder, f"refinement_step_{step_index:04d}.json")
