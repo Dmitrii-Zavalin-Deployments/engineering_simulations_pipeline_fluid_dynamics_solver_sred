@@ -1,4 +1,4 @@
-# ✅ Final Updated Input Helper
+# ✅ Final Updated Input Helper — Z-Domain Keys Included
 # 📄 Full Path: tests/utils/test_input_factory.py
 
 def make_input_data(resolution="normal", time_step=0.05):
@@ -18,12 +18,9 @@ def make_input_data(resolution="normal", time_step=0.05):
             "time_step": time_step
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 2.0,
-            "nx": 2,
-            "min_y": 0.0,
-            "max_y": 1.0,
-            "ny": 1
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         }
     }
 

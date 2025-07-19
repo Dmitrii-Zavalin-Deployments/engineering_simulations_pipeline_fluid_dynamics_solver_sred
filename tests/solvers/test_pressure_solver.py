@@ -1,4 +1,4 @@
-# ✅ Fully Updated Test Suite with Complete Domain Definition
+# ✅ Final Fully Updated Test Suite — Z-Domain Patch Applied
 # 📄 Full Path: tests/solvers/test_pressure_solver.py
 
 import pytest
@@ -20,7 +20,8 @@ def test_pressure_mutation_detected_on_asymmetric_velocity():
         },
         "domain_definition": {
             "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         }
     }
     step = 0
@@ -47,7 +48,8 @@ def test_no_mutation_when_velocities_are_symmetric_and_small():
         },
         "domain_definition": {
             "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         }
     }
     step = 1
@@ -68,7 +70,8 @@ def test_malformed_velocity_handled_as_solid():
         },
         "domain_definition": {
             "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         }
     }
     step = 2
@@ -93,7 +96,8 @@ def test_snapshot_output_path_resolves():
         },
         "domain_definition": {
             "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1
+            "min_y": 0.0, "max_y": 1.0, "ny": 1,
+            "min_z": 0.0, "max_z": 1.0, "nz": 1
         }
     }
     step = 3
