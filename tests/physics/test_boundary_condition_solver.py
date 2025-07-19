@@ -46,7 +46,7 @@ def test_skips_velocity_application_when_not_in_apply_to():
     ghost = make_cell(1.0, 0.0, 0.0, fluid=False)
     ghost.velocity = [9.0, 9.0, 9.0]
     ghost_registry = {id(ghost): {"origin": (2.0, 0.0, 0.0)}}
-    fluid = make_cell(2.0, 0.0, 0.0)
+    fluid = make_cell(2.0, 0.0, 0.0, velocity=[9.0, 9.0, 9.0])
     config = {
         "boundary_conditions": {
             "velocity": [1.0, 1.0, 1.0],
@@ -70,7 +70,7 @@ def test_removes_pressure_when_not_in_apply_to():
     assert ghost.pressure is None
 
 def test_does_not_crash_on_missing_origin_in_registry():
-    fluid = make_cell(3.0, 3.0, 3.0)
+    fluid = make_cell(3.0, 3.0, 3.0, velocity=[0.0, 0.0, 0.0])
     ghost_registry = {999999: {"face": "x+"}}  # No 'origin'
     config = {
         "boundary_conditions": {
