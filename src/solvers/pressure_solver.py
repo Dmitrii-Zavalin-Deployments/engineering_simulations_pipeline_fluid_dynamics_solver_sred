@@ -1,11 +1,11 @@
 # src/solvers/pressure_solver.py
-# 🔧 Pressure solver — enforces incompressibility via divergence correction
 
 from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 from src.physics.pressure_projection import solve_pressure_poisson
 from src.exporters.pressure_delta_map_writer import export_pressure_delta_map
+from src.diagnostics.mutation_threshold_advisor import get_delta_threshold  # ✅ Patch: threshold advisor imported
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
@@ -51,10 +51,19 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             final = updated.pressure if isinstance(updated.pressure, float) else 0.0
             delta = abs(final - initial)
 
-            if delta > 1e-8:
+            context = {
+                "resolution": input_data.get("grid_resolution", "normal"),
+                "divergence": divergence[safe_grid.index(old)] if safe_grid.index(old) < len(divergence) else 0.0,
+                "time_step": input_data.get("simulation_parameters", {}).get("time_step", 0.05)
+            }
+
+            threshold = get_delta_threshold(updated, context)  # ✅ Patch applied
+            print(f"[DEBUG] Step {step}: cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) → threshold = {threshold:.2e}, delta = {delta:.2e}")
+            
+            if delta > threshold:
                 mutation_count += 1
                 mutated_cells.append((updated.x, updated.y, updated.z))
-                print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")  # ✅ Patch applied
+                print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")
 
             pressure_delta_map[(updated.x, updated.y, updated.z)] = {
                 "before": initial,
@@ -62,7 +71,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
                 "delta": delta
             }
 
-            # ✅ Optional audit: capture ghost flag if present on mutated cell
             if hasattr(updated, "influenced_by_ghost") and updated.influenced_by_ghost:
                 print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
 
