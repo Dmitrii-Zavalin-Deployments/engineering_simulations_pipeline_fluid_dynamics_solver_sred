@@ -1,5 +1,4 @@
-# ✅ New Test Suite
-# 📄 Full Path: tests/solvers/test_pressure_solver.py
+# tests/solvers/test_pressure_solver.py
 
 import pytest
 from src.solvers.pressure_solver import apply_pressure_correction
@@ -17,6 +16,11 @@ def test_pressure_mutation_detected_on_asymmetric_velocity():
         "grid_resolution": "normal",
         "simulation_parameters": {
             "time_step": 0.05
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 2.0,
+            "nx": 2
         }
     }
     step = 0
@@ -27,7 +31,7 @@ def test_pressure_mutation_detected_on_asymmetric_velocity():
     assert passes == 1
     assert metadata["pressure_mutation_count"] > 0
     assert len(metadata["mutated_cells"]) > 0
-    assert mutated_flag in [True, False]  # Not directly tested — advisory threshold may mute flag
+    assert mutated_flag in [True, False]
     for cell in updated_grid:
         assert isinstance(cell.pressure, float)
 
@@ -40,23 +44,33 @@ def test_no_mutation_when_velocities_are_symmetric_and_small():
         "grid_resolution": "normal",
         "simulation_parameters": {
             "time_step": 0.01
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 2.0,
+            "nx": 2
         }
     }
     step = 1
     result = apply_pressure_correction(grid, input_data, step)
     _, _, _, metadata = result
-    assert metadata["pressure_mutation_count"] >= 0  # May be zero under threshold
+    assert metadata["pressure_mutation_count"] >= 0
     assert isinstance(metadata["max_divergence"], float)
 
 def test_malformed_velocity_handled_as_solid():
     grid = [
         make_cell(0.0, velocity=None, pressure=0.0),
-        make_cell(1.0, velocity=[2.0, 0.0], pressure=0.0)  # Invalid velocity vector
+        make_cell(1.0, velocity=[2.0, 0.0], pressure=0.0)
     ]
     input_data = {
         "grid_resolution": "normal",
         "simulation_parameters": {
             "time_step": 0.05
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 2.0,
+            "nx": 2
         }
     }
     step = 2
@@ -78,11 +92,16 @@ def test_snapshot_output_path_resolves():
         "grid_resolution": "normal",
         "simulation_parameters": {
             "time_step": 0.1
+        },
+        "domain_definition": {
+            "min_x": 0.0,
+            "max_x": 2.0,
+            "nx": 2
         }
     }
     step = 3
     _ = apply_pressure_correction(grid, input_data, step)
-    # No assertion — this test ensures no crash on snapshot export
+    # No assertion — ensures snapshot export executes without error
 
 
 
