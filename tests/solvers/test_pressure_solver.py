@@ -1,29 +1,20 @@
-# ✅ Final Fully Updated Test Suite — Z-Domain Patch Applied
+# ✅ Final Fully Updated Test Suite — Velocity + Threshold Patch Applied
 # 📄 Full Path: tests/solvers/test_pressure_solver.py
 
 import pytest
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.grid_modules.cell import Cell
+from tests.utils.test_input_factory import make_input_data  # ✅ Patch: threshold-aware config
 
 def make_cell(x, velocity, pressure, fluid=True):
     return Cell(x=x, y=0.0, z=0.0, velocity=velocity, pressure=pressure, fluid_mask=fluid)
 
 def test_pressure_mutation_detected_on_asymmetric_velocity():
     grid = [
-        make_cell(0.0, velocity=[1.0, 0.0, 0.0], pressure=0.0),
-        make_cell(1.0, velocity=[-1.0, 0.0, 0.0], pressure=0.0)
+        make_cell(0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0),
+        make_cell(1.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
     ]
-    input_data = {
-        "grid_resolution": "normal",
-        "simulation_parameters": {
-            "time_step": 0.05
-        },
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1,
-            "min_z": 0.0, "max_z": 1.0, "nz": 1
-        }
-    }
+    input_data = make_input_data()  # ✅ Uses resolution="low", time_step=0.2
     step = 0
     result = apply_pressure_correction(grid, input_data, step)
     updated_grid, mutated_flag, passes, metadata = result
@@ -32,7 +23,7 @@ def test_pressure_mutation_detected_on_asymmetric_velocity():
     assert passes == 1
     assert metadata["pressure_mutation_count"] > 0
     assert len(metadata["mutated_cells"]) > 0
-    assert mutated_flag in [True, False]
+    assert mutated_flag is True
     for cell in updated_grid:
         assert isinstance(cell.pressure, float)
 
@@ -41,17 +32,7 @@ def test_no_mutation_when_velocities_are_symmetric_and_small():
         make_cell(0.0, velocity=[0.0001, 0.0, 0.0], pressure=0.0),
         make_cell(1.0, velocity=[-0.0001, 0.0, 0.0], pressure=0.0)
     ]
-    input_data = {
-        "grid_resolution": "normal",
-        "simulation_parameters": {
-            "time_step": 0.01
-        },
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1,
-            "min_z": 0.0, "max_z": 1.0, "nz": 1
-        }
-    }
+    input_data = make_input_data(resolution="normal", time_step=0.01)
     step = 1
     result = apply_pressure_correction(grid, input_data, step)
     _, _, _, metadata = result
@@ -63,17 +44,7 @@ def test_malformed_velocity_handled_as_solid():
         make_cell(0.0, velocity=None, pressure=0.0),
         make_cell(1.0, velocity=[2.0, 0.0], pressure=0.0)
     ]
-    input_data = {
-        "grid_resolution": "normal",
-        "simulation_parameters": {
-            "time_step": 0.05
-        },
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1,
-            "min_z": 0.0, "max_z": 1.0, "nz": 1
-        }
-    }
+    input_data = make_input_data()
     step = 2
     result = apply_pressure_correction(grid, input_data, step)
     updated_grid, _, _, metadata = result
@@ -86,20 +57,10 @@ def test_malformed_velocity_handled_as_solid():
 
 def test_snapshot_output_path_resolves():
     grid = [
-        make_cell(0.0, velocity=[1.0, 0.0, 0.0], pressure=0.0),
-        make_cell(1.0, velocity=[-1.0, 0.0, 0.0], pressure=0.0)
+        make_cell(0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0),
+        make_cell(1.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
     ]
-    input_data = {
-        "grid_resolution": "normal",
-        "simulation_parameters": {
-            "time_step": 0.1
-        },
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 2.0, "nx": 2,
-            "min_y": 0.0, "max_y": 1.0, "ny": 1,
-            "min_z": 0.0, "max_z": 1.0, "nz": 1
-        }
-    }
+    input_data = make_input_data(time_step=0.1)
     step = 3
     _ = apply_pressure_correction(grid, input_data, step)
     # No assertion — ensures snapshot export executes without error

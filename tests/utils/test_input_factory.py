@@ -1,7 +1,7 @@
-# ✅ Final Updated Input Helper — Z-Domain Keys Included
+# ✅ Final Updated Input Helper — Resolution + Timestep Tuned
 # 📄 Full Path: tests/utils/test_input_factory.py
 
-def make_input_data(resolution="normal", time_step=0.05):
+def make_input_data(resolution="low", time_step=0.2):
     """
     Constructs a valid simulation input_data dictionary with required domain parameters.
 
