@@ -3,6 +3,7 @@
 
 from src.grid_modules.cell import Cell
 from src.metrics.overflow_monitor import detect_overflow
+import math
 from math import sqrt, isclose
 
 def make_cell(velocity):
