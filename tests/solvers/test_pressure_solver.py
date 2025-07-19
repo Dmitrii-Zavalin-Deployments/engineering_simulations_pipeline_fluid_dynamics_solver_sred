@@ -30,18 +30,19 @@ def test_pressure_correction_returns_expected_structure():
     assert "mutated_cells" in meta
 
 def test_mutated_cell_recorded_if_pressure_changes():
-    fluid = make_cell(0.0, 0.0, 0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0)
+    fluid1 = make_cell(0.0, 0.0, 0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0)
+    fluid2 = make_cell(1.0, 0.0, 0.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
     input_data = {
         "simulation_parameters": {"time_step": 0.05},
         "domain_definition": {
-            "nx": 1, "ny": 1, "nz": 1,
-            "min_x": 0.0, "max_x": 1.0,
+            "nx": 2, "ny": 1, "nz": 1,
+            "min_x": 0.0, "max_x": 2.0,
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0
         },
         "pressure_solver": {"method": "jacobi"}
     }
-    _, mutated, _, meta = apply_pressure_correction([fluid], input_data, step=8)
+    _, mutated, _, meta = apply_pressure_correction([fluid1, fluid2], input_data, step=8)
     assert mutated is True
     assert meta["pressure_mutation_count"] > 0
     assert isinstance(meta["mutated_cells"], list)
