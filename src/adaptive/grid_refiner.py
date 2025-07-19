@@ -22,13 +22,13 @@ def load_delta_map(path: str) -> List[Tuple[float, float, float]]:
 def detect_mutation_clusters(
     coords: List[Tuple[float, float, float]],
     spacing: Tuple[float, float, float],
-    radius: int = 1
+    radius: int = 1,
+    threshold: int = 5  # ✅ Made configurable
 ) -> List[Tuple[float, float, float]]:
     """
     Returns coordinates with high mutation neighbor density.
     """
     dx, dy, dz = spacing
-    threshold = 5  # cells within radius to be considered a cluster
     counter = Counter()
 
     for base in coords:
@@ -55,7 +55,7 @@ def propose_refinement_zones(
         print(f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}")
         return []
 
-    clusters = detect_mutation_clusters(active_coords, spacing)
+    clusters = detect_mutation_clusters(active_coords, spacing)  # Can now pass `threshold` if needed
 
     if clusters:
         output_path = os.path.join(output_folder, f"refinement_step_{step_index:04d}.json")

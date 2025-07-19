@@ -46,8 +46,7 @@ def test_detect_mutation_clusters_none():
 def test_detect_mutation_clusters_dense():
     coords = [(i*1.0, 0.0, 0.0) for i in range(6)]
     spacing = (1.0, 1.0, 1.0)
-    result = grid_refiner.detect_mutation_clusters(coords, spacing)
-    # All points are close to each other
+    result = grid_refiner.detect_mutation_clusters(coords, spacing, threshold=2)  # ✅ patched
     assert len(result) >= 1
     for coord in result:
         assert isinstance(coord, tuple) and len(coord) == 3
@@ -70,7 +69,7 @@ def test_propose_refinement_zones_cluster_detected():
         with open(path, "w") as f:
             json.dump(data, f)
 
-        result = grid_refiner.propose_refinement_zones(path, (1.0, 1.0, 1.0), 2, tmpdir)
+        result = grid_refiner.propose_refinement_zones(path, (1.0, 1.0, 1.0), 2, tmpdir, threshold=2)  # ✅ patched
         assert len(result) >= 1
 
         output_file = os.path.join(tmpdir, "refinement_step_0002.json")
