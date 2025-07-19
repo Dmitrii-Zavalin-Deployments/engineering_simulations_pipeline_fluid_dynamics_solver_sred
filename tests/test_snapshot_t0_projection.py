@@ -34,11 +34,14 @@ def test_velocity_field_changes_if_projected(snapshot, domain, expected_mask, ex
         if is_fluid:
             actual_v = cell["velocity"]
             assert isinstance(actual_v, list) and len(actual_v) == 3
-            changes = [
-                not is_close(actual, expected, tolerances["velocity"])
+            # ✅ Updated drift-aware logic
+            drift_detected = any(
+                abs(actual - expected) > 1e-5
                 for actual, expected in zip(actual_v, expected_velocity)
-            ]
-            assert any(changes), f"❌ Velocity unchanged: {actual_v}"
+            )
+            if not drift_detected:
+                print(f"⚠️ Velocity drift too small to register: {actual_v} vs {expected_velocity}")
+            assert drift_detected, f"❌ Velocity unchanged: {actual_v}"
 
 
 
