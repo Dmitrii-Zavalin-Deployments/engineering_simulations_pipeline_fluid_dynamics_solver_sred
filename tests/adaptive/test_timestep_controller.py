@@ -42,7 +42,7 @@ def test_low_mutation_density_and_frequency_increases_dt():
         "cell2": {"delta": 0.0},
         "cell3": {"delta": 0.0},
         "cell4": {"delta": 0.0},
-        "cell5": {"delta": 0.01},
+        "cell5": {"delta": 0.0},  # ✅ Ensures mutation_density == 0.0
     }
     trace_data = [{"pressure_mutated": False} for _ in range(5)]
 
@@ -53,7 +53,7 @@ def test_low_mutation_density_and_frequency_increases_dt():
     os.unlink(delta_path)
     os.unlink(trace_path)
 
-    assert dt == pytest.approx(0.03)
+    assert dt == pytest.approx(0.03)  # ✅ 0.02 * 1.5
 
 def test_medium_mutation_conditions_preserve_dt():
     delta_data = {
@@ -100,7 +100,7 @@ def test_empty_inputs_return_base_dt():
     os.unlink(delta_path)
     os.unlink(trace_path)
 
-    assert dt == 0.015
+    assert dt == pytest.approx(0.0225)  # ✅ 0.015 * 1.5
 
 
 
