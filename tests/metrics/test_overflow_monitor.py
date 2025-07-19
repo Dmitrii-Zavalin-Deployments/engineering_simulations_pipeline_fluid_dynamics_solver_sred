@@ -3,6 +3,7 @@
 
 from src.grid_modules.cell import Cell
 from src.metrics.overflow_monitor import detect_overflow
+from math import sqrt, isclose
 
 def make_cell(velocity):
     return Cell(x=0.0, y=0.0, z=0.0, velocity=velocity, pressure=0.0, fluid_mask=True)
@@ -28,9 +29,9 @@ def test_detect_overflow_returns_true_if_any_magnitude_exceeds_threshold():
 
 def test_detect_overflow_handles_exact_threshold_boundary():
     # magnitude = 10.0 → should NOT trigger overflow
-    from math import sqrt
     v = [10.0 / sqrt(3)] * 3
     grid = [make_cell(v)]
+    assert isclose(math.sqrt(sum(i**2 for i in v)), 10.0, rel_tol=1e-9)
     assert detect_overflow(grid) is False
 
 def test_detect_overflow_ignores_non_vector_velocity_fields():
