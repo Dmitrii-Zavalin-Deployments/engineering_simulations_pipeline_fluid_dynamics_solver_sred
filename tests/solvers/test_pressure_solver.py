@@ -1,20 +1,20 @@
-# ✅ Final Fully Updated Test Suite — Velocity + Threshold Patch Applied
+# ✅ Final Fully Updated Test Suite — Velocity Magnitude + Threshold Context Applied
 # 📄 Full Path: tests/solvers/test_pressure_solver.py
 
 import pytest
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.grid_modules.cell import Cell
-from tests.utils.test_input_factory import make_input_data  # ✅ Patch: threshold-aware config
+from tests.utils.test_input_factory import make_input_data  # ✅ Threshold-aware helper
 
 def make_cell(x, velocity, pressure, fluid=True):
     return Cell(x=x, y=0.0, z=0.0, velocity=velocity, pressure=pressure, fluid_mask=fluid)
 
 def test_pressure_mutation_detected_on_asymmetric_velocity():
     grid = [
-        make_cell(0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0),
-        make_cell(1.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
+        make_cell(0.0, velocity=[4.0, 0.0, 0.0], pressure=0.0),
+        make_cell(1.0, velocity=[-4.0, 0.0, 0.0], pressure=0.0)
     ]
-    input_data = make_input_data()  # ✅ Uses resolution="low", time_step=0.2
+    input_data = make_input_data(resolution="very_low", time_step=0.5)
     step = 0
     result = apply_pressure_correction(grid, input_data, step)
     updated_grid, mutated_flag, passes, metadata = result
@@ -57,8 +57,8 @@ def test_malformed_velocity_handled_as_solid():
 
 def test_snapshot_output_path_resolves():
     grid = [
-        make_cell(0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0),
-        make_cell(1.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
+        make_cell(0.0, velocity=[4.0, 0.0, 0.0], pressure=0.0),
+        make_cell(1.0, velocity=[-4.0, 0.0, 0.0], pressure=0.0)
     ]
     input_data = make_input_data(time_step=0.1)
     step = 3

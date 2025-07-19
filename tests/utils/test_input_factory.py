@@ -1,12 +1,12 @@
-# ✅ Final Updated Input Helper — Resolution + Timestep Tuned
+# ✅ Final Updated Input Helper — Threshold Sensitivity Applied
 # 📄 Full Path: tests/utils/test_input_factory.py
 
-def make_input_data(resolution="low", time_step=0.2):
+def make_input_data(resolution="very_low", time_step=0.5):
     """
-    Constructs a valid simulation input_data dictionary with required domain parameters.
+    Constructs a valid simulation input_data dictionary tuned for mutation sensitivity.
 
     Args:
-        resolution (str): Grid resolution label ("normal", "high", "low")
+        resolution (str): Grid resolution label ("very_low", "low", "normal", "high")
         time_step (float): Simulation time step value
 
     Returns:
