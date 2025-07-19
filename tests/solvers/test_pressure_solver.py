@@ -31,7 +31,7 @@ def test_pressure_correction_returns_expected_structure():
 
 def test_mutated_cell_recorded_if_pressure_changes():
     fluid1 = make_cell(0.0, 0.0, 0.0, velocity=[2.0, 0.0, 0.0], pressure=0.0)
-    fluid2 = make_cell(1.0, 0.0, 0.0, velocity=[-2.0, 0.0, 0.0], pressure=0.0)
+    fluid2 = make_cell(1.0, 0.0, 0.0, velocity=[-1.0, 0.0, 0.0], pressure=0.0)  # ✅ asymmetry introduced
     input_data = {
         "simulation_parameters": {"time_step": 0.05},
         "domain_definition": {
