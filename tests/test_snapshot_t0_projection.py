@@ -8,6 +8,7 @@ from tests.snapshot_t0_shared import (
     domain,
     expected_mask,
     expected_pressure,
+    expected_velocity,  # ✅ Added fixture linkage
     tolerances,
     get_domain_cells,
     is_close
