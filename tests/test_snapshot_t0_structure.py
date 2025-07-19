@@ -53,6 +53,3 @@ def test_fluid_mask_matches_geometry(snapshot, domain, expected_mask):
     domain_cells = get_domain_cells(snapshot, domain)
     actual_mask = [c["fluid_mask"] for c in domain_cells]
     assert actual_mask == expected_mask, "❌ Fluid mask mismatch against input geometry"
-
-
-
