@@ -1,4 +1,5 @@
-# tests/utils/test_input_factory.py
+# ✅ Final Updated Input Helper
+# 📄 Full Path: tests/utils/test_input_factory.py
 
 def make_input_data(resolution="normal", time_step=0.05):
     """
@@ -19,6 +20,12 @@ def make_input_data(resolution="normal", time_step=0.05):
         "domain_definition": {
             "min_x": 0.0,
             "max_x": 2.0,
-            "nx": 2
+            "nx": 2,
+            "min_y": 0.0,
+            "max_y": 1.0,
+            "ny": 1
         }
     }
+
+
+

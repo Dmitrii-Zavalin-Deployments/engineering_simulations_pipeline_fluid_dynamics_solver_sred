@@ -1,4 +1,5 @@
-# tests/solvers/test_pressure_solver.py
+# ✅ Fully Updated Test Suite with Complete Domain Definition
+# 📄 Full Path: tests/solvers/test_pressure_solver.py
 
 import pytest
 from src.solvers.pressure_solver import apply_pressure_correction
@@ -18,9 +19,8 @@ def test_pressure_mutation_detected_on_asymmetric_velocity():
             "time_step": 0.05
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 2.0,
-            "nx": 2
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1
         }
     }
     step = 0
@@ -46,9 +46,8 @@ def test_no_mutation_when_velocities_are_symmetric_and_small():
             "time_step": 0.01
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 2.0,
-            "nx": 2
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1
         }
     }
     step = 1
@@ -68,9 +67,8 @@ def test_malformed_velocity_handled_as_solid():
             "time_step": 0.05
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 2.0,
-            "nx": 2
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1
         }
     }
     step = 2
@@ -94,9 +92,8 @@ def test_snapshot_output_path_resolves():
             "time_step": 0.1
         },
         "domain_definition": {
-            "min_x": 0.0,
-            "max_x": 2.0,
-            "nx": 2
+            "min_x": 0.0, "max_x": 2.0, "nx": 2,
+            "min_y": 0.0, "max_y": 1.0, "ny": 1
         }
     }
     step = 3
