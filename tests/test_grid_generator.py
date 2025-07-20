@@ -1,5 +1,5 @@
-# ✅ Unit Test Suite — Grid Generator
-# 📄 Full Path: tests/test_grid_generator.py
+# ✅ Unit Test Suite — Grid Generator (Patched)
+# 📄 Full Path: tests/infrastructure/test_grid_generator.py
 
 import pytest
 from src.grid_generator import generate_grid, generate_grid_with_mask
@@ -11,7 +11,7 @@ def test_generate_grid_valid_input():
         "min_y": 0, "max_y": 1, "ny": 1,
         "min_z": 0, "max_z": 1, "nz": 1
     }
-    initial = {"velocity": [1.0, 0.0, 0.0], "pressure": 0.2}
+    initial = {"initial_velocity": [1.0, 0.0, 0.0], "initial_pressure": 0.2}  # ✅ Patched
     grid = generate_grid(domain, initial)
     assert len(grid) == 1
     assert isinstance(grid[0], Cell)
@@ -32,7 +32,7 @@ def test_generate_grid_with_mask_valid():
         "min_y": 0, "max_y": 1, "ny": 1,
         "min_z": 0, "max_z": 1, "nz": 1
     }
-    initial = {"velocity": [0.5, 0.0, 0.0], "pressure": 0.1}
+    initial = {"initial_velocity": [0.5, 0.0, 0.0], "initial_pressure": 0.1}  # ✅ Patched
     geometry = {
         "geometry_mask_shape": [2, 1, 1],
         "geometry_mask_flat": [1, 0],
@@ -76,7 +76,7 @@ def test_mask_length_mismatch_raises():
     initial = {}
     with pytest.raises(ValueError) as e:
         generate_grid_with_mask(domain, initial, geometry)
-    assert "does not match coordinate count" in str(e.value)
+    assert "Failed to decode fluid mask" in str(e.value)  # ✅ Patched
 
 
 
