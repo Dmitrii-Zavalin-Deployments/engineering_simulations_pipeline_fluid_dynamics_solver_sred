@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Main Solver
+# ✅ Unit Test Suite — Main Solver (Fully Patched)
 # 📄 Full Path: tests/test_main_solver.py
 
 import pytest
@@ -36,19 +36,15 @@ def make_valid_input(filepath):
     with open(filepath, "w") as f:
         json.dump(input_data, f)
 
-def test_solver_runs_and_generates_snapshot(tmp_path, monkeypatch):
+def test_solver_runs_and_generates_snapshot(tmp_path):
     input_path = tmp_path / "scenario.json"
     make_valid_input(input_path)
 
-    # Patch output folder to keep outputs inside test tmp directory
-    monkeypatch.setattr("src.main_solver.os.path.join",
-                        lambda *args: tmp_path / "navier_stokes_output")
+    out_path = tmp_path / "navier_stokes_output"  # ✅ Patched output directory
+    run_solver(str(input_path), str(out_path))     # ✅ Injected optional output_dir
 
-    run_solver(str(input_path))
-
-    output_dir = tmp_path / "navier_stokes_output"
-    assert output_dir.exists()
-    files = os.listdir(output_dir)
+    assert out_path.exists()
+    files = os.listdir(out_path)
     assert any("step_" in f and f.endswith(".json") for f in files)
 
 def test_load_reflex_config_with_missing_file():

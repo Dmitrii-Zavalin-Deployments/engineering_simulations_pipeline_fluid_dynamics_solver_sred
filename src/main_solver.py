@@ -1,5 +1,5 @@
-# src/main_solver.py
-# 🧠 Top-level driver for fluid simulation — orchestrates snapshots using step evolution
+# ✅ Updated Main Solver with Optional Output Directory
+# 📄 Full Path: src/main_solver.py
 
 import os
 import sys
@@ -28,10 +28,11 @@ def load_reflex_config(path="config/reflex_debug_config.yaml"):
             "ghost_adjacency_depth": 1
         }
 
-def run_solver(input_path: str):
+def run_solver(input_path: str, output_dir: str | None = None):  # ✅ Optional argument added
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
-    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
+
+    output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")  # ✅ Patched
     os.makedirs(output_folder, exist_ok=True)
 
     reflex_config_path = os.getenv("REFLEX_CONFIG", "config/reflex_debug_config.yaml")
@@ -52,7 +53,6 @@ def run_solver(input_path: str):
             json.dump(snapshot, f, indent=2)
         print(f"🔄 Step {formatted_step} written → {filename}")
 
-        # ✅ Score validation patch: compact snapshot only if reflex_score is numeric and meets threshold
         score = snapshot.get("reflex_score")
         if not isinstance(score, (int, float)):
             score = 0.0
@@ -64,7 +64,7 @@ def run_solver(input_path: str):
     print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
 
     trace_dir = "data/snapshots"
-    pathway_log = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
+    pathway_log = os.path.join(output_folder, "mutation_pathways_log.json")  # ✅ Aligned with output dir
     reflex_snapshots = [snap for (_, snap) in snapshots]
 
     audit_report = batch_evaluate_trace(trace_dir, pathway_log, reflex_snapshots)
