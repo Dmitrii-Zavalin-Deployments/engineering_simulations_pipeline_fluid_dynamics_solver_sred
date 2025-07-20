@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Snapshot Step Processor
+# ✅ Unit Test Suite — Snapshot Step Processor (Zone Format Patched)
 # 📄 Full Path: tests/utils/test_snapshot_step_processor.py
 
 import pytest
@@ -35,8 +35,8 @@ def test_process_snapshot_step_runs_cleanly(monkeypatch):
         "pressure_solver_invoked": True,
         "projection_skipped": False,
         "adaptive_timestep": 0.01,
-        "adjacency_zones": [(0.0, 0.0)],
-        "suppression_zones": [(1.0, 0.0)]
+        "adjacency_zones": [{"x": 0.0, "y": 0.0, "radius": 1.0}],  # ✅ Patched format
+        "suppression_zones": [{"x": 1.0, "y": 0.0, "radius": 1.0}]  # ✅ Patched format
     }
 
     spacing = (1.0, 1.0, 1.0)
