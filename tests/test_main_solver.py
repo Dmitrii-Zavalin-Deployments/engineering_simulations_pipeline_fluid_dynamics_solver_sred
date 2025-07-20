@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Main Solver (Patched)
+# ✅ Unit Test Suite — Main Solver (Fully Patched)
 # 📄 Full Path: tests/test_main_solver.py
 
 import pytest
@@ -15,7 +15,8 @@ def make_valid_input(filepath):
         "initial_conditions": {"initial_velocity": [0.0, 0.0, 0.0], "initial_pressure": 0.0},
         "simulation_parameters": {
             "output_interval": 1,
-            "time_step": 0.01  # ✅ Patched to fix KeyError
+            "time_step": 0.01,
+            "total_time": 1.0  # ✅ Patched to prevent KeyError
         },
         "boundary_conditions": {
             "apply_to": ["x-min"],
