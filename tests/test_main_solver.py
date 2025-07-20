@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Main Solver
+# ✅ Unit Test Suite — Main Solver (Patched)
 # 📄 Full Path: tests/test_main_solver.py
 
 import pytest
@@ -13,7 +13,10 @@ def make_valid_input(filepath):
         "domain_definition": {"nx": 1, "ny": 1, "nz": 1},
         "fluid_properties": {"density": 1.0, "viscosity": 0.01},
         "initial_conditions": {"initial_velocity": [0.0, 0.0, 0.0], "initial_pressure": 0.0},
-        "simulation_parameters": {"output_interval": 1},
+        "simulation_parameters": {
+            "output_interval": 1,
+            "time_step": 0.01  # ✅ Patched to fix KeyError
+        },
         "boundary_conditions": {
             "apply_to": ["x-min"],
             "velocity": [0.0, 0.0, 0.0],
