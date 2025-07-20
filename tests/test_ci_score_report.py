@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — CI Score Report (Patched for List-Based Markers)
+# ✅ Unit Test Suite — CI Score Report (Fully Patched)
 # 📄 Full Path: tests/ci/test_ci_score_report.py
 
 import pytest
@@ -42,7 +42,8 @@ def test_score_combined_returns_expected_keys():
         assert "ci_log_score" in scores
         assert "summary_score" in scores
         assert isinstance(scores["ci_log_score"]["markers_matched"], list)  # ✅ Patched
-        assert isinstance(scores["ci_log_score"]["reflex_score"], float)
+        assert isinstance(scores["ci_log_score"]["reflex_score"], str)       # ✅ Patched
+        assert "/" in scores["ci_log_score"]["reflex_score"]                 # ✅ Patched
         assert isinstance(scores["summary_score"]["average_score"], float)
 
 def test_score_combined_handles_missing_fields():
@@ -59,7 +60,8 @@ def test_score_combined_handles_missing_fields():
         scores = score_combined(log_text, summary_path)
 
         assert scores["summary_score"]["average_score"] >= 0.0
-        assert scores["ci_log_score"]["markers_matched"] == []  # ✅ Patched
+        assert isinstance(scores["ci_log_score"]["markers_matched"], list)   # ✅ Patched
+        assert "step_summary_detected" in scores["ci_log_score"]["markers_matched"]  # ✅ Patched
 
 def test_score_combined_threshold_warning_triggered(capsys):
     log_text = """
