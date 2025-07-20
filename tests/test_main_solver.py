@@ -10,13 +10,17 @@ from src.main_solver import run_solver, load_reflex_config
 
 def make_valid_input(filepath):
     input_data = {
-        "domain_definition": {"nx": 1, "ny": 1, "nz": 1},
+        "domain_definition": {
+            "min_x": 0, "max_x": 1, "nx": 1,
+            "min_y": 0, "max_y": 1, "ny": 1,
+            "min_z": 0, "max_z": 1, "nz": 1  # ✅ Patched to prevent ValueError
+        },
         "fluid_properties": {"density": 1.0, "viscosity": 0.01},
         "initial_conditions": {"initial_velocity": [0.0, 0.0, 0.0], "initial_pressure": 0.0},
         "simulation_parameters": {
             "output_interval": 1,
             "time_step": 0.01,
-            "total_time": 1.0  # ✅ Patched to prevent KeyError
+            "total_time": 1.0  # ✅ Already patched
         },
         "boundary_conditions": {
             "apply_to": ["x-min"],
@@ -53,6 +57,3 @@ def test_load_reflex_config_with_valid_yaml(tmp_path):
     result = load_reflex_config(str(path))
     assert result["reflex_verbosity"] == "high"
     assert result["include_divergence_delta"] is True
-
-
-
