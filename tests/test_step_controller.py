@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Step Controller
+# ✅ Unit Test Suite — Step Controller (Fully Patched)
 # 📄 Full Path: tests/test_step_controller.py
 
 import pytest
@@ -11,7 +11,7 @@ class DummyCell:
     x: int
     y: int
     z: int
-    velocity: float
+    velocity: tuple[float, float, float]  # ✅ Patched to match unpacking expectations
     pressure: float
     fluid_mask: bool
 
@@ -45,7 +45,7 @@ def minimal_input():
     }
 
 def test_evolve_step_outputs_valid_grid_and_metadata(minimal_input):
-    grid = [DummyCell(x=0, y=0, z=0, velocity=1.0, pressure=0.1, fluid_mask=True)]
+    grid = [DummyCell(x=0, y=0, z=0, velocity=(1.0, 0.0, 0.0), pressure=0.1, fluid_mask=True)]  # ✅ Patched
     updated, meta = evolve_step(grid, minimal_input, step=0)
     assert isinstance(updated, list)
     assert isinstance(meta, dict)
@@ -55,7 +55,7 @@ def test_evolve_step_outputs_valid_grid_and_metadata(minimal_input):
     assert "reflex_score" in meta
 
 def test_evolve_step_applies_config_and_score(minimal_input):
-    grid = [DummyCell(x=0, y=0, z=0, velocity=0.5, pressure=0.05, fluid_mask=True)]
+    grid = [DummyCell(x=0, y=0, z=0, velocity=(0.5, 0.0, 0.0), pressure=0.05, fluid_mask=True)]  # ✅ Patched
     config = {
         "ghost_adjacency_depth": 2,
         "reflex_verbosity": "high"
@@ -67,7 +67,7 @@ def test_evolve_step_applies_config_and_score(minimal_input):
     assert meta["boundary_condition_applied"] is True
 
 def test_evolve_step_pressure_metadata_injection(minimal_input):
-    grid = [DummyCell(x=0, y=0, z=0, velocity=0.0, pressure=0.0, fluid_mask=True)]
+    grid = [DummyCell(x=0, y=0, z=0, velocity=(0.0, 0.0, 0.0), pressure=0.0, fluid_mask=True)]  # ✅ Patched
     _, meta = evolve_step(grid, minimal_input, step=2)
     assert "pressure_mutated" in meta
     assert isinstance(meta.get("pressure_mutated"), bool)
