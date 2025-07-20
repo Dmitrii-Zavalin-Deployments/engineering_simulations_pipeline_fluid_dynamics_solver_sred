@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Ghost Diagnostics
+# ✅ Unit Test Suite — Ghost Diagnostics (Registry Format Fixed)
 # 📄 Full Path: tests/utils/test_ghost_diagnostics.py
 
 import pytest
@@ -61,8 +61,7 @@ def test_fluid_adjacency_with_influence_tagging():
     ghost_meta = DummyGhost(1.0, 0.0, 0.0, velocity=[0.0, 0.0, 0.0],
                             was_enforced=True, originated_from_boundary=False)
     fluid = DummyFluid(0.0, 0.0, 0.0)
-    registry = { "g": {"coordinate": (1.0, 0.0, 0.0), "face": "x+", "pressure": 1.0,
-                       "velocity": [0.0, 0.0, 0.0], "was_enforced": True } }
+    registry = {ghost_meta}
     result = gd.analyze_ghost_registry(registry, grid=[fluid])
     assert fluid.influenced_by_ghost is True
     assert result["fluid_cells_adjacent_to_ghosts"] == 1
