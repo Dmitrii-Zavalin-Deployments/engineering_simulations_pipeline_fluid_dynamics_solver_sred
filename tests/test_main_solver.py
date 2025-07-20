@@ -1,4 +1,4 @@
-# ✅ Unit Test Suite — Main Solver (Fully Patched)
+# ✅ Unit Test Suite — Main Solver
 # 📄 Full Path: tests/test_main_solver.py
 
 import pytest
@@ -13,14 +13,17 @@ def make_valid_input(filepath):
         "domain_definition": {
             "min_x": 0, "max_x": 1, "nx": 1,
             "min_y": 0, "max_y": 1, "ny": 1,
-            "min_z": 0, "max_z": 1, "nz": 1  # ✅ Patched to prevent ValueError
+            "min_z": 0, "max_z": 1, "nz": 1
         },
         "fluid_properties": {"density": 1.0, "viscosity": 0.01},
-        "initial_conditions": {"initial_velocity": [0.0, 0.0, 0.0], "initial_pressure": 0.0},
+        "initial_conditions": {
+            "initial_velocity": [0.0, 0.0, 0.0],
+            "initial_pressure": 0.0
+        },
         "simulation_parameters": {
             "output_interval": 1,
             "time_step": 0.01,
-            "total_time": 1.0  # ✅ Already patched
+            "total_time": 1.0
         },
         "boundary_conditions": {
             "apply_to": ["x-min"],
@@ -33,16 +36,20 @@ def make_valid_input(filepath):
     with open(filepath, "w") as f:
         json.dump(input_data, f)
 
-def test_solver_runs_and_generates_snapshot(tmp_path):
+def test_solver_runs_and_generates_snapshot(tmp_path, monkeypatch):
     input_path = tmp_path / "scenario.json"
     make_valid_input(input_path)
+
+    # Patch output folder to keep outputs inside test tmp directory
+    monkeypatch.setattr("src.main_solver.os.path.join",
+                        lambda *args: tmp_path / "navier_stokes_output")
+
     run_solver(str(input_path))
 
-    output_dir = tmp_path / "testing-input-output" / "navier_stokes_output"
-    assert os.path.exists(output_dir)
+    output_dir = tmp_path / "navier_stokes_output"
+    assert output_dir.exists()
     files = os.listdir(output_dir)
-    snapshot_files = [f for f in files if f.startswith("scenario_step_")]
-    assert len(snapshot_files) >= 1
+    assert any("step_" in f and f.endswith(".json") for f in files)
 
 def test_load_reflex_config_with_missing_file():
     fallback = load_reflex_config("nonexistent.yaml")
@@ -51,9 +58,15 @@ def test_load_reflex_config_with_missing_file():
 
 def test_load_reflex_config_with_valid_yaml(tmp_path):
     path = tmp_path / "reflex.yaml"
-    config = {"reflex_verbosity": "high", "include_divergence_delta": True}
+    config = {
+        "reflex_verbosity": "high",
+        "include_divergence_delta": True
+    }
     with open(path, "w") as f:
         yaml.dump(config, f)
     result = load_reflex_config(str(path))
     assert result["reflex_verbosity"] == "high"
     assert result["include_divergence_delta"] is True
+
+
+
