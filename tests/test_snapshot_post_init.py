@@ -95,6 +95,9 @@ def test_max_velocity(snapshot, domain, expected_mask):
     magnitudes = []
     for cell, is_fluid in zip(domain_cells, expected_mask):
         if is_fluid and cell["velocity"]:
+            if snapshot.get("damping_enabled", False) or snapshot.get("projection_passes", 1) > 1:
+                velocity_mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
+                assert velocity_mag < 15.0, f"❌ Damp-projected velocity too high: {velocity_mag}"
             mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
             magnitudes.append(mag)
 

@@ -29,6 +29,14 @@ def is_close(actual, expected, tolerance):
 def get_effective_timestep(snapshot, config):
     return snapshot.get("adjusted_time_step", config["simulation_parameters"]["time_step"])
 
+def get_snapshot_flags(snapshot):
+    return {
+        "step_index": snapshot.get("step_index"),
+        "projection_passes": snapshot.get("projection_passes", 1),
+        "damping_enabled": snapshot.get("damping_enabled", False),
+        "overflow_detected": snapshot.get("overflow_detected", False)
+    }
+
 @pytest.fixture(scope="module")
 def config():
     if not os.path.isfile(INPUT_FILE):
@@ -68,6 +76,10 @@ def tolerances(expected_velocity, expected_pressure):
         "pressure": p_tol,
         "cfl": v_tol
     }
+
+@pytest.fixture(scope="module")
+def snapshot_flags(snapshot):
+    return get_snapshot_flags(snapshot)
 
 
 
