@@ -16,6 +16,13 @@ from tests.snapshot_t0_shared import (
 
 def test_velocity_and_pressure_field_values(snapshot, domain, expected_mask, expected_velocity, expected_pressure, tolerances):
     domain_cells = get_domain_cells(snapshot, domain)
+
+    # 🔍 Diagnostic trace: print fluid cell velocities and magnitudes
+    for i, (cell, is_fluid) in enumerate(zip(domain_cells, expected_mask)):
+        if is_fluid:
+            velocity_mag = math.sqrt(sum(v ** 2 for v in cell["velocity"]))
+            print(f"Cell {i}: Velocity = {cell['velocity']}, Magnitude = {velocity_mag}")
+
     for cell, is_fluid in zip(domain_cells, expected_mask):
         if is_fluid:
             assert isinstance(cell["velocity"], list), "❌ Fluid velocity should be a list"
