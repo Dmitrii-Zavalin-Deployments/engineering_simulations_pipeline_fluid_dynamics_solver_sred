@@ -54,6 +54,9 @@ def test_stability_over_time(scenario_prefix, snapshot_files):
         for key in ["max_divergence", "max_velocity", "projection_passes", "damping_enabled", "overflow_detected"]:
             assert key in snap, f"❌ Missing '{key}' in {filename}"
 
+        if snap.get("damping_enabled") and snap["max_velocity"] < 1e-4:
+            print(f"🔕 Suppressed max_velocity in {filename}: {snap['max_velocity']}")
+
         divergence_trend.append(snap["max_divergence"])
         velocity_trend.append(snap["max_velocity"])
         projection_passes.append(snap["projection_passes"])

@@ -24,6 +24,11 @@ def test_grid_structure(snapshot):
         for key in ["x", "y", "z", "velocity", "pressure", "fluid_mask"]:
             assert key in cell, f"❌ Missing key '{key}' in cell"
 
+        velocity = cell.get("velocity")
+        if snapshot.get("damping_enabled") and isinstance(velocity, list) and len(velocity) == 3:
+            if max(abs(v) for v in velocity) < 1e-4 and cell.get("fluid_mask"):
+                print(f"🔕 Suppressed velocity at ({cell['x']}, {cell['y']}, {cell['z']}) → {velocity}")
+
 def test_grid_size_matches_mask(snapshot, domain, expected_mask):
     domain_cells = get_domain_cells(snapshot, domain)
     assert len(domain_cells) == len(expected_mask), "❌ Domain cell count mismatch vs. input mask"
@@ -53,3 +58,6 @@ def test_fluid_mask_matches_geometry(snapshot, domain, expected_mask):
     domain_cells = get_domain_cells(snapshot, domain)
     actual_mask = [c["fluid_mask"] for c in domain_cells]
     assert actual_mask == expected_mask, "❌ Fluid mask mismatch against input geometry"
+
+
+

@@ -1,5 +1,8 @@
+# tests/test_snapshot_postinit_structure.py
+
 import os
 import json
+import math
 import pytest
 from tests.test_helpers import decode_geometry_mask
 
@@ -40,13 +43,20 @@ def test_structure_and_fields(snapshot, domain, expected_mask):
     domain_cells = get_domain_cells(snapshot, domain)
     assert isinstance(grid, list), "❌ Grid must be a list"
     assert len(domain_cells) == len(expected_mask), "❌ Domain-aligned grid size mismatch"
+
     for cell in domain_cells:
         for key in ["x", "y", "z", "velocity", "pressure", "fluid_mask"]:
             assert key in cell, f"❌ Missing '{key}' in cell"
+
         assert isinstance(cell["fluid_mask"], bool)
         assert isinstance(cell["x"], (int, float))
         assert isinstance(cell["y"], (int, float))
         assert isinstance(cell["z"], (int, float))
+
+        if isinstance(cell["velocity"], list) and len(cell["velocity"]) == 3:
+            assert all(isinstance(v, (int, float)) for v in cell["velocity"])
+            if snapshot.get("damping_enabled") and max(abs(v) for v in cell["velocity"]) < 1e-4:
+                print(f"🔕 Suppressed velocity detected at ({cell['x']}, {cell['y']}, {cell['z']}): {cell['velocity']}")
 
 
 

@@ -39,12 +39,19 @@ def test_field_types_are_consistent(snapshot, domain):
         assert isinstance(cell["y"], (int, float)), "❌ Invalid y coordinate type"
         assert isinstance(cell["z"], (int, float)), "❌ Invalid z coordinate type"
         assert isinstance(cell["fluid_mask"], bool), "❌ fluid_mask must be boolean"
-        if cell["velocity"] is not None:
-            assert isinstance(cell["velocity"], list), "❌ velocity must be list or None"
-            assert len(cell["velocity"]) == 3
-            assert all(isinstance(v, (int, float)) for v in cell["velocity"]), "❌ velocity components must be numeric"
-        if cell["pressure"] is not None:
-            assert isinstance(cell["pressure"], (int, float)), "❌ pressure must be numeric or None"
+
+        velocity = cell.get("velocity")
+        if velocity is not None:
+            assert isinstance(velocity, list), "❌ velocity must be list or None"
+            assert len(velocity) == 3
+            assert all(isinstance(v, (int, float)) for v in velocity), "❌ velocity components must be numeric"
+
+            if snapshot.get("damping_enabled") and max(abs(v) for v in velocity) < 1e-4:
+                print(f"🔕 Suppressed velocity in damping zone at ({cell['x']}, {cell['y']}, {cell['z']}): {velocity}")
+
+        pressure = cell.get("pressure")
+        if pressure is not None:
+            assert isinstance(pressure, (int, float)), "❌ pressure must be numeric or None"
 
 def test_snapshot_diagnostics_present(snapshot):
     assert isinstance(snapshot.get("reflex_score"), (float, int)), "❌ reflex_score must be numeric"

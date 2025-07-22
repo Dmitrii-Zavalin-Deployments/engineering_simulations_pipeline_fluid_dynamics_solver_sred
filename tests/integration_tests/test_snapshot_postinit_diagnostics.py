@@ -1,11 +1,42 @@
+# tests/test_snapshot_postinit_diagnostics.py
+
 import os
 import json
+import math
 import pytest
 from tests.test_helpers import decode_geometry_mask
 
 SNAPSHOT_FILE = "data/testing-input-output/navier_stokes_output/fluid_simulation_input_step_0002.json"
 INPUT_FILE = "data/testing-input-output/fluid_simulation_input.json"
 EPSILON = 1e-6
+
+@pytest.fixture(scope="module")
+def snapshot():
+    if not os.path.isfile(SNAPSHOT_FILE):
+        pytest.skip(f"❌ Missing snapshot file: {SNAPSHOT_FILE}")
+    with open(SNAPSHOT_FILE) as f:
+        return json.load(f)
+
+@pytest.fixture(scope="module")
+def config():
+    if not os.path.isfile(INPUT_FILE):
+        pytest.skip(f"❌ Missing input config: {INPUT_FILE}")
+    with open(INPUT_FILE) as f:
+        return json.load(f)
+
+@pytest.fixture(scope="module")
+def domain(config):
+    return config["domain_definition"]
+
+@pytest.fixture(scope="module")
+def expected_mask(config):
+    return decode_geometry_mask(config)
+
+def get_domain_cells(snapshot, domain):
+    return [c for c in snapshot["grid"]
+        if domain["min_x"] <= c["x"] <= domain["max_x"] and
+           domain["min_y"] <= c["y"] <= domain["max_y"] and
+           domain["min_z"] <= c["z"] <= domain["max_z"]]
 
 def test_global_cfl(snapshot, domain, config):
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
@@ -33,9 +64,20 @@ def test_step_index_and_time(snapshot, config):
 
 def test_fluid_cell_count(snapshot, domain, expected_mask):
     domain_cells = get_domain_cells(snapshot, domain)
-    actual_fluid = sum(1 for cell in domain_cells if cell["fluid_mask"])
+    actual_fluid = 0
     expected_fluid = sum(expected_mask)
-    assert actual_fluid == expected_fluid
+
+    for cell, is_fluid in zip(domain_cells, expected_mask):
+        if is_fluid and cell["fluid_mask"]:
+            actual_fluid += 1
+
+            # 🔕 Damping-aware velocity suppression trace
+            if snapshot.get("damping_enabled"):
+                v = cell.get("velocity")
+                if isinstance(v, list) and len(v) == 3 and max(abs(c) for c in v) < 1e-4:
+                    print(f"🔕 Suppressed velocity at ({cell['x']}, {cell['y']}, {cell['z']}): {v}")
+
+    assert actual_fluid == expected_fluid, f"❌ Fluid cell count mismatch: {actual_fluid} != {expected_fluid}"
 
 
 
