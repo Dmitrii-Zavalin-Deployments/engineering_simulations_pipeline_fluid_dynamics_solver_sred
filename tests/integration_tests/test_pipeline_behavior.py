@@ -53,6 +53,10 @@ def test_pipeline_snapshot_behavior(snapshot_file):
     assert snapshot["global_cfl"] >= 0, f"❌ Negative 'global_cfl' in {snapshot_file}"
     assert snapshot["projection_passes"] >= 1, f"❌ Invalid 'projection_passes' in {snapshot_file}"
 
+    # 🔍 Damping-aware logging
+    if snapshot.get("damping_enabled") and snapshot["max_velocity"] < 1e-4:
+        print(f"🔕 Snapshot suppressed velocity under damping: {snapshot['max_velocity']} in {snapshot_file}")
+
     scenario = snapshot_file.split("_step_")[0]
     if "cfl_spike" in scenario:
         assert snapshot["damping_enabled"], f"⚠️ Expected damping for CFL spike in {snapshot_file}"
