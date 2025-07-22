@@ -37,13 +37,14 @@ def test_velocity_and_pressure_field_values(snapshot, domain, expected_mask, exp
             assert isinstance(cell["velocity"], list), "❌ Fluid velocity should be a list"
             assert len(cell["velocity"]) == 3
 
-            assert is_close(cell["velocity"][0], cell["velocity"][1], relaxed_tol), f"testing"
-
             actual_mag = vector_magnitude(cell["velocity"])
             expected_mag = vector_magnitude(expected_velocity)
             relaxed_tol = max(tolerances["velocity"], expected_mag * 0.1)
             print(f"📌 Velocity vector check: actual={cell['velocity']}, expected={expected_velocity}")
             print(f"📌 Magnitudes: actual={actual_mag}, expected={expected_mag}")
+
+            assert is_close(cell["velocity"][0], cell["velocity"][1], relaxed_tol), f"testing"
+
             assert is_close(actual_mag, expected_mag, relaxed_tol), f"❌ Velocity magnitude mismatch: {actual_mag} vs {expected_mag}"
 
             # ❗ Temporary fix for known pressure deviation
