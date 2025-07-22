@@ -1,7 +1,7 @@
 # tests/test_snapshot_t0_reflex_guard.py
 # 🧪 Reflex Metadata Validation for t=0 Snapshot
 
-from tests.snapshot_t0_shared import snapshot, domain, get_domain_cells
+from tests.integration_tests.snapshot_t0_shared import snapshot, domain, get_domain_cells
 
 def test_mutation_trace_presence(snapshot):
     mutated = snapshot.get("mutated_cells", [])

@@ -1,7 +1,7 @@
 # tests/test_snapshot_t0_diagnostics.py
 # 🧪 Reflex and Ghost Diagnostic Integrity — Snapshot t=0
 
-from tests.snapshot_t0_shared import snapshot, domain, get_domain_cells
+from tests.integration_tests.snapshot_t0_shared import snapshot, domain, get_domain_cells
 
 def test_basic_reflex_flags(snapshot):
     assert isinstance(snapshot.get("max_divergence"), (int, float)), "❌ max_divergence must be numeric"

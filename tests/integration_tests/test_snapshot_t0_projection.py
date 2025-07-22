@@ -2,7 +2,7 @@
 # 🧪 Projection Validation: pressure/velocity effects at t=0
 
 import math
-from tests.snapshot_t0_shared import (
+from tests.integration_tests.snapshot_t0_shared import (
     snapshot,
     config,
     domain,

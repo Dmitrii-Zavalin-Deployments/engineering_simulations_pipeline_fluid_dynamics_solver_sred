@@ -2,7 +2,7 @@
 # 🧪 Structure and Grid Validation for t=0 Snapshot
 
 import math
-from tests.snapshot_t0_shared import (
+from tests.integration_tests.snapshot_t0_shared import (
     snapshot,
     config,
     domain,

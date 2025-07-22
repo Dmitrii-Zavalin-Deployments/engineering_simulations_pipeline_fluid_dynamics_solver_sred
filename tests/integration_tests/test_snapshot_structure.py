@@ -2,7 +2,7 @@
 # 🧪 Modular snapshot structure validation (schema, coordinates, diagnostics)
 
 import math
-from tests.snapshot_t0_shared import (
+from tests.integration_tests.snapshot_t0_shared import (
     snapshot,
     config,
     domain,
