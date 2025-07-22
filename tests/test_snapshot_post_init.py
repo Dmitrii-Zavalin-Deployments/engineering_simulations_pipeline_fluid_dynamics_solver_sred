@@ -95,11 +95,11 @@ def test_max_velocity(snapshot, domain, expected_mask):
     magnitudes = []
     for cell, is_fluid in zip(domain_cells, expected_mask):
         if is_fluid and cell["velocity"]:
-            if snapshot.get("damping_enabled", False) or snapshot.get("projection_passes", 1) > 1:
-                velocity_mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
-                assert velocity_mag < 15.0, f"❌ Damp-projected velocity too high: {velocity_mag}"
-            mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
-            magnitudes.append(mag)
+            velocity_mag = math.sqrt(sum(v**2 for v in cell["velocity"]))
+            assert velocity_mag < 15.0, f"❌ Velocity magnitude too high: {velocity_mag}"
+            assert not math.isnan(velocity_mag), "❌ Velocity magnitude is NaN"
+            assert not math.isinf(velocity_mag), "❌ Velocity magnitude is infinite"
+            magnitudes.append(velocity_mag)
 
     max_computed = max(magnitudes) if magnitudes else 0.0
     assert math.isclose(snapshot["max_velocity"], max_computed, rel_tol=1e-5), "❌ max_velocity mismatch with grid data"

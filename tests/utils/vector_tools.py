@@ -8,7 +8,7 @@ def vector_angle(v1, v2):
     dot = sum(a * b for a, b in zip(v1, v2))
     norm1 = math.sqrt(sum(a ** 2 for a in v1))
     norm2 = math.sqrt(sum(b ** 2 for b in v2))
-    return math.acos(dot / (norm1 * norm2 + 1e-8))
+    return math.acos(dot / (norm1 * norm2 + 1e-8))  # radians
 
 
 
