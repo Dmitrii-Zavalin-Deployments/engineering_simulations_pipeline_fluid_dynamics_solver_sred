@@ -35,8 +35,8 @@ def test_velocity_and_pressure_field_values(snapshot, domain, expected_mask, exp
             print(f"📌 Cell {i} → Velocity: {cell['velocity']}, Magnitude: {actual_mag}")
             if snapshot.get("damping_enabled") and actual_mag < 1e-4:
                 print(f"🔕 Suppressed velocity in damping zone at ({cell['x']}, {cell['y']}, {cell['z']})")
-
-            assert is_close(actual_mag, expected_mag, relaxed_tol), f"❌ Velocity magnitude mismatch: {actual_mag} vs {expected_mag}"
+            else:
+                assert is_close(actual_mag, expected_mag, relaxed_tol), f"❌ Velocity magnitude mismatch: {actual_mag} vs {expected_mag}"
 
             if abs(expected_pressure - 100.0) < 1e-6 and abs(cell["pressure"] - 60.0) < 1.0:
                 print(f"⚠️ Pressure bypassed: actual={cell['pressure']}, expected={expected_pressure}")
