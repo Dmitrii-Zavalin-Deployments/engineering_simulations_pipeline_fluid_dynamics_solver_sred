@@ -45,7 +45,7 @@ def test_velocity_and_pressure_field_values(snapshot, domain, expected_mask, exp
 
             vx, vy, vz = cell["velocity"]
             magnitude = math.sqrt(vx**2 + vy**2 + vz**2)
-            assert is_close(magnitude, 2.0, relaxed_tol), "testing"
+            assert is_close(cell["velocity"], 2.0, relaxed_tol), "testing"
 
             assert is_close(actual_mag, expected_mag, relaxed_tol), f"❌ Velocity magnitude mismatch: {actual_mag} vs {expected_mag}"
 
