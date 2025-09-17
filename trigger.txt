@@ -1050,3 +1050,4 @@
 2025-08-31 03:00:04.291
 2025-08-31 03:30:04.497
 2025-09-17 14:17:03: STEP processor triggered by 'Dmitrii-Zavalin-Deployments' via 'push' event
+2025-09-17 15:31:36: STEP processor triggered by 'Dmitrii-Zavalin-Deployments' via 'workflow_dispatch' event
