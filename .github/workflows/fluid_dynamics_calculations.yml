@@ -102,8 +102,8 @@ jobs:
         src/upload_to_dropbox.sh "$UPLOAD_DIR"
 
     - name: 📝 Log trigger for STEP processor
-        run: |
-          echo "$(date '+%Y-%m-%d %H:%M:%S'): STEP processor triggered by '${{ github.actor }}' via '${{ github.event_name }}' event" >> trigger.txt
+      run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S'): STEP processor triggered by '${{ github.actor }}' via '${{ github.event_name }}' event" >> trigger.txt
 
     - name: 🚀 Commit and push trigger log
       env:
@@ -112,6 +112,7 @@ jobs:
       run: |
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
+        git pull --rebase origin main || echo "⚠️ Pull failed or not needed"
         git add trigger.txt
         git commit -m "Log STEP processor trigger by ${{ github.actor }} via ${{ github.event_name }}"
         git push
