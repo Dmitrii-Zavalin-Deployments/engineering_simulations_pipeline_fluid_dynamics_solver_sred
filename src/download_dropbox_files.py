@@ -18,16 +18,6 @@ def refresh_access_token(refresh_token, client_id, client_secret):
     else:
         raise Exception("Failed to refresh access token")
 
-# Function to delete a file from Dropbox
-def delete_file_from_dropbox(dbx, file_path, log_file):
-    try:
-        dbx.files_delete_v2(file_path)
-        log_file.write(f"Deleted file from Dropbox: {file_path}\n")
-        print(f"Deleted file from Dropbox: {file_path}")  # Print to GitHub Actions logs
-    except Exception as e:
-        log_file.write(f"Failed to delete file: {file_path}, error: {e}\n")
-        print(f"Failed to delete file: {file_path}, error: {e}")  # Print error to GitHub Actions logs
-
 # Function to download all files from a specified Dropbox folder and delete them afterwards
 def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, client_id, client_secret, log_file_path):
     # Refresh the access token
@@ -53,13 +43,10 @@ def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, cli
                     if isinstance(entry, dropbox.files.FileMetadata):  # Now downloads all files, not just PDFs
                         local_path = os.path.join(local_folder, entry.name)
                         with open(local_path, "wb") as f:
-                            metadata, res = dbx.files_download(path=entry.path_lower)
+                            _, res = dbx.files_download(path=entry.path_lower)
                             f.write(res.content)
                         log_file.write(f"Downloaded {entry.name} to {local_path}\n")
                         print(entry.name)  # Print the name of the downloaded file to GitHub Actions logs
-
-                        # Delete the file from Dropbox after downloading
-                        # delete_file_from_dropbox(dbx, entry.path_lower, log_file)
 
                 has_more = result.has_more
                 cursor = result.cursor
@@ -84,6 +71,5 @@ if __name__ == "__main__":
 
     # Call the function
     download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, client_id, client_secret, log_file_path)
-
 
 
