@@ -3,7 +3,7 @@
 import json
 import sys
 import os
-from jsonschema import validate, Draft202012Validator, exceptions as jsonschema_exceptions
+from jsonschema import Draft202012Validator, exceptions as jsonschema_exceptions
 
 SCHEMA_PATH = os.path.join(
     "engineering_simulations_pipeline_fluid_dynamics_solver_sred",
