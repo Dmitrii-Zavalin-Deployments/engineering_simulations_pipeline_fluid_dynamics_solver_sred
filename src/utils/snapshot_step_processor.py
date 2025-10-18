@@ -2,7 +2,6 @@
 # ⚙️ Snapshot Step Processor — handles per-step diagnostics, scoring, and export
 
 import os
-import json
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
 from src.visualization.influence_overlay import render_influence_overlay

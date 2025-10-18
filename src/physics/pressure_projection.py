@@ -4,7 +4,7 @@
 from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
-from src.physics.pressure_methods.utils import index_fluid_cells, flatten_pressure_field
+from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 
 def extract_ghost_coords(grid: List[Cell]) -> Set[Tuple[float, float, float]]:

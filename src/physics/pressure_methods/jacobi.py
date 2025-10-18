@@ -2,10 +2,9 @@
 # 🔁 Jacobi iteration for pressure Poisson solve (∇²p = divergence) — ghost-aware
 
 from src.grid_modules.cell import Cell
-from typing import List, Dict, Tuple, Set
+from typing import List, Tuple, Set
 from src.physics.pressure_methods.utils import index_fluid_cells, build_pressure_map
 from src.physics.pressure_methods.boundary import handle_solid_or_ghost_neighbors
-import math
 
 def solve_jacobi_pressure(grid: List[Cell],
                           divergence: List[float],

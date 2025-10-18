@@ -1,7 +1,6 @@
 # src/visualization/influence_overlay.py
 
 import matplotlib.pyplot as plt
-import numpy as np
 import os
 
 def render_influence_overlay(influence_log, output_path, score_threshold=0.85):

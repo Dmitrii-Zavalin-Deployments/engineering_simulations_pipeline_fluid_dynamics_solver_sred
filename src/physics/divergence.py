@@ -2,7 +2,7 @@
 # 🔍 Central-difference divergence calculation for fluid incompressibility checks — ghost-aware
 
 from src.grid_modules.cell import Cell
-from typing import List, Dict, Tuple, Set
+from typing import List, Set
 from src.physics.divergence_methods.central import compute_central_divergence
 
 def compute_divergence(grid: List[Cell],

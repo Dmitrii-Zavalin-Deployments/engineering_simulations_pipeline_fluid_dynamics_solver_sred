@@ -38,7 +38,7 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
 
         coords = (cell.x, cell.y, cell.z)
 
-        v_center = safe_velocity(cell)
+        safe_velocity(cell)
 
         # Gather neighbors for central differencing
         def neighbor_diff(axis_index: int, offset: float) -> float:

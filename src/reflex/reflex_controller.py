@@ -4,7 +4,7 @@
 
 from typing import List, Optional
 from src.grid_modules.cell import Cell
-from src.reflex.reflex_logic import should_flag_overflow, adjust_time_step
+from src.reflex.reflex_logic import adjust_time_step
 from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.cfl_controller import compute_global_cfl
 from src.metrics.divergence_metrics import compute_max_divergence

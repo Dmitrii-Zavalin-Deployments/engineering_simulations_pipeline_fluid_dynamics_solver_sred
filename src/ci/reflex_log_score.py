@@ -1,7 +1,6 @@
 # src/ci/reflex_log_score.py
 # 📊 Reflex Log Score — CI log parser and simulation summary evaluator
 
-import os
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
 # ✅ Updated markers for boolean-style summary detection

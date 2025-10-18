@@ -1,7 +1,7 @@
 # src/physics/boundary_condition_solver.py
 # 🧪 Boundary Condition Solver — enforces inlet/outlet/wall/symmetry logic on ghost cells and adjacent fluid cells
 
-from typing import List, Set, Dict, Tuple
+from typing import List, Dict
 from src.grid_modules.cell import Cell
 
 def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict], config: dict) -> List[Cell]:

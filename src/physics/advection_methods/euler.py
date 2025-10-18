@@ -20,8 +20,8 @@ def compute_euler_velocity(grid: List[Cell], dt: float, config: dict) -> List[Ce
     # Extract domain resolution and spacing
     domain = config.get("domain_definition", {})
     nx = domain.get("nx", 1)
-    ny = domain.get("ny", 1)
-    nz = domain.get("nz", 1)
+    domain.get("ny", 1)
+    domain.get("nz", 1)
     min_x = domain.get("min_x", 0.0)
     max_x = domain.get("max_x", 1.0)
     dx = (max_x - min_x) / nx if nx > 0 else 1.0

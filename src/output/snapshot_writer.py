@@ -3,7 +3,7 @@
 
 import os
 import json
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from src.grid_modules.cell import Cell
 
 def export_influence_flags(

@@ -1,7 +1,6 @@
 # src/adaptive/timestep_controller.py
 # 🔄 Timestep Controller — proposes dynamic timestep adjustment based on mutation intensity
 
-import os
 import json
 from typing import Optional
 

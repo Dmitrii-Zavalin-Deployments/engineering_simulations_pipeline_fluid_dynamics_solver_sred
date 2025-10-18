@@ -69,7 +69,7 @@ def evolve_step(
         label="before projection", step_index=step,
         output_folder=output_folder, config=config
     )
-    divergence_before = stats_before["max"]
+    stats_before["max"]
 
     base_dt = input_data.get("default_timestep", 0.01)
     delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
