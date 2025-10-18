@@ -5,11 +5,7 @@ import sys
 import os
 from jsonschema import Draft202012Validator, exceptions as jsonschema_exceptions
 
-SCHEMA_PATH = os.path.join(
-    "engineering_simulations_pipeline_fluid_dynamics_solver_sred",
-    "schema",
-    "fluid_simulation_input.schema.json"
-)
+SCHEMA_PATH = "./schema/fluid_simulation_input.schema.json"
 
 def load_json(file_path: str) -> dict:
     try:
