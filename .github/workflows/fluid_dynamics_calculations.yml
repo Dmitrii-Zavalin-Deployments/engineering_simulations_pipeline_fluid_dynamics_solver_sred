@@ -45,7 +45,7 @@ jobs:
             git commit -m "🧹 Auto-clean: removed unused imports and variables"
             git push || echo "No changes to push"
           )
-  
+
   fluid_dynamics_simulation:
     needs: code_quality_check
     runs-on: ubuntu-latest
@@ -56,6 +56,7 @@ jobs:
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
       UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output
       REFLEX_CONFIG: ${{ github.workspace }}/config/reflex_debug_config.yaml
+      DEBUG_MODE: true
 
     steps:
     - name: 🗂️ Checkout Repository
@@ -78,15 +79,21 @@ jobs:
         src/download_from_dropbox.sh
         [ -f "$ORIGINAL_INPUT_FILE" ] && echo "✅ Original input file ready." || { echo "❌ Error: Input file missing."; exit 1; }
 
-    - name: 🚀 Run Main Solver
+    - name: 📋 Validate Input Schema
+      run: |
+        python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
+          echo "❌ Input schema validation failed."; exit 1;
+        }
+
+    - name: 🚀 Run Main Solver (Debug Mode)
       env:
         PYTHONPATH: ${{ github.workspace }}/src
         REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        python src/main_solver.py "$ORIGINAL_INPUT_FILE"
-        echo "✅ Main solver executed without JSON serialization errors."
+        python src/main_solver.py "$ORIGINAL_INPUT_FILE" --debug
+        echo "✅ Main solver executed with debug mode."
 
     - name: 🧪 Run Unit Tests
       env:
@@ -113,16 +120,6 @@ jobs:
         echo "📦 Full repository structure:"
         ls -R ${{ github.workspace }}
         echo "✅ Inspection complete."
-
-    - name: 📦 Archive Snapshot Results
-      run: |
-        ZIP_SOURCE="${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output"
-        ZIP_DEST="${GITHUB_WORKSPACE}/data/testing-output-run"
-        ZIP_NAME="navier_stokes_output.zip"
-        mkdir -p "$ZIP_DEST"
-        cd "$ZIP_SOURCE"
-        zip -rq "$ZIP_DEST/$ZIP_NAME" . || { echo "❌ ERROR: Archive creation failed."; exit 1; }
-        echo "✅ Archive created: $ZIP_NAME"
 
     - name: ☁️ Upload to Dropbox
       env:
