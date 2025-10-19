@@ -107,7 +107,8 @@ def score_reflex_metadata_fields(reflex: dict) -> dict:
         "reflex_score": reflex.get("reflex_score", 0),
         "suppression_zone_count": len(reflex.get("suppression_zones", [])),
         "mutation_density": reflex.get("mutation_density", 0.0),
-        "projection_passes": reflex.get("projection_passes", 1)
+        "projection_passes": reflex.get("projection_passes", 1),
+        "adjacency_count": len(reflex.get("adjacency_zones", []))  # ✅ Added for trace visibility
     }
 
 def evaluate_snapshot_health(
@@ -125,7 +126,7 @@ def evaluate_snapshot_health(
 
     score_inputs = {
         "mutation": reflex_metadata.get("pressure_mutated", False),
-        "adjacency": len(reflex_metadata.get("adjacency_zones", [])),
+        "adjacency": field_checks["adjacency_count"],
         "influence": reflex_metadata.get("ghost_influence_count", 0),
         "suppression": field_checks["suppression_zone_count"],
         "mutation_density": field_checks["mutation_density"],
@@ -141,7 +142,8 @@ def evaluate_snapshot_health(
         "has_projection": field_checks["has_projection"],
         "divergence_logged": field_checks["divergence_logged"],
         "reflex_score": reflex_score,
-        "suppression_zone_count": field_checks["suppression_zone_count"]
+        "suppression_zone_count": field_checks["suppression_zone_count"],
+        "adjacency_count": field_checks["adjacency_count"]  # ✅ Added for overlay and scoring trace
     }
 
 def batch_evaluate_trace(

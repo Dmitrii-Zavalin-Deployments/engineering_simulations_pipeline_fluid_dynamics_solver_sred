@@ -23,11 +23,16 @@ def render_reflex_overlay(
     - Visualizes mutation zones, suppression fallback, and ghost adjacency
     - Annotates reflex score and mutation density for overlays
 
+    Integration:
+    - adjacency_coords should be derived from ghost_face_mapper.tag_ghost_adjacency()
+    - mutation_coords from pressure mutation tagging
+    - suppression_coords from suppression_zones.detect_suppression_zones()
+
     Args:
         step_index (int): Simulation step index
         reflex_score (float): Reflex integrity score
         mutation_coords (List[Tuple]): Coordinates of mutated pressure cells
-        adjacency_coords (List[Tuple]): Ghost-adjacent fluid zones
+        adjacency_coords (List[Tuple]): Ghost-adjacent fluid zones (from ghost_face_mapper)
         suppression_coords (List[Tuple]): Influence suppression zones
         output_path (str): Path to write PNG image
         score_threshold (float): Minimum reflex score to trigger rendering
@@ -54,7 +59,7 @@ def render_reflex_overlay(
             ax.scatter(x, y, marker=marker, label=f"{label} ({len(coords)})", c=color, alpha=0.7)
 
     plot_zone(mutation_coords, marker="s", label="Pressure Mutation", color="red")
-    plot_zone(adjacency_coords, marker="o", label="Ghost Adjacency", color="blue")
+    plot_zone(adjacency_coords, marker="o", label="Ghost Adjacency (from ghost_face_mapper)", color="blue")
     plot_zone(suppression_coords, marker="x", label="Suppressed Influence", color="gray")
 
     ax.set_xlabel("x")

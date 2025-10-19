@@ -16,6 +16,7 @@ def write_step_summary(
     Reflex Scoring:
     - Logs reflex score, mutation density, divergence, ghost influence
     - Tracks suppression fallback, damping triggers, overflow flags, CFL diagnostics
+    - Logs ghost adjacency count from ghost_face_mapper.tag_ghost_adjacency()
 
     Args:
         step_index (int): Simulation step index
@@ -34,6 +35,7 @@ def write_step_summary(
         "pressure_mutated",
         "projection_passes",
         "ghost_influence_count",
+        "ghost_adjacency_count",  # ✅ Added for adjacency zone logging
         "max_divergence",
         "mean_divergence",
         "ghost_adjacent_but_influence_suppressed",
@@ -64,6 +66,7 @@ def write_step_summary(
     damping_count = reflex_metadata.get("damping_triggered_count", 0)
     overflow_count = reflex_metadata.get("overflow_triggered_count", 0)
     cfl_count = reflex_metadata.get("cfl_exceeded_count", 0)
+    adjacency_count = len(reflex_metadata.get("adjacency_zones", []))  # ✅ Added
 
     # Construct row
     row = {
@@ -74,6 +77,7 @@ def write_step_summary(
         "pressure_mutated": reflex_metadata.get("pressure_mutated", ""),
         "projection_passes": reflex_metadata.get("projection_passes", ""),
         "ghost_influence_count": reflex_metadata.get("ghost_influence_count", ""),
+        "ghost_adjacency_count": adjacency_count,
         "max_divergence": reflex_metadata.get("post_projection_divergence", ""),
         "mean_divergence": reflex_metadata.get("mean_divergence", ""),
         "ghost_adjacent_but_influence_suppressed": suppression_flag,
