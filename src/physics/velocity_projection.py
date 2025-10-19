@@ -10,7 +10,7 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
 
     Roadmap Alignment:
     Governing Equation:
-    - Continuity: ∇ · u = 0
+        Continuity: ∇ · u = 0
 
     Purpose:
     - After solving ∇²P = ∇ · u, we enforce incompressibility by updating velocity:
@@ -21,6 +21,10 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
     Numerical Strategy:
     - Central difference approximation of ∇P
     - Subtract gradient from velocity at each fluid cell
+
+    Diagnostic Role:
+    - Supports reflex scoring and divergence diagnostics
+    - Anchors final enforcement of ∇ · u = 0
 
     Args:
         grid (List[Cell]): Simulation grid with updated pressures

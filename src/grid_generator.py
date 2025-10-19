@@ -1,4 +1,5 @@
 # src/grid_generator.py
+# 🧱 Grid Generator — initializes spatial topology, fluid masking, and boundary tags
 
 import logging
 from src.grid_modules.cell import Cell
@@ -11,6 +12,15 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     """
     [LEGACY] Generates a structured 3D grid with seeded velocity/pressure and tagged boundaries.
     This does not apply geometry-based fluid masking.
+
+    Roadmap Alignment:
+    - Domain resolution → grid_geometry.py
+    - Initial velocity/pressure → initial_field_assigner.py
+    - Boundary tagging → boundary_manager.py
+
+    Purpose:
+    - Initializes full fluid domain without topology masking
+    - Used for simple test cases or full-domain fluid simulations
 
     Args:
         domain (dict): Includes physical bounds and resolution
@@ -46,6 +56,16 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     """
     Generates a 3D grid with seeded velocity/pressure, boundary tags, and fluid masking.
     Fluid masking is extracted using geometry_mask_flat and geometry_mask_shape.
+
+    Roadmap Alignment:
+    - Domain resolution → grid_geometry.py
+    - Fluid topology → mask_interpreter.py
+    - Initial velocity/pressure → initial_field_assigner.py
+    - Boundary tagging → boundary_manager.py
+
+    Purpose:
+    - Initializes spatial grid with encoded fluid vs solid topology
+    - Supports reflex scoring, ghost logic, and continuity enforcement
 
     Args:
         domain (dict): Domain bounds and resolution

@@ -8,13 +8,14 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     """
-    Executes the full Navier-Stokes simulation loop:
-
-    Governing Equations:
-    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - Continuity: ∇ · u = 0
+    Executes the full Navier-Stokes simulation loop.
 
     Roadmap Alignment:
+    Governing Equations:
+    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+    - Continuity: ∇ · u = 0
+
+    Modular Execution:
     - Input parsing → input_reader.py
     - Grid generation → grid_generator.py
     - Boundary enforcement → boundary_condition_solver.py
@@ -26,6 +27,11 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     - Velocity projection → velocity_projection.py
     - Time loop orchestration → step_controller.py
     - Snapshot packaging → snapshot_step_processor.py
+
+    Reflex Integration:
+    - Reflex scoring injected per step
+    - Mutation diagnostics tracked
+    - Projection status logged
 
     Args:
         input_data (dict): Parsed simulation input

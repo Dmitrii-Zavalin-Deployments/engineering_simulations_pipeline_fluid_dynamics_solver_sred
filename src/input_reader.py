@@ -9,12 +9,18 @@ def load_simulation_input(filepath: str) -> dict:
     Parses the structured JSON input file for a Navier-Stokes simulation.
 
     Roadmap Alignment:
-    1. Domain Definition → spatial bounds and grid resolution for discretization
-    2. Fluid Properties → density (ρ) and viscosity (μ) for momentum equation
-    3. Initial Conditions → velocity and pressure fields for ∂u/∂t initialization
-    4. Simulation Parameters → time step, total time, output interval
-    5. Boundary Conditions → enforcement logic for ghost cells and ∇P coupling
-    6. Geometry Definition (optional) → fluid vs solid masking for domain topology
+    Schema → Solver Modules:
+    1. Domain Definition → grid_generator.py, velocity_projection.py
+    2. Fluid Properties → momentum_solver.py, viscosity.py
+    3. Initial Conditions → grid_generator.py, advection.py
+    4. Simulation Parameters → snapshot_manager.py, step_controller.py
+    5. Boundary Conditions → boundary_condition_solver.py, ghost_influence_applier.py
+    6. Pressure Solver → pressure_projection.py, jacobi.py
+    7. Geometry Definition (optional) → grid_generator.py, ghost_cell_generator.py
+
+    Reflex Integration:
+    - Input parsing anchors diagnostic traceability
+    - Schema alignment supports reflex scoring and mutation overlays
 
     Returns:
         dict: Validated input configuration

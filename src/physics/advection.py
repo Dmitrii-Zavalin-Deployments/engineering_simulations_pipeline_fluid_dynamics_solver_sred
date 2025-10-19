@@ -1,5 +1,5 @@
 # src/physics/advection.py
-# 🌀 Advection Operator — computes nonlinear transport term u · ∇u
+# 🌀 Advection Operator — computes nonlinear transport term u · ∇u for momentum enforcement
 
 from typing import List
 from src.grid_modules.cell import Cell
@@ -15,6 +15,11 @@ def compute_advection(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     This module enforces:
     - u · ∇u → nonlinear convective transport
     - ∂u/∂t → explicit Euler update
+
+    Purpose:
+    - Captures directional momentum transfer across fluid cells
+    - Anchors convective term in momentum solver
+    - Supports reflex diagnostics and mutation traceability
 
     Strategy:
     1. For each fluid cell, compute spatial derivatives of velocity components

@@ -18,6 +18,11 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
     - μ∇²u → viscous diffusion via Laplacian stencil
     - ∂u/∂t → explicit Euler update
 
+    Purpose:
+    - Dampens high-frequency velocity fluctuations
+    - Anchors viscous term in momentum solver
+    - Supports reflex diagnostics and mutation traceability
+
     Strategy:
     1. For each fluid cell, compute average velocity of 6 neighbors
     2. Subtract current velocity to get Laplacian term

@@ -21,6 +21,11 @@ def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List
     - -∇P: pressure gradient handled in pressure_solver.py
     - F: external forces handled separately if present
 
+    Purpose:
+    - Enforces directional momentum transport and viscous damping
+    - Anchors velocity evolution prior to pressure correction
+    - Supports reflex diagnostics and mutation traceability
+
     Args:
         grid (List[Cell]): Current simulation grid
         input_data (dict): Full simulation input config

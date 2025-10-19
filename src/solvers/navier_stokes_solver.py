@@ -31,6 +31,10 @@ def solve_navier_stokes_step(
     2. Pressure Poisson solve for incompressibility
     3. Velocity projection using pressure gradient
 
+    Reflex Integration:
+    - Tracks pressure mutation and projection passes
+    - Supports reflex scoring, mutation diagnostics, and solver visibility
+
     Args:
         grid (List[Cell]): Current simulation grid
         input_data (dict): Full simulation configuration
@@ -52,7 +56,7 @@ def solve_navier_stokes_step(
     # 🔁 Step 3: Velocity projection — updates u ← u - ∇P to complete continuity enforcement
     grid_after_projection = apply_pressure_velocity_projection(grid_after_pressure, input_data)
 
-    # 📦 Metadata packaging
+    # 📦 Metadata packaging for reflex and diagnostics
     metadata = {
         "pressure_mutated": pressure_mutated,
         "projection_passes": projection_passes

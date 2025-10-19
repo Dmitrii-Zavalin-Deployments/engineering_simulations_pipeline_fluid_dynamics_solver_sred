@@ -1,13 +1,24 @@
 # src/grid_modules/initial_field_assigner.py
+# 🌀 Initial Field Assigner — seeds velocity and pressure for ∂u/∂t initialization and reflex diagnostics
 
 from src.grid_modules.cell import Cell
 
 def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
     """
     Assigns initial velocity and pressure to fluid cells.
-    If fluid_mask is missing, cells default to fluid=True.
-    Solid and ghost cells (fluid_mask=False) are sanitized with None values.
-    Raises ValueError if required fields are missing or invalid.
+
+    Roadmap Alignment:
+    Governing Equation:
+        Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+
+    Purpose:
+    - Seeds ∂u/∂t initialization for momentum solver
+    - Supports reflex diagnostics and mutation tracking
+    - Sanitizes solid and ghost cells for boundary enforcement
+
+    Strategy:
+    - Fluid cells → velocity[:] and pressure
+    - Solid/ghost cells → velocity=None, pressure=None
 
     Args:
         cells (list[Cell]): Grid cells to initialize

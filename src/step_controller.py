@@ -21,17 +21,22 @@ def evolve_step(
     reflex_score: Optional[int] = None
 ) -> Tuple[List[Cell], dict]:
     """
-    Evolves the fluid grid by one simulation step using the full Navier-Stokes formulation:
+    Evolves the fluid grid by one simulation step using the full Navier-Stokes formulation.
 
+    Roadmap Alignment:
     Governing Equations:
-    - Continuity: ∇ · u = 0
-    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+    - Continuity: ∇ · u = 0
+    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
 
-    Evolution Sequence:
-    1. Ghost cell padding and boundary enforcement
-    2. Ghost influence propagation (velocity/pressure transfer)
-    3. Navier-Stokes solver (momentum + pressure + projection)
-    4. Reflex logic and diagnostics
+    Modular Execution Sequence:
+    1. Ghost cell padding → ghost_cell_generator.py
+    2. Boundary enforcement → boundary_condition_solver.py
+    3. Ghost influence propagation → ghost_influence_applier.py
+    4. Divergence diagnostics → divergence_tracker.py
+    5. Adaptive timestep suggestion → timestep_controller.py
+    6. Navier-Stokes solver (momentum + pressure + projection) → navier_stokes_solver.py
+    7. Post-projection divergence check → divergence_tracker.py
+    8. Reflex scoring and metadata injection → reflex_controller.py
 
     Returns:
         Tuple[List[Cell], dict]: Updated grid and reflex metadata for snapshot
