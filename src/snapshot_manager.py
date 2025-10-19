@@ -9,12 +9,23 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     """
     Executes the full Navier-Stokes simulation loop:
-    - Initializes grid from domain and geometry
-    - Evolves fluid state over time using:
-        - Momentum equation: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-        - Continuity equation: ∇ · u = 0
-    - Applies boundary conditions and ghost logic
-    - Records snapshots at specified intervals
+
+    Governing Equations:
+    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+    - Continuity: ∇ · u = 0
+
+    Roadmap Alignment:
+    - Input parsing → input_reader.py
+    - Grid generation → grid_generator.py
+    - Boundary enforcement → boundary_condition_solver.py
+    - Ghost logic → ghost_cell_generator.py, ghost_influence_applier.py
+    - Momentum update → momentum_solver.py
+        - Advection: u · ∇u → advection.py
+        - Viscosity: μ∇²u → viscosity.py
+    - Pressure solve → pressure_solver.py
+    - Velocity projection → velocity_projection.py
+    - Time loop orchestration → step_controller.py
+    - Snapshot packaging → snapshot_step_processor.py
 
     Args:
         input_data (dict): Parsed simulation input

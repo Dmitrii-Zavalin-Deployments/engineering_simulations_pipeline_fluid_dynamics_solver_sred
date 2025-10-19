@@ -52,6 +52,18 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
         print(f"📐 Grid resolution: {domain.get('nx')} × {domain.get('ny')} × {domain.get('nz')}")
 
     # 🔁 Time Integration Loop — solves Navier-Stokes equations per step
+    # 🧠 Roadmap Alignment:
+    # - Structured input parsing → input_reader.py
+    # - Momentum update: ρ(∂u/∂t + u · ∇u) = μ∇²u → momentum_solver.py
+    #     - Advection: u · ∇u → advection.py
+    #     - Viscosity: μ∇²u → viscosity.py
+    # - Pressure solve: ∇²P = ∇ · u → pressure_solver.py
+    # - Continuity enforcement: ∇ · u = 0 → velocity_projection.py
+    # - Boundary enforcement → boundary_condition_solver.py
+    # - Ghost logic → ghost_cell_generator.py, ghost_influence_applier.py
+    # - Time loop orchestration → step_controller.py
+    # - Output and diagnostics → snapshot_manager.py, reflex_controller.py
+
     snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
 
     for step, snapshot in snapshots:

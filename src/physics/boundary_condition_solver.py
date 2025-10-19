@@ -8,12 +8,17 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
     """
     Applies physical boundary conditions to ghost cells and adjacent fluid cells.
 
-    Governing Equations:
-    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - Boundary enforcement modifies ghost cells to reflect Dirichlet or Neumann conditions:
-        - Dirichlet: fixed value (e.g. velocity, pressure)
-        - Neumann: zero-gradient (handled in pressure solver)
-        - No-slip: velocity = 0 at wall boundaries
+    Roadmap Alignment:
+    - Governing Equations:
+        - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+        - Continuity: ∇ · u = 0
+
+    Boundary enforcement modifies ghost cells to reflect:
+        - Dirichlet conditions: fixed velocity or pressure
+        - Neumann conditions: zero-gradient (handled in pressure solver)
+        - No-slip walls: velocity = 0 at solid boundaries
+
+    These conditions ensure correct momentum transfer and pressure coupling at domain boundaries.
 
     Args:
         grid (List[Cell]): Grid including ghost cells.

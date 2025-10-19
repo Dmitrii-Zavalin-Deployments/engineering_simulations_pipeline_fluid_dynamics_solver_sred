@@ -9,6 +9,16 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     """
     Generates ghost cells at domain boundaries based on tagged faces and no-slip enforcement.
 
+    Roadmap Alignment:
+    - Governing Equations:
+        - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+        - Continuity: ∇ · u = 0
+
+    Purpose:
+    - Ghost cells extend the domain to enforce boundary conditions
+    - Support Dirichlet (fixed value) and Neumann (zero-gradient) enforcement
+    - Enable pressure coupling and velocity projection near walls and inlets
+
     Args:
         grid (List[Cell]): Physical simulation grid.
         config (dict): Full simulation input with domain_definition and boundary_conditions.

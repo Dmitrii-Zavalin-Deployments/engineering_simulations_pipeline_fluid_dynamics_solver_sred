@@ -1,13 +1,21 @@
 # src/physics/velocity_projection.py
-# 💨 Velocity Projection — adjusts fluid velocity using pressure gradient ∇p
+# 💨 Velocity Projection — adjusts fluid velocity using pressure gradient ∇P
 
 from typing import List
 from src.grid_modules.cell import Cell
 
 def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[Cell]:
     """
-    Projects velocity by subtracting pressure gradient using central difference approximation.
-    Enforces incompressibility after pressure solve.
+    Projects velocity field using pressure gradient subtraction.
+
+    Governing Context:
+    - After solving ∇²P = ∇ · u, we enforce ∇ · u = 0 by updating velocity:
+        u ← u - ∇P
+    - This step completes the continuity constraint for incompressible flow.
+
+    Numerical Strategy:
+    - Central difference approximation of ∇P
+    - Subtract gradient from velocity at each fluid cell
 
     Args:
         grid (List[Cell]): Simulation grid with updated pressures
@@ -37,6 +45,7 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             updated.append(cell)
             continue
 
+        # 🧮 Compute pressure gradient ∇P using central difference
         grad = [0.0, 0.0, 0.0]
         for i, (dim, h, delta) in enumerate([("x", dx, (1, 0, 0)), ("y", dy, (0, 1, 0)), ("z", dz, (0, 0, 1))]):
             plus = (cell.x + delta[0]*h, cell.y + delta[1]*h, cell.z + delta[2]*h)
@@ -47,7 +56,7 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             if p_plus is not None and p_minus is not None:
                 grad[i] = (p_plus - p_minus) / (2.0 * h)
 
-        # 🧮 Subtract pressure gradient from current velocity
+        # 💨 Subtract pressure gradient from current velocity
         projected_velocity = [
             v - g for v, g in zip(velocity_map[coord], grad)
         ]

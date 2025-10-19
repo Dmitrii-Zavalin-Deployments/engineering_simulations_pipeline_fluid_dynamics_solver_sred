@@ -1,5 +1,5 @@
 # src/physics/viscosity.py
-# 💧 Viscous diffusion module — Laplacian smoothing of velocity field with mutation diagnostics
+# 💧 Viscous Diffusion Module — applies μ∇²u smoothing to velocity field with mutation diagnostics
 
 from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
@@ -9,7 +9,15 @@ import math
 def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     """
     Applies Laplacian-based smoothing to velocity field using 6-point stencil.
-    Only fluid cells are updated; solid and ghost cells are passed unchanged.
+
+    Governing Term:
+        μ∇²u — viscous diffusion in the momentum equation:
+        ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+
+    Strategy:
+    - For each fluid cell, compute average velocity of 6 neighbors
+    - Subtract current velocity to get Laplacian term
+    - Apply explicit Euler update: u_new = u_old + μ∇²u · dt
 
     Args:
         grid (List[Cell]): Current grid with velocity and pressure
@@ -55,6 +63,7 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
             updated.append(copy_cell(cell))
             continue
 
+        # Compute average neighbor velocity
         avg_velocity = [0.0, 0.0, 0.0]
         for v in neighbors:
             for i in range(3):
@@ -62,7 +71,10 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
         for i in range(3):
             avg_velocity[i] /= len(neighbors)
 
+        # Laplacian term: ∇²u ≈ avg_neighbors - u
         laplacian_term = [avg_velocity[i] - cell.velocity[i] for i in range(3)]
+
+        # Euler update: u_new = u_old + μ∇²u · dt
         viscosity_update = vector_scale(laplacian_term, viscosity * dt)
         new_velocity = vector_add(cell.velocity, viscosity_update)
 
