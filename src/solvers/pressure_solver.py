@@ -1,5 +1,5 @@
 # src/solvers/pressure_solver.py
-# 💧 Pressure Solver — enforces incompressibility via pressure correction
+# 💧 Pressure Solver — enforces incompressibility via pressure correction and reflex diagnostics
 
 from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
@@ -14,13 +14,18 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     Roadmap Alignment:
     Governing Equation:
-    - Continuity: ∇ · u = 0
+        Continuity: ∇ · u = 0
 
     Modular Enforcement:
     - Divergence computation → divergence_tracker.py
     - Pressure solve: ∇²P = ∇ · u → pressure_projection.py
     - Mutation threshold logic → mutation_threshold_advisor.py
     - Delta map export → pressure_delta_map_writer.py
+
+    Purpose:
+    - Enforces incompressibility via pressure correction
+    - Anchors continuity enforcement in reflex scoring
+    - Tracks mutation causality and ghost influence
 
     Strategy:
     1. Compute divergence of velocity field

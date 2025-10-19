@@ -11,9 +11,14 @@ def extract_ghost_coords(grid: List[Cell]) -> Set[Tuple[float, float, float]]:
     """
     Extract coordinates of ghost cells in the grid.
 
+    Roadmap Alignment:
+    Boundary Enforcement:
+    - Ghost cells excluded from pressure solve
+    - Preserves Dirichlet/Neumann enforcement logic
+
     Purpose:
-    - Exclude ghost cells from pressure solve
-    - Preserve boundary enforcement logic
+    - Prevent ghost contamination in ∇²P solve
+    - Support modular boundary tagging and reflex traceability
 
     Args:
         grid (List[Cell]): Full grid including fluid and ghost cells
@@ -37,6 +42,12 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
         Continuity: ∇ · u = 0
         Pressure Solve: ∇²P = ∇ · u
         Velocity Correction: u ← u - ∇P
+
+    Modular Enforcement:
+    - Fluid indexing → pressure_methods.utils
+    - Ghost exclusion → extract_ghost_coords
+    - Pressure solve → jacobi.py
+    - Velocity projection → velocity_projection.py
 
     Purpose:
     - Enforce incompressibility by solving pressure Poisson equation

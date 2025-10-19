@@ -28,6 +28,10 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
     2. Subtract current velocity to get Laplacian term
     3. Apply explicit Euler update: u_new = u_old + μ∇²u · dt
 
+    Diagnostic Role:
+    - Tracks velocity mutation magnitude for reflex overlays
+    - Anchors damping enforcement in mutation pathway logs
+
     Args:
         grid (List[Cell]): Current grid with velocity and pressure
         dt (float): Time step duration
