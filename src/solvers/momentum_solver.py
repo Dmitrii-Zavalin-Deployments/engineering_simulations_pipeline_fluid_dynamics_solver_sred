@@ -1,5 +1,5 @@
 # src/solvers/momentum_solver.py
-# 🔧 Momentum solver — evolves velocity using advection and viscosity
+# 🔧 Momentum Solver — evolves velocity using advection and viscosity
 
 from typing import List
 from src.grid_modules.cell import Cell
@@ -8,7 +8,17 @@ from src.physics.viscosity import apply_viscous_terms
 
 def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List[Cell]:
     """
-    Applies momentum equation logic to evolve velocity fields.
+    Evolves velocity field using the momentum equation:
+
+    Governing Equation:
+        ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+
+    This module handles the left-hand side:
+    - ∂u/∂t: time derivative (Euler step)
+    - u · ∇u: nonlinear advection
+    - μ∇²u: viscous diffusion
+
+    Pressure gradient (-∇P) and external forces (F) are handled separately.
 
     Args:
         grid (List[Cell]): Current simulation grid
@@ -20,10 +30,10 @@ def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List
     """
     dt = input_data["simulation_parameters"]["time_step"]
 
-    # 🌀 Step 1: Apply advection (currently stubbed)
+    # 🌀 Step 1: Advection — nonlinear transport (u · ∇u)
     grid_advected = compute_advection(grid, dt, input_data)
 
-    # 💧 Step 2: Apply viscous diffusion (currently stubbed)
+    # 💧 Step 2: Viscosity — Laplacian diffusion (μ∇²u)
     grid_viscous = apply_viscous_terms(grid_advected, dt, input_data)
 
     # ✅ Step 3: Finalize velocity update per fluid cell

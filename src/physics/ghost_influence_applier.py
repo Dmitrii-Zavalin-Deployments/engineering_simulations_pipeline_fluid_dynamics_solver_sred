@@ -16,6 +16,24 @@ def apply_ghost_influence(
     verbose: bool = False,
     radius: int = 1
 ) -> int:
+    """
+    Applies ghost pressure and velocity fields to adjacent fluid cells.
+
+    Governing Context:
+    - Ghost cells represent boundary conditions (Dirichlet) for pressure and velocity.
+    - Their influence modifies fluid cells near domain boundaries.
+    - This affects momentum equation: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+    - It also supports continuity enforcement: ∇ · u = 0 via pressure propagation.
+
+    Args:
+        grid (List[Cell]): Full simulation grid including ghost cells
+        spacing (Tuple): Grid spacing (dx, dy, dz)
+        verbose (bool): Enable detailed logging
+        radius (int): Neighbor search radius in grid units
+
+    Returns:
+        int: Number of fluid cells influenced by ghost fields
+    """
     dx, dy, dz = spacing
     tol = 1e-6
     influence_count = 0
@@ -52,10 +70,12 @@ def apply_ghost_influence(
                 velocity_match = isinstance(ghost.velocity, list) and fuzzy_equal(ghost.velocity, fluid_cell.velocity)
                 pressure_match = isinstance(ghost.pressure, (int, float)) and abs(ghost.pressure - fluid_cell.pressure) < tol
 
+                # Apply ghost velocity if different
                 if isinstance(ghost.velocity, list) and not velocity_match:
                     fluid_cell.velocity = ghost.velocity[:]
                     modified = True
 
+                # Apply ghost pressure if different
                 if isinstance(ghost.pressure, (int, float)) and not pressure_match:
                     fluid_cell.pressure = ghost.pressure
                     modified = True
