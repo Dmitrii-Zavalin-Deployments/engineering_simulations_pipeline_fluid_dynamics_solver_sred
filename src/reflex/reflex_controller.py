@@ -13,6 +13,7 @@ from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
 from src.metrics.reflex_score_evaluator import compute_score
 from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
+from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
 
 def apply_reflex(
     grid: List[Cell],
@@ -39,6 +40,7 @@ def apply_reflex(
     - CFL → time integration stability
     - Ghost influence → boundary enforcement and mutation causality
     - Adjacency zones → proximity-based reflex overlays
+    - Suppression zones → missed mutation adjacency
     - Reflex score → solver visibility and physical fidelity
 
     Purpose:
@@ -82,11 +84,14 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # 🧭 Adjacency zone detection
+    # 🧭 Adjacency and suppression zone detection
     adjacency_zones = []
+    suppression_zones = []
     if ghost_registry:
         ghost_coords = extract_ghost_coordinates(ghost_registry)
         adjacency_zones = detect_adjacency_zones(grid, ghost_coords, spacing)
+        mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
+        suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:
@@ -126,7 +131,8 @@ def apply_reflex(
         "pressure_solver_invoked": pressure_solver_invoked if pressure_solver_invoked is not None else False,
         "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
         "post_projection_divergence": post_projection_divergence,
-        "adjacency_zones": adjacency_zones
+        "adjacency_zones": adjacency_zones,
+        "suppression_zones": suppression_zones
     }
 
     score_inputs = {

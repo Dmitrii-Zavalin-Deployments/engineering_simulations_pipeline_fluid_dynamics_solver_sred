@@ -33,11 +33,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     3. Update pressure field and track mutations
     4. Export diagnostics and mutation map
 
-    Args:
-        grid (List[Cell]): Grid of simulation cells
-        input_data (dict): Full simulation config
-        step (int): Current simulation step index
-
     Returns:
         Tuple containing:
         - List[Cell]: Grid with updated pressure values
@@ -100,6 +95,9 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             if delta > threshold:
                 mutation_count += 1
                 mutated_cells.append((updated.x, updated.y, updated.z))
+                updated.pressure_mutated = True
+                updated.mutation_source = "pressure_solver"
+                updated.mutation_step = step
                 print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")
 
             pressure_delta_map[(updated.x, updated.y, updated.z)] = {
@@ -109,6 +107,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             }
 
             if hasattr(updated, "influenced_by_ghost") and updated.influenced_by_ghost:
+                updated.mutation_triggered_by = "ghost_influence"
                 print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
 
     # 📋 Step 4: Log mutation summary

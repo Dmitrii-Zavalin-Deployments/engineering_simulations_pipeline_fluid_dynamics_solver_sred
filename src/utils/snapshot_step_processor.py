@@ -10,6 +10,7 @@ from src.utils.snapshot_summary_writer import write_step_summary
 from src.adaptive.grid_refiner import propose_refinement_zones
 from src.utils.ghost_diagnostics import inject_diagnostics
 from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
+from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
 
 def process_snapshot_step(
     step: int,
@@ -29,6 +30,7 @@ def process_snapshot_step(
     - Divergence → measures incompressibility (∇ · u)
     - Ghost adjacency and influence → reflect boundary enforcement
     - Adjacency zones → mutation proximity scoring
+    - Suppression zones → missed mutation adjacency
     - Reflex score → quantifies solver integrity and mutation traceability
     - Overlay maps → visualize mutation zones and solver impact
     - Metadata → supports CI scoring, audit overlays, and continuity diagnostics
@@ -46,14 +48,19 @@ def process_snapshot_step(
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-    # 🧭 Compute adjacency zones if missing
+    # 🧭 Compute adjacency and suppression zones if missing
     ghost_registry = reflex.get("ghost_registry") or {
         id(c): {"coordinate": (c.x, c.y, c.z)}
         for c in grid if not getattr(c, "fluid_mask", True)
     }
+    ghost_coords = extract_ghost_coordinates(ghost_registry)
+
     if "adjacency_zones" not in reflex:
-        ghost_coords = extract_ghost_coordinates(ghost_registry)
         reflex["adjacency_zones"] = detect_adjacency_zones(grid, ghost_coords, spacing)
+
+    if "suppression_zones" not in reflex:
+        mutated_coords = extract_mutated_coordinates(reflex.get("mutated_cells", []))
+        reflex["suppression_zones"] = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
     influence_log = {
         "step_score": reflex.get("reflex_score", 0.0),

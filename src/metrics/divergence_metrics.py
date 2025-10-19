@@ -9,6 +9,15 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
     Computes the maximum divergence across the simulation grid using central difference.
     Ignores ghost and solid cells, and only includes fluid cells with valid neighbors.
 
+    Roadmap Alignment:
+    Continuity Enforcement:
+    - Measures ∇ · u before and after projection
+    - Supports reflex scoring and projection diagnostics
+
+    Diagnostic Role:
+    - Tags cells with divergence values
+    - Enables post-projection divergence tracking
+
     Args:
         grid (List[Cell]): Grid of simulation cells
         domain (Dict): Domain definition with min/max and resolution values
@@ -38,8 +47,6 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
 
         coords = (cell.x, cell.y, cell.z)
 
-        safe_velocity(cell)
-
         # Gather neighbors for central differencing
         def neighbor_diff(axis_index: int, offset: float) -> float:
             coord_plus = list(coords)
@@ -61,8 +68,9 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
         div_y = neighbor_diff(1, dy)
         div_z = neighbor_diff(2, dz)
 
-        divergence = abs(div_x + div_y + div_z)
-        divergence_values.append(divergence)
+        divergence = div_x + div_y + div_z
+        cell.divergence = round(divergence, 6)
+        divergence_values.append(abs(divergence))
 
     return round(max(divergence_values), 5) if divergence_values else 0.0
 

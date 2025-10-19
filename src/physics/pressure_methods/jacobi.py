@@ -2,14 +2,17 @@
 # 🔁 Jacobi iteration for pressure Poisson solve (∇²P = ∇ · u) — ghost-aware and modular
 
 from src.grid_modules.cell import Cell
-from typing import List, Tuple, Set
+from typing import List, Tuple, Set, Dict, Union
 from src.physics.pressure_methods.utils import index_fluid_cells, build_pressure_map
 from src.physics.pressure_methods.boundary import handle_solid_or_ghost_neighbors
 
-def solve_jacobi_pressure(grid: List[Cell],
-                          divergence: List[float],
-                          config: dict,
-                          ghost_coords: Set[Tuple[float, float, float]] = set()) -> List[float]:
+def solve_jacobi_pressure(
+    grid: List[Cell],
+    divergence: List[float],
+    config: dict,
+    ghost_coords: Set[Tuple[float, float, float]] = set(),
+    return_diagnostics: bool = False
+) -> Union[List[float], Tuple[List[float], Dict]]:
     """
     Solves pressure Poisson equation using Jacobi iteration.
 
@@ -34,9 +37,10 @@ def solve_jacobi_pressure(grid: List[Cell],
         divergence (List[float]): Divergence values for fluid cells
         config (dict): Simulation config with domain resolution and solver params
         ghost_coords (Set[Tuple]): Coordinates of ghost cells
+        return_diagnostics (bool): Whether to return convergence metadata
 
     Returns:
-        List[float]: Updated pressure values for fluid cells (same order as input)
+        List[float] or (List[float], Dict): Updated pressure values and optional diagnostics
     """
     # 🧮 Grid spacing
     domain = config.get("domain_definition", {})
@@ -72,6 +76,9 @@ def solve_jacobi_pressure(grid: List[Cell],
     }
 
     # 🔁 Jacobi iterations
+    iteration_count = 0
+    final_residual = 0.0
+
     for _ in range(max_iter):
         new_map = {}
         max_residual = 0.0
@@ -98,12 +105,24 @@ def solve_jacobi_pressure(grid: List[Cell],
             new_map[coord] = new_p
 
         pressure_map = new_map
+        iteration_count += 1
+        final_residual = max_residual
 
         if max_residual < tolerance:
             break
 
     # 📦 Flatten output in fluid cell order
-    return [pressure_map.get(coord, 0.0) for coord in fluid_coords]
+    pressure_values = [pressure_map.get(coord, 0.0) for coord in fluid_coords]
+
+    if return_diagnostics:
+        diagnostics = {
+            "iterations": iteration_count,
+            "final_residual": round(final_residual, 6),
+            "converged": final_residual < tolerance
+        }
+        return pressure_values, diagnostics
+
+    return pressure_values
 
 
 

@@ -34,7 +34,8 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
                                     pressure_map: Dict[Tuple[float, float, float], float],
                                     fluid_mask_map: Dict[Tuple[float, float, float], bool],
                                     ghost_coords: Set[Tuple[float, float, float]],
-                                    ghost_pressure_map: Dict[Tuple[float, float, float], float]) -> float:
+                                    ghost_pressure_map: Dict[Tuple[float, float, float], float],
+                                    diagnostics: Dict[str, int] = None) -> float:
     """
     Adjust pressure update for neighbors that may be solid, ghost, or outside domain.
 
@@ -61,6 +62,7 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
         fluid_mask_map: Map of fluid vs solid states
         ghost_coords: Set of coordinates for ghost cells
         ghost_pressure_map: Explicit ghost pressure values from enforced boundaries
+        diagnostics: Optional dict to track fallback counts
 
     Returns:
         Sum of neighbor pressures with fallback handling for non-fluid neighbors
@@ -68,20 +70,27 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
     total = 0.0
     for n in neighbors:
         if n in ghost_coords:
-            # ✅ Ghost neighbor: use Dirichlet ghost pressure if available
             if n in ghost_pressure_map:
                 total += ghost_pressure_map[n]
+                if diagnostics is not None:
+                    diagnostics["ghost_dirichlet"] = diagnostics.get("ghost_dirichlet", 0) + 1
             else:
                 total += apply_neumann_conditions(coord, n, pressure_map)
+                if diagnostics is not None:
+                    diagnostics["ghost_neumann"] = diagnostics.get("ghost_neumann", 0) + 1
         elif n in fluid_mask_map:
             if fluid_mask_map[n]:
                 total += pressure_map.get(n, pressure_map.get(coord, 0.0))
+                if diagnostics is not None:
+                    diagnostics["fluid_neighbor"] = diagnostics.get("fluid_neighbor", 0) + 1
             else:
-                # Solid neighbor: Neumann fallback
                 total += apply_neumann_conditions(coord, n, pressure_map)
+                if diagnostics is not None:
+                    diagnostics["solid_neumann"] = diagnostics.get("solid_neumann", 0) + 1
         else:
-            # Outside domain or missing neighbor: Neumann fallback
             total += apply_neumann_conditions(coord, n, pressure_map)
+            if diagnostics is not None:
+                diagnostics["missing_neumann"] = diagnostics.get("missing_neumann", 0) + 1
     return total
 
 

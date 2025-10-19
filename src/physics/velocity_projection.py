@@ -25,13 +25,14 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
     Diagnostic Role:
     - Supports reflex scoring and divergence diagnostics
     - Anchors final enforcement of ∇ · u = 0
+    - Tags cells with projection status for metadata traceability
 
     Args:
         grid (List[Cell]): Simulation grid with updated pressures
         config (dict): Full simulation config including domain resolution
 
     Returns:
-        List[Cell]: Grid with updated velocity fields
+        List[Cell]: Grid with updated velocity fields and projection tags
     """
     domain = config.get("domain_definition", {})
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
@@ -51,6 +52,7 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             updated.append(cell)
             continue
         if coord not in velocity_map or coord not in pressure_map:
+            cell.projection_skipped = True
             updated.append(cell)
             continue
 
@@ -70,14 +72,16 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             v - g for v, g in zip(velocity_map[coord], grad)
         ]
 
-        updated.append(Cell(
+        updated_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
             velocity=projected_velocity,
             pressure=cell.pressure,
             fluid_mask=True
-        ))
+        )
+        updated_cell.velocity_projected = True
+        updated.append(updated_cell)
 
     return updated
 

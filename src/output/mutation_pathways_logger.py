@@ -6,50 +6,51 @@ import json
 from typing import List, Union, Optional
 from src.grid_modules.cell import Cell
 
-def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None) -> dict:
+def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None, step_linked_from: Optional[int] = None) -> dict:
     """
     Converts a cell or coordinate tuple into a structured mutation trace entry.
 
     Roadmap Alignment:
     Diagnostic Output:
     - Captures mutation causality and suppression metadata
-    - Supports reflex scoring and mutation overlays
+    - Supports reflex scoring, overlays, and cross-step traceability
 
     Args:
         cell (Cell or tuple): Cell object or (x, y, z) coordinate
         reason (str): Optional suppression reason
+        step_linked_from (int): Optional step index that triggered this mutation
 
     Returns:
         dict: Serialized cell metadata
     """
-    if isinstance(cell, tuple):
-        return {
-            "x": cell[0],
-            "y": cell[1],
-            "z": cell[2],
-            "pressure_changed": True,
-            "suppression_reason": reason
-        }
-    return {
-        "x": getattr(cell, "x", "?"),
-        "y": getattr(cell, "y", "?"),
-        "z": getattr(cell, "z", "?"),
-        "velocity": getattr(cell, "velocity", None),
-        "pressure": getattr(cell, "pressure", None),
-        "fluid_mask": getattr(cell, "fluid_mask", None),
-        "pressure_changed": False,
-        "triggered_by": getattr(cell, "triggered_by", None),
-        "influence_attempted": getattr(cell, "ghost_influence_attempted", False),
-        "influence_applied": getattr(cell, "ghost_influence_applied", False),
-        "suppression_reason": reason
+    base = {
+        "x": getattr(cell, "x", cell[0] if isinstance(cell, tuple) else "?"),
+        "y": getattr(cell, "y", cell[1] if isinstance(cell, tuple) else "?"),
+        "z": getattr(cell, "z", cell[2] if isinstance(cell, tuple) else "?"),
+        "pressure_changed": isinstance(cell, tuple),
+        "suppression_reason": reason,
+        "step_linked_from": step_linked_from
     }
+
+    if isinstance(cell, Cell):
+        base.update({
+            "velocity": getattr(cell, "velocity", None),
+            "pressure": getattr(cell, "pressure", None),
+            "fluid_mask": getattr(cell, "fluid_mask", None),
+            "triggered_by": getattr(cell, "triggered_by", None),
+            "influence_attempted": getattr(cell, "ghost_influence_attempted", False),
+            "influence_applied": getattr(cell, "ghost_influence_applied", False)
+        })
+
+    return base
 
 def log_mutation_pathway(
     step_index: int,
     pressure_mutated: bool,
     triggered_by: List[str],
     output_folder: str = "data/testing-input-output/navier_stokes_output",
-    triggered_cells: Optional[List[Union[Cell, tuple]]] = None
+    triggered_cells: Optional[List[Union[Cell, tuple]]] = None,
+    ghost_trigger_chain: Optional[List[int]] = None
 ):
     """
     Logs mutation pathway for a given timestep.
@@ -58,7 +59,7 @@ def log_mutation_pathway(
     Reflex Visibility:
     - Tracks pressure mutation causality
     - Anchors reflex scoring and overlay generation
-    - Supports audit-safe diagnostics and CI traceability
+    - Supports audit-safe diagnostics and ghost-triggered step chains
 
     Args:
         step_index (int): Timestep index
@@ -66,6 +67,7 @@ def log_mutation_pathway(
         triggered_by (List[str]): Mutation triggers (e.g. ghost influence, overflow)
         output_folder (str): Path to mutation log file
         triggered_cells (List[Cell or tuple]): Cells affected by mutation
+        ghost_trigger_chain (List[int]): Prior steps that triggered mutation
     """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
@@ -73,11 +75,15 @@ def log_mutation_pathway(
     entry = {
         "step_index": step_index,
         "pressure_mutated": pressure_mutated,
-        "triggered_by": triggered_by
+        "triggered_by": triggered_by,
+        "ghost_trigger_chain": ghost_trigger_chain or []
     }
 
     if triggered_cells:
-        entry["triggered_cells"] = [serialize_cell(cell) for cell in triggered_cells]
+        entry["triggered_cells"] = [
+            serialize_cell(cell, step_linked_from=entry["ghost_trigger_chain"][-1] if entry["ghost_trigger_chain"] else None)
+            for cell in triggered_cells
+        ]
         entry["mutated_cells"] = [
             (cell.x, cell.y, cell.z)
             for cell in triggered_cells
@@ -109,7 +115,8 @@ def log_skipped_mutation(
     step_index: int,
     suppressed_cells: List[Union[Cell, tuple]],
     reason: str,
-    output_folder: str = "data/testing-input-output/navier_stokes_output"
+    output_folder: str = "data/testing-input-output/navier_stokes_output",
+    ghost_trigger_chain: Optional[List[int]] = None
 ):
     """
     Logs suppressed mutation pathway for a given timestep.
@@ -117,13 +124,14 @@ def log_skipped_mutation(
     Roadmap Alignment:
     Reflex Visibility:
     - Captures suppression logic and ghost adjacency fallback
-    - Supports reflex scoring and diagnostic overlays
+    - Supports reflex scoring, overlays, and ghost-triggered step chains
 
     Args:
         step_index (int): Timestep index
         suppressed_cells (List[Cell or tuple]): Cells where mutation was suppressed
         reason (str): Suppression rationale
         output_folder (str): Path to mutation log file
+        ghost_trigger_chain (List[int]): Prior steps that triggered mutation
     """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
@@ -132,7 +140,11 @@ def log_skipped_mutation(
         "step_index": step_index,
         "pressure_mutated": False,
         "triggered_by": ["mutation suppressed"],
-        "suppressed": [serialize_cell(cell, reason) for cell in suppressed_cells]
+        "ghost_trigger_chain": ghost_trigger_chain or [],
+        "suppressed": [
+            serialize_cell(cell, reason=reason, step_linked_from=ghost_trigger_chain[-1] if ghost_trigger_chain else None)
+            for cell in suppressed_cells
+        ]
     }
 
     try:

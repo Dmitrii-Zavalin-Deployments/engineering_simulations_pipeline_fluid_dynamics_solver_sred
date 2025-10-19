@@ -54,11 +54,6 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     - Couple divergence diagnostics to pressure mutation
     - Apply velocity projection to complete continuity enforcement
 
-    Args:
-        grid (List[Cell]): Grid of cells with velocity and pressure fields
-        divergence (List[float]): Divergence values at each fluid cell
-        config (dict): Simulation config including solver parameters
-
     Returns:
         Tuple[List[Cell], bool]: 
             - Grid with updated pressure and velocity values
@@ -77,6 +72,12 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
 
     # 🧱 Prepare ghost info
     ghost_coords = extract_ghost_coords(grid)
+    ghost_set = set(ghost_coords)
+    spacing = (
+        (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"],
+        (config["domain_definition"]["max_y"] - config["domain_definition"]["min_y"]) / config["domain_definition"]["ny"],
+        (config["domain_definition"]["max_z"] - config["domain_definition"]["min_z"]) / config["domain_definition"]["nz"]
+    )
 
     # 🔁 Select solver method
     if method == "jacobi":
@@ -88,11 +89,14 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     updated = []
     fluid_index = 0
     pressure_mutated = False
+
     for cell in grid:
+        coord = (cell.x, cell.y, cell.z)
+
         if cell.fluid_mask:
             new_pressure = pressure_values[fluid_index]
-            if isinstance(cell.pressure, float) and abs(cell.pressure - new_pressure) > 1e-6:
-                pressure_mutated = True
+            delta = abs(cell.pressure - new_pressure) if isinstance(cell.pressure, float) else 0.0
+
             updated_cell = Cell(
                 x=cell.x,
                 y=cell.y,
@@ -101,6 +105,20 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
                 pressure=new_pressure,
                 fluid_mask=True
             )
+
+            if delta > 1e-6:
+                pressure_mutated = True
+                updated_cell.pressure_mutated = True
+                updated_cell.mutation_source = "pressure_solver"
+                updated_cell.mutation_step = config.get("step_index", None)
+
+            # Reflex traceability: ghost adjacency tagging
+            for ghost in ghost_set:
+                if all(abs(a - b) <= spacing[i] + 1e-3 for i, (a, b) in enumerate(zip(coord, ghost))):
+                    updated_cell.influenced_by_ghost = True
+                    updated_cell.mutation_triggered_by = "ghost_influence"
+                    break
+
             fluid_index += 1
         else:
             updated_cell = Cell(
@@ -111,6 +129,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
                 pressure=None,
                 fluid_mask=False
             )
+
         updated.append(updated_cell)
 
     # 💨 Apply pressure-based velocity projection: u ← u - ∇P

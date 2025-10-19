@@ -15,6 +15,7 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
     Reflex Scoring:
     - Influence → boundary enforcement via ghost logic
     - Adjacency → fluid–ghost proximity
+    - Suppression → missed mutation adjacency
     - Mutation → pressure field change from ∇²P = ∇ · u solve
 
     Purpose:
@@ -50,6 +51,9 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
             score_components["adjacency"] = int(raw) if raw.isdigit() else 0
         elif "Pressure mutated" in line:
             score_components["mutation"] = "True" in line
+        elif "Suppression zones" in line:
+            raw = line.split(":")[1].strip()
+            score_components["suppression"] = int(raw) if raw.isdigit() else 0
 
     if current_step is not None and score_components:
         step_scores[current_step] = compute_score(score_components)
@@ -65,13 +69,14 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
 # ✅ Reflex scoring logic — maps mutation causality to physical enforcement
 def compute_score(inputs: dict) -> float:
     """
-    Computes reflex score based on mutation causality and ghost influence.
+    Computes reflex score based on mutation causality, ghost influence, and suppression fallback.
 
     Roadmap Alignment:
     Reflex Scoring:
     - Mutation → pressure correction from ∇²P = ∇ · u
     - Influence → ghost-to-fluid transfer from boundary enforcement
     - Adjacency → proximity of fluid cells to ghost cells
+    - Suppression → missed mutation adjacency
 
     Purpose:
     - Reward solver responsiveness to ghost triggers
@@ -84,8 +89,9 @@ def compute_score(inputs: dict) -> float:
     mutation = inputs.get("mutation", False)
     adjacency = inputs.get("adjacency", 0)
     influence = inputs.get("influence", 0)
+    suppression = inputs.get("suppression", 0)
 
-    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}")
+    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}")
 
     score = 0.0
     if mutation:
@@ -100,6 +106,12 @@ def compute_score(inputs: dict) -> float:
         else:
             print("[DEBUG] [score] Mutation occurred without ghost relation")
 
+    # 🧭 Suppression penalty
+    if suppression > 0 and not mutation:
+        print(f"[DEBUG] [score] Suppression zones detected without mutation → penalty applied")
+        score -= 0.1 * suppression
+
+    score = max(score, 0.0)
     print(f"[DEBUG] [score] Final score={score}")
     return score
 
@@ -140,11 +152,16 @@ def score_reflex_metadata_fields(reflex: dict) -> dict:
     - Projection flag → ∇²P solve invoked
     - Divergence log → ∇ · u diagnostics recorded
     - Reflex score → embedded CI score
+    - Suppression zones → missed mutation adjacency
+
+    Returns:
+        dict: Extracted metadata
     """
     return {
         "has_projection": reflex.get("pressure_solver_invoked", False),
         "divergence_logged": "post_projection_divergence" in reflex,
-        "reflex_score": reflex.get("reflex_score", 0)
+        "reflex_score": reflex.get("reflex_score", 0),
+        "suppression_zone_count": len(reflex.get("suppression_zones", []))
     }
 
 def evaluate_snapshot_health(
@@ -178,7 +195,8 @@ def evaluate_snapshot_health(
         "pathway_recorded": pathway_exists,
         "has_projection": field_checks["has_projection"],
         "divergence_logged": field_checks["divergence_logged"],
-        "reflex_score": field_checks["reflex_score"]
+        "reflex_score": field_checks["reflex_score"],
+        "suppression_zone_count": field_checks["suppression_zone_count"]
     }
 
 def batch_evaluate_trace(

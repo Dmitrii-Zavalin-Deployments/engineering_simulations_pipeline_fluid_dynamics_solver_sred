@@ -2,7 +2,7 @@
 # 🛠️ Utilities for fluid cell indexing and pressure field mapping
 
 from src.grid_modules.cell import Cell
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Set
 
 def index_fluid_cells(grid: List[Cell]) -> List[Tuple[float, float, float]]:
     """
@@ -15,6 +15,23 @@ def index_fluid_cells(grid: List[Cell]) -> List[Tuple[float, float, float]]:
         List of (x, y, z) coordinates for fluid cells
     """
     return [(cell.x, cell.y, cell.z) for cell in grid if cell.fluid_mask]
+
+
+def index_ghost_cells(grid: List[Cell]) -> Set[Tuple[float, float, float]]:
+    """
+    Identify ghost cell coordinates.
+
+    Args:
+        grid (List[Cell]): Simulation grid
+
+    Returns:
+        Set of (x, y, z) coordinates for ghost cells
+    """
+    return {
+        (cell.x, cell.y, cell.z)
+        for cell in grid
+        if not cell.fluid_mask and hasattr(cell, "ghost_face")
+    }
 
 
 def build_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], float]:
@@ -30,7 +47,41 @@ def build_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], flo
     return {
         (cell.x, cell.y, cell.z): cell.pressure
         for cell in grid
+        if isinstance(cell.pressure, (int, float))
+    }
+
+
+def build_fluid_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], float]:
+    """
+    Build pressure map restricted to fluid cells only.
+
+    Args:
+        grid (List[Cell]): Simulation grid
+
+    Returns:
+        Dict of fluid cell coordinates to pressure values
+    """
+    return {
+        (cell.x, cell.y, cell.z): cell.pressure
+        for cell in grid
         if cell.fluid_mask and isinstance(cell.pressure, (int, float))
+    }
+
+
+def build_ghost_pressure_map(grid: List[Cell]) -> Dict[Tuple[float, float, float], float]:
+    """
+    Build pressure map restricted to ghost cells only.
+
+    Args:
+        grid (List[Cell]): Simulation grid
+
+    Returns:
+        Dict of ghost cell coordinates to pressure values
+    """
+    return {
+        (cell.x, cell.y, cell.z): cell.pressure
+        for cell in grid
+        if not cell.fluid_mask and hasattr(cell, "ghost_face") and isinstance(cell.pressure, (int, float))
     }
 
 
