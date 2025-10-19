@@ -1,5 +1,5 @@
 # src/physics/divergence_tracker.py
-# 📊 Divergence Tracker — computes and logs ∇ · u for continuity enforcement
+# 📊 Divergence Tracker — computes and logs ∇ · u for continuity enforcement and reflex diagnostics
 
 import os
 from typing import List, Dict
@@ -21,11 +21,22 @@ def compute_divergence_stats(
     Governing Equation:
         Continuity: ∇ · u = ∂u/∂x + ∂v/∂y + ∂w/∂z
 
+    Modular Enforcement:
+    - Velocity field → advection.py, viscosity.py
+    - Divergence diagnostics → divergence.py
+    - Pressure solve input → pressure_projection.py
+    - Reflex scoring → reflex_controller.py
+
     Purpose:
     - Validate incompressibility before and after pressure correction
     - Support pressure Poisson solve: ∇²P = ∇ · u
     - Track solver performance and continuity enforcement
     - Provide diagnostic visibility for reflex scoring and mutation tracing
+
+    Strategy:
+    - Compute divergence at each fluid cell
+    - Log max and mean divergence for audit and reflex overlays
+    - Export diagnostic trace for scoring and mutation pathway tracking
 
     Args:
         grid (List[Cell]): Simulation grid with velocity fields

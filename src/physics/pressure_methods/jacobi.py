@@ -18,6 +18,12 @@ def solve_jacobi_pressure(grid: List[Cell],
         Continuity: ∇ · u = 0
         Pressure Solve: ∇²P = ∇ · u
 
+    Modular Enforcement:
+    - Fluid indexing → utils.index_fluid_cells
+    - Ghost exclusion → boundary.handle_solid_or_ghost_neighbors
+    - Residual tracking → reflex diagnostics
+    - Pressure map → utils.build_pressure_map
+
     Purpose:
     - Enforce incompressibility by solving for pressure correction
     - Use ghost-aware neighbor logic to preserve boundary fidelity

@@ -9,6 +9,7 @@ from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
 from src.adaptive.grid_refiner import propose_refinement_zones
 from src.utils.ghost_diagnostics import inject_diagnostics
+from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
 
 def process_snapshot_step(
     step: int,
@@ -23,20 +24,14 @@ def process_snapshot_step(
     Packages simulation state and diagnostics into a structured snapshot.
 
     Roadmap Alignment:
+    Snapshot Packaging:
     - Velocity and pressure fields → reflect momentum and continuity enforcement
     - Divergence → measures incompressibility (∇ · u)
     - Ghost adjacency and influence → reflect boundary enforcement
+    - Adjacency zones → mutation proximity scoring
     - Reflex score → quantifies solver integrity and mutation traceability
     - Overlay maps → visualize mutation zones and solver impact
-
-    Args:
-        step (int): Current timestep index
-        grid (List[Cell]): Simulation grid
-        reflex (dict): Diagnostic metadata from solver
-        spacing (tuple): Grid spacing (dx, dy, dz)
-        config (dict): Full simulation config
-        expected_size (int): Expected fluid cell count
-        output_folder (str): Path to write snapshot files
+    - Metadata → supports CI scoring, audit overlays, and continuity diagnostics
 
     Returns:
         tuple: (grid, snapshot_dict)
@@ -50,6 +45,15 @@ def process_snapshot_step(
         print(f"[DEBUG] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
+
+    # 🧭 Compute adjacency zones if missing
+    ghost_registry = reflex.get("ghost_registry") or {
+        id(c): {"coordinate": (c.x, c.y, c.z)}
+        for c in grid if not getattr(c, "fluid_mask", True)
+    }
+    if "adjacency_zones" not in reflex:
+        ghost_coords = extract_ghost_coordinates(ghost_registry)
+        reflex["adjacency_zones"] = detect_adjacency_zones(grid, ghost_coords, spacing)
 
     influence_log = {
         "step_score": reflex.get("reflex_score", 0.0),
@@ -93,9 +97,7 @@ def process_snapshot_step(
         adjacent_count = reflex.get("fluid_cells_adjacent_to_ghosts") or reflex.get("ghost_diagnostics", {}).get("fluid_cells_adjacent_to_ghosts", "?")
         adjacent_str = adjacent_count if isinstance(adjacent_count, (int, float)) else "?"
 
-        ghost_registry = reflex.get("ghost_registry")
         ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
-
         influence_applied = reflex.get("ghost_influence_count", "?")
         projection_attempted = reflex.get("pressure_solver_invoked", "?")
         projection_skipped = reflex.get("projection_skipped", "?")
@@ -132,11 +134,6 @@ def process_snapshot_step(
             "velocity": cell.velocity if fluid else None,
             "pressure": cell.pressure if fluid else None
         })
-
-    ghost_registry = reflex.get("ghost_registry") or {
-        id(c): {"coordinate": (c.x, c.y, c.z)}
-        for c in grid if not getattr(c, "fluid_mask", True)
-    }
 
     score = reflex.get("reflex_score")
     reflex_clean = {k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected", "reflex_score"]}

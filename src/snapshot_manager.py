@@ -12,26 +12,27 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
     Roadmap Alignment:
     Governing Equations:
-    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - Continuity: ∇ · u = 0
+        - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+        - Continuity: ∇ · u = 0
 
     Modular Execution:
-    - Input parsing → input_reader.py
-    - Grid generation → grid_generator.py
-    - Boundary enforcement → boundary_condition_solver.py
-    - Ghost logic → ghost_cell_generator.py, ghost_influence_applier.py
-    - Momentum update → momentum_solver.py
-        - Advection: u · ∇u → advection.py
-        - Viscosity: μ∇²u → viscosity.py
-    - Pressure solve → pressure_solver.py
-    - Velocity projection → velocity_projection.py
-    - Time loop orchestration → step_controller.py
-    - Snapshot packaging → snapshot_step_processor.py
+        - Input parsing → input_reader.py
+        - Grid generation → grid_generator.py
+        - Boundary enforcement → boundary_condition_solver.py
+        - Ghost logic → ghost_cell_generator.py, ghost_influence_applier.py
+        - Momentum update → momentum_solver.py
+            - Advection: u · ∇u → advection.py
+            - Viscosity: μ∇²u → viscosity.py
+        - Pressure solve → pressure_solver.py
+        - Velocity projection → velocity_projection.py
+        - Time loop orchestration → step_controller.py
+        - Snapshot packaging → snapshot_step_processor.py
 
     Reflex Integration:
-    - Reflex scoring injected per step
-    - Mutation diagnostics tracked
-    - Projection status logged
+        - Reflex scoring injected per step
+        - Mutation diagnostics tracked
+        - Projection status logged
+        - Snapshot metadata supports continuity audit and CI overlays
 
     Args:
         input_data (dict): Parsed simulation input

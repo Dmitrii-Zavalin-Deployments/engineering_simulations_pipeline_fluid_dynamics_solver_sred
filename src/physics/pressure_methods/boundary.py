@@ -16,6 +16,7 @@ def apply_neumann_conditions(coord: Tuple[float, float, float],
     Purpose:
     - Preserve solver stability at domain edges
     - Avoid artificial pressure gradients near solids or missing neighbors
+    - Support reflex traceability and mutation diagnostics
 
     Args:
         coord: Current cell coordinate
@@ -47,6 +48,11 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
     - Ensure physical fidelity at boundaries
     - Modularize pressure logic for ghost-aware solvers
     - Support reflex diagnostics and mutation traceability
+
+    Strategy:
+    - Ghost cells: use explicit pressure if available, fallback to Neumann if missing
+    - Solid cells: always fallback to Neumann
+    - Missing/out-of-domain: fallback to Neumann
 
     Args:
         coord: Current cell coordinate

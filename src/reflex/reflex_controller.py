@@ -12,6 +12,7 @@ from src.metrics.projection_evaluator import calculate_projection_passes
 from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
 from src.metrics.reflex_score_evaluator import compute_score
+from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
 
 def apply_reflex(
     grid: List[Cell],
@@ -21,27 +22,29 @@ def apply_reflex(
     config: Optional[dict] = None,
     pressure_solver_invoked: Optional[bool] = None,
     pressure_mutated: Optional[bool] = None,
-    post_projection_divergence: Optional[float] = None
+    post_projection_divergence: Optional[float] = None,
+    ghost_registry: Optional[object] = None
 ) -> dict:
     """
     Computes per-step diagnostics and reflex metrics for solver integrity and mutation traceability.
 
     Roadmap Alignment:
-    - Velocity → reflects momentum enforcement: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - Divergence → reflects continuity enforcement: ∇ · u = 0
-    - CFL → reflects numerical stability of time integration
-    - Ghost influence → reflects boundary enforcement and mutation causality
-    - Reflex score → quantifies solver visibility and physical fidelity
+    Governing Equations:
+    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+    - Continuity: ∇ · u = 0
 
-    Args:
-        grid (List[Cell]): Simulation grid
-        input_data (dict): Full simulation config
-        step (int): Current timestep index
-        ghost_influence_count (int): Number of fluid cells influenced by ghost fields
-        config (dict): Reflex config block
-        pressure_solver_invoked (bool): Whether pressure solver was triggered
-        pressure_mutated (bool): Whether pressure field was modified
-        post_projection_divergence (float): Final divergence after velocity projection
+    Modular Metrics:
+    - Velocity → momentum enforcement
+    - Divergence → continuity enforcement
+    - CFL → time integration stability
+    - Ghost influence → boundary enforcement and mutation causality
+    - Adjacency zones → proximity-based reflex overlays
+    - Reflex score → solver visibility and physical fidelity
+
+    Purpose:
+    - Quantify solver health and mutation pathways
+    - Support reflex overlays and diagnostic traceability
+    - Detect anomalies in projection, damping, and ghost tagging
 
     Returns:
         dict: Reflex diagnostic block with scoring and metadata
@@ -56,10 +59,15 @@ def apply_reflex(
 
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
+    spacing = (
+        (domain["max_x"] - domain["min_x"]) / domain["nx"],
+        (domain["max_y"] - domain["min_y"]) / domain["ny"],
+        (domain["max_z"] - domain["min_z"]) / domain["nz"]
+    )
 
     # 🧠 Physical diagnostics
-    max_velocity = compute_max_velocity(grid)  # for CFL and momentum tracking
-    max_divergence = compute_max_divergence(grid, domain)  # for continuity enforcement
+    max_velocity = compute_max_velocity(grid)
+    max_divergence = compute_max_divergence(grid, domain)
     global_cfl = compute_global_cfl(grid, time_step, domain)
     overflow_detected = detect_overflow(grid)
     damping_enabled = damping_metric(grid, time_step)
@@ -73,6 +81,12 @@ def apply_reflex(
         1 for c in grid
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
+
+    # 🧭 Adjacency zone detection
+    adjacency_zones = []
+    if ghost_registry:
+        ghost_coords = extract_ghost_coordinates(ghost_registry)
+        adjacency_zones = detect_adjacency_zones(grid, ghost_coords, spacing)
 
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:
@@ -111,12 +125,13 @@ def apply_reflex(
         "triggered_by": triggered_by,
         "pressure_solver_invoked": pressure_solver_invoked if pressure_solver_invoked is not None else False,
         "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
-        "post_projection_divergence": post_projection_divergence
+        "post_projection_divergence": post_projection_divergence,
+        "adjacency_zones": adjacency_zones
     }
 
     score_inputs = {
         "influence": reflex_data["ghost_influence_count"],
-        "adjacency": reflex_data["fluid_cells_modified_by_ghost"],
+        "adjacency": len(adjacency_zones),
         "mutation": reflex_data["pressure_mutated"]
     }
 
