@@ -1,5 +1,5 @@
 # src/physics/pressure_projection.py
-# 🔁 Pressure projection module for enforcing incompressibility
+# 🔁 Pressure Projection — solves ∇²P = ∇ · u and applies velocity correction for incompressibility
 
 from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
@@ -10,6 +10,10 @@ from src.physics.velocity_projection import apply_pressure_velocity_projection
 def extract_ghost_coords(grid: List[Cell]) -> Set[Tuple[float, float, float]]:
     """
     Extract coordinates of ghost cells in the grid.
+
+    Purpose:
+    - Exclude ghost cells from pressure solve
+    - Preserve boundary enforcement logic
 
     Args:
         grid (List[Cell]): Full grid including fluid and ghost cells
@@ -27,6 +31,17 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     """
     Computes updated pressure values for fluid cells using the selected solver method,
     then projects velocity to enforce incompressibility.
+
+    Roadmap Alignment:
+    Governing Equation:
+        Continuity: ∇ · u = 0
+        Pressure Solve: ∇²P = ∇ · u
+        Velocity Correction: u ← u - ∇P
+
+    Purpose:
+    - Enforce incompressibility by solving pressure Poisson equation
+    - Couple divergence diagnostics to pressure mutation
+    - Apply velocity projection to complete continuity enforcement
 
     Args:
         grid (List[Cell]): Grid of cells with velocity and pressure fields
@@ -87,7 +102,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
             )
         updated.append(updated_cell)
 
-    # 💨 Apply pressure-based velocity projection
+    # 💨 Apply pressure-based velocity projection: u ← u - ∇P
     projected_grid = apply_pressure_velocity_projection(updated, config)
 
     return projected_grid, pressure_mutated

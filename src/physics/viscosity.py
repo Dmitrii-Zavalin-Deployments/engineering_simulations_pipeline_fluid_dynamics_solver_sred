@@ -10,14 +10,18 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
     """
     Applies Laplacian-based smoothing to velocity field using 6-point stencil.
 
-    Governing Term:
-        μ∇²u — viscous diffusion in the momentum equation:
-        ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+    Roadmap Alignment:
+    Governing Equation:
+        Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+
+    This module enforces:
+    - μ∇²u → viscous diffusion via Laplacian stencil
+    - ∂u/∂t → explicit Euler update
 
     Strategy:
-    - For each fluid cell, compute average velocity of 6 neighbors
-    - Subtract current velocity to get Laplacian term
-    - Apply explicit Euler update: u_new = u_old + μ∇²u · dt
+    1. For each fluid cell, compute average velocity of 6 neighbors
+    2. Subtract current velocity to get Laplacian term
+    3. Apply explicit Euler update: u_new = u_old + μ∇²u · dt
 
     Args:
         grid (List[Cell]): Current grid with velocity and pressure
@@ -46,6 +50,7 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
             updated.append(copy_cell(cell))
             continue
 
+        # 🧭 6-point stencil offsets for Laplacian
         neighbor_offsets = [
             (dx, 0.0, 0.0), (-dx, 0.0, 0.0),
             (0.0, dy, 0.0), (0.0, -dy, 0.0),
@@ -63,7 +68,7 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
             updated.append(copy_cell(cell))
             continue
 
-        # Compute average neighbor velocity
+        # 🧮 Compute average neighbor velocity
         avg_velocity = [0.0, 0.0, 0.0]
         for v in neighbors:
             for i in range(3):
@@ -71,13 +76,14 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
         for i in range(3):
             avg_velocity[i] /= len(neighbors)
 
-        # Laplacian term: ∇²u ≈ avg_neighbors - u
+        # ∇²u ≈ avg_neighbors - u
         laplacian_term = [avg_velocity[i] - cell.velocity[i] for i in range(3)]
 
-        # Euler update: u_new = u_old + μ∇²u · dt
+        # ⏱️ Euler update: u_new = u_old + μ∇²u · dt
         viscosity_update = vector_scale(laplacian_term, viscosity * dt)
         new_velocity = vector_add(cell.velocity, viscosity_update)
 
+        # 📊 Mutation diagnostics
         delta = math.sqrt(sum((a - b) ** 2 for a, b in zip(new_velocity, cell.velocity)))
         if delta > 1e-8:
             mutation_count += 1

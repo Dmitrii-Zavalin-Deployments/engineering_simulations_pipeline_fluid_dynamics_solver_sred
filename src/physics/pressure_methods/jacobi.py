@@ -1,5 +1,5 @@
 # src/physics/pressure_methods/jacobi.py
-# 🔁 Jacobi iteration for pressure Poisson solve (∇²p = divergence) — ghost-aware
+# 🔁 Jacobi iteration for pressure Poisson solve (∇²P = ∇ · u) — ghost-aware and modular
 
 from src.grid_modules.cell import Cell
 from typing import List, Tuple, Set
@@ -12,6 +12,16 @@ def solve_jacobi_pressure(grid: List[Cell],
                           ghost_coords: Set[Tuple[float, float, float]] = set()) -> List[float]:
     """
     Solves pressure Poisson equation using Jacobi iteration.
+
+    Roadmap Alignment:
+    Governing Equation:
+        Continuity: ∇ · u = 0
+        Pressure Solve: ∇²P = ∇ · u
+
+    Purpose:
+    - Enforce incompressibility by solving for pressure correction
+    - Use ghost-aware neighbor logic to preserve boundary fidelity
+    - Track convergence via residuals and support reflex diagnostics
 
     Args:
         grid (List[Cell]): Grid of cells with fluid_mask and pressure fields
@@ -68,6 +78,7 @@ def solve_jacobi_pressure(grid: List[Cell],
                 (x, y, z - dz), (x, y, z + dz)
             ]
 
+            # 🧠 Ghost-aware neighbor sum
             neighbor_sum = handle_solid_or_ghost_neighbors(
                 coord, neighbors, pressure_map,
                 fluid_mask_map, ghost_coords, ghost_pressure_map

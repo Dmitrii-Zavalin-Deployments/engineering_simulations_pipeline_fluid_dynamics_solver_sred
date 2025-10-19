@@ -1,5 +1,5 @@
 # src/physics/divergence.py
-# 🔍 Central-difference divergence calculation for fluid incompressibility checks — ghost-aware
+# 📈 Divergence Operator — ghost-aware ∇ · u computation for continuity enforcement
 
 from src.grid_modules.cell import Cell
 from typing import List, Set
@@ -12,6 +12,21 @@ def compute_divergence(grid: List[Cell],
     """
     Computes divergence values for valid fluid cells using central-difference approximation,
     excluding ghost cells.
+
+    Roadmap Alignment:
+    Governing Equation:
+        Continuity: ∇ · u = ∂u/∂x + ∂v/∂y + ∂w/∂z
+
+    Purpose:
+    - Quantify incompressibility violation
+    - Feed pressure Poisson solver: ∇²P = ∇ · u
+    - Support reflex scoring and mutation diagnostics
+    - Exclude ghost cells to preserve physical fidelity at boundaries
+
+    Strategy:
+    1. Filter out ghost cells and malformed fluid cells
+    2. Apply central differencing via compute_central_divergence
+    3. Optionally log per-cell divergence values
 
     Args:
         grid (List[Cell]): Grid of Cell objects

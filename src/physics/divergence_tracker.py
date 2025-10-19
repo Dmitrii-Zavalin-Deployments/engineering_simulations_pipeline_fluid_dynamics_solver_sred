@@ -18,13 +18,15 @@ def compute_divergence_stats(
     """
     Computes divergence across the fluid grid and logs diagnostic stats.
 
+    Roadmap Alignment:
     Governing Equation:
-        ∇ · u = ∂u/∂x + ∂v/∂y + ∂w/∂z
+        Continuity: ∇ · u = ∂u/∂x + ∂v/∂y + ∂w/∂z
 
     Purpose:
-    - Validate incompressibility
-    - Support pressure correction
-    - Track solver performance
+    - Validate incompressibility before and after pressure correction
+    - Support pressure Poisson solve: ∇²P = ∇ · u
+    - Track solver performance and continuity enforcement
+    - Provide diagnostic visibility for reflex scoring and mutation tracing
 
     Args:
         grid (List[Cell]): Simulation grid with velocity fields
@@ -45,7 +47,7 @@ def compute_divergence_stats(
 
     print(f"[DIV] Step {step_index} — {label}: max={max_div:.3e}, mean={mean_div:.3e}")
 
-    # Optional export
+    # 🗂️ Optional export for audit and scoring
     log_path = os.path.join(output_folder, "divergence_log.txt")
     with open(log_path, "a") as f:
         f.write(f"Step {step_index:04d} | Stage: {label} | Max: {max_div:.6e} | Mean: {mean_div:.6e}\n")

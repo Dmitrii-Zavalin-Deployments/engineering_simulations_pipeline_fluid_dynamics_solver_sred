@@ -1,5 +1,5 @@
 # src/physics/pressure_methods/boundary.py
-# 🧱 Boundary condition enforcement for pressure solver — ghost-aware and solid-safe
+# 🧱 Boundary Condition Enforcement — ghost-aware and solid-safe pressure neighbor logic
 
 from typing import Tuple, List, Dict, Set
 
@@ -9,6 +9,14 @@ def apply_neumann_conditions(coord: Tuple[float, float, float],
     """
     Apply Neumann condition (zero-gradient) for missing or non-fluid neighbor.
 
+    Roadmap Alignment:
+    Boundary Enforcement:
+    - Neumann: ∂P/∂n = 0 ⇒ pressure at neighbor equals pressure at current cell
+
+    Purpose:
+    - Preserve solver stability at domain edges
+    - Avoid artificial pressure gradients near solids or missing neighbors
+
     Args:
         coord: Current cell coordinate
         neighbor: Neighbor coordinate
@@ -17,7 +25,6 @@ def apply_neumann_conditions(coord: Tuple[float, float, float],
     Returns:
         Approximated pressure value using Neumann boundary logic
     """
-    # Neumann: assume pressure gradient is zero ⇒ neighbor has same pressure
     return pressure_map.get(coord, 0.0)
 
 
@@ -28,7 +35,18 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
                                     ghost_coords: Set[Tuple[float, float, float]],
                                     ghost_pressure_map: Dict[Tuple[float, float, float], float]) -> float:
     """
-    Adjust pressure update for neighbors that may be solid or ghost.
+    Adjust pressure update for neighbors that may be solid, ghost, or outside domain.
+
+    Roadmap Alignment:
+    Boundary Enforcement:
+    - Fluid neighbors → standard pressure coupling
+    - Ghost neighbors → Dirichlet enforcement (explicit pressure)
+    - Solid or missing → Neumann fallback (zero-gradient)
+
+    Purpose:
+    - Ensure physical fidelity at boundaries
+    - Modularize pressure logic for ghost-aware solvers
+    - Support reflex diagnostics and mutation traceability
 
     Args:
         coord: Current cell coordinate
