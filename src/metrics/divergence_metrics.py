@@ -18,10 +18,6 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
     - Tags cells with divergence values
     - Enables post-projection divergence tracking
 
-    Args:
-        grid (List[Cell]): Grid of simulation cells
-        domain (Dict): Domain definition with min/max and resolution values
-
     Returns:
         float: Maximum divergence value detected
     """
@@ -47,7 +43,6 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
 
         coords = (cell.x, cell.y, cell.z)
 
-        # Gather neighbors for central differencing
         def neighbor_diff(axis_index: int, offset: float) -> float:
             coord_plus = list(coords)
             coord_minus = list(coords)
@@ -70,6 +65,7 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
 
         divergence = div_x + div_y + div_z
         cell.divergence = round(divergence, 6)
+        cell.divergence_quality = "low" if abs(divergence) > 0.1 else "high"
         divergence_values.append(abs(divergence))
 
     return round(max(divergence_values), 5) if divergence_values else 0.0

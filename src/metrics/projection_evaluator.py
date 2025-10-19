@@ -2,14 +2,20 @@
 
 from src.grid_modules.cell import Cell
 import math
+from typing import List
 
-def calculate_projection_passes(grid: list[Cell]) -> int:
+def calculate_projection_passes(grid: List[Cell]) -> int:
     """
     Estimates how many projection passes are needed based on velocity variability.
     Greater velocity irregularity may require more iterations for pressure convergence.
 
+    Roadmap Alignment:
+    Reflex Scoring:
+    - Projection depth → ∇²P enforcement fidelity
+    - Supports reflex scoring and solver traceability
+
     Args:
-        grid (list[Cell]): Grid of simulation cells
+        grid (List[Cell]): Grid of simulation cells
 
     Returns:
         int: Estimated projection passes (minimum of 1)
@@ -24,6 +30,7 @@ def calculate_projection_passes(grid: list[Cell]) -> int:
         if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             velocity_magnitudes.append(magnitude)
+            cell.velocity_magnitude = round(magnitude, 6)
 
     if not velocity_magnitudes:
         return 1
@@ -35,7 +42,13 @@ def calculate_projection_passes(grid: list[Cell]) -> int:
     # Heuristic: more variation → more projection depth
     passes = 1 + int(variation // 0.5)
 
-    return max(passes, 1)
+    # Clamp and annotate
+    passes = max(passes, 1)
+    for cell in grid:
+        if getattr(cell, "fluid_mask", False):
+            cell.projection_pass_estimate = passes
+
+    return passes
 
 
 

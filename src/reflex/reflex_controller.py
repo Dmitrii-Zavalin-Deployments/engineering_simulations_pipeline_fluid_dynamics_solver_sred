@@ -12,8 +12,9 @@ from src.metrics.projection_evaluator import calculate_projection_passes
 from src.metrics.overflow_monitor import detect_overflow
 from src.metrics.damping_manager import should_dampen as damping_metric
 from src.metrics.reflex_score_evaluator import compute_score
-from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
+from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
+from src.reflex.spatial_tagging.adjacency_zones import extract_ghost_coordinates
 
 def apply_reflex(
     grid: List[Cell],
@@ -62,12 +63,12 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # 🧭 Adjacency and suppression zone detection
+    # 🧭 Ghost adjacency and suppression zone detection
     adjacency_zones = []
     suppression_zones = []
     if ghost_registry:
         ghost_coords = extract_ghost_coordinates(ghost_registry)
-        adjacency_zones = detect_adjacency_zones(grid, ghost_coords, spacing)
+        adjacency_zones = tag_ghost_adjacency(grid, ghost_coords, spacing)
         mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
         suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
