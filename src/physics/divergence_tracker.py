@@ -2,7 +2,6 @@
 # 📊 Divergence Tracker — computes and logs ∇ · u for continuity enforcement
 
 import os
-import json
 from typing import List, Dict
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
