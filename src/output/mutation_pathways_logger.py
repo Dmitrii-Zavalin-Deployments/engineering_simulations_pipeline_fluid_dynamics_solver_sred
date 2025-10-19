@@ -1,5 +1,5 @@
 # src/output/mutation_pathways_logger.py
-# 🧠 Mutation Pathways Logger — tracks pressure mutation causality per timestep
+# 🧠 Mutation Pathways Logger — tracks pressure mutation causality and suppression diagnostics per timestep
 
 import os
 import json
@@ -7,6 +7,21 @@ from typing import List, Union, Optional
 from src.grid_modules.cell import Cell
 
 def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None) -> dict:
+    """
+    Converts a cell or coordinate tuple into a structured mutation trace entry.
+
+    Roadmap Alignment:
+    Diagnostic Output:
+    - Captures mutation causality and suppression metadata
+    - Supports reflex scoring and mutation overlays
+
+    Args:
+        cell (Cell or tuple): Cell object or (x, y, z) coordinate
+        reason (str): Optional suppression reason
+
+    Returns:
+        dict: Serialized cell metadata
+    """
     if isinstance(cell, tuple):
         return {
             "x": cell[0],
@@ -36,6 +51,22 @@ def log_mutation_pathway(
     output_folder: str = "data/testing-input-output/navier_stokes_output",
     triggered_cells: Optional[List[Union[Cell, tuple]]] = None
 ):
+    """
+    Logs mutation pathway for a given timestep.
+
+    Roadmap Alignment:
+    Reflex Visibility:
+    - Tracks pressure mutation causality
+    - Anchors reflex scoring and overlay generation
+    - Supports audit-safe diagnostics and CI traceability
+
+    Args:
+        step_index (int): Timestep index
+        pressure_mutated (bool): Whether pressure field was modified
+        triggered_by (List[str]): Mutation triggers (e.g. ghost influence, overflow)
+        output_folder (str): Path to mutation log file
+        triggered_cells (List[Cell or tuple]): Cells affected by mutation
+    """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
 
@@ -47,7 +78,6 @@ def log_mutation_pathway(
 
     if triggered_cells:
         entry["triggered_cells"] = [serialize_cell(cell) for cell in triggered_cells]
-        # ✅ Patch: export coordinate tuples for mutated_cells
         entry["mutated_cells"] = [
             (cell.x, cell.y, cell.z)
             for cell in triggered_cells
@@ -81,6 +111,20 @@ def log_skipped_mutation(
     reason: str,
     output_folder: str = "data/testing-input-output/navier_stokes_output"
 ):
+    """
+    Logs suppressed mutation pathway for a given timestep.
+
+    Roadmap Alignment:
+    Reflex Visibility:
+    - Captures suppression logic and ghost adjacency fallback
+    - Supports reflex scoring and diagnostic overlays
+
+    Args:
+        step_index (int): Timestep index
+        suppressed_cells (List[Cell or tuple]): Cells where mutation was suppressed
+        reason (str): Suppression rationale
+        output_folder (str): Path to mutation log file
+    """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
 

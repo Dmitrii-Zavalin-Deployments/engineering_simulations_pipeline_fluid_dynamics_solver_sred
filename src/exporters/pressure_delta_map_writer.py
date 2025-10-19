@@ -1,5 +1,5 @@
 # src/exporters/pressure_delta_map_writer.py
-# 📘 Pressure Delta Map Writer — step-level per-cell pressure change export
+# 📘 Pressure Delta Map Writer — exports per-cell pressure mutation diagnostics for reflex scoring and traceability
 
 import json
 import os
@@ -7,6 +7,12 @@ import os
 def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_dir: str = "data/snapshots"):
     """
     Saves pressure delta information for each fluid cell to a JSON file.
+
+    Roadmap Alignment:
+    Diagnostic Output:
+    - Tracks pressure mutation per cell after solving ∇²P = ∇ · u
+    - Supports reflex scoring, mutation pathway logging, and snapshot overlays
+    - Anchors solver visibility for CI and audit pipelines
 
     Args:
         pressure_delta_map (dict): Dict keyed by (x, y, z) tuples with pressure change info
@@ -31,7 +37,7 @@ def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_
     with open(full_path, "w") as f:
         json.dump(serialized, f, indent=2)
 
-    print(f"Pressure delta map saved → {full_path}")  # ✅ Patch applied: CI reflex anchor
+    print(f"Pressure delta map saved → {full_path}")  # ✅ Reflex anchor for CI and mutation trace
 
 
 

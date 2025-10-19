@@ -12,9 +12,15 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
     Parses step_summary.txt and computes reflex scores per timestep.
 
     Roadmap Alignment:
+    Reflex Scoring:
     - Influence → boundary enforcement via ghost logic
     - Adjacency → fluid–ghost proximity
     - Mutation → pressure field change from ∇²P = ∇ · u solve
+
+    Purpose:
+    - Quantify solver responsiveness to ghost influence
+    - Track mutation causality and suppression fallback
+    - Support reflex diagnostics and CI scoring overlays
 
     Returns:
         dict: Score breakdown and aggregate statistics
@@ -62,9 +68,15 @@ def compute_score(inputs: dict) -> float:
     Computes reflex score based on mutation causality and ghost influence.
 
     Roadmap Alignment:
+    Reflex Scoring:
     - Mutation → pressure correction from ∇²P = ∇ · u
     - Influence → ghost-to-fluid transfer from boundary enforcement
     - Adjacency → proximity of fluid cells to ghost cells
+
+    Purpose:
+    - Reward solver responsiveness to ghost triggers
+    - Penalize suppression or missed mutation near ghost boundaries
+    - Support reflex overlays and CI scoring
 
     Returns:
         float: Reflex score
@@ -100,12 +112,35 @@ def load_json_safe(path: str):
         return None
 
 def score_pressure_mutation_volume(delta_map: dict) -> int:
+    """
+    Counts number of fluid cells with nonzero pressure delta.
+
+    Roadmap Alignment:
+    Reflex Diagnostics:
+    - Mutation volume → ∇²P enforcement footprint
+    """
     return sum(1 for cell in delta_map.values() if abs(cell.get("delta", 0.0)) > 0.0)
 
 def score_mutation_pathway_presence(trace: list, step_index: int) -> bool:
+    """
+    Checks if mutation pathway was recorded for the given step.
+
+    Roadmap Alignment:
+    Reflex Traceability:
+    - Pathway presence → causality trace from ghost to mutation
+    """
     return any(entry.get("step_index") == step_index for entry in trace)
 
 def score_reflex_metadata_fields(reflex: dict) -> dict:
+    """
+    Extracts reflex metadata fields for scoring.
+
+    Roadmap Alignment:
+    Solver Visibility:
+    - Projection flag → ∇²P solve invoked
+    - Divergence log → ∇ · u diagnostics recorded
+    - Reflex score → embedded CI score
+    """
     return {
         "has_projection": reflex.get("pressure_solver_invoked", False),
         "divergence_logged": "post_projection_divergence" in reflex,
@@ -122,6 +157,7 @@ def evaluate_snapshot_health(
     Evaluates snapshot integrity for a given timestep.
 
     Roadmap Alignment:
+    Reflex Integrity:
     - Pressure delta map → mutation volume from ∇²P solve
     - Pathway log → causality trace for mutation
     - Reflex metadata → solver visibility and continuity enforcement
@@ -153,6 +189,11 @@ def batch_evaluate_trace(
     """
     Evaluates all snapshots for reflex integrity and scoring.
 
+    Roadmap Alignment:
+    Reflex Audit:
+    - Aggregates per-step mutation diagnostics
+    - Supports CI overlays and scoring dashboards
+
     Returns:
         List[dict]: Per-step health reports
     """
@@ -168,6 +209,3 @@ def batch_evaluate_trace(
         )
         evaluations.append(report)
     return evaluations
-
-
-
