@@ -1,5 +1,5 @@
 # src/snapshot_manager.py
-# 🧾 Snapshot Manager — handles simulation evolution and snapshot orchestration
+# 🧾 Snapshot Manager — orchestrates Navier-Stokes evolution and snapshot generation
 
 import os
 import logging
@@ -7,6 +7,24 @@ from src.step_controller import evolve_step
 from src.utils.snapshot_step_processor import process_snapshot_step
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
+    """
+    Executes the full Navier-Stokes simulation loop:
+    - Initializes grid from domain and geometry
+    - Evolves fluid state over time using:
+        - Momentum equation: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+        - Continuity equation: ∇ · u = 0
+    - Applies boundary conditions and ghost logic
+    - Records snapshots at specified intervals
+
+    Args:
+        input_data (dict): Parsed simulation input
+        scenario_name (str): Scenario identifier
+        config (dict): Reflex and diagnostic configuration
+
+    Returns:
+        list: List of (step_index, snapshot_dict) tuples
+    """
+    # 🧩 Extract simulation parameters
     time_step = input_data["simulation_parameters"]["time_step"]
     total_time = input_data["simulation_parameters"]["total_time"]
     output_interval = input_data["simulation_parameters"].get("output_interval", 1)
@@ -21,6 +39,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
     print(f"⚙️  Output interval: {output_interval}")
 
+    # 🧱 Grid initialization with optional geometry mask
     if geometry:
         from src.grid_generator import generate_grid_with_mask
         grid = generate_grid_with_mask(domain, initial_conditions, geometry)
@@ -32,12 +51,14 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         grid = generate_grid(domain, initial_conditions)
         expected_size = domain["nx"] * domain["ny"] * domain["nz"]
 
+    # 📐 Compute spatial discretization
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
     dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
     spacing = (dx, dy, dz)
     print(f"[DEBUG] Grid spacing → dx={dx:.4f}, dy={dy:.4f}, dz={dz:.4f}")
 
+    # 🔁 Time integration loop
     num_steps = int(total_time / time_step)
     snapshots = []
     mutation_report = {
@@ -50,8 +71,10 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
+        # 🚀 Evolve fluid state using full Navier-Stokes logic
         grid, reflex = evolve_step(grid, input_data, step, config=config)
 
+        # 🧾 Package snapshot with diagnostics and metadata
         grid, snapshot = process_snapshot_step(
             step=step,
             grid=grid,
@@ -62,11 +85,11 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             output_folder=output_folder
         )
 
-        # ✅ Track score injection
+        # ✅ Track reflex score injection
         score = snapshot.get("reflex_score", 0.0)
         print(f"[VERIFY] Injected reflex_score: {score} ({type(score)})")
 
-        # ✅ Update summary counters
+        # 📊 Update mutation summary counters
         if snapshot.get("pressure_mutated", False):
             mutation_report["pressure_mutated"] += 1
         if snapshot.get("velocity_projected", True):
@@ -74,9 +97,11 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         if snapshot.get("projection_skipped", False):
             mutation_report["projection_skipped"] += 1
 
+        # 📤 Export snapshot at output interval
         if step % output_interval == 0:
             snapshots.append((step, snapshot))
 
+    # 📋 Final simulation summary
     print("🧾 Final Simulation Summary:")
     print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
     print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
