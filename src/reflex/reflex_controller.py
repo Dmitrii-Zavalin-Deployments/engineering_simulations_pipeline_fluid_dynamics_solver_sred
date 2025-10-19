@@ -28,28 +28,6 @@ def apply_reflex(
 ) -> dict:
     """
     Computes per-step diagnostics and reflex metrics for solver integrity and mutation traceability.
-
-    Roadmap Alignment:
-    Governing Equations:
-    - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - Continuity: ∇ · u = 0
-
-    Modular Metrics:
-    - Velocity → momentum enforcement
-    - Divergence → continuity enforcement
-    - CFL → time integration stability
-    - Ghost influence → boundary enforcement and mutation causality
-    - Adjacency zones → proximity-based reflex overlays
-    - Suppression zones → missed mutation adjacency
-    - Reflex score → solver visibility and physical fidelity
-
-    Purpose:
-    - Quantify solver health and mutation pathways
-    - Support reflex overlays and diagnostic traceability
-    - Detect anomalies in projection, damping, and ghost tagging
-
-    Returns:
-        dict: Reflex diagnostic block with scoring and metadata
     """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     include_div_delta = (config or {}).get("include_divergence_delta", False)
@@ -93,6 +71,14 @@ def apply_reflex(
         mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
         suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
+    # 📊 Mutation density and trigger counts
+    fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
+    mutation_count = len(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else 0
+    mutation_density = mutation_count / fluid_count if fluid_count > 0 else 0.0
+    damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
+    overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
+    cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
+
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:
         triggered_by.append("ghost_influence")
@@ -132,7 +118,13 @@ def apply_reflex(
         "pressure_mutated": pressure_mutated if pressure_mutated is not None else False,
         "post_projection_divergence": post_projection_divergence,
         "adjacency_zones": adjacency_zones,
-        "suppression_zones": suppression_zones
+        "suppression_zones": suppression_zones,
+        "mutation_density": round(mutation_density, 6),
+        "mutated_cells": input_data.get("mutated_cells", []),
+        "mutation_count": mutation_count,
+        "damping_triggered_count": damping_triggered_count,
+        "overflow_triggered_count": overflow_triggered_count,
+        "cfl_exceeded_count": cfl_exceeded_count
     }
 
     score_inputs = {

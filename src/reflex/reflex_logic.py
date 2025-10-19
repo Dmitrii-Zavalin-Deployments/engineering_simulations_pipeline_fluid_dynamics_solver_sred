@@ -30,6 +30,7 @@ def should_dampen(grid: List[Cell], volatility_threshold: float = 0.5) -> bool:
 
     return (max_mag - avg_mag) > (volatility_threshold * avg_mag)
 
+
 def should_flag_overflow(grid: List[Cell], threshold: float = 10.0) -> bool:
     """
     Flags overflow if any fluid velocity magnitude exceeds the specified threshold.
@@ -49,14 +50,19 @@ def should_flag_overflow(grid: List[Cell], threshold: float = 10.0) -> bool:
                 return True
     return False
 
+
 def adjust_time_step(grid: List[Cell], config: dict, cfl_limit: float = 1.0) -> float:
     """
-    Adjusts time step based on CFL stability condition.
+    Adjusts time step based on CFL stability condition and reflex mutation density.
 
-    Args:
-        grid (List[Cell]): Grid of simulation cells
-        config (dict): Simulation configuration
-        cfl_limit (float): CFL upper bound for stability (default 1.0)
+    Roadmap Alignment:
+    - CFL enforcement → ∂u/∂t stability
+    - Reflex scoring → mutation density and solver health
+
+    Purpose:
+    - Reduce timestep if CFL exceeds limit
+    - Further reduce timestep if mutation density is high
+    - Support reflex diagnostics and adaptive control
 
     Returns:
         float: Adapted time step
@@ -78,11 +84,26 @@ def adjust_time_step(grid: List[Cell], config: dict, cfl_limit: float = 1.0) -> 
 
     cfl = (max_velocity * dt) / dx if dx > 0.0 else 0.0
 
-    # Reduce time step if CFL exceeds limit
-    if cfl > cfl_limit and max_velocity > 0.0:
-        return (cfl_limit * dx) / max_velocity
+    # 🧠 Reflex-aware mutation density
+    mutation_count = sum(
+        1 for cell in grid
+        if getattr(cell, "pressure_mutated", False)
+        or getattr(cell, "damping_triggered", False)
+        or getattr(cell, "transport_triggered", False)
+    )
+    fluid_count = sum(1 for cell in grid if getattr(cell, "fluid_mask", False))
+    mutation_ratio = mutation_count / fluid_count if fluid_count > 0 else 0.0
 
-    return dt
+    # 📉 Adjust timestep based on CFL and mutation activity
+    if cfl > cfl_limit and max_velocity > 0.0:
+        dt = (cfl_limit * dx) / max_velocity
+
+    if mutation_ratio > 0.2:
+        dt *= 0.75  # further reduce for high mutation activity
+    elif mutation_ratio > 0.1:
+        dt *= 0.9
+
+    return round(dt, 6)
 
 
 

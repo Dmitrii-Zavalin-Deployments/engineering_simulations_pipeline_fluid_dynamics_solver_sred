@@ -72,14 +72,22 @@ def compute_advection(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
         # ⏱️ Explicit Euler update: u_new = u_old - dt * (u · ∇u)
         new_velocity = [u[i] - dt * transport[i] for i in range(3)]
 
-        advected.append(Cell(
+        updated_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
             velocity=new_velocity,
             pressure=cell.pressure,
             fluid_mask=True
-        ))
+        )
+
+        # 🧠 Reflex tagging for momentum enforcement
+        updated_cell.velocity_projected = False
+        updated_cell.mutation_source = "advection"
+        updated_cell.mutation_step = config.get("step_index", None)
+        updated_cell.transport_triggered = True
+
+        advected.append(updated_cell)
 
     return advected
 

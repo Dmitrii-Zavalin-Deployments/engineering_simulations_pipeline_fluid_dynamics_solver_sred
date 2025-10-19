@@ -57,10 +57,26 @@ def compute_divergence_stats(
 
     print(f"[DIV] Step {step_index} — {label}: max={max_div:.3e}, mean={mean_div:.3e}")
 
-    # 🗂️ Optional export for audit and scoring
+    # 🧠 Annotate cells with divergence for reflex metadata
+    fluid_index = 0
+    for cell in grid:
+        if getattr(cell, "fluid_mask", False):
+            cell.divergence = round(divergence[fluid_index], 6)
+            fluid_index += 1
+
+    # 🗂️ Export summary log
     log_path = os.path.join(output_folder, "divergence_log.txt")
     with open(log_path, "a") as f:
         f.write(f"Step {step_index:04d} | Stage: {label} | Max: {max_div:.6e} | Mean: {mean_div:.6e}\n")
+
+    # 🗂️ Export per-cell divergence map
+    map_path = os.path.join(output_folder, f"divergence_map_step_{step_index:04d}.json")
+    divergence_map = {
+        f"{cell.x:.2f},{cell.y:.2f},{cell.z:.2f}": cell.divergence
+        for cell in grid if hasattr(cell, "divergence")
+    }
+    with open(map_path, "w") as f:
+        json.dump(divergence_map, f, indent=2)
 
     return {
         "max": max_div,

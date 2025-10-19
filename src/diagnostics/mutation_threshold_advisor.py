@@ -4,9 +4,14 @@ def get_delta_threshold(cell, context):
     """
     Suggests an adaptive pressure delta threshold for mutation detection.
 
+    Roadmap Alignment:
+    Reflex Scoring:
+    - Threshold adapts to resolution, divergence, timestep, and reflex score
+    - Supports mutation gating and suppression fallback
+
     Parameters:
     - cell: Cell object containing position, velocity, and other properties
-    - context: dict containing simulation metadata (e.g., resolution, divergence, time_step)
+    - context: dict containing simulation metadata (e.g., resolution, divergence, time_step, reflex_score)
 
     Returns:
     - float: Recommended threshold for mutation detection
@@ -33,6 +38,20 @@ def get_delta_threshold(cell, context):
         base_threshold *= 0.5
     elif time_step < 0.01:
         base_threshold *= 2
+
+    # Reflex score sensitivity
+    reflex_score = context.get("reflex_score", 0.0)
+    if reflex_score < 0.2:
+        base_threshold *= 0.5
+    elif reflex_score > 0.8:
+        base_threshold *= 1.5
+
+    # Mutation history fallback
+    mutation_density = context.get("mutation_density", 0.0)
+    if mutation_density > 0.3:
+        base_threshold *= 0.75
+    elif mutation_density < 0.05:
+        base_threshold *= 1.25
 
     # Clamp to machine precision floor
     return max(base_threshold, 1e-15)

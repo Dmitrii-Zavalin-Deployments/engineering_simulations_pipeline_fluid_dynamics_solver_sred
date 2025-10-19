@@ -12,6 +12,11 @@ def write_step_summary(
     """
     Appends per-step simulation summary fields to snapshot_summary.csv
 
+    Roadmap Alignment:
+    Reflex Scoring:
+    - Logs reflex score, mutation density, divergence, ghost influence
+    - Tracks suppression fallback, damping triggers, overflow flags, CFL diagnostics
+
     Args:
         step_index (int): Simulation step index
         reflex_metadata (dict): Snapshot metadata dictionary containing reflex metrics
@@ -31,7 +36,11 @@ def write_step_summary(
         "ghost_influence_count",
         "max_divergence",
         "mean_divergence",
-        "ghost_adjacent_but_influence_suppressed"  # ✅ Suppression audit refinement
+        "ghost_adjacent_but_influence_suppressed",
+        "mutation_count",
+        "damping_triggered_count",
+        "overflow_triggered_count",
+        "cfl_exceeded_count"
     ]
 
     # ✅ Patch: detect suppression cases via influence tags
@@ -50,6 +59,12 @@ def write_step_summary(
 
     print(f"[SUMMARY DEBUG] Reflex score for step {step_index}: {reflex_score}")
 
+    # Count mutation diagnostics
+    mutation_count = len(reflex_metadata.get("mutated_cells", []))
+    damping_count = reflex_metadata.get("damping_triggered_count", 0)
+    overflow_count = reflex_metadata.get("overflow_triggered_count", 0)
+    cfl_count = reflex_metadata.get("cfl_exceeded_count", 0)
+
     # Construct row
     row = {
         "step_index": step_index,
@@ -61,7 +76,11 @@ def write_step_summary(
         "ghost_influence_count": reflex_metadata.get("ghost_influence_count", ""),
         "max_divergence": reflex_metadata.get("post_projection_divergence", ""),
         "mean_divergence": reflex_metadata.get("mean_divergence", ""),
-        "ghost_adjacent_but_influence_suppressed": suppression_flag
+        "ghost_adjacent_but_influence_suppressed": suppression_flag,
+        "mutation_count": mutation_count,
+        "damping_triggered_count": damping_count,
+        "overflow_triggered_count": overflow_count,
+        "cfl_exceeded_count": cfl_count
     }
 
     # Write header if new file

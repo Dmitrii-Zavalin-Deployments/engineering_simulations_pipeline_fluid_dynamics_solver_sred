@@ -94,10 +94,19 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
 
         # 📊 Mutation diagnostics
         delta = math.sqrt(sum((a - b) ** 2 for a, b in zip(new_velocity, cell.velocity)))
-        if delta > 1e-8:
+        mutated = delta > 1e-8
+        if mutated:
             mutation_count += 1
 
-        updated.append(copy_cell(cell, velocity=new_velocity))
+        updated_cell = copy_cell(cell, velocity=new_velocity)
+
+        # 🧠 Reflex tagging for damping enforcement
+        updated_cell.mutation_source = "viscosity"
+        updated_cell.mutation_step = config.get("step_index", None)
+        updated_cell.damping_triggered = mutated
+        updated_cell.velocity_projected = False
+
+        updated.append(updated_cell)
 
     print(f"💧 Viscosity applied to {len(updated)} cells → {mutation_count} velocity mutations")
 
