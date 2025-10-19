@@ -1,7 +1,7 @@
 # src/reflex/spatial_tagging/adjacency_zones.py
 # 🧭 Adjacency Zones — tags fluid cells near ghost cells for reflex overlays and mutation proximity scoring
 
-from typing import List, Tuple, Dict, Set
+from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
 
 def detect_adjacency_zones(
