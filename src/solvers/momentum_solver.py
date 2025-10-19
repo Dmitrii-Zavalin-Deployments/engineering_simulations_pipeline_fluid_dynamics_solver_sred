@@ -8,17 +8,18 @@ from src.physics.viscosity import apply_viscous_terms
 
 def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List[Cell]:
     """
-    Evolves velocity field using the momentum equation:
+    Evolves velocity field using the momentum equation.
 
+    Roadmap Alignment:
     Governing Equation:
         ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
 
-    This module handles the left-hand side:
-    - ∂u/∂t: time derivative (Euler step)
-    - u · ∇u: nonlinear advection
-    - μ∇²u: viscous diffusion
-
-    Pressure gradient (-∇P) and external forces (F) are handled separately.
+    Modular Enforcement:
+    - ∂u/∂t: Euler time stepping (implicit via update)
+    - u · ∇u: nonlinear advection → advection.py
+    - μ∇²u: viscous diffusion → viscosity.py
+    - -∇P: pressure gradient handled in pressure_solver.py
+    - F: external forces handled separately if present
 
     Args:
         grid (List[Cell]): Current simulation grid

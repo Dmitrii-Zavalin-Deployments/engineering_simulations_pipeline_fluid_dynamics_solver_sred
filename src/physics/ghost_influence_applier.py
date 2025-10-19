@@ -19,11 +19,16 @@ def apply_ghost_influence(
     """
     Applies ghost pressure and velocity fields to adjacent fluid cells.
 
-    Governing Context:
-    - Ghost cells represent boundary conditions (Dirichlet) for pressure and velocity.
-    - Their influence modifies fluid cells near domain boundaries.
-    - This affects momentum equation: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-    - It also supports continuity enforcement: ∇ · u = 0 via pressure propagation.
+    Roadmap Alignment:
+    - Governing Equations:
+        - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+        - Continuity: ∇ · u = 0
+
+    Purpose:
+    - Ghost cells encode boundary conditions (Dirichlet) for velocity and pressure
+    - Their influence propagates into fluid cells near domain edges
+    - This supports pressure coupling and velocity projection near boundaries
+    - Ensures solver visibility and traceable enforcement of physical constraints
 
     Args:
         grid (List[Cell]): Full simulation grid including ghost cells

@@ -6,8 +6,19 @@ import json
 import statistics
 from typing import List
 
-# 🔍 Existing step_summary.txt scoring (line-based)
+# 🔍 Line-based scoring from step_summary.txt
 def evaluate_reflex_score(summary_file_path: str) -> dict:
+    """
+    Parses step_summary.txt and computes reflex scores per timestep.
+
+    Roadmap Alignment:
+    - Influence → boundary enforcement via ghost logic
+    - Adjacency → fluid–ghost proximity
+    - Mutation → pressure field change from ∇²P = ∇ · u solve
+
+    Returns:
+        dict: Score breakdown and aggregate statistics
+    """
     if not os.path.isfile(summary_file_path):
         raise FileNotFoundError(f"🔍 Summary file not found → {summary_file_path}")
 
@@ -45,8 +56,19 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
         "step_count": len(step_scores)
     }
 
-# ✅ Patch: fallback scoring logic for suppressed influence
+# ✅ Reflex scoring logic — maps mutation causality to physical enforcement
 def compute_score(inputs: dict) -> float:
+    """
+    Computes reflex score based on mutation causality and ghost influence.
+
+    Roadmap Alignment:
+    - Mutation → pressure correction from ∇²P = ∇ · u
+    - Influence → ghost-to-fluid transfer from boundary enforcement
+    - Adjacency → proximity of fluid cells to ghost cells
+
+    Returns:
+        float: Reflex score
+    """
     mutation = inputs.get("mutation", False)
     adjacency = inputs.get("adjacency", 0)
     influence = inputs.get("influence", 0)
@@ -69,7 +91,7 @@ def compute_score(inputs: dict) -> float:
     print(f"[DEBUG] [score] Final score={score}")
     return score
 
-# 🆕 Patch: Structured trace scoring (snapshot-based)
+# 🧠 Snapshot-based scoring — evaluates trace integrity and solver metadata
 def load_json_safe(path: str):
     try:
         with open(path, "r") as f:
@@ -96,6 +118,17 @@ def evaluate_snapshot_health(
     pathway_log_path: str,
     reflex_metadata: dict
 ) -> dict:
+    """
+    Evaluates snapshot integrity for a given timestep.
+
+    Roadmap Alignment:
+    - Pressure delta map → mutation volume from ∇²P solve
+    - Pathway log → causality trace for mutation
+    - Reflex metadata → solver visibility and continuity enforcement
+
+    Returns:
+        dict: Snapshot health report
+    """
     delta_map = load_json_safe(delta_map_path) or {}
     pathway_trace = load_json_safe(pathway_log_path) or []
 
@@ -117,6 +150,12 @@ def batch_evaluate_trace(
     pathway_log_path: str,
     reflex_snapshots: List[dict]
 ) -> List[dict]:
+    """
+    Evaluates all snapshots for reflex integrity and scoring.
+
+    Returns:
+        List[dict]: Per-step health reports
+    """
     evaluations = []
     for snapshot in reflex_snapshots:
         step = snapshot.get("step_index")

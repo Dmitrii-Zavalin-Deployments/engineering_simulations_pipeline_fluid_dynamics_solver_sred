@@ -19,6 +19,28 @@ def process_snapshot_step(
     expected_size: int,
     output_folder: str
 ) -> tuple:
+    """
+    Packages simulation state and diagnostics into a structured snapshot.
+
+    Roadmap Alignment:
+    - Velocity and pressure fields → reflect momentum and continuity enforcement
+    - Divergence → measures incompressibility (∇ · u)
+    - Ghost adjacency and influence → reflect boundary enforcement
+    - Reflex score → quantifies solver integrity and mutation traceability
+    - Overlay maps → visualize mutation zones and solver impact
+
+    Args:
+        step (int): Current timestep index
+        grid (List[Cell]): Simulation grid
+        reflex (dict): Diagnostic metadata from solver
+        spacing (tuple): Grid spacing (dx, dy, dz)
+        config (dict): Full simulation config
+        expected_size (int): Expected fluid cell count
+        output_folder (str): Path to write snapshot files
+
+    Returns:
+        tuple: (grid, snapshot_dict)
+    """
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
@@ -47,13 +69,10 @@ def process_snapshot_step(
     print(f"[DEBUG] mutated_cells (step {step}): {[type(c) for c in mutated_cells_raw[:3]]}")
 
     raw_pm = reflex.get("pressure_mutated", False)
-    if isinstance(raw_pm, bool):
-        pressure_mutated = raw_pm
-    elif isinstance(raw_pm, dict) or hasattr(raw_pm, "__dict__"):
-        print("[WARNING] pressure_mutated was unexpectedly a complex object — coercing to True")
-        pressure_mutated = True
-    else:
-        pressure_mutated = bool(raw_pm)
+    pressure_mutated = (
+        True if isinstance(raw_pm, dict) or hasattr(raw_pm, "__dict__")
+        else bool(raw_pm)
+    )
 
     log_mutation_pathway(
         step_index=step,
@@ -66,57 +85,28 @@ def process_snapshot_step(
         ]
     )
 
-    print(f"[DEBUG] reflex data for step summary {reflex}")
     summary_path = os.path.join(output_folder, "step_summary.txt")
     with open(summary_path, "a") as f:
-        # Format divergence safely and debug
         divergence_value = reflex.get("max_divergence")
         divergence_str = f"{divergence_value:.6e}" if isinstance(divergence_value, (int, float)) else "?"
-        print(f"[DEBUG] max_divergence = {divergence_value} → formatted: {divergence_str}")
 
-        # Resolve ghost adjacency count — top-level or nested
-        if "fluid_cells_adjacent_to_ghosts" in reflex:
-            adjacent_count = reflex["fluid_cells_adjacent_to_ghosts"]
-            print(f"[DEBUG] fluid_cells_adjacent_to_ghosts (top-level) = {adjacent_count}")
-        else:
-            adjacent_count = reflex.get("ghost_diagnostics", {}).get("fluid_cells_adjacent_to_ghosts", "?")
-            print(f"[DEBUG] fluid_cells_adjacent_to_ghosts (nested) = {adjacent_count}")
+        adjacent_count = reflex.get("fluid_cells_adjacent_to_ghosts") or reflex.get("ghost_diagnostics", {}).get("fluid_cells_adjacent_to_ghosts", "?")
         adjacent_str = adjacent_count if isinstance(adjacent_count, (int, float)) else "?"
 
-        # Safely resolve ghost registry length
         ghost_registry = reflex.get("ghost_registry")
         ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
-        print(f"[DEBUG] ghost_registry count = {ghost_count}")
 
-        # Other reflex metrics with fallback
         influence_applied = reflex.get("ghost_influence_count", "?")
-        print(f"[DEBUG] ghost_influence_count = {influence_applied}")
-
         projection_attempted = reflex.get("pressure_solver_invoked", "?")
-        print(f"[DEBUG] pressure_solver_invoked = {projection_attempted}")
-
         projection_skipped = reflex.get("projection_skipped", "?")
-        print(f"[DEBUG] projection_skipped = {projection_skipped}")
-
-        pressure_mutated_str = (
-            pressure_mutated
-            if isinstance(pressure_mutated, bool)
-            else reflex.get("pressure_mutated", "?")
-        )
-        print(f"[DEBUG] pressure_mutated = {pressure_mutated_str}")
 
         reflex_score_val = reflex.get("reflex_score")
         reflex_score_str = f"{reflex_score_val:.2f}" if isinstance(reflex_score_val, (int, float)) else "?"
-        print(f"[DEBUG] reflex_score = {reflex_score_str}")
 
         mutated_cells_count = len(reflex.get("mutated_cells", []))
-        print(f"[DEBUG] mutated_cells count = {mutated_cells_count}")
-
         adaptive_timestep_val = reflex.get("adaptive_timestep")
         adaptive_timestep_str = f"{adaptive_timestep_val:.3f}" if isinstance(adaptive_timestep_val, (int, float)) else "?"
-        print(f"[DEBUG] adaptive_timestep = {adaptive_timestep_str}")
 
-        # Write formatted summary block
         f.write(f"""[🔄 Step {step} Summary]
     • Ghosts: {ghost_count}
     • Fluid–ghost adjacents: {adjacent_str}
@@ -124,7 +114,7 @@ def process_snapshot_step(
     • Max divergence: {divergence_str}
     • Projection attempted: {projection_attempted}
     • Projection skipped: {projection_skipped}
-    • Pressure mutated: {pressure_mutated_str}
+    • Pressure mutated: {pressure_mutated}
     • Reflex score: {reflex_score_str}
     • Mutated cells: {mutated_cells_count}
     • Adaptive timestep: {adaptive_timestep_str}
@@ -148,7 +138,6 @@ def process_snapshot_step(
         for c in grid if not getattr(c, "fluid_mask", True)
     }
 
-    # ✅ Reflex score injection preserved correctly, avoiding overwrite
     score = reflex.get("reflex_score")
     reflex_clean = {k: v for k, v in reflex.items() if k not in ["pressure_mutated", "velocity_projected", "reflex_score"]}
     snapshot = {
@@ -159,9 +148,6 @@ def process_snapshot_step(
         **reflex_clean,
         "reflex_score": float(score) if isinstance(score, (int, float)) else 0.0
     }
-    print(f"[VERIFY] Injected reflex_score: {snapshot['reflex_score']} ({type(snapshot['reflex_score'])})")
-    print(f"[VERIFY] is instance true: {isinstance(score, (int, float))}")
-    print(f"[VERIFY] score is: {score}")
 
     snapshot = inject_diagnostics(snapshot, ghost_registry, grid, spacing=spacing)
     write_step_summary(step, snapshot, output_folder="data/summaries")
@@ -170,9 +156,6 @@ def process_snapshot_step(
     propose_refinement_zones(delta_path, spacing, step_index=step)
 
     reflex_score = snapshot.get("reflex_score", 0.0)
-    if not isinstance(reflex_score, (int, float)):
-        reflex_score = 0.0
-
     mutation_coords = [
         (cell["x"], cell["y"]) if isinstance(cell, dict)
         else cell if isinstance(cell, tuple) and len(cell) == 2

@@ -15,9 +15,16 @@ def solve_navier_stokes_step(
     """
     Executes one full Navier-Stokes update step.
 
+    Roadmap Alignment:
     Governing Equations:
     - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
     - Continuity: ∇ · u = 0
+
+    Modular Enforcement:
+    - Advection: u · ∇u → advection.py
+    - Viscosity: μ∇²u → viscosity.py
+    - Pressure solve: ∇²P = ∇ · u → pressure_solver.py
+    - Velocity projection: u ← u - ∇P → velocity_projection.py
 
     Numerical Strategy:
     1. Explicit Euler update for momentum (advection + viscosity)
@@ -34,15 +41,15 @@ def solve_navier_stokes_step(
             - Updated grid with velocity and pressure fields
             - Metadata dict with pressure mutation info and projection passes
     """
-    # 💨 Step 1: Momentum update
+    # 💨 Step 1: Momentum update — applies advection and viscosity
     grid_after_momentum = apply_momentum_update(grid, input_data, step_index)
 
-    # 💧 Step 2: Pressure correction (Poisson solve for ∇ · u = 0)
+    # 💧 Step 2: Pressure correction — solves ∇²P = ∇ · u to enforce ∇ · u = 0
     grid_after_pressure, pressure_mutated, projection_passes, pressure_metadata = apply_pressure_correction(
         grid_after_momentum, input_data, step_index
     )
 
-    # 🔁 Step 3: Velocity projection (u ← u - ∇P)
+    # 🔁 Step 3: Velocity projection — updates u ← u - ∇P to complete continuity enforcement
     grid_after_projection = apply_pressure_velocity_projection(grid_after_pressure, input_data)
 
     # 📦 Metadata packaging

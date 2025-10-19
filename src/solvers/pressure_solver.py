@@ -12,14 +12,21 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     """
     Applies pressure correction to enforce incompressible flow.
 
+    Roadmap Alignment:
     Governing Equation:
-        ∇ · u = 0
+    - Continuity: ∇ · u = 0
+
+    Modular Enforcement:
+    - Divergence computation → divergence_tracker.py
+    - Pressure solve: ∇²P = ∇ · u → pressure_projection.py
+    - Mutation threshold logic → mutation_threshold_advisor.py
+    - Delta map export → pressure_delta_map_writer.py
 
     Strategy:
-    - Compute divergence of velocity field
-    - Solve pressure Poisson equation: ∇²P = ∇ · u
-    - Update pressure field to reduce divergence
-    - Track mutations and export diagnostics
+    1. Compute divergence of velocity field
+    2. Solve pressure Poisson equation to reduce divergence
+    3. Update pressure field and track mutations
+    4. Export diagnostics and mutation map
 
     Args:
         grid (List[Cell]): Grid of simulation cells
@@ -62,7 +69,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     divergence = div_stats["divergence"]
     max_div = div_stats["max"]
 
-    # 💧 Step 2: Solve pressure Poisson equation
+    # 💧 Step 2: Solve pressure Poisson equation ∇²P = ∇ · u
     grid_with_pressure, pressure_mutated = solve_pressure_poisson(safe_grid, divergence, input_data)
 
     # 🧠 Step 3: Analyze pressure mutations

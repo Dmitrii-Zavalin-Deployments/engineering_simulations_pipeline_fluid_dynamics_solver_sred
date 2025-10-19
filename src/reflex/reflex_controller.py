@@ -1,5 +1,5 @@
 # src/reflex/reflex_controller.py
-# 🔧 Reflex controller — gathers diagnostics and applies reflex flags and metrics:
+# 🔧 Reflex Controller — gathers diagnostics and applies reflex flags and metrics:
 # damping, overflow detection, CFL monitoring, divergence tracking, pressure correction, mutation causality
 
 from typing import List, Optional
@@ -23,6 +23,29 @@ def apply_reflex(
     pressure_mutated: Optional[bool] = None,
     post_projection_divergence: Optional[float] = None
 ) -> dict:
+    """
+    Computes per-step diagnostics and reflex metrics for solver integrity and mutation traceability.
+
+    Roadmap Alignment:
+    - Velocity → reflects momentum enforcement: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
+    - Divergence → reflects continuity enforcement: ∇ · u = 0
+    - CFL → reflects numerical stability of time integration
+    - Ghost influence → reflects boundary enforcement and mutation causality
+    - Reflex score → quantifies solver visibility and physical fidelity
+
+    Args:
+        grid (List[Cell]): Simulation grid
+        input_data (dict): Full simulation config
+        step (int): Current timestep index
+        ghost_influence_count (int): Number of fluid cells influenced by ghost fields
+        config (dict): Reflex config block
+        pressure_solver_invoked (bool): Whether pressure solver was triggered
+        pressure_mutated (bool): Whether pressure field was modified
+        post_projection_divergence (float): Final divergence after velocity projection
+
+    Returns:
+        dict: Reflex diagnostic block with scoring and metadata
+    """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     include_div_delta = (config or {}).get("include_divergence_delta", False)
     include_pressure_map = (config or {}).get("include_pressure_mutation_map", False)
@@ -34,8 +57,9 @@ def apply_reflex(
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
 
-    max_velocity = compute_max_velocity(grid)
-    max_divergence = compute_max_divergence(grid, domain)
+    # 🧠 Physical diagnostics
+    max_velocity = compute_max_velocity(grid)  # for CFL and momentum tracking
+    max_divergence = compute_max_divergence(grid, domain)  # for continuity enforcement
     global_cfl = compute_global_cfl(grid, time_step, domain)
     overflow_detected = detect_overflow(grid)
     damping_enabled = damping_metric(grid, time_step)
@@ -103,7 +127,7 @@ def apply_reflex(
 
     print(f"[DEBUG] reflex_data from reflex controller {reflex_data}")
 
-    # ✅ Patch: log tagging suppression anomalies
+    # ✅ Suppression anomaly detection
     if (
         reflex_data["pressure_mutated"]
         and reflex_data["ghost_influence_count"] > 0

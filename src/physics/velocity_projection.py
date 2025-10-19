@@ -8,10 +8,15 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
     """
     Projects velocity field using pressure gradient subtraction.
 
-    Governing Context:
-    - After solving ∇²P = ∇ · u, we enforce ∇ · u = 0 by updating velocity:
+    Roadmap Alignment:
+    Governing Equation:
+    - Continuity: ∇ · u = 0
+
+    Purpose:
+    - After solving ∇²P = ∇ · u, we enforce incompressibility by updating velocity:
         u ← u - ∇P
-    - This step completes the continuity constraint for incompressible flow.
+    - This step completes the continuity constraint for incompressible flow
+    - Ensures that the velocity field is divergence-free
 
     Numerical Strategy:
     - Central difference approximation of ∇P
