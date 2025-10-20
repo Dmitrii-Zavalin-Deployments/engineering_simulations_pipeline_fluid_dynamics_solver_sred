@@ -86,10 +86,12 @@ jobs:
         }
 
     - name: 🧪 Run Unit Tests with Coverage
+      env:
+        PYTHONPATH: ${{ github.workspace }}
       run: |
-        PYTHONPATH=src pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
+        pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
         echo "✅ Unit tests and code coverage check completed."
-    
+      
     - name: 🚀 Run Main Solver (Debug Mode)
       env:
         PYTHONPATH: ${{ github.workspace }}/src
