@@ -41,7 +41,7 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
     reflex_config = load_reflex_config(reflex_config_path)
 
     # ✅ Build reflex-tagged grid
-    grid = build_simulation_grid(input_data)
+    build_simulation_grid(input_data)
 
     # 🧠 Simulation metadata
     print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario_name}")
