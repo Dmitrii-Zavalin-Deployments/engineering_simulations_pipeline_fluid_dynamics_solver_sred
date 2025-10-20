@@ -4,6 +4,7 @@
 
 from typing import List, Optional
 from src.grid_modules.cell import Cell
+from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
 from src.reflex.reflex_logic import adjust_time_step
 from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.cfl_controller import compute_global_cfl
@@ -37,6 +38,9 @@ def apply_reflex(
 
     if verbosity == "high":
         print(f"[DEBUG] Step {step} → Reflex diagnostics active")
+
+    # ✅ Ensure grid is reflex-tagged
+    grid = build_simulation_grid(config)
 
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
@@ -125,7 +129,7 @@ def apply_reflex(
         "damping_triggered_count": damping_triggered_count,
         "overflow_triggered_count": overflow_triggered_count,
         "cfl_exceeded_count": cfl_exceeded_count,
-        "ghost_registry": ghost_registry  # ✅ Added for downstream diagnostics
+        "ghost_registry": ghost_registry
     }
 
     score_inputs = {
@@ -141,7 +145,6 @@ def apply_reflex(
 
     print(f"[DEBUG] reflex_data from reflex controller {reflex_data}")
 
-    # ✅ Suppression anomaly detection
     if (
         reflex_data["pressure_mutated"]
         and reflex_data["ghost_influence_count"] > 0

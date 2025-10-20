@@ -157,7 +157,8 @@ def evaluate_snapshot_health(
 def batch_evaluate_trace(
     trace_folder: str,
     pathway_log_path: str,
-    reflex_snapshots: List[dict]
+    reflex_snapshots: List[dict],
+    visualize: bool = True  # ✅ Optional toggle
 ) -> List[dict]:
     evaluations = []
     for snapshot in reflex_snapshots:
@@ -171,8 +172,8 @@ def batch_evaluate_trace(
         )
         evaluations.append(report)
 
-    # ✅ Visualize score evolution
-    plot_reflex_score_evolution(evaluations, output_path="data/plots/reflex_score_evolution.png")
+    if visualize:
+        plot_reflex_score_evolution(evaluations, output_path="data/plots/reflex_score_evolution.png")
 
     return evaluations
 

@@ -4,7 +4,7 @@
 import os
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
-from src.reflex.reflex_pathway_logger import log_reflex_pathway  # ✅ Added
+from src.reflex.reflex_pathway_logger import log_reflex_pathway
 from src.visualization.influence_overlay import render_influence_overlay
 from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
@@ -13,6 +13,7 @@ from src.utils.ghost_diagnostics import inject_diagnostics
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
+from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
 
 def process_snapshot_step(
     step: int,
@@ -23,6 +24,9 @@ def process_snapshot_step(
     expected_size: int,
     output_folder: str
 ) -> tuple:
+    # ✅ Ensure grid is reflex-tagged
+    grid = build_simulation_grid(config)
+
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
@@ -78,7 +82,6 @@ def process_snapshot_step(
         ghost_trigger_chain=reflex.get("ghost_trigger_chain", [])
     )
 
-    # ✅ Reflex pathway logger
     log_reflex_pathway(
         step_index=step,
         mutated_cells=mutated_cells_raw,
