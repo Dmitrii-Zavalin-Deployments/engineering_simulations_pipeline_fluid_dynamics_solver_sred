@@ -1,6 +1,5 @@
-# tests/physics/test_ghost_cell_generator.py
-
 import pytest
+from collections import Counter
 from src.physics.ghost_cell_generator import generate_ghost_cells
 from src.grid_modules.cell import Cell
 
@@ -39,7 +38,7 @@ def test_inlet_dirichlet_velocity_and_pressure():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell(x=0.0)], config)
+    grid, registry = generate_ghost_cells([fluid_cell(x=0.0)], config, debug=False)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity == [1.0, 0.0, 0.0]
     assert ghost.pressure == 133.0
@@ -59,7 +58,7 @@ def test_outlet_neumann_pressure_only():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell(x=1.0)], config)
+    grid, registry = generate_ghost_cells([fluid_cell(x=1.0)], config, debug=False)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity is None
     assert ghost.pressure is None
@@ -80,7 +79,7 @@ def test_wall_dirichlet_velocity_only():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell(y=0.0)], config)
+    grid, registry = generate_ghost_cells([fluid_cell(y=0.0)], config, debug=False)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity == [0.0, 0.0, 0.0]
     assert ghost.pressure is None
@@ -101,7 +100,7 @@ def test_missing_velocity_dirichlet_raises():
         }
     )
     with pytest.raises(ValueError, match="Missing velocity for face 'x_min'"):
-        generate_ghost_cells([fluid_cell(x=0.0)], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config, debug=False)
 
 # 🧪 Test: Missing pressure for Dirichlet
 def test_missing_pressure_dirichlet_raises():
@@ -119,7 +118,7 @@ def test_missing_pressure_dirichlet_raises():
         }
     )
     with pytest.raises(ValueError, match="Missing pressure for face 'x_min'"):
-        generate_ghost_cells([fluid_cell(x=0.0)], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config, debug=False)
 
 # 🧪 Test: No boundary condition defined
 def test_missing_boundary_condition_raises():
@@ -132,7 +131,7 @@ def test_missing_boundary_condition_raises():
         }
     )
     with pytest.raises(ValueError, match="No boundary condition defined for face 'x_min'"):
-        generate_ghost_cells([fluid_cell(x=0.0)], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config, debug=False)
 
 # 🧪 Test: Multi-face ghost creation and registry count
 def test_multi_face_ghost_creation_and_registry():
@@ -170,13 +169,13 @@ def test_multi_face_ghost_creation_and_registry():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell(x=0.0, y=0.0), fluid_cell(x=1.0)], config)
+    grid, registry = generate_ghost_cells([fluid_cell(x=0.0, y=0.0), fluid_cell(x=1.0)], config, debug=False)
     ghosts = [c for c in grid if not c.fluid_mask]
-    assert len(ghosts) == 3
-    faces = [registry[id(g)]["face"] for g in ghosts]
-    assert "x_min" in faces
-    assert "y_min" in faces
-    assert "x_max" in faces
+    assert len(ghosts) == 4
+    face_counts = Counter([registry[id(g)]["face"] for g in ghosts])
+    assert face_counts["x_min"] == 1
+    assert face_counts["x_max"] == 1
+    assert face_counts["y_min"] == 2
 
 
 
