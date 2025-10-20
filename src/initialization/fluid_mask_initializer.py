@@ -3,6 +3,7 @@
 
 from typing import List, Dict
 from src.grid_modules.cell import Cell
+from src.config.config_validator import validate_config  # ✅ Added
 
 def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
@@ -15,6 +16,8 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     Returns:
         List[Cell]: Grid with updated mask and reflex metadata
     """
+    validate_config(config)  # ✅ Validate config before tagging
+
     domain = config.get("domain_definition", {})
     ghost_rules = config.get("ghost_rules", {})
     boundary_faces = ghost_rules.get("boundary_faces", [])
@@ -84,6 +87,8 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
     Returns:
         List[Cell]: Reflex-tagged simulation grid
     """
+    validate_config(config)  # ✅ Validate config before grid construction
+
     domain = config.get("domain_definition", {})
     nx, ny, nz = domain.get("nx", 10), domain.get("ny", 10), domain.get("nz", 10)
     min_x, max_x = domain.get("min_x", 0.0), domain.get("max_x", 1.0)

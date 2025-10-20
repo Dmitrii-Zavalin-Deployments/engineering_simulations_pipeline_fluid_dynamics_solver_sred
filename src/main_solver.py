@@ -13,7 +13,8 @@ from src.input_reader import load_simulation_input
 from src.snapshot_manager import generate_snapshots
 from src.compression.snapshot_compactor import compact_pressure_delta_map
 from src.metrics.reflex_score_evaluator import batch_evaluate_trace
-from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
+from src.initialization.fluid_mask_initializer import build_simulation_grid
+from src.config.config_validator import validate_config  # ✅ Added
 
 # ✅ Reflex config loader
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
@@ -39,6 +40,9 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
 
     reflex_config_path = os.getenv("REFLEX_CONFIG", "config/reflex_debug_config.yaml")
     reflex_config = load_reflex_config(reflex_config_path)
+
+    # ✅ Validate config before grid setup
+    validate_config(input_data)
 
     # ✅ Build reflex-tagged grid
     build_simulation_grid(input_data)

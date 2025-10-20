@@ -13,7 +13,8 @@ from src.utils.ghost_diagnostics import inject_diagnostics
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
-from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
+from src.initialization.fluid_mask_initializer import build_simulation_grid
+from src.config.config_validator import validate_config  # ✅ Added
 
 def process_snapshot_step(
     step: int,
@@ -24,6 +25,9 @@ def process_snapshot_step(
     expected_size: int,
     output_folder: str
 ) -> tuple:
+    # ✅ Validate config before grid setup
+    validate_config(config)
+
     # ✅ Ensure grid is reflex-tagged
     grid = build_simulation_grid(config)
 

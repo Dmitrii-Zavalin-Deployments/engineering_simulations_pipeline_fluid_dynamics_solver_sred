@@ -4,7 +4,8 @@
 
 from typing import List, Optional
 from src.grid_modules.cell import Cell
-from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
+from src.initialization.fluid_mask_initializer import build_simulation_grid
+from src.config.config_validator import validate_config  # ✅ Added
 from src.reflex.reflex_logic import adjust_time_step
 from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.cfl_controller import compute_global_cfl
@@ -38,6 +39,9 @@ def apply_reflex(
 
     if verbosity == "high":
         print(f"[DEBUG] Step {step} → Reflex diagnostics active")
+
+    # ✅ Validate config before grid setup
+    validate_config(config)
 
     # ✅ Ensure grid is reflex-tagged
     grid = build_simulation_grid(config)

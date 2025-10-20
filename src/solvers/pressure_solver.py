@@ -8,12 +8,16 @@ from src.exporters.pressure_delta_map_writer import export_pressure_delta_map
 from src.diagnostics.mutation_threshold_advisor import get_delta_threshold
 from src.physics.divergence_tracker import compute_divergence_stats
 from src.reflex.reflex_pathway_logger import log_reflex_pathway
-from src.initialization.fluid_mask_initializer import build_simulation_grid  # ✅ Added
+from src.initialization.fluid_mask_initializer import build_simulation_grid
+from src.config.config_validator import validate_config  # ✅ Added
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
     Applies pressure correction to enforce incompressible flow.
     """
+    # ✅ Validate config before grid setup
+    validate_config(input_data)
+
     # ✅ Ensure grid is reflex-tagged
     grid = build_simulation_grid(input_data)
 
