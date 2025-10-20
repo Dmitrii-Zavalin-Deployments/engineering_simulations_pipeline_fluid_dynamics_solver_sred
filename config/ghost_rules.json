@@ -1,0 +1,15 @@
+{
+  "boundary_faces": ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"],
+  "default_type": "wall",
+  "face_types": {
+    "x_min": "inlet",
+    "x_max": "outlet",
+    "y_min": "wall",
+    "y_max": "wall",
+    "z_min": "wall",
+    "z_max": "wall"
+  }
+}
+
+
+

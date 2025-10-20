@@ -22,19 +22,17 @@ def validate_config(config: Dict) -> None:
         if key not in domain or not isinstance(domain[key], (int, float)):
             raise ValueError(f"Missing or invalid '{key}' in 'domain_definition'.")
 
-    # ✅ Validate ghost_rules
+    # ✅ Validate ghost_rules (optional if injected externally)
     ghost_rules = config.get("ghost_rules")
-    if not isinstance(ghost_rules, dict):
-        raise ValueError("Missing or invalid 'ghost_rules' in config.")
-
-    if "boundary_faces" not in ghost_rules or not isinstance(ghost_rules["boundary_faces"], list):
-        raise ValueError("Missing or invalid 'boundary_faces' in 'ghost_rules'.")
-
-    if "default_type" not in ghost_rules or not isinstance(ghost_rules["default_type"], str):
-        raise ValueError("Missing or invalid 'default_type' in 'ghost_rules'.")
-
-    if "face_types" not in ghost_rules or not isinstance(ghost_rules["face_types"], dict):
-        raise ValueError("Missing or invalid 'face_types' in 'ghost_rules'.")
+    if ghost_rules:
+        if not isinstance(ghost_rules, dict):
+            raise ValueError("Invalid 'ghost_rules' — must be a dictionary.")
+        if "boundary_faces" not in ghost_rules or not isinstance(ghost_rules["boundary_faces"], list):
+            raise ValueError("Missing or invalid 'boundary_faces' in 'ghost_rules'.")
+        if "default_type" not in ghost_rules or not isinstance(ghost_rules["default_type"], str):
+            raise ValueError("Missing or invalid 'default_type' in 'ghost_rules'.")
+        if "face_types" not in ghost_rules or not isinstance(ghost_rules["face_types"], dict):
+            raise ValueError("Missing or invalid 'face_types' in 'ghost_rules'.")
 
     # ✅ Validate boundary_conditions block
     boundary_conditions = config.get("boundary_conditions", [])

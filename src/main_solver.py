@@ -35,6 +35,15 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
 
+    # ✅ Inject ghost rules from external file if provided
+    ghost_rules_path = os.getenv("GHOST_RULES_PATH")
+    if ghost_rules_path and os.path.isfile(ghost_rules_path):
+        with open(ghost_rules_path) as f:
+            ghost_rules = json.load(f)
+        input_data["ghost_rules"] = ghost_rules
+        if debug:
+            print(f"👻 Injected ghost_rules from: {ghost_rules_path}")
+
     output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
     os.makedirs(output_folder, exist_ok=True)
 
