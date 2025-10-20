@@ -19,9 +19,9 @@ def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     ny = domain.get("ny", 0)
     nz = domain.get("nz", 0)
 
-    edge_x = {0, nx - 1} if nx > 0 else set()
-    edge_y = {0, ny - 1} if ny > 0 else set()
-    edge_z = {0, nz - 1} if nz > 0 else set()
+    {0, nx - 1} if nx > 0 else set()
+    {0, ny - 1} if ny > 0 else set()
+    {0, nz - 1} if nz > 0 else set()
 
     # ✅ Removed unused is_boundary assignment
     # Boundary tagging now handled via coordinate-based diagnostics in scoring and overlays
