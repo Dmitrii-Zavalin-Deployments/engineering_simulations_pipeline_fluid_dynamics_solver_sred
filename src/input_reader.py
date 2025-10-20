@@ -80,11 +80,15 @@ def load_simulation_input(filepath: str) -> dict:
     print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
 
     # 🚧 Boundary Conditions — governs ghost logic and ∇P coupling
-    bc = data["boundary_conditions"]
-    print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
-    print(f"   Velocity Enforced: {bc.get('velocity')}")
-    print(f"   Pressure Enforced: {bc.get('pressure')}")
-    print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
+    bc_list = data.get("boundary_conditions", [])
+    for bc in bc_list:
+        if isinstance(bc, dict):
+            print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
+            print(f"   Velocity Enforced: {bc.get('velocity')}")
+            print(f"   Pressure Enforced: {bc.get('pressure')}")
+            print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
+        else:
+            print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
 
     # 🧱 Geometry Masking (optional) — defines fluid vs solid topology
     geometry = data.get("geometry_definition")

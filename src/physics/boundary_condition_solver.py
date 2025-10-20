@@ -28,57 +28,62 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
     Returns:
         List[Cell]: Grid with enforced ghost field logic and updated adjacent fluid cells.
     """
-    boundary_cfg = config.get("boundary_conditions", {})
-    enforced_velocity = boundary_cfg.get("velocity", None)
-    enforced_pressure = boundary_cfg.get("pressure", None)
-    apply_to = boundary_cfg.get("apply_to", [])
-    no_slip = boundary_cfg.get("no_slip", False)
+    boundary_blocks = config.get("boundary_conditions", [])
+    if not isinstance(boundary_blocks, list):
+        print(f"⚠️ Unexpected boundary_conditions format: {type(boundary_blocks)} → expected list of dicts")
+        return grid
 
     ghost_ids = set(ghost_registry.keys())
 
-    # ✅ Step 1: Apply boundary fields to ghost cells
-    for cell in grid:
-        if id(cell) not in ghost_ids:
+    for bc in boundary_blocks:
+        if not isinstance(bc, dict):
+            print(f"⚠️ Skipping malformed boundary block: {type(bc)} → {bc}")
             continue
 
-        # Velocity enforcement (Dirichlet)
-        if "velocity" in apply_to and enforced_velocity is not None:
-            cell.velocity = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
-        elif "velocity" not in apply_to:
-            cell.velocity = None  # Neumann fallback handled elsewhere
+        enforced_velocity = bc.get("velocity", None)
+        enforced_pressure = bc.get("pressure", None)
+        apply_to = bc.get("apply_to", [])
+        no_slip = bc.get("no_slip", False)
 
-        # Pressure enforcement (Dirichlet)
-        if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
-            cell.pressure = enforced_pressure
-        elif "pressure" not in apply_to:
-            cell.pressure = None  # Neumann fallback handled elsewhere
+        # ✅ Step 1: Apply boundary fields to ghost cells
+        for cell in grid:
+            if id(cell) not in ghost_ids:
+                continue
 
-    # ✅ Step 2: Reflect enforcement into adjacent fluid cells using ghost origin mapping
-    origin_map = {
-        meta["origin"]: meta for meta in ghost_registry.values()
-        if isinstance(meta.get("origin"), tuple)
-    }
+            if "velocity" in apply_to and enforced_velocity is not None:
+                cell.velocity = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
+            elif "velocity" not in apply_to:
+                cell.velocity = None
 
-    fluid_map = {
-        (cell.x, cell.y, cell.z): cell for cell in grid
-        if getattr(cell, "fluid_mask", False)
-    }
+            if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
+                cell.pressure = enforced_pressure
+            elif "pressure" not in apply_to:
+                cell.pressure = None
 
-    for origin_coord, meta in origin_map.items():
-        fluid_cell = fluid_map.get(origin_coord)
-        if not fluid_cell:
-            continue
+        # ✅ Step 2: Reflect enforcement into adjacent fluid cells using ghost origin mapping
+        origin_map = {
+            meta["origin"]: meta for meta in ghost_registry.values()
+            if isinstance(meta.get("origin"), tuple)
+        }
 
-        # Apply velocity from config
-        if "velocity" in apply_to and enforced_velocity is not None:
-            if no_slip:
-                fluid_cell.velocity = [0.0, 0.0, 0.0]
-            elif isinstance(enforced_velocity, list):
-                fluid_cell.velocity = enforced_velocity[:]
+        fluid_map = {
+            (cell.x, cell.y, cell.z): cell for cell in grid
+            if getattr(cell, "fluid_mask", False)
+        }
 
-        # Apply pressure from config
-        if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
-            fluid_cell.pressure = enforced_pressure
+        for origin_coord, meta in origin_map.items():
+            fluid_cell = fluid_map.get(origin_coord)
+            if not fluid_cell:
+                continue
+
+            if "velocity" in apply_to and enforced_velocity is not None:
+                if no_slip:
+                    fluid_cell.velocity = [0.0, 0.0, 0.0]
+                elif isinstance(enforced_velocity, list):
+                    fluid_cell.velocity = enforced_velocity[:]
+
+            if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
+                fluid_cell.pressure = enforced_pressure
 
     return grid
 

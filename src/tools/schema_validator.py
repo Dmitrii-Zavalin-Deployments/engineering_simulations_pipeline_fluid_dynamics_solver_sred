@@ -29,6 +29,20 @@ def validate_schema(instance: dict, schema: dict) -> None:
         print(f"❌ Unexpected error during validation:\n{e}")
         sys.exit(1)
 
+    # ✅ Additional manual validation for boundary_conditions structure
+    boundary_conditions = instance.get("boundary_conditions", [])
+    if not isinstance(boundary_conditions, list):
+        print("❌ boundary_conditions must be a list.")
+        sys.exit(1)
+
+    for i, bc in enumerate(boundary_conditions):
+        if not isinstance(bc, dict):
+            print(f"❌ boundary_conditions[{i}] must be a dictionary.")
+            sys.exit(1)
+        if "apply_to" not in bc:
+            print(f"❌ boundary_conditions[{i}] missing required key: 'apply_to'.")
+            sys.exit(1)
+
 def main():
     if len(sys.argv) != 2:
         print("❌ Usage: python schema_validator.py <input_file.json>")
