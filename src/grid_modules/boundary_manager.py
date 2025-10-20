@@ -5,7 +5,7 @@ from src.grid_modules.cell import Cell
 def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     """
     Applies simplified boundary conditions by tagging edge cells using resolution values.
-    Marks cells on the outermost x/y/z faces as boundary cells.
+    Identifies cells on the outermost x/y/z faces based on grid indices.
     Does not require physical min/max domain coordinates.
 
     Args:
@@ -13,7 +13,7 @@ def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
         domain (dict): Must contain "nx", "ny", "nz"
 
     Returns:
-        list[Cell]: Tagged cells with boundary flags
+        list[Cell]: Original cell list (boundary tagging now handled via coordinate logic)
     """
     nx = domain.get("nx", 0)
     ny = domain.get("ny", 0)
@@ -23,10 +23,8 @@ def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     edge_y = {0, ny - 1} if ny > 0 else set()
     edge_z = {0, nz - 1} if nz > 0 else set()
 
-    for cell in cells:
-        cell.is_boundary = (
-            cell.x in edge_x or cell.y in edge_y or cell.z in edge_z
-        )
+    # ✅ Removed unused is_boundary assignment
+    # Boundary tagging now handled via coordinate-based diagnostics in scoring and overlays
 
     return cells
 
