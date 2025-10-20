@@ -22,48 +22,65 @@ def fluid_cell(x=0.0, y=0.0, z=0.0, velocity=None, fluid_mask=True):
 def test_divergence_basic():
     grid = [fluid_cell()]
     config = minimal_config()
-    result = compute_divergence(grid, config)
+    result = compute_divergence(grid, config, debug=True)
     assert isinstance(result, list)
     assert len(result) == 1
     assert isinstance(result[0], float)
 
 # 🧪 Test: Ghost cell exclusion
-def test_divergence_excludes_ghosts():
+def test_divergence_excludes_ghosts(capfd):
     ghost = fluid_cell()
     grid = [ghost]
     ghost_registry = {id(ghost)}
-    result = compute_divergence(grid, minimal_config(), ghost_registry)
+    result = compute_divergence(grid, minimal_config(), ghost_registry, debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] ⛔️ Skipping ghost cell" in out
     assert result == []
 
 # 🧪 Test: Malformed velocity is downgraded
-def test_divergence_downgrades_malformed_velocity():
+def test_divergence_downgrades_malformed_velocity(capfd):
     bad_cell = fluid_cell(velocity=None)
     grid = [bad_cell]
-    result = compute_divergence(grid, minimal_config())
+    result = compute_divergence(grid, minimal_config(), debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
 
 # 🧪 Test: Non-fluid cell is excluded
-def test_divergence_excludes_non_fluid():
+def test_divergence_excludes_non_fluid(capfd):
     grid = [fluid_cell(fluid_mask=False)]
-    result = compute_divergence(grid, minimal_config())
+    result = compute_divergence(grid, minimal_config(), debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
 
 # 🧪 Test: Multiple fluid cells with mixed validity
-def test_divergence_mixed_cells():
+def test_divergence_mixed_cells(capfd):
     valid = fluid_cell(x=0.0)
     ghost = fluid_cell(x=1.0)
     malformed = fluid_cell(x=2.0, velocity=None)
     ghost_registry = {id(ghost)}
     grid = [valid, ghost, malformed]
-    result = compute_divergence(grid, minimal_config(), ghost_registry)
+    result = compute_divergence(grid, minimal_config(), ghost_registry, debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] ✅ Safe grid assembled" in out
     assert len(result) == 1
     assert isinstance(result[0], float)
 
 # 🧪 Test: Verbose logging output
 def test_divergence_verbose_logging(capfd):
     grid = [fluid_cell()]
-    compute_divergence(grid, minimal_config(), verbose=True)
+    compute_divergence(grid, minimal_config(), verbose=True, debug=False)
     out, _ = capfd.readouterr()
+    assert "🧭 Divergence at" in out
+    assert "📈 Max divergence" in out
+
+# 🧪 Test: Debug + Verbose together
+def test_divergence_debug_and_verbose(capfd):
+    grid = [fluid_cell()]
+    compute_divergence(grid, minimal_config(), verbose=True, debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] ✅ Safe grid assembled" in out
     assert "🧭 Divergence at" in out
     assert "📈 Max divergence" in out
 
