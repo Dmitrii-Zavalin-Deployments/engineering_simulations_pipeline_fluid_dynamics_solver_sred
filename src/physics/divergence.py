@@ -1,4 +1,3 @@
-# src/physics/divergence.py
 # 📈 Divergence Operator — ghost-aware ∇ · u computation for continuity enforcement
 
 from src.grid_modules.cell import Cell
@@ -38,18 +37,20 @@ def compute_divergence(grid: List[Cell],
         List[float]: Divergence values for fluid cells (order matches input)
     """
     # 🧼 Step 1: Downgrade malformed fluid cells and exclude ghosts
-    safe_grid = [
-        Cell(
+    safe_grid = []
+    for cell in grid:
+        if id(cell) in ghost_registry:
+            continue
+        has_valid_velocity = cell.fluid_mask and isinstance(cell.velocity, list)
+        safe_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
-            velocity=cell.velocity if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            pressure=cell.pressure if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
+            velocity=cell.velocity if has_valid_velocity else None,
+            pressure=None,  # ⛔️ Pressure excluded from divergence logic
+            fluid_mask=has_valid_velocity
         )
-        for cell in grid
-        if id(cell) not in ghost_registry
-    ]
+        safe_grid.append(safe_cell)
 
     # 🧪 Step 2: Compute divergence
     divergence_values = compute_central_divergence(safe_grid, config)
