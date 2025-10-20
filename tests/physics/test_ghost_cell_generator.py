@@ -177,5 +177,28 @@ def test_multi_face_ghost_creation_and_registry():
     assert face_counts["x_max"] == 1
     assert face_counts["y_min"] == 2
 
+# 🧪 Test: Debug-enabled ghost generation path coverage
+def test_debug_logging_path_exercised(capfd):
+    config = base_config(
+        boundary_conditions=[{
+            "role": "inlet",
+            "type": "dirichlet",
+            "apply_to": ["velocity", "pressure"],
+            "velocity": [1.0, 0.0, 0.0],
+            "pressure": 133.0,
+            "apply_faces": ["x_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
+        }
+    )
+    generate_ghost_cells([fluid_cell(x=0.0)], config, debug=True)
+    out, _ = capfd.readouterr()
+    assert "[DEBUG] 📘 [ghost_gen] Ghost rule config:" in out
+    assert "[DEBUG] 🧱 Ghost created" in out
+    assert "[DEBUG] 📊 Ghost generation complete" in out
+
 
 
