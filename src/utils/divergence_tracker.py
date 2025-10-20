@@ -102,31 +102,5 @@ def compute_divergence_stats(
 
     return {"max": max_div, "mean": mean_div, "count": count}
 
-def dump_divergence_map(
-    grid: List[Cell],
-    spacing: tuple,
-    path: Optional[str] = None,
-    config: Optional[dict] = None
-) -> List[dict]:
-    data = []
-    for cell in grid:
-        if getattr(cell, "fluid_mask", False):
-            div = compute_divergence(cell, grid, spacing)
-            data.append({
-                "x": cell.x,
-                "y": cell.y,
-                "z": cell.z,
-                "divergence": div
-            })
-
-    if path:
-        with open(path, "w") as f:
-            json.dump(data, f, indent=2)
-        verbosity = (config or {}).get("reflex_verbosity", "medium")
-        if verbosity != "low":
-            print(f"[DEBUG] 📤 Divergence map written → {path}")
-
-    return data
-
 
 

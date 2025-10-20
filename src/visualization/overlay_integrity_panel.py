@@ -27,6 +27,7 @@ def load_overlay_metadata(snapshot_dir: str) -> List[Dict]:
                         "step": data.get("step_index"),
                         "score": data.get("reflex_score", 0.0),
                         "mutation_density": data.get("mutation_density", 0.0),
+                        "boundary_mutation_ratio": data.get("boundary_mutation_ratio", 0.0),  # ✅ Added
                         "suppression_zones": len(data.get("suppression_zones", [])),
                         "overlay_path": os.path.join("data", "overlays", f"reflex_overlay_step_{data.get('step_index'):03d}.png")
                     })
@@ -51,6 +52,8 @@ def flag_anomalies(entry: Dict) -> List[str]:
         flags.append("🧬 Dense Mutation")
     if entry["suppression_zones"] > 10:
         flags.append("🛑 Suppression Spike")
+    if entry.get("boundary_mutation_ratio", 0.0) > 0.3:  # ✅ New anomaly condition
+        flags.append("🧱 Boundary Leakage")
     return flags
 
 def render_integrity_panel(snapshot_dir: str, output_path: str = "data/diagnostics/integrity_panel.png"):

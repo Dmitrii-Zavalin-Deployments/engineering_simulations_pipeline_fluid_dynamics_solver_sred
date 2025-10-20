@@ -104,7 +104,6 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
         updated_cell.mutation_source = "viscosity"
         updated_cell.mutation_step = config.get("step_index", None)
         updated_cell.damping_triggered = mutated
-        updated_cell.velocity_projected = False
 
         updated.append(updated_cell)
 

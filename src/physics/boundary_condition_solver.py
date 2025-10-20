@@ -41,25 +41,17 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
         if id(cell) not in ghost_ids:
             continue
 
-        ghost_applied = False
-
         # Velocity enforcement (Dirichlet)
         if "velocity" in apply_to and enforced_velocity is not None:
             cell.velocity = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
-            ghost_applied = True
         elif "velocity" not in apply_to:
             cell.velocity = None  # Neumann fallback handled elsewhere
 
         # Pressure enforcement (Dirichlet)
         if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
             cell.pressure = enforced_pressure
-            ghost_applied = True
         elif "pressure" not in apply_to:
             cell.pressure = None  # Neumann fallback handled elsewhere
-
-        # ✅ Tag ghost as enforced for diagnostics
-        if ghost_applied:
-            cell.ghost_field_applied = True
 
     # ✅ Step 2: Reflect enforcement into adjacent fluid cells using ghost origin mapping
     origin_map = {

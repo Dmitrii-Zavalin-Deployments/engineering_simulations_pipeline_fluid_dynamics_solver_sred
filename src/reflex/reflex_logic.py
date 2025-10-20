@@ -31,26 +31,6 @@ def should_dampen(grid: List[Cell], volatility_threshold: float = 0.5) -> bool:
     return (max_mag - avg_mag) > (volatility_threshold * avg_mag)
 
 
-def should_flag_overflow(grid: List[Cell], threshold: float = 10.0) -> bool:
-    """
-    Flags overflow if any fluid velocity magnitude exceeds the specified threshold.
-
-    Args:
-        grid (List[Cell]): Grid of simulation cells
-        threshold (float): Velocity magnitude threshold for overflow detection
-
-    Returns:
-        bool: True if overflow is detected, False otherwise
-    """
-    for cell in grid:
-        v = cell.velocity
-        if cell.fluid_mask and isinstance(v, list) and len(v) == 3:
-            mag = (v[0]**2 + v[1]**2 + v[2]**2)**0.5
-            if mag > threshold:
-                return True
-    return False
-
-
 def adjust_time_step(grid: List[Cell], config: dict, cfl_limit: float = 1.0) -> float:
     """
     Adjusts time step based on CFL stability condition and reflex mutation density.

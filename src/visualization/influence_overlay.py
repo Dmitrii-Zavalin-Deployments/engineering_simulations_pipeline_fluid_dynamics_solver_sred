@@ -24,12 +24,19 @@ def render_influence_overlay(influence_log, output_path, score_threshold=0.85):
 
     adjacency = influence_log.get("adjacency_zones", [])
     suppression = influence_log.get("suppression_zones", [])
+    boundary = influence_log.get("boundary_cells", [])  # ✅ New optional input
 
     plt.figure(figsize=(8, 8))
     ax = plt.gca()
     ax.set_title("🌀 Influence Overlay: Reflex-Complete Zones")
     ax.set_aspect('equal')
     
+    # Render boundary cells (subtle green dots)
+    if boundary:
+        x_b = [pt["x"] for pt in boundary]
+        y_b = [pt["y"] for pt in boundary]
+        ax.scatter(x_b, y_b, c="green", s=10, alpha=0.2, label="Boundary Cells", zorder=0)
+
     # Render adjacency zones
     for zone in adjacency:
         x, y, r = zone["x"], zone["y"], zone["radius"]

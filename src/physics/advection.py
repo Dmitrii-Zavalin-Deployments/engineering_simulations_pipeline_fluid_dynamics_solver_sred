@@ -82,7 +82,6 @@ def compute_advection(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
         )
 
         # 🧠 Reflex tagging for momentum enforcement
-        updated_cell.velocity_projected = False
         updated_cell.mutation_source = "advection"
         updated_cell.mutation_step = config.get("step_index", None)
         updated_cell.transport_triggered = True

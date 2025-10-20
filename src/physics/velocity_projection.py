@@ -25,14 +25,13 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
     Diagnostic Role:
     - Supports reflex scoring and divergence diagnostics
     - Anchors final enforcement of ∇ · u = 0
-    - Tags cells with projection status for metadata traceability
 
     Args:
         grid (List[Cell]): Simulation grid with updated pressures
         config (dict): Full simulation config including domain resolution
 
     Returns:
-        List[Cell]: Grid with updated velocity fields and projection tags
+        List[Cell]: Grid with updated velocity fields
     """
     domain = config.get("domain_definition", {})
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
@@ -58,7 +57,7 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
 
         # 🧮 Compute pressure gradient ∇P using central difference
         grad = [0.0, 0.0, 0.0]
-        for i, (dim, h, delta) in enumerate([("x", dx, (1, 0, 0)), ("y", dy, (0, 1, 0)), ("z", dz, (0, 0, 1))]):
+        for i, (h, delta) in enumerate([(dx, (1, 0, 0)), (dy, (0, 1, 0)), (dz, (0, 0, 1))]):
             plus = (cell.x + delta[0]*h, cell.y + delta[1]*h, cell.z + delta[2]*h)
             minus = (cell.x - delta[0]*h, cell.y - delta[1]*h, cell.z - delta[2]*h)
             p_plus = pressure_map.get(plus)
@@ -80,7 +79,6 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             pressure=cell.pressure,
             fluid_mask=True
         )
-        updated_cell.velocity_projected = True
         updated.append(updated_cell)
 
     return updated

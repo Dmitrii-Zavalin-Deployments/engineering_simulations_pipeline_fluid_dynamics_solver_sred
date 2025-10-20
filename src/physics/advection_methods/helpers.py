@@ -59,32 +59,4 @@ def vector_scale(v: List[float], scalar: float) -> List[float]:
     return [scalar * comp for comp in v]
 
 
-def vector_magnitude(v: List[float]) -> float:
-    """
-    Computes the magnitude (Euclidean norm) of a 3D vector.
-
-    Args:
-        v (List[float]): Input vector
-
-    Returns:
-        float: Magnitude of vector
-    """
-    return (v[0]**2 + v[1]**2 + v[2]**2)**0.5
-
-
-def interpolate_velocity(v1: List[float], v2: List[float], weight: float) -> List[float]:
-    """
-    Performs linear interpolation between two velocity vectors.
-
-    Args:
-        v1 (List[float]): First velocity vector
-        v2 (List[float]): Second velocity vector
-        weight (float): Interpolation factor (0.0 → v1, 1.0 → v2)
-
-    Returns:
-        List[float]: Interpolated velocity
-    """
-    return [(1 - weight) * v1[i] + weight * v2[i] for i in range(3)]
-
-
 

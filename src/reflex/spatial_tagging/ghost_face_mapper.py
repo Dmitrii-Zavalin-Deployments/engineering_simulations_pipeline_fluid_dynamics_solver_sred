@@ -49,7 +49,6 @@ def tag_ghost_adjacency(
             if is_adjacent(coord, ghost):
                 cell.ghost_adjacent = True
                 cell.mutation_triggered_by = "ghost_adjacency"
-                cell.adjacency_tagged_by = "ghost_face_mapper"
                 adjacency_coords.append((cell.x, cell.y))
                 if verbose:
                     print(f"[ADJACENCY] Fluid cell @ {coord} adjacent to ghost @ {ghost}")

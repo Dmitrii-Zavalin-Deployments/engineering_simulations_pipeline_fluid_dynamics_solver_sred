@@ -58,8 +58,9 @@ def compute_score(inputs: dict) -> float:
     mutation_density = inputs.get("mutation_density", 0.0)
     projection_passes = inputs.get("projection_passes", 1)
     triggered_by = inputs.get("triggered_by", [])
+    boundary_mutation_ratio = inputs.get("boundary_mutation_ratio", 0.0)  # ✅ New input
 
-    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, density={mutation_density}, passes={projection_passes}, triggered_by={triggered_by}")
+    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, density={mutation_density}, passes={projection_passes}, triggered_by={triggered_by}, boundary_mutation_ratio={boundary_mutation_ratio}")
 
     score = 0.0
     if mutation:
@@ -83,6 +84,12 @@ def compute_score(inputs: dict) -> float:
         # ✅ Bonus for ghost-triggered causality
         if "ghost_influence" in triggered_by:
             score += 0.3
+
+        # 🧱 Penalty for boundary-proximate mutations if suppression is expected
+        if boundary_mutation_ratio > 0.5 and suppression > 0:
+            score -= 0.3
+        elif boundary_mutation_ratio > 0.25 and suppression > 0:
+            score -= 0.1
 
     # 🧭 Suppression penalty
     if suppression > 0 and not mutation:
@@ -115,7 +122,8 @@ def score_reflex_metadata_fields(reflex: dict) -> dict:
         "mutation_density": reflex.get("mutation_density", 0.0),
         "projection_passes": reflex.get("projection_passes", 1),
         "adjacency_count": len(reflex.get("adjacency_zones", [])),
-        "triggered_by": reflex.get("triggered_by", [])
+        "triggered_by": reflex.get("triggered_by", []),
+        "boundary_mutation_ratio": reflex.get("boundary_mutation_ratio", 0.0)  # ✅ New field
     }
 
 def evaluate_snapshot_health(
@@ -138,7 +146,8 @@ def evaluate_snapshot_health(
         "suppression": field_checks["suppression_zone_count"],
         "mutation_density": field_checks["mutation_density"],
         "projection_passes": field_checks["projection_passes"],
-        "triggered_by": field_checks["triggered_by"]
+        "triggered_by": field_checks["triggered_by"],
+        "boundary_mutation_ratio": field_checks["boundary_mutation_ratio"]  # ✅ Passed to scoring
     }
 
     reflex_score = compute_score(score_inputs)
