@@ -5,7 +5,6 @@ import os
 import json
 from src.metrics.reflex_score_evaluator import batch_evaluate_trace
 from src.visualization.overlay_integrity_panel import render_integrity_panel
-from src.reflex.reflex_pathway_logger import log_reflex_pathway
 
 def load_snapshots(snapshot_dir: str) -> list:
     """
