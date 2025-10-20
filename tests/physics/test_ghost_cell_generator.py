@@ -17,8 +17,8 @@ def base_config(boundary_conditions, ghost_rules):
         "ghost_rules": ghost_rules
     }
 
-def fluid_cell():
-    return Cell(x=1.0, y=1.0, z=1.0, velocity=[1.0, 0.0, 0.0], pressure=133.0, fluid_mask=True)
+def fluid_cell(x=0.0, y=0.0, z=0.0):
+    return Cell(x=x, y=y, z=z, velocity=[1.0, 0.0, 0.0], pressure=133.0, fluid_mask=True)
 
 # 🧪 Test: Dirichlet inlet
 def test_inlet_dirichlet_velocity_and_pressure():
@@ -37,7 +37,7 @@ def test_inlet_dirichlet_velocity_and_pressure():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    grid, registry = generate_ghost_cells([fluid_cell(x=0.0)], config)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity == [1.0, 0.0, 0.0]
     assert ghost.pressure == 133.0
@@ -57,7 +57,7 @@ def test_outlet_neumann_pressure_only():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    grid, registry = generate_ghost_cells([fluid_cell(x=1.0)], config)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity is None
     assert ghost.pressure is None
@@ -78,7 +78,7 @@ def test_wall_dirichlet_velocity_only():
             "default_type": "wall"
         }
     )
-    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    grid, registry = generate_ghost_cells([fluid_cell(y=0.0)], config)
     ghost = [c for c in grid if not c.fluid_mask][0]
     assert ghost.velocity == [0.0, 0.0, 0.0]
     assert ghost.pressure is None
@@ -99,7 +99,7 @@ def test_missing_velocity_dirichlet_raises():
         }
     )
     with pytest.raises(ValueError, match="Missing velocity for face 'x_min'"):
-        generate_ghost_cells([fluid_cell()], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config)
 
 # 🧪 Test: Missing pressure for Dirichlet
 def test_missing_pressure_dirichlet_raises():
@@ -117,7 +117,7 @@ def test_missing_pressure_dirichlet_raises():
         }
     )
     with pytest.raises(ValueError, match="Missing pressure for face 'x_min'"):
-        generate_ghost_cells([fluid_cell()], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config)
 
 # 🧪 Test: No boundary condition defined
 def test_missing_boundary_condition_raises():
@@ -130,7 +130,7 @@ def test_missing_boundary_condition_raises():
         }
     )
     with pytest.raises(ValueError, match="No boundary condition defined for face 'x_min'"):
-        generate_ghost_cells([fluid_cell()], config)
+        generate_ghost_cells([fluid_cell(x=0.0)], config)
 
 
 
