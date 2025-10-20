@@ -4,6 +4,7 @@
 import os
 from src.output.snapshot_writer import export_influence_flags
 from src.output.mutation_pathways_logger import log_mutation_pathway
+from src.reflex.reflex_pathway_logger import log_reflex_pathway  # ✅ Added
 from src.visualization.influence_overlay import render_influence_overlay
 from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
@@ -32,7 +33,6 @@ def process_snapshot_step(
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-    # ✅ Centralized ghost registry
     ghost_registry = reflex.get("ghost_registry") or build_ghost_registry(grid)
     ghost_coords = extract_ghost_coordinates(ghost_registry)
 
@@ -75,6 +75,13 @@ def process_snapshot_step(
             (c.x, c.y, c.z) for c in mutated_cells_raw
             if hasattr(c, "x") and hasattr(c, "y") and hasattr(c, "z")
         ],
+        ghost_trigger_chain=reflex.get("ghost_trigger_chain", [])
+    )
+
+    # ✅ Reflex pathway logger
+    log_reflex_pathway(
+        step_index=step,
+        mutated_cells=mutated_cells_raw,
         ghost_trigger_chain=reflex.get("ghost_trigger_chain", [])
     )
 

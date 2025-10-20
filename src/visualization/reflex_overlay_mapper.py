@@ -52,19 +52,32 @@ def render_reflex_overlay(
         f"Score={reflex_score:.2f} | Mutation Density={mutation_density:.2%}"
     )
 
-    def plot_zone(coords, marker, label, color):
+    def plot_zone(coords, marker, label, color, zorder=1, edgecolor=None):
         if coords:
             x = [c[0] for c in coords]
             y = [c[1] for c in coords]
-            ax.scatter(x, y, marker=marker, label=f"{label} ({len(coords)})", c=color, alpha=0.7)
+            ax.scatter(
+                x, y,
+                marker=marker,
+                label=f"{label} ({len(coords)})",
+                c=color,
+                edgecolors=edgecolor if edgecolor else color,
+                alpha=0.75,
+                zorder=zorder
+            )
 
-    plot_zone(mutation_coords, marker="s", label="Pressure Mutation", color="red")
-    plot_zone(adjacency_coords, marker="o", label="Ghost Adjacency (from ghost_face_mapper)", color="blue")
-    plot_zone(suppression_coords, marker="x", label="Suppressed Influence", color="gray")
+    # 🔴 Pressure mutation zones
+    plot_zone(mutation_coords, marker="s", label="Pressure Mutation", color="red", zorder=3)
+
+    # 🔵 Ghost adjacency zones
+    plot_zone(adjacency_coords, marker="o", label="Ghost Adjacency (tagged)", color="blue", zorder=2)
+
+    # ⚪ Suppression fallback zones
+    plot_zone(suppression_coords, marker="x", label="Suppressed Influence", color="gray", zorder=1)
 
     ax.set_xlabel("x")
     ax.set_ylabel("y")
-    ax.grid(True)
+    ax.grid(True, linestyle="--", alpha=0.3)
     ax.legend(loc="upper right", fontsize=8)
     plt.tight_layout()
     plt.savefig(output_path)

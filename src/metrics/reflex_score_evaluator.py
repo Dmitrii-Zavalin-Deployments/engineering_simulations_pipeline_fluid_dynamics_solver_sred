@@ -5,6 +5,7 @@ import os
 import json
 import statistics
 from typing import List
+from src.visualization.reflex_score_visualizer import plot_reflex_score_evolution  # ✅ Added
 
 # 🔍 Line-based scoring from step_summary.txt
 def evaluate_reflex_score(summary_file_path: str) -> dict:
@@ -56,8 +57,9 @@ def compute_score(inputs: dict) -> float:
     suppression = inputs.get("suppression", 0)
     mutation_density = inputs.get("mutation_density", 0.0)
     projection_passes = inputs.get("projection_passes", 1)
+    triggered_by = inputs.get("triggered_by", [])
 
-    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, density={mutation_density}, passes={projection_passes}")
+    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, density={mutation_density}, passes={projection_passes}, triggered_by={triggered_by}")
 
     score = 0.0
     if mutation:
@@ -77,6 +79,10 @@ def compute_score(inputs: dict) -> float:
         # Reward deeper projection
         if projection_passes > 1:
             score += 0.2 * min(projection_passes, 5)
+
+        # ✅ Bonus for ghost-triggered causality
+        if "ghost_influence" in triggered_by:
+            score += 0.3
 
     # 🧭 Suppression penalty
     if suppression > 0 and not mutation:
@@ -108,7 +114,8 @@ def score_reflex_metadata_fields(reflex: dict) -> dict:
         "suppression_zone_count": len(reflex.get("suppression_zones", [])),
         "mutation_density": reflex.get("mutation_density", 0.0),
         "projection_passes": reflex.get("projection_passes", 1),
-        "adjacency_count": len(reflex.get("adjacency_zones", []))  # ✅ Added for trace visibility
+        "adjacency_count": len(reflex.get("adjacency_zones", [])),
+        "triggered_by": reflex.get("triggered_by", [])
     }
 
 def evaluate_snapshot_health(
@@ -130,7 +137,8 @@ def evaluate_snapshot_health(
         "influence": reflex_metadata.get("ghost_influence_count", 0),
         "suppression": field_checks["suppression_zone_count"],
         "mutation_density": field_checks["mutation_density"],
-        "projection_passes": field_checks["projection_passes"]
+        "projection_passes": field_checks["projection_passes"],
+        "triggered_by": field_checks["triggered_by"]
     }
 
     reflex_score = compute_score(score_inputs)
@@ -143,7 +151,7 @@ def evaluate_snapshot_health(
         "divergence_logged": field_checks["divergence_logged"],
         "reflex_score": reflex_score,
         "suppression_zone_count": field_checks["suppression_zone_count"],
-        "adjacency_count": field_checks["adjacency_count"]  # ✅ Added for overlay and scoring trace
+        "adjacency_count": field_checks["adjacency_count"]
     }
 
 def batch_evaluate_trace(
@@ -162,6 +170,10 @@ def batch_evaluate_trace(
             reflex_metadata=snapshot
         )
         evaluations.append(report)
+
+    # ✅ Visualize score evolution
+    plot_reflex_score_evolution(evaluations, output_path="data/plots/reflex_score_evolution.png")
+
     return evaluations
 
 

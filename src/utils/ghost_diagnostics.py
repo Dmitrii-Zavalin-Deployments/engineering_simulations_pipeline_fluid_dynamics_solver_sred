@@ -7,18 +7,6 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
     """
     Returns ghost cell stats including per-face count, total, pressure enforcement, velocity rules,
     and optionally fluid cell adjacency counts if grid is provided.
-
-    Roadmap Alignment:
-    Ghost Diagnostics:
-    - Face distribution → boundary enforcement coverage
-    - Pressure overrides → Dirichlet enforcement
-    - No-slip velocity → Neumann enforcement
-    - Fluid adjacency → reflex tagging and mutation causality
-
-    Purpose:
-    - Quantify ghost enforcement footprint
-    - Detect fluid–ghost adjacency for reflex scoring
-    - Support mutation traceability and suppression detection
     """
     face_counts = defaultdict(int)
     pressure_overrides = 0
@@ -32,7 +20,7 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
             coord = meta.get("coordinate")
             if isinstance(coord, tuple):
                 ghost_coords.add(coord)
-            face = meta.get("face")
+            face = meta.get("face") or meta.get("ghost_face")
             if face:
                 face_counts[face] += 1
             if isinstance(meta.get("pressure"), (int, float)):
@@ -60,15 +48,8 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
 
     # 🧭 Fluid–ghost adjacency detection using tolerant physical proximity
     if grid:
-        fluid_coords = {
-            (cell.x, cell.y, cell.z)
-            for cell in grid
-            if getattr(cell, "fluid_mask", False)
-        }
-
         dx, dy, dz = spacing
         print(f"[DEBUG] Spacing used → dx={dx}, dy={dy}, dz={dz}")
-        print(f"[DEBUG] Total fluid cells: {len(fluid_coords)}")
         print(f"[DEBUG] Total ghost cells: {len(ghost_coords)}")
 
         def coords_are_neighbors(a, b, tol=1e-3):
@@ -99,6 +80,7 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
                         from_boundary = getattr(ghost_meta, "originated_from_boundary", False)
                         if was_enforced or from_boundary:
                             cell.influenced_by_ghost = True
+                            cell.mutation_triggered_by = "ghost_influence"
 
     return {
         "total": total,
@@ -111,11 +93,6 @@ def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -
 def log_ghost_summary(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)):
     """
     Logs ghost cell diagnostics to console for quick inspection, including fluid adjacency if grid is provided.
-
-    Roadmap Alignment:
-    Reflex Visibility:
-    - Logs ghost enforcement footprint and adjacency metrics
-    - Supports suppression detection and mutation scoring
     """
     summary = analyze_ghost_registry(ghost_registry, grid, spacing)
     print(f"🧱 Ghost Cells: {summary['total']} total")
@@ -129,14 +106,10 @@ def inject_diagnostics(snapshot: dict, ghost_registry, grid=None, spacing=(1.0, 
     """
     Optionally attach ghost diagnostics to snapshot, including fluid adjacency.
     Logs diagnostics immediately after injecting.
-
-    Roadmap Alignment:
-    Snapshot Metadata:
-    - Embeds ghost enforcement footprint and adjacency metrics
-    - Supports reflex overlays and CI scoring
     """
     diagnostics = analyze_ghost_registry(ghost_registry, grid, spacing)
     snapshot["ghost_diagnostics"] = diagnostics
+    snapshot["ghost_registry"] = ghost_registry  # ✅ Embed registry for downstream traceability
     log_ghost_summary(ghost_registry, grid, spacing)
     return snapshot
 

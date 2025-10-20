@@ -28,7 +28,11 @@ def build_ghost_registry(grid: List[Cell]) -> Dict[int, Dict]:
                 "ghost_face": getattr(cell, "ghost_face", None),
                 "boundary_tag": getattr(cell, "boundary_tag", None),
                 "ghost_type": getattr(cell, "ghost_type", "generic"),
-                "source_step": getattr(cell, "ghost_source_step", None)
+                "source_step": getattr(cell, "ghost_source_step", None),
+                "was_enforced": getattr(cell, "was_enforced", False),
+                "originated_from_boundary": getattr(cell, "originated_from_boundary", False),
+                "velocity": getattr(cell, "velocity", None),
+                "pressure": getattr(cell, "pressure", None)
             }
 
     return registry

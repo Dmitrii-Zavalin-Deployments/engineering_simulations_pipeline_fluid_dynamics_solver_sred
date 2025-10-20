@@ -1,20 +1,20 @@
 # src/physics/pressure_projection.py
 # 🔁 Pressure Projection — solves ∇²P = ∇ · u and applies velocity correction for incompressibility
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
 from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
-def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool, dict]:
+def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool, Dict]:
     """
     Computes updated pressure values for fluid cells using the selected solver method,
     then projects velocity to enforce incompressibility.
 
     Returns:
-        Tuple[List[Cell], bool, dict]: 
+        Tuple[List[Cell], bool, Dict]: 
             - Grid with updated pressure and velocity values
             - pressure_mutated flag indicating if any fluid pressure changed
             - ghost_registry for downstream diagnostics

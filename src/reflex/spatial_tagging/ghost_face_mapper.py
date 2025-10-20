@@ -26,24 +26,26 @@ def tag_ghost_adjacency(
         List[Tuple]: Coordinates of ghost-adjacent fluid cells (for overlay rendering)
     """
     dx, dy, dz = spacing
-    adjacency_offsets = [
-        (dx, 0.0, 0.0), (-dx, 0.0, 0.0),
-        (0.0, dy, 0.0), (0.0, -dy, 0.0),
-        (0.0, 0.0, dz), (0.0, 0.0, -dz),
-    ]
-
     adjacency_coords = []
+
+    def is_adjacent(a: Tuple[float, float, float], b: Tuple[float, float, float], tol=1e-3) -> bool:
+        return (
+            abs(a[0] - b[0]) <= dx + tol and
+            abs(a[1] - b[1]) <= dy + tol and
+            abs(a[2] - b[2]) <= dz + tol
+        )
 
     for cell in grid:
         if not getattr(cell, "fluid_mask", False):
             continue
 
-        cx, cy, cz = cell.x, cell.y, cell.z
-        for offset in adjacency_offsets:
-            neighbor = (cx + offset[0], cy + offset[1], cz + offset[2])
-            if neighbor in ghost_coords:
+        coord = (cell.x, cell.y, cell.z)
+        for ghost in ghost_coords:
+            if is_adjacent(coord, ghost):
                 cell.ghost_adjacent = True
-                adjacency_coords.append((cx, cy))
+                cell.mutation_triggered_by = "ghost_adjacency"
+                cell.adjacency_tagged_by = "ghost_face_mapper"
+                adjacency_coords.append((cell.x, cell.y))
                 break  # Tag once per cell
 
     return adjacency_coords
