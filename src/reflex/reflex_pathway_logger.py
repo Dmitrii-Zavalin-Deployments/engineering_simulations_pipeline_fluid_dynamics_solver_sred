@@ -26,7 +26,8 @@ def log_reflex_pathway(
     step_index: int,
     mutated_cells: List[Union[Cell, Tuple]],
     ghost_trigger_chain: Optional[List[int]] = None,
-    output_folder: str = "data/testing-input-output/navier_stokes_output"
+    output_folder: str = "data/testing-input-output/navier_stokes_output",
+    verbose: bool = False  # ✅ Optional diagnostics
 ):
     """
     Logs reflex mutation pathway for a given step with ghost causality trace.
@@ -36,6 +37,7 @@ def log_reflex_pathway(
         mutated_cells (List): Cells affected by pressure mutation
         ghost_trigger_chain (List[int]): Steps that triggered mutation
         output_folder (str): Path to write log file
+        verbose (bool): If True, prints debug info
     """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "reflex_pathway_log.json")
@@ -67,7 +69,11 @@ def log_reflex_pathway(
         print(f"[DEBUG] Entry: {entry}")
         raise
 
-    print(f"[TRACE] Reflex pathway recorded → {log_path}")
+    if verbose:
+        print(f"[TRACE] Reflex pathway recorded for step {step_index} → {log_path}")
+        print(f"[TRACE] Mutated cells: {len(mutated_cells)}")
+        if ghost_trigger_chain:
+            print(f"[TRACE] Ghost trigger chain: {ghost_trigger_chain}")
 
 
 

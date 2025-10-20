@@ -3,20 +3,21 @@
 
 from typing import List, Dict
 from src.grid_modules.cell import Cell
-from src.config.config_validator import validate_config  # ✅ Added
+from src.config.config_validator import validate_config
 
-def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
+def initialize_masks(grid: List[Cell], config: Dict, verbose: bool = False) -> List[Cell]:
     """
     Applies reflex-aware fluid/ghost tagging to a raw grid.
 
     Args:
         grid (List[Cell]): Raw simulation grid
         config (Dict): Domain and boundary configuration
+        verbose (bool): If True, prints debug info
 
     Returns:
         List[Cell]: Grid with updated mask and reflex metadata
     """
-    validate_config(config)  # ✅ Validate config before tagging
+    validate_config(config)
 
     domain = config.get("domain_definition", {})
     ghost_rules = config.get("ghost_rules", {})
@@ -71,23 +72,28 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
             initialized_cell.ghost_source_step = config.get("step_index", None)
             initialized_cell.was_enforced = ghost_face in boundary_faces
             initialized_cell.originated_from_boundary = True
+            initialized_cell.mutation_triggered_by = "boundary_enforcement"  # ✅ Reflex traceability
+
+            if verbose:
+                print(f"[MASK] Ghost cell @ ({x:.2f}, {y:.2f}, {z:.2f}) → face={ghost_face}, type={ghost_type}")
 
         initialized.append(initialized_cell)
 
     return initialized
 
 
-def build_simulation_grid(config: Dict) -> List[Cell]:
+def build_simulation_grid(config: Dict, verbose: bool = False) -> List[Cell]:
     """
     Constructs the simulation grid and applies fluid/ghost masks.
 
     Args:
         config (Dict): Domain and boundary configuration
+        verbose (bool): If True, prints debug info
 
     Returns:
         List[Cell]: Reflex-tagged simulation grid
     """
-    validate_config(config)  # ✅ Validate config before grid construction
+    validate_config(config)
 
     domain = config.get("domain_definition", {})
     nx, ny, nz = domain.get("nx", 10), domain.get("ny", 10), domain.get("nz", 10)
@@ -110,7 +116,7 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
                 raw_grid.append(cell)
 
     # ✅ Apply reflex-aware fluid/ghost tagging
-    grid = initialize_masks(raw_grid, config)
+    grid = initialize_masks(raw_grid, config, verbose=verbose)
 
     return grid
 

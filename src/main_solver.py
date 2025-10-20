@@ -12,9 +12,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.input_reader import load_simulation_input
 from src.snapshot_manager import generate_snapshots
 from src.compression.snapshot_compactor import compact_pressure_delta_map
-from src.metrics.reflex_score_evaluator import batch_evaluate_trace
 from src.initialization.fluid_mask_initializer import build_simulation_grid
-from src.config.config_validator import validate_config  # ✅ Added
+from src.config.config_validator import validate_config
+from src.audit.run_reflex_audit import run_reflex_audit  # ✅ Added
 
 # ✅ Reflex config loader
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
@@ -60,18 +60,6 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
         print(f"📐 Grid resolution: {domain.get('nx')} × {domain.get('ny')} × {domain.get('nz')}")
 
     # 🔁 Time Integration Loop — solves Navier-Stokes equations per step
-    # 🧠 Roadmap Alignment:
-    # - Structured input parsing → input_reader.py
-    # - Momentum update: ρ(∂u/∂t + u · ∇u) = μ∇²u → momentum_solver.py
-    #     - Advection: u · ∇u → advection.py
-    #     - Viscosity: μ∇²u → viscosity.py
-    # - Pressure solve: ∇²P = ∇ · u → pressure_solver.py
-    # - Continuity enforcement: ∇ · u = 0 → velocity_projection.py
-    # - Boundary enforcement → boundary_condition_solver.py
-    # - Ghost logic → ghost_cell_generator.py, ghost_influence_applier.py
-    # - Time loop orchestration → step_controller.py
-    # - Output and diagnostics → snapshot_manager.py, reflex_controller.py
-
     snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
 
     for step, snapshot in snapshots:
@@ -93,19 +81,8 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
 
     print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
 
-    # 📋 Reflex Audit — post-process integrity checks
-    trace_dir = "data/snapshots"
-    pathway_log = os.path.join(output_folder, "mutation_pathways_log.json")
-    reflex_snapshots = [snap for (_, snap) in snapshots]
-
-    audit_report = batch_evaluate_trace(trace_dir, pathway_log, reflex_snapshots)
-    print(f"\n📋 Reflex Snapshot Audit:")
-    for entry in audit_report:
-        print(f"[AUDIT] Step {entry['step_index']:04d} → "
-              f"Mutations={entry['mutated_cells']}, "
-              f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
-              f"Projection={'✓' if entry['has_projection'] else '✗'}, "
-              f"Score={entry['reflex_score']}")
+    # 📋 Reflex Audit — bundled scoring, overlays, and integrity panel
+    run_reflex_audit()
 
 # ✅ CLI entrypoint
 if __name__ == "__main__":

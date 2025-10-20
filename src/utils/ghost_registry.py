@@ -4,7 +4,7 @@
 from typing import List, Dict, Tuple
 from src.grid_modules.cell import Cell
 
-def build_ghost_registry(grid: List[Cell]) -> Dict[int, Dict]:
+def build_ghost_registry(grid: List[Cell], verbose: bool = False) -> Dict[int, Dict]:
     """
     Constructs a registry of ghost cells with coordinate and tagging metadata.
 
@@ -15,6 +15,7 @@ def build_ghost_registry(grid: List[Cell]) -> Dict[int, Dict]:
 
     Args:
         grid (List[Cell]): Full simulation grid
+        verbose (bool): If True, prints debug info
 
     Returns:
         Dict[int, Dict]: Registry keyed by cell ID with coordinate and ghost flags
@@ -23,7 +24,7 @@ def build_ghost_registry(grid: List[Cell]) -> Dict[int, Dict]:
 
     for cell in grid:
         if not getattr(cell, "fluid_mask", True):
-            registry[id(cell)] = {
+            entry = {
                 "coordinate": (cell.x, cell.y, cell.z),
                 "ghost_face": getattr(cell, "ghost_face", None),
                 "boundary_tag": getattr(cell, "boundary_tag", None),
@@ -34,6 +35,10 @@ def build_ghost_registry(grid: List[Cell]) -> Dict[int, Dict]:
                 "velocity": getattr(cell, "velocity", None),
                 "pressure": getattr(cell, "pressure", None)
             }
+            registry[id(cell)] = entry
+
+            if verbose:
+                print(f"[REGISTRY] Ghost cell @ {entry['coordinate']} → face={entry['ghost_face']}, type={entry['ghost_type']}")
 
     return registry
 
