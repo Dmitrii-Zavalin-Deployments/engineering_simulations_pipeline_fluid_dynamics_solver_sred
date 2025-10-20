@@ -85,6 +85,11 @@ jobs:
           echo "❌ Input schema validation failed."; exit 1;
         }
 
+    - name: 🧪 Run Unit Tests with Coverage
+      run: |
+        pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra 
+        echo "✅ Unit tests and code coverage check completed."
+    
     - name: 🚀 Run Main Solver (Debug Mode)
       env:
         PYTHONPATH: ${{ github.workspace }}/src
@@ -94,14 +99,6 @@ jobs:
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
         python src/main_solver.py "$ORIGINAL_INPUT_FILE" --debug
         echo "✅ Main solver executed with debug mode."
-
-    - name: 🧪 Run Unit Tests
-      env:
-        PYTHONPATH: ${{ github.workspace }}/src
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
-      run: |
-        pytest -s tests/ --verbose -ra
-        echo "✅ Unit tests completed."
 
     - name: 🧪 Run Snapshot Validation
       run: |

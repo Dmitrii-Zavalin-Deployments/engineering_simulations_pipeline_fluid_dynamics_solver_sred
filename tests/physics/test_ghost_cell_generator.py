@@ -1,104 +1,136 @@
-# tests/physics/test_ghost_cell_generator.py
-# 🧪 Unit tests for src/physics/ghost_cell_generator.py
-
-from src.grid_modules.cell import Cell
+import pytest
 from src.physics.ghost_cell_generator import generate_ghost_cells
+from src.grid_modules.cell import Cell
 
-def make_fluid_cell(x, y, z):
-    return Cell(x=x, y=y, z=z, velocity=[1.0, 0.0, 0.0], pressure=2.0, fluid_mask=True)
-
-def test_generates_ghost_on_x_min_face():
-    grid = [make_fluid_cell(0.0, 0.5, 0.5)]
-    config = {
-        "domain_definition": {"min_x": 0.0, "max_x": 1.0, "nx": 1, "ny": 1, "nz": 1},
-        "boundary_conditions": {"apply_faces": ["x_min"]}
+def minimal_domain():
+    return {
+        "min_x": 0.0, "max_x": 1.0,
+        "min_y": 0.0, "max_y": 1.0,
+        "min_z": 0.0, "max_z": 1.0,
+        "nx": 1, "ny": 1, "nz": 1
     }
-    padded, registry = generate_ghost_cells(grid, config)
-    assert len(padded) == 2
-    ghost = padded[1]
-    assert ghost.x < grid[0].x
-    assert registry[id(ghost)]["face"] == "x_min"
 
-def test_enforces_no_slip_velocity():
-    grid = [make_fluid_cell(0.0, 0.5, 0.5)]
-    config = {
-        "domain_definition": {"min_x": 0.0, "max_x": 1.0, "nx": 1, "ny": 1, "nz": 1},
-        "boundary_conditions": {
-            "apply_faces": ["x_min"],
-            "no_slip": True,
-            "velocity": [9.9, 9.9, 9.9]
+def base_config(boundary_conditions, ghost_rules):
+    return {
+        "domain_definition": minimal_domain(),
+        "boundary_conditions": boundary_conditions,
+        "ghost_rules": ghost_rules
+    }
+
+def fluid_cell():
+    return Cell(x=1.0, y=1.0, z=1.0, velocity=[1.0, 0.0, 0.0], pressure=133.0, fluid_mask=True)
+
+# 🧪 Test: Dirichlet inlet
+def test_inlet_dirichlet_velocity_and_pressure():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "inlet",
+            "type": "dirichlet",
+            "apply_to": ["velocity", "pressure"],
+            "velocity": [1.0, 0.0, 0.0],
+            "pressure": 133.0,
+            "apply_faces": ["x_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
         }
-    }
-    padded, registry = generate_ghost_cells(grid, config)
-    ghost = padded[-1]
-    assert ghost.velocity == [0.0, 0.0, 0.0]
+    )
+    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.velocity == [1.0, 0.0, 0.0]
+    assert ghost.pressure == 133.0
 
-def test_enforced_pressure_is_applied():
-    grid = [make_fluid_cell(1.0, 1.0, 1.0)]
-    config = {
-        "domain_definition": {"min_z": 0.0, "max_z": 1.0, "nx": 1, "ny": 1, "nz": 1},
-        "boundary_conditions": {
-            "apply_faces": ["z_max"],
-            "pressure": 7.7
+# 🧪 Test: Neumann outlet
+def test_outlet_neumann_pressure_only():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "outlet",
+            "type": "neumann",
+            "apply_to": ["pressure"],
+            "apply_faces": ["x_max"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_max"],
+            "face_types": {"x_max": "outlet"},
+            "default_type": "wall"
         }
-    }
-    padded, registry = generate_ghost_cells(grid, config)
-    ghost = padded[-1]
-    assert ghost.pressure == 7.7
-    assert registry[id(ghost)]["pressure"] == 7.7
+    )
+    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.velocity is None
+    assert ghost.pressure is None
 
-def test_skips_non_fluid_cells():
-    solid = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
-    config = {
-        "domain_definition": {"min_y": 0.0, "max_y": 1.0, "nx": 1, "ny": 1, "nz": 1},
-        "boundary_conditions": {
+# 🧪 Test: Wall with no-slip velocity
+def test_wall_dirichlet_velocity_only():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "wall",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "velocity": [0.0, 0.0, 0.0],
             "apply_faces": ["y_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["y_min"],
+            "face_types": {"y_min": "wall"},
+            "default_type": "wall"
         }
-    }
-    padded, registry = generate_ghost_cells([solid], config)
-    assert len(padded) == 1
-    assert len(registry) == 0
+    )
+    grid, registry = generate_ghost_cells([fluid_cell()], config)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.velocity == [0.0, 0.0, 0.0]
+    assert ghost.pressure is None
 
-def test_multiple_faces_generate_multiple_ghosts():
-    grid = [make_fluid_cell(0.0, 0.0, 0.0)]
-    config = {
-        "domain_definition": {
-            "min_x": 0.0, "max_x": 1.0,
-            "min_y": 0.0, "max_y": 1.0,
-            "min_z": 0.0, "max_z": 1.0,
-            "nx": 1, "ny": 1, "nz": 1
-        },
-        "boundary_conditions": {
-            "apply_faces": ["x_min", "y_min", "z_min"],
-            "velocity": [1.0, 2.0, 3.0],
-            "pressure": 4.0
+# 🧪 Test: Missing velocity for Dirichlet
+def test_missing_velocity_dirichlet_raises():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "inlet",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "apply_faces": ["x_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
         }
-    }
-    padded, registry = generate_ghost_cells(grid, config)
-    assert len(padded) == 4  # 1 fluid + 3 ghost
-    assert len(registry) == 3
-    faces = set([meta["face"] for meta in registry.values()])
-    assert faces == {"x_min", "y_min", "z_min"}
+    )
+    with pytest.raises(ValueError, match="Missing velocity for face 'x_min'"):
+        generate_ghost_cells([fluid_cell()], config)
 
-def test_registry_contains_expected_metadata():
-    grid = [make_fluid_cell(0.0, 0.0, 1.0)]
-    config = {
-        "domain_definition": {
-            "min_z": 0.0, "max_z": 1.0,
-            "nx": 1, "ny": 1, "nz": 1
-        },
-        "boundary_conditions": {
-            "apply_faces": ["z_max"],
-            "velocity": [2.2, 3.3, 4.4],
-            "pressure": 5.5
+# 🧪 Test: Missing pressure for Dirichlet
+def test_missing_pressure_dirichlet_raises():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "inlet",
+            "type": "dirichlet",
+            "apply_to": ["pressure"],
+            "apply_faces": ["x_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
         }
-    }
-    padded, registry = generate_ghost_cells(grid, config)
-    ghost = padded[-1]
-    meta = registry[id(ghost)]
-    assert isinstance(meta["origin"], tuple)
-    assert meta["velocity"] == [2.2, 3.3, 4.4]
-    assert meta["pressure"] == 5.5
+    )
+    with pytest.raises(ValueError, match="Missing pressure for face 'x_min'"):
+        generate_ghost_cells([fluid_cell()], config)
+
+# 🧪 Test: No boundary condition defined
+def test_missing_boundary_condition_raises():
+    config = base_config(
+        boundary_conditions=[],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
+        }
+    )
+    with pytest.raises(ValueError, match="No boundary condition defined for face 'x_min'"):
+        generate_ghost_cells([fluid_cell()], config)
 
 
 
