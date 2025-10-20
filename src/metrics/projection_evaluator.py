@@ -30,7 +30,6 @@ def calculate_projection_passes(grid: List[Cell]) -> int:
         if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             velocity_magnitudes.append(magnitude)
-            cell.velocity_magnitude = round(magnitude, 6)
 
     if not velocity_magnitudes:
         return 1
@@ -41,14 +40,7 @@ def calculate_projection_passes(grid: List[Cell]) -> int:
 
     # Heuristic: more variation → more projection depth
     passes = 1 + int(variation // 0.5)
-
-    # Clamp and annotate
-    passes = max(passes, 1)
-    for cell in grid:
-        if getattr(cell, "fluid_mask", False):
-            cell.projection_pass_estimate = passes
-
-    return passes
+    return max(passes, 1)
 
 
 

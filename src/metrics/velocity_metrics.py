@@ -8,7 +8,7 @@ def compute_max_velocity(grid: List[Cell], overflow_threshold: float = 10.0) -> 
     """
     Computes the maximum velocity magnitude in the simulation grid.
     Measures Euclidean norm of each velocity vector.
-    Annotates cells with velocity magnitude and overflow flags for reflex diagnostics.
+    Flags overflow for reflex diagnostics.
 
     Roadmap Alignment:
     Momentum Enforcement:
@@ -31,7 +31,6 @@ def compute_max_velocity(grid: List[Cell], overflow_threshold: float = 10.0) -> 
         velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
-            cell.velocity_magnitude = round(magnitude, 6)
             if cell.fluid_mask and magnitude > overflow_threshold:
                 cell.overflow_triggered = True
                 cell.mutation_source = "velocity_overflow"

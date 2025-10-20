@@ -86,50 +86,5 @@ def log_mutation_pathway(
 
     print(f"Mutation pathway recorded → {log_path}")
 
-def log_skipped_mutation(
-    step_index: int,
-    suppressed_cells: List[Union[Cell, tuple]],
-    reason: str,
-    output_folder: str = "data/testing-input-output/navier_stokes_output",
-    ghost_trigger_chain: Optional[List[int]] = None
-):
-    """
-    Logs suppressed mutation pathway for a given timestep.
-    """
-    os.makedirs(output_folder, exist_ok=True)
-    log_path = os.path.join(output_folder, "mutation_pathways_log.json")
-
-    entry = {
-        "step_index": step_index,
-        "pressure_mutated": False,
-        "triggered_by": ["mutation suppressed"],
-        "ghost_trigger_chain": ghost_trigger_chain or [],
-        "suppressed": [
-            serialize_cell(cell, reason=reason, step_linked_from=ghost_trigger_chain[-1] if ghost_trigger_chain else None)
-            for cell in suppressed_cells
-        ]
-    }
-
-    try:
-        with open(log_path, "r") as f:
-            log = json.load(f)
-            if not isinstance(log, list):
-                log = []
-    except Exception:
-        log = []
-
-    log.append(entry)
-
-    try:
-        with open(log_path, "w") as f:
-            json.dump(log, f, indent=2)
-    except TypeError as e:
-        print(f"[ERROR] Failed to serialize suppressed mutation log: {e}")
-        print(f"[DEBUG] Problematic entry that caused failure:")
-        print(entry)
-        raise
-
-    print(f"Suppressed mutation pathway recorded → {log_path}")
-
 
 
