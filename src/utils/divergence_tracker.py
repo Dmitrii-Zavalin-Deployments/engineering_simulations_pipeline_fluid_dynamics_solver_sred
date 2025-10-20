@@ -3,7 +3,6 @@
 
 import os
 import math
-import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
 from src.exporters.divergence_field_writer import export_divergence_map
