@@ -41,6 +41,12 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
     reflex_config_path = os.getenv("REFLEX_CONFIG", "config/reflex_debug_config.yaml")
     reflex_config = load_reflex_config(reflex_config_path)
 
+    # ✅ Ghost rule pre-check and logging
+    ghost_cfg = input_data.get("ghost_rules", {})
+    if debug:
+        print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}, Default: {ghost_cfg.get('default_type')}")
+        print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
+
     # ✅ Validate config before grid setup
     validate_config(input_data)
 

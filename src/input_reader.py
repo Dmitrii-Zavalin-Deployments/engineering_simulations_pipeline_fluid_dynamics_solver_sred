@@ -90,6 +90,12 @@ def load_simulation_input(filepath: str) -> dict:
         else:
             print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
 
+    # 👻 Ghost Rule Logging — confirms ghost logic schema
+    ghost_cfg = data.get("ghost_rules", {})
+    print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
+    print(f"   Default Type: {ghost_cfg.get('default_type')}")
+    print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
+
     # 🧱 Geometry Masking (optional) — defines fluid vs solid topology
     geometry = data.get("geometry_definition")
     if geometry:

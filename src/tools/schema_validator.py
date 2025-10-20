@@ -43,6 +43,17 @@ def validate_schema(instance: dict, schema: dict) -> None:
             print(f"❌ boundary_conditions[{i}] missing required key: 'apply_to'.")
             sys.exit(1)
 
+    # ✅ Additional manual validation for ghost_rules structure
+    ghost_rules = instance.get("ghost_rules", {})
+    if not isinstance(ghost_rules, dict):
+        print("❌ ghost_rules must be a dictionary.")
+        sys.exit(1)
+
+    for key in ["boundary_faces", "default_type", "face_types"]:
+        if key not in ghost_rules:
+            print(f"❌ ghost_rules missing required key: {key}")
+            sys.exit(1)
+
 def main():
     if len(sys.argv) != 2:
         print("❌ Usage: python schema_validator.py <input_file.json>")

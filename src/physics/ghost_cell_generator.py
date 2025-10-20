@@ -21,22 +21,21 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
 
     Args:
         grid (List[Cell]): Physical simulation grid.
-        config (dict): Full simulation input with domain_definition and boundary_conditions.
+        config (dict): Full simulation input with domain_definition and ghost_rules.
 
     Returns:
         Tuple[List[Cell], Dict[int, dict]]: Augmented grid including ghost cells, and ghost registry with metadata
     """
     domain = config.get("domain_definition", {})
-    boundaries = config.get("boundary_conditions", {})
-    apply_faces = boundaries.get("apply_faces", [])
-    no_slip = boundaries.get("no_slip", False)
-    enforced_velocity = boundaries.get("velocity", [0.0, 0.0, 0.0])
-    enforced_pressure = boundaries.get("pressure", None)
+    ghost_rules = config.get("ghost_rules", {})
+    boundary_faces = ghost_rules.get("boundary_faces", [])
+    face_types = ghost_rules.get("face_types", {})
+    default_type = ghost_rules.get("default_type", "wall")
 
-    print("[DEBUG] 📘 [ghost_gen] Ghost config:")
-    print(f"[DEBUG]    Apply faces: {apply_faces}")
-    print(f"[DEBUG]    Enforced velocity: {enforced_velocity} (no_slip={no_slip})")
-    print(f"[DEBUG]    Enforced pressure: {enforced_pressure}")
+    print("[DEBUG] 📘 [ghost_gen] Ghost rule config:")
+    print(f"[DEBUG]    Boundary faces: {boundary_faces}")
+    print(f"[DEBUG]    Default type: {default_type}")
+    print(f"[DEBUG]    Face types: {face_types}")
 
     nx = domain.get("nx", 1)
     ny = domain.get("ny", 1)
@@ -52,9 +51,10 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
     ghost_registry = {}
     creation_counts = {face: 0 for face in ["x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]}
 
-    def add_ghost(x, y, z, face, origin, fluid_cell: Cell):
-        vel = [0.0, 0.0, 0.0] if no_slip else enforced_velocity[:]
-        pressure = enforced_pressure if isinstance(enforced_pressure, (int, float)) else None
+    def add_ghost(x, y, z, face, origin, fluid_cell: Cell, face_type: str):
+        no_slip = face_type == "wall"
+        vel = [0.0, 0.0, 0.0] if no_slip else fluid_cell.velocity[:]
+        pressure = fluid_cell.pressure if face_type in ["inlet", "outlet"] else None
         ghost = Cell(x=x, y=y, z=z, velocity=vel, pressure=pressure, fluid_mask=False)
         setattr(ghost, "ghost_face", face)
         ghost_cells.append(ghost)
@@ -63,10 +63,11 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
             "origin": origin,
             "coordinate": (x, y, z),
             "velocity": vel,
-            "pressure": pressure
+            "pressure": pressure,
+            "type": face_type
         }
         creation_counts[face] += 1
-        print(f"[DEBUG] 🧱 Ghost created @ ({ghost.x:.2f}, {ghost.y:.2f}, {ghost.z:.2f}) ← from fluid @ ({fluid_cell.x:.2f}, {fluid_cell.y:.2f}, {fluid_cell.z:.2f}) → face: {face}")
+        print(f"[DEBUG] 🧱 Ghost created @ ({ghost.x:.2f}, {ghost.y:.2f}, {ghost.z:.2f}) ← from fluid @ ({fluid_cell.x:.2f}, {fluid_cell.y:.2f}, {fluid_cell.z:.2f}) → face: {face} ({face_type})")
 
     for cell_index, cell in enumerate(grid):
         if not cell.fluid_mask:
@@ -74,18 +75,24 @@ def generate_ghost_cells(grid: List[Cell], config: dict) -> Tuple[List[Cell], Di
         x, y, z = cell.x, cell.y, cell.z
         print(f"[DEBUG] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
-        if "x_min" in apply_faces and abs(x - x_min) <= 0.5 * dx:
-            add_ghost(x - dx, y, z, "x_min", (x, y, z), cell)
-        if "x_max" in apply_faces and abs(x - x_max) <= 0.5 * dx:
-            add_ghost(x + dx, y, z, "x_max", (x, y, z), cell)
-        if "y_min" in apply_faces and abs(y - y_min) <= 0.5 * dy:
-            add_ghost(x, y - dy, z, "y_min", (x, y, z), cell)
-        if "y_max" in apply_faces and abs(y - y_max) <= 0.5 * dy:
-            add_ghost(x, y + dy, z, "y_max", (x, y, z), cell)
-        if "z_min" in apply_faces and abs(z - z_min) <= 0.5 * dz:
-            add_ghost(x, y, z - dz, "z_min", (x, y, z), cell)
-        if "z_max" in apply_faces and abs(z - z_max) <= 0.5 * dz:
-            add_ghost(x, y, z + dz, "z_max", (x, y, z), cell)
+        if "x_min" in boundary_faces and abs(x - x_min) <= 0.5 * dx:
+            face_type = face_types.get("xmin", default_type)
+            add_ghost(x - dx, y, z, "x_min", (x, y, z), cell, face_type)
+        if "x_max" in boundary_faces and abs(x - x_max) <= 0.5 * dx:
+            face_type = face_types.get("xmax", default_type)
+            add_ghost(x + dx, y, z, "x_max", (x, y, z), cell, face_type)
+        if "y_min" in boundary_faces and abs(y - y_min) <= 0.5 * dy:
+            face_type = face_types.get("ymin", default_type)
+            add_ghost(x, y - dy, z, "y_min", (x, y, z), cell, face_type)
+        if "y_max" in boundary_faces and abs(y - y_max) <= 0.5 * dy:
+            face_type = face_types.get("ymax", default_type)
+            add_ghost(x, y + dy, z, "y_max", (x, y, z), cell, face_type)
+        if "z_min" in boundary_faces and abs(z - z_min) <= 0.5 * dz:
+            face_type = face_types.get("zmin", default_type)
+            add_ghost(x, y, z - dz, "z_min", (x, y, z), cell, face_type)
+        if "z_max" in boundary_faces and abs(z - z_max) <= 0.5 * dz:
+            face_type = face_types.get("zmax", default_type)
+            add_ghost(x, y, z + dz, "z_max", (x, y, z), cell, face_type)
 
     total_ghosts = len(ghost_cells)
     print(f"[DEBUG] 📊 Ghost generation complete → total: {total_ghosts}")
