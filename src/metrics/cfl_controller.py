@@ -7,7 +7,7 @@ from typing import List, Dict
 def compute_global_cfl(grid: List[Cell], time_step: float, domain: Dict, cfl_threshold: float = 1.0) -> float:
     """
     Computes the global CFL number for the simulation grid using velocity magnitudes.
-    Annotates each cell with its local CFL value and flags overflow for reflex diagnostics.
+    Flags overflow cells for reflex diagnostics.
 
     Roadmap Alignment:
     Continuity Enforcement:
@@ -34,7 +34,6 @@ def compute_global_cfl(grid: List[Cell], time_step: float, domain: Dict, cfl_thr
         if cell.fluid_mask and isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             cfl = magnitude * time_step / dx
-            cell.local_cfl = round(cfl, 6)
             if cfl > cfl_threshold:
                 cell.cfl_exceeded = True
                 cell.mutation_source = "cfl_violation"

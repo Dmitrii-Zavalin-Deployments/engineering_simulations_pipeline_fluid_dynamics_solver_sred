@@ -65,7 +65,6 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
 
         divergence = div_x + div_y + div_z
         cell.divergence = round(divergence, 6)
-        cell.divergence_quality = "low" if abs(divergence) > 0.1 else "high"
         divergence_values.append(abs(divergence))
 
     return round(max(divergence_values), 5) if divergence_values else 0.0
