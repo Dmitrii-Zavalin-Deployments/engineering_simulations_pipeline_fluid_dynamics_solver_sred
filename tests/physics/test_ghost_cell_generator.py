@@ -280,5 +280,106 @@ def test_debug_logging_path_exercised_full(capfd):
     assert "[DEBUG]    x_min: 1 ghosts" in out
     assert "[DEBUG]    y_min: 1 ghosts" in out
 
+# 🧪 Test: Neumann velocity enforcement
+def test_neumann_velocity_only():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "outlet",
+            "type": "neumann",
+            "apply_to": ["velocity"],
+            "apply_faces": ["x_max"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_max"],
+            "face_types": {"x_max": "outlet"},
+            "default_type": "wall"
+        }
+    )
+    grid, registry = generate_ghost_cells([fluid_cell(x=1.0)], config, debug=False)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.velocity is None
+    assert ghost.pressure is None
+
+# 🧪 Test: Non-fluid cell is skipped
+def test_non_fluid_cell_skipped():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "inlet",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "velocity": [1.0, 0.0, 0.0],
+            "apply_faces": ["x_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "inlet"},
+            "default_type": "wall"
+        }
+    )
+    non_fluid = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
+    grid, registry = generate_ghost_cells([non_fluid], config, debug=False)
+    ghosts = [c for c in grid if not c.fluid_mask and c is not non_fluid]
+    assert len(ghosts) == 0
+
+# 🧪 Test: y_max face triggers ghost creation
+def test_y_max_face_triggered():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "wall",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "velocity": [0.0, 0.0, 0.0],
+            "apply_faces": ["y_max"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["y_max"],
+            "face_types": {"y_max": "wall"},
+            "default_type": "wall"
+        }
+    )
+    grid, registry = generate_ghost_cells([fluid_cell(y=1.0)], config, debug=False)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.ghost_face == "y_max"
+
+# 🧪 Test: z_min face triggers ghost creation
+def test_z_min_face_triggered():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "wall",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "velocity": [0.0, 0.0, 0.0],
+            "apply_faces": ["z_min"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["z_min"],
+            "face_types": {"z_min": "wall"},
+            "default_type": "wall"
+        }
+    )
+    grid, registry = generate_ghost_cells([fluid_cell(z=0.0)], config, debug=False)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.ghost_face == "z_min"
+
+# 🧪 Test: z_max face triggers ghost creation
+def test_z_max_face_triggered():
+    config = base_config(
+        boundary_conditions=[{
+            "role": "wall",
+            "type": "dirichlet",
+            "apply_to": ["velocity"],
+            "velocity": [0.0, 0.0, 0.0],
+            "apply_faces": ["z_max"]
+        }],
+        ghost_rules={
+            "boundary_faces": ["z_max"],
+            "face_types": {"z_max": "wall"},
+            "default_type": "wall"
+        }
+    )
+    grid, registry = generate_ghost_cells([fluid_cell(z=1.0)], config, debug=False)
+    ghost = [c for c in grid if not c.fluid_mask][0]
+    assert ghost.ghost_face == "z_max"
+
 
 
