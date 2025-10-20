@@ -1,26 +1,23 @@
 # src/physics/pressure_projection.py
 # 🔁 Pressure Projection — solves ∇²P = ∇ · u and applies velocity correction for incompressibility
 
-from typing import List, Tuple, Set
+from typing import List, Tuple
 from src.grid_modules.cell import Cell
 from src.physics.pressure_methods.jacobi import solve_jacobi_pressure
 from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
+from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
-def extract_ghost_coords(grid: List[Cell]) -> Set[Tuple[float, float, float]]:
-    """
-    Extract coordinates of ghost cells in the grid.
-    """
-    return {
-        (cell.x, cell.y, cell.z)
-        for cell in grid
-        if not cell.fluid_mask and hasattr(cell, "ghost_face")
-    }
-
-def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool]:
+def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: dict) -> Tuple[List[Cell], bool, dict]:
     """
     Computes updated pressure values for fluid cells using the selected solver method,
     then projects velocity to enforce incompressibility.
+
+    Returns:
+        Tuple[List[Cell], bool, dict]: 
+            - Grid with updated pressure and velocity values
+            - pressure_mutated flag indicating if any fluid pressure changed
+            - ghost_registry for downstream diagnostics
     """
     method = config.get("pressure_solver", {}).get("method", "jacobi").lower()
 
@@ -33,9 +30,11 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
             f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
         )
 
-    # 🧱 Prepare ghost info
-    ghost_coords = extract_ghost_coords(grid)
+    # 🧱 Prepare ghost registry
+    ghost_registry = build_ghost_registry(grid)
+    ghost_coords = extract_ghost_coordinates(ghost_registry)
     ghost_set = set(ghost_coords)
+
     spacing = (
         (config["domain_definition"]["max_x"] - config["domain_definition"]["min_x"]) / config["domain_definition"]["nx"],
         (config["domain_definition"]["max_y"] - config["domain_definition"]["min_y"]) / config["domain_definition"]["ny"],
@@ -101,7 +100,7 @@ def solve_pressure_poisson(grid: List[Cell], divergence: List[float], config: di
     # 💨 Apply pressure-based velocity projection: u ← u - ∇P
     projected_grid = apply_pressure_velocity_projection(updated, config)
 
-    return projected_grid, pressure_mutated
+    return projected_grid, pressure_mutated, ghost_registry
 
 
 

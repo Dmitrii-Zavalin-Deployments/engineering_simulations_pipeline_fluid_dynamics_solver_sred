@@ -9,8 +9,9 @@ from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
 from src.adaptive.grid_refiner import propose_refinement_zones
 from src.utils.ghost_diagnostics import inject_diagnostics
-from src.reflex.spatial_tagging.adjacency_zones import detect_adjacency_zones, extract_ghost_coordinates
+from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
+from src.reflex.spatial_tagging.adjacency_zones import extract_ghost_coordinates
 
 def process_snapshot_step(
     step: int,
@@ -21,23 +22,6 @@ def process_snapshot_step(
     expected_size: int,
     output_folder: str
 ) -> tuple:
-    """
-    Packages simulation state and diagnostics into a structured snapshot.
-
-    Roadmap Alignment:
-    Snapshot Packaging:
-    - Velocity and pressure fields → reflect momentum and continuity enforcement
-    - Divergence → measures incompressibility (∇ · u)
-    - Ghost adjacency and influence → reflect boundary enforcement
-    - Adjacency zones → mutation proximity scoring
-    - Suppression zones → missed mutation adjacency
-    - Reflex score → quantifies solver integrity and mutation traceability
-    - Overlay maps → visualize mutation zones and solver impact
-    - Metadata → supports CI scoring, audit overlays, and continuity diagnostics
-
-    Returns:
-        tuple: (grid, snapshot_dict)
-    """
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
@@ -48,7 +32,6 @@ def process_snapshot_step(
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-    # 🧭 Compute adjacency and suppression zones if missing
     ghost_registry = reflex.get("ghost_registry") or {
         id(c): {"coordinate": (c.x, c.y, c.z)}
         for c in grid if not getattr(c, "fluid_mask", True)
@@ -56,7 +39,7 @@ def process_snapshot_step(
     ghost_coords = extract_ghost_coordinates(ghost_registry)
 
     if "adjacency_zones" not in reflex:
-        reflex["adjacency_zones"] = detect_adjacency_zones(grid, ghost_coords, spacing)
+        reflex["adjacency_zones"] = tag_ghost_adjacency(grid, ghost_coords, spacing)
 
     if "suppression_zones" not in reflex:
         mutated_coords = extract_mutated_coordinates(reflex.get("mutated_cells", []))
@@ -101,9 +84,7 @@ def process_snapshot_step(
         divergence_value = reflex.get("max_divergence")
         divergence_str = f"{divergence_value:.6e}" if isinstance(divergence_value, (int, float)) else "?"
 
-        adjacent_count = reflex.get("fluid_cells_adjacent_to_ghosts") or reflex.get("ghost_diagnostics", {}).get("fluid_cells_adjacent_to_ghosts", "?")
-        adjacent_str = adjacent_count if isinstance(adjacent_count, (int, float)) else "?"
-
+        adjacent_count = len(reflex.get("adjacency_zones", []))  # ✅ Updated
         ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
         influence_applied = reflex.get("ghost_influence_count", "?")
         projection_attempted = reflex.get("pressure_solver_invoked", "?")
@@ -118,7 +99,7 @@ def process_snapshot_step(
 
         f.write(f"""[🔄 Step {step} Summary]
     • Ghosts: {ghost_count}
-    • Fluid–ghost adjacents: {adjacent_str}
+    • Fluid–ghost adjacents: {adjacent_count}
     • Influence applied: {influence_applied}
     • Max divergence: {divergence_str}
     • Projection attempted: {projection_attempted}
@@ -166,8 +147,9 @@ def process_snapshot_step(
         else (0, 0)
         for cell in snapshot.get("mutated_cells", [])
     ]
-    adjacency_coords = reflex.get("adjacency_zones", [])
-    suppression_coords = reflex.get("suppression_zones", [])
+    adjacency_coords = snapshot.get("adjacency_zones", [])  # ✅ Routed from snapshot
+    suppression_coords = snapshot.get("suppression_zones", [])
+    mutation_density = snapshot.get("mutation_density", 0.0)
 
     overlay_reflex_path = os.path.join("data", "overlays", f"reflex_overlay_step_{step:03d}.png")
     render_reflex_overlay(
@@ -176,7 +158,8 @@ def process_snapshot_step(
         mutation_coords=mutation_coords,
         adjacency_coords=adjacency_coords,
         suppression_coords=suppression_coords,
-        output_path=overlay_reflex_path
+        output_path=overlay_reflex_path,
+        mutation_density=mutation_density
     )
 
     return grid, snapshot

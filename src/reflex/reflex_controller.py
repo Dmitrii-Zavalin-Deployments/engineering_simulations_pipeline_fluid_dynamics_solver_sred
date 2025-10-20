@@ -14,7 +14,7 @@ from src.metrics.damping_manager import should_dampen as damping_metric
 from src.metrics.reflex_score_evaluator import compute_score
 from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
-from src.reflex.spatial_tagging.adjacency_zones import extract_ghost_coordinates
+from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
 def apply_reflex(
     grid: List[Cell],
@@ -25,7 +25,7 @@ def apply_reflex(
     pressure_solver_invoked: Optional[bool] = None,
     pressure_mutated: Optional[bool] = None,
     post_projection_divergence: Optional[float] = None,
-    ghost_registry: Optional[object] = None
+    ghost_registry: Optional[dict] = None
 ) -> dict:
     """
     Computes per-step diagnostics and reflex metrics for solver integrity and mutation traceability.
@@ -63,14 +63,13 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # 🧭 Ghost adjacency and suppression zone detection
-    adjacency_zones = []
-    suppression_zones = []
-    if ghost_registry:
-        ghost_coords = extract_ghost_coordinates(ghost_registry)
-        adjacency_zones = tag_ghost_adjacency(grid, ghost_coords, spacing)
-        mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
-        suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
+    # 🧭 Ghost registry and adjacency tagging
+    ghost_registry = ghost_registry or build_ghost_registry(grid)
+    ghost_coords = extract_ghost_coordinates(ghost_registry)
+    adjacency_zones = tag_ghost_adjacency(grid, ghost_coords, spacing)
+
+    mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
+    suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
     # 📊 Mutation density and trigger counts
     fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
@@ -125,7 +124,8 @@ def apply_reflex(
         "mutation_count": mutation_count,
         "damping_triggered_count": damping_triggered_count,
         "overflow_triggered_count": overflow_triggered_count,
-        "cfl_exceeded_count": cfl_exceeded_count
+        "cfl_exceeded_count": cfl_exceeded_count,
+        "ghost_registry": ghost_registry  # ✅ Added for downstream diagnostics
     }
 
     score_inputs = {

@@ -9,19 +9,6 @@ from src.grid_modules.cell import Cell
 def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None, step_linked_from: Optional[int] = None) -> dict:
     """
     Converts a cell or coordinate tuple into a structured mutation trace entry.
-
-    Roadmap Alignment:
-    Diagnostic Output:
-    - Captures mutation causality and suppression metadata
-    - Supports reflex scoring, overlays, and cross-step traceability
-
-    Args:
-        cell (Cell or tuple): Cell object or (x, y, z) coordinate
-        reason (str): Optional suppression reason
-        step_linked_from (int): Optional step index that triggered this mutation
-
-    Returns:
-        dict: Serialized cell metadata
     """
     base = {
         "x": getattr(cell, "x", cell[0] if isinstance(cell, tuple) else "?"),
@@ -37,9 +24,11 @@ def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None, step_
             "velocity": getattr(cell, "velocity", None),
             "pressure": getattr(cell, "pressure", None),
             "fluid_mask": getattr(cell, "fluid_mask", None),
-            "triggered_by": getattr(cell, "triggered_by", None),
-            "influence_attempted": getattr(cell, "ghost_influence_attempted", False),
-            "influence_applied": getattr(cell, "ghost_influence_applied", False)
+            "triggered_by": getattr(cell, "mutation_triggered_by", None),
+            "pressure_delta": getattr(cell, "pressure_delta", None),
+            "influenced_by_ghost": getattr(cell, "influenced_by_ghost", False),
+            "mutation_source": getattr(cell, "mutation_source", None),
+            "mutation_step": getattr(cell, "mutation_step", None)
         })
 
     return base
@@ -54,20 +43,6 @@ def log_mutation_pathway(
 ):
     """
     Logs mutation pathway for a given timestep.
-
-    Roadmap Alignment:
-    Reflex Visibility:
-    - Tracks pressure mutation causality
-    - Anchors reflex scoring and overlay generation
-    - Supports audit-safe diagnostics and ghost-triggered step chains
-
-    Args:
-        step_index (int): Timestep index
-        pressure_mutated (bool): Whether pressure field was modified
-        triggered_by (List[str]): Mutation triggers (e.g. ghost influence, overflow)
-        output_folder (str): Path to mutation log file
-        triggered_cells (List[Cell or tuple]): Cells affected by mutation
-        ghost_trigger_chain (List[int]): Prior steps that triggered mutation
     """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
@@ -120,18 +95,6 @@ def log_skipped_mutation(
 ):
     """
     Logs suppressed mutation pathway for a given timestep.
-
-    Roadmap Alignment:
-    Reflex Visibility:
-    - Captures suppression logic and ghost adjacency fallback
-    - Supports reflex scoring, overlays, and ghost-triggered step chains
-
-    Args:
-        step_index (int): Timestep index
-        suppressed_cells (List[Cell or tuple]): Cells where mutation was suppressed
-        reason (str): Suppression rationale
-        output_folder (str): Path to mutation log file
-        ghost_trigger_chain (List[int]): Prior steps that triggered mutation
     """
     os.makedirs(output_folder, exist_ok=True)
     log_path = os.path.join(output_folder, "mutation_pathways_log.json")
