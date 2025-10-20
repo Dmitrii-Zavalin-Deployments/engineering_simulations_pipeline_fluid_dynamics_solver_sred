@@ -1,3 +1,5 @@
+# tests/physics/test_ghost_cell_generator.py
+
 import pytest
 from src.physics.ghost_cell_generator import generate_ghost_cells
 from src.grid_modules.cell import Cell
@@ -131,6 +133,50 @@ def test_missing_boundary_condition_raises():
     )
     with pytest.raises(ValueError, match="No boundary condition defined for face 'x_min'"):
         generate_ghost_cells([fluid_cell(x=0.0)], config)
+
+# 🧪 Test: Multi-face ghost creation and registry count
+def test_multi_face_ghost_creation_and_registry():
+    config = base_config(
+        boundary_conditions=[
+            {
+                "role": "inlet",
+                "type": "dirichlet",
+                "apply_to": ["velocity", "pressure"],
+                "velocity": [1.0, 0.0, 0.0],
+                "pressure": 133.0,
+                "apply_faces": ["x_min"]
+            },
+            {
+                "role": "wall",
+                "type": "dirichlet",
+                "apply_to": ["velocity"],
+                "velocity": [0.0, 0.0, 0.0],
+                "apply_faces": ["y_min"]
+            },
+            {
+                "role": "outlet",
+                "type": "neumann",
+                "apply_to": ["pressure"],
+                "apply_faces": ["x_max"]
+            }
+        ],
+        ghost_rules={
+            "boundary_faces": ["x_min", "y_min", "x_max"],
+            "face_types": {
+                "x_min": "inlet",
+                "y_min": "wall",
+                "x_max": "outlet"
+            },
+            "default_type": "wall"
+        }
+    )
+    grid, registry = generate_ghost_cells([fluid_cell(x=0.0, y=0.0), fluid_cell(x=1.0)], config)
+    ghosts = [c for c in grid if not c.fluid_mask]
+    assert len(ghosts) == 3
+    faces = [registry[id(g)]["face"] for g in ghosts]
+    assert "x_min" in faces
+    assert "y_min" in faces
+    assert "x_max" in faces
 
 
 

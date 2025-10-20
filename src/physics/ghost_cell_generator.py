@@ -1,3 +1,5 @@
+# src/physics/ghost_cell_generator.py
+
 # 🧱 Ghost Cell Generator — injects ghost padding based on boundary conditions and fluid adjacency
 # 🧪 Debug-log-enabled version
 
