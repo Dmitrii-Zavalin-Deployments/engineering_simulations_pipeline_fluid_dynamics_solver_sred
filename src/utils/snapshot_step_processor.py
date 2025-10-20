@@ -9,9 +9,9 @@ from src.visualization.reflex_overlay_mapper import render_reflex_overlay
 from src.utils.snapshot_summary_writer import write_step_summary
 from src.adaptive.grid_refiner import propose_refinement_zones
 from src.utils.ghost_diagnostics import inject_diagnostics
+from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
-from src.reflex.spatial_tagging.adjacency_zones import extract_ghost_coordinates
 
 def process_snapshot_step(
     step: int,
@@ -32,10 +32,8 @@ def process_snapshot_step(
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
-    ghost_registry = reflex.get("ghost_registry") or {
-        id(c): {"coordinate": (c.x, c.y, c.z)}
-        for c in grid if not getattr(c, "fluid_mask", True)
-    }
+    # ✅ Centralized ghost registry
+    ghost_registry = reflex.get("ghost_registry") or build_ghost_registry(grid)
     ghost_coords = extract_ghost_coordinates(ghost_registry)
 
     if "adjacency_zones" not in reflex:
@@ -76,7 +74,8 @@ def process_snapshot_step(
         triggered_cells=[
             (c.x, c.y, c.z) for c in mutated_cells_raw
             if hasattr(c, "x") and hasattr(c, "y") and hasattr(c, "z")
-        ]
+        ],
+        ghost_trigger_chain=reflex.get("ghost_trigger_chain", [])
     )
 
     summary_path = os.path.join(output_folder, "step_summary.txt")
@@ -84,7 +83,7 @@ def process_snapshot_step(
         divergence_value = reflex.get("max_divergence")
         divergence_str = f"{divergence_value:.6e}" if isinstance(divergence_value, (int, float)) else "?"
 
-        adjacent_count = len(reflex.get("adjacency_zones", []))  # ✅ Updated
+        adjacent_count = len(reflex.get("adjacency_zones", []))
         ghost_count = len(ghost_registry) if isinstance(ghost_registry, dict) else "?"
         influence_applied = reflex.get("ghost_influence_count", "?")
         projection_attempted = reflex.get("pressure_solver_invoked", "?")
@@ -147,7 +146,7 @@ def process_snapshot_step(
         else (0, 0)
         for cell in snapshot.get("mutated_cells", [])
     ]
-    adjacency_coords = snapshot.get("adjacency_zones", [])  # ✅ Routed from snapshot
+    adjacency_coords = snapshot.get("adjacency_zones", [])
     suppression_coords = snapshot.get("suppression_zones", [])
     mutation_density = snapshot.get("mutation_density", 0.0)
 
