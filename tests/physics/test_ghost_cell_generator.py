@@ -239,3 +239,46 @@ def test_debug_logging_path_exercised(capfd):
     assert "[DEBUG]    x_min: 1 ghosts" in out
     assert "[DEBUG]    y_min: 1 ghosts" in out
 
+# 🧪 Test: Debug-enabled ghost generation path coverage (full trace)
+def test_debug_logging_path_exercised_full(capfd):
+    config = base_config(
+        boundary_conditions=[
+            {
+                "role": "inlet",
+                "type": "dirichlet",
+                "apply_to": ["velocity", "pressure"],
+                "velocity": [1.0, 0.0, 0.0],
+                "pressure": 133.0,
+                "apply_faces": ["x_min"]
+            },
+            {
+                "role": "wall",
+                "type": "dirichlet",
+                "apply_to": ["velocity"],
+                "velocity": [0.0, 0.0, 0.0],
+                "apply_faces": ["y_min"]
+            }
+        ],
+        ghost_rules={
+            "boundary_faces": ["x_min", "y_min"],
+            "face_types": {
+                "x_min": "inlet",
+                "y_min": "wall"
+            },
+            "default_type": "wall"
+        }
+    )
+    generate_ghost_cells([fluid_cell(x=0.0, y=0.0)], config, debug=True)
+    out, _ = capfd.readouterr()
+
+    # ✅ Confirm all debug lines are printed
+    assert "[DEBUG] 📘 [ghost_gen] Ghost rule config:" in out
+    assert "[DEBUG] 🔍 Evaluating fluid[0]" in out
+    assert "[DEBUG] 🧱 Ghost created @ (-1.00, 0.00, 0.00)" in out
+    assert "[DEBUG] 🧱 Ghost created @ (0.00, -1.00, 0.00)" in out
+    assert "[DEBUG] 📊 Ghost generation complete → total: 2" in out
+    assert "[DEBUG]    x_min: 1 ghosts" in out
+    assert "[DEBUG]    y_min: 1 ghosts" in out
+
+
+
