@@ -79,6 +79,10 @@ jobs:
         src/download_from_dropbox.sh
         [ -f "$ORIGINAL_INPUT_FILE" ] && echo "✅ Original input file ready." || { echo "❌ Error: Input file missing."; exit 1; }
 
+    - name: 🧹 Cleanup previous diagnostic snapshots
+      run: |
+        rm -f data/snapshots/* || echo "⚠️ No previous snapshots to remove"
+
     - name: 📋 Validate Input Schema
       run: |
         python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
