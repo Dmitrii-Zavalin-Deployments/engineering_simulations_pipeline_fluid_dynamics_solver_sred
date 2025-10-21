@@ -33,6 +33,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
         )
         new_cell.boundary_type = getattr(cell, "boundary_type", None)
+        new_cell.influenced_by_ghost = getattr(cell, "influenced_by_ghost", False)
         safe_grid.append(new_cell)
 
     # 📊 Step 1: Compute divergence using modular tracker
@@ -53,6 +54,11 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     # 💧 Step 2: Solve pressure Poisson equation ∇²P = ∇ · u
     grid_with_pressure, pressure_mutated, ghost_registry = solve_pressure_poisson(safe_grid, divergence, input_data)
+
+    # ✅ Preserve metadata from safe_grid
+    for old, new in zip(safe_grid, grid_with_pressure):
+        new.boundary_type = getattr(old, "boundary_type", None)
+        new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
 
     # 🧠 Step 3: Analyze pressure mutations
     mutation_count = 0
@@ -95,7 +101,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
                 "delta": delta
             })
 
-            if hasattr(updated, "influenced_by_ghost") and updated.influenced_by_ghost:
+            if getattr(updated, "influenced_by_ghost", False):
                 updated.mutation_triggered_by = "ghost_influence"
                 print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
 
