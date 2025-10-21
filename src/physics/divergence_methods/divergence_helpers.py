@@ -40,7 +40,7 @@ def get_neighbor_velocity(
         return neighbor.velocity
     return None
 
-def central_gradient(
+def central_difference(
     v_pos: Optional[List[float]],
     v_neg: Optional[List[float]],
     spacing: float,

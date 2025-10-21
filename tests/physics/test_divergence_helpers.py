@@ -1,5 +1,5 @@
 import pytest
-from src.physics.divergence_methods.divergence_helpers import get_neighbor_velocity, central_difference
+from src.physics.divergence_methods.divergence_helpers import get_neighbor_velocity, central_gradient
 from src.grid_modules.cell import Cell
 
 def test_get_neighbor_velocity_valid():
@@ -12,12 +12,12 @@ def test_get_neighbor_velocity_valid():
     result = get_neighbor_velocity(neighbor)
     assert result == [1.0, 2.0, 3.0]
 
-def test_central_difference_valid():
+def test_central_gradient_valid():
     v_pos = [2.0, 4.0, 6.0]
     v_neg = [1.0, 3.0, 5.0]
     spacing = 0.5
     component = 1
-    result = central_difference(v_pos, v_neg, spacing, component)
+    result = central_gradient(v_pos, v_neg, spacing, component)
     assert result == (4.0 - 3.0) / (2.0 * 0.5)
 
 
