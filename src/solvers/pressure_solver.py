@@ -22,18 +22,18 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     grid = build_simulation_grid(input_data)
 
     # ✅ Filter valid fluid cells for pressure solve
-    safe_grid = [
-        Cell(
+    safe_grid = []
+    for cell in grid:
+        new_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
             velocity=cell.velocity if cell.fluid_mask and isinstance(cell.velocity, list) else None,
             pressure=cell.pressure if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False,
-            boundary_type=getattr(cell, "boundary_type", None)  # Preserve boundary metadata
+            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
         )
-        for cell in grid
-    ]
+        new_cell.boundary_type = getattr(cell, "boundary_type", None)
+        safe_grid.append(new_cell)
 
     # 📊 Step 1: Compute divergence using modular tracker
     domain = input_data["domain_definition"]
