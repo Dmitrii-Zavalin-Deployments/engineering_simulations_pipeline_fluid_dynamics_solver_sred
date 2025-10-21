@@ -58,8 +58,9 @@ def test_ghost_influence_tagging(mock_grid, mock_input_data):
     result = apply_pressure_correction(mock_grid, mock_input_data, step=3)
     _, _, _, metadata = result
     # Validate that ghost-influenced cells were registered
-    assert isinstance(metadata["ghost_registry"], set)
-    assert metadata["ghost_registry"] is not None  # Can be empty if no mutation occurred
+    ghost_registry = metadata.get("ghost_registry", {})
+    assert isinstance(ghost_registry, dict)
+    assert any("coordinate" in entry for entry in ghost_registry.values())
 
 # ✅ Test: No fluid cells → no mutation
 def test_empty_fluid_grid():
