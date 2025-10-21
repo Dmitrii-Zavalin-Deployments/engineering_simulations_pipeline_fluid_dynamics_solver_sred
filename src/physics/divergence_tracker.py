@@ -67,6 +67,9 @@ def compute_divergence_stats(
             cell.divergence = round(divergence[fluid_index], 6)
             fluid_index += 1
 
+    # 🗂️ Ensure output folder exists
+    os.makedirs(output_folder, exist_ok=True)
+
     # 🗂️ Export summary log
     log_path = os.path.join(output_folder, "divergence_log.txt")
     with open(log_path, "a") as f:
