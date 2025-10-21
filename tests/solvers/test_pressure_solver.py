@@ -21,12 +21,17 @@ def mock_input_data():
 
 @pytest.fixture
 def mock_grid():
-    return [
-        Cell(x=0.1, y=0.1, z=0.1, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True),
-        Cell(x=0.2, y=0.2, z=0.2, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True, boundary_type="outlet"),
-        Cell(x=0.3, y=0.3, z=0.3, velocity=[0.0, 0.0, 1.0], pressure=1.0, fluid_mask=True, influenced_by_ghost=True),
-        Cell(x=0.4, y=0.4, z=0.4, velocity=None, pressure=None, fluid_mask=False)
-    ]
+    cell1 = Cell(x=0.1, y=0.1, z=0.1, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
+
+    cell2 = Cell(x=0.2, y=0.2, z=0.2, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True)
+    cell2.boundary_type = "outlet"  # ✅ Set manually
+
+    cell3 = Cell(x=0.3, y=0.3, z=0.3, velocity=[0.0, 0.0, 1.0], pressure=1.0, fluid_mask=True)
+    cell3.influenced_by_ghost = True  # ✅ Set manually
+
+    cell4 = Cell(x=0.4, y=0.4, z=0.4, velocity=None, pressure=None, fluid_mask=False)
+
+    return [cell1, cell2, cell3, cell4]
 
 # ✅ Test: Basic pressure correction flow
 def test_pressure_correction_runs(mock_grid, mock_input_data):
@@ -57,7 +62,8 @@ def test_ghost_influence_tagging(mock_grid, mock_input_data):
 
 # ✅ Test: No fluid cells → no mutation
 def test_empty_fluid_grid():
-    empty_grid = [Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)]
+    empty_cell = Cell(x=0.0, y=0.0, z=0.0, velocity=None, pressure=None, fluid_mask=False)
+    empty_grid = [empty_cell]
     input_data = {
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
