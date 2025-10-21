@@ -139,17 +139,28 @@ jobs:
       run: |
         echo "$(date '+%Y-%m-%d %H:%M:%S'): STEP processor triggered by '${{ github.actor }}' via '${{ github.event_name }}' event" >> trigger.txt
 
-    - name: 🚀 Commit and push trigger log
+    - name: 📝 Log trigger & push
+      if: always() # Run even if previous steps failed to ensure log and diagnostics are committed
       env:
         GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
         GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
       run: |
+        echo "$(date '+%Y-%m-%d %H:%M:%S'): STEP processor triggered by '${{ github.actor }}' via '${{ github.event_name }}' event" >> trigger.txt
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
-        git pull --rebase origin main || echo "⚠️ Pull failed or not needed"
+
+        # Also commit diagnostic snapshots if present
+        if [ -d "data/snapshots" ]; then
+          git add --force data/snapshots
+          echo "📸 Added diagnostic snapshots for commit."
+        fi
+
         git add trigger.txt
-        git commit -m "Log STEP processor trigger by ${{ github.actor }} via ${{ github.event_name }}"
-        git push
+        git commit -m "Log STEP processor trigger by ${{ github.actor }} via ${{ github.event_name }}" || echo "No new log or snapshots to commit"
+
+        # Pull and rebase before pushing to avoid rejection
+        git pull --rebase origin main || echo "⚠️ Rebase failed — check for conflicts"
+        git push origin main || echo "❌ Push failed — remote may have diverged"
 
 
 
