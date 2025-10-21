@@ -2,7 +2,8 @@
 # 📊 Divergence Tracker — computes and logs ∇ · u for continuity enforcement and reflex diagnostics
 
 import os
-from typing import List, Dict
+import json
+from typing import List, Dict, Set
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 
@@ -12,7 +13,8 @@ def compute_divergence_stats(
     label: str,
     step_index: int,
     output_folder: str,
-    config: Dict
+    config: Dict,
+    ghost_registry: Set[int] = set()
 ) -> Dict:
     """
     Computes divergence across the fluid grid and logs diagnostic stats.
@@ -45,12 +47,13 @@ def compute_divergence_stats(
         step_index (int): Current timestep index
         output_folder (str): Folder to write divergence logs
         config (dict): Full simulation config
+        ghost_registry (Set[int]): Set of ghost cell IDs to exclude
 
     Returns:
         dict: Summary statistics including max, mean, and divergence array
     """
     dx, dy, dz = spacing
-    divergence = compute_divergence(grid, dx, dy, dz)
+    divergence = compute_divergence(grid, config=config, ghost_registry=ghost_registry, debug=False)
 
     max_div = max(abs(d) for d in divergence) if divergence else 0.0
     mean_div = sum(abs(d) for d in divergence) / len(divergence) if divergence else 0.0
@@ -60,7 +63,7 @@ def compute_divergence_stats(
     # 🧠 Annotate cells with divergence for reflex metadata
     fluid_index = 0
     for cell in grid:
-        if getattr(cell, "fluid_mask", False):
+        if getattr(cell, "fluid_mask", False) and id(cell) not in ghost_registry:
             cell.divergence = round(divergence[fluid_index], 6)
             fluid_index += 1
 
