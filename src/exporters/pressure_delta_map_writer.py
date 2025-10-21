@@ -3,8 +3,9 @@
 
 import json
 import os
+from typing import List, Dict  # ✅ Added for correct type hinting
 
-def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_dir: str = "data/snapshots"):
+def export_pressure_delta_map(pressure_delta_map: List[Dict], step_index: int, output_dir: str = "data/snapshots"):
     """
     Saves pressure delta information for each fluid cell to a JSON file.
 
@@ -15,7 +16,7 @@ def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_
     - Anchors solver visibility for CI and audit pipelines
 
     Args:
-        pressure_delta_map (dict): Dict keyed by (x, y, z) tuples with pressure change info
+        pressure_delta_map (List[Dict]): List of dicts with pressure change info per cell
         step_index (int): Simulation step number
         output_dir (str): Path to output directory for snapshots
     """
@@ -23,12 +24,12 @@ def export_pressure_delta_map(pressure_delta_map: dict, step_index: int, output_
         os.makedirs(output_dir)
 
     serialized = {}
-    for coord, values in pressure_delta_map.items():
-        x, y, z = coord
-        serialized[f"({x:.2f}, {y:.2f}, {z:.2f})"] = {
-            "pressure_before": round(values.get("before", 0.0), 6),
-            "pressure_after": round(values.get("after", 0.0), 6),
-            "delta": round(values.get("delta", 0.0), 6)
+    for entry in pressure_delta_map:
+        coord = f"({entry['x']:.2f}, {entry['y']:.2f}, {entry['z']:.2f})"
+        serialized[coord] = {
+            "pressure_before": round(entry.get("before", 0.0), 6),
+            "pressure_after": round(entry.get("after", 0.0), 6),
+            "delta": round(entry.get("delta", 0.0), 6)
         }
 
     filename = f"pressure_delta_map_step_{step_index:04d}.json"
