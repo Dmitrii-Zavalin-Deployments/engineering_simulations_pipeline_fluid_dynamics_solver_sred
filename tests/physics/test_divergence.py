@@ -85,5 +85,26 @@ def test_divergence_debug_and_verbose(capfd):
     assert "🧭 Divergence at" in out
     assert "📈 Max divergence" in out
 
+# 🧪 Covers line 40: valid neighbor with velocity
+def test_get_neighbor_velocity_valid():
+    neighbor = Cell(
+        x=0.0, y=0.0, z=0.0,
+        velocity=[1.0, 2.0, 3.0],
+        pressure=101.0,
+        fluid_mask=True
+    )
+    result = get_neighbor_velocity(neighbor)
+    assert result == [1.0, 2.0, 3.0]
+
+# 🧪 Covers line 62: both neighbors present
+def test_central_difference_valid():
+    v_pos = [2.0, 4.0, 6.0]
+    v_neg = [1.0, 3.0, 5.0]
+    spacing = 0.5
+    component = 1  # y-direction
+    result = central_difference(v_pos, v_neg, spacing, component)
+    expected = (4.0 - 3.0) / (2.0 * 0.5)
+    assert result == expected
+
 
 
