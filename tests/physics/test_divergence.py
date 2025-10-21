@@ -1,5 +1,6 @@
 import pytest
 from src.physics.divergence import compute_divergence
+from src.physics.divergence_methods.divergence_helpers import get_neighbor_velocity, central_difference
 from src.grid_modules.cell import Cell
 
 def minimal_config():
@@ -87,13 +88,15 @@ def test_divergence_debug_and_verbose(capfd):
 
 # 🧪 Covers line 40: valid neighbor with velocity
 def test_get_neighbor_velocity_valid():
-    neighbor = Cell(
-        x=0.0, y=0.0, z=0.0,
-        velocity=[1.0, 2.0, 3.0],
-        pressure=101.0,
-        fluid_mask=True
-    )
-    result = get_neighbor_velocity(neighbor)
+    grid_lookup = {
+        (0.0, 0.0, 0.0): Cell(
+            x=0.0, y=0.0, z=0.0,
+            velocity=[1.0, 2.0, 3.0],
+            pressure=101.0,
+            fluid_mask=True
+        )
+    }
+    result = get_neighbor_velocity(grid_lookup, 0.0, 0.0, 0.0, 'x', 0, 1.0)
     assert result == [1.0, 2.0, 3.0]
 
 # 🧪 Covers line 62: both neighbors present
