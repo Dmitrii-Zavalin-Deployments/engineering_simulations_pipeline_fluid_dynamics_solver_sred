@@ -5,7 +5,7 @@ from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
 from src.physics.divergence_methods.divergence_helpers import (
     get_neighbor_velocity,
-    central_gradient
+    central_difference
 )
 
 def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
@@ -40,21 +40,21 @@ def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
         if not cell.fluid_mask or not isinstance(cell.velocity, list):
             continue
 
-        grad_x = central_gradient(
+        grad_x = central_difference(
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'x', +1, spacing['x']),
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'x', -1, spacing['x']),
             spacing['x'],
             component=0
         )
 
-        grad_y = central_gradient(
+        grad_y = central_difference(
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'y', +1, spacing['y']),
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'y', -1, spacing['y']),
             spacing['y'],
             component=1
         )
 
-        grad_z = central_gradient(
+        grad_z = central_difference(
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'z', +1, spacing['z']),
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'z', -1, spacing['z']),
             spacing['z'],
