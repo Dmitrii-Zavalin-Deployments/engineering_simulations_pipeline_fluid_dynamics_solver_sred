@@ -82,6 +82,10 @@ jobs:
     - name: 🧹 Cleanup previous diagnostic snapshots
       run: |
         rm -f data/snapshots/* || echo "⚠️ No previous snapshots to remove"
+    
+    - name: 🧹 Cleanup previous diagnostic velocities
+      run: |
+        rm -f data/velocities/*.json || echo "⚠️ No velocity snapshots to remove"
 
     - name: 📋 Validate Input Schema
       run: |
@@ -153,10 +157,16 @@ jobs:
         git config --global user.name "${GIT_USER_NAME}"
         git config --global user.email "${GIT_USER_EMAIL}"
 
-        # Also commit diagnostic snapshots if present
+        # Commit diagnostic snapshots if present
         if [ -d "data/snapshots" ]; then
           git add --force data/snapshots
           echo "📸 Added diagnostic snapshots for commit."
+        fi
+
+        # Commit diagnostic velocity fields if present
+        if [ -d "data/velocity" ]; then
+          git add --force data/velocity
+          echo "💨 Added diagnostic velocity fields for commit."
         fi
 
         git add trigger.txt
@@ -165,6 +175,5 @@ jobs:
         # Pull and rebase before pushing to avoid rejection
         git pull --rebase origin main || echo "⚠️ Rebase failed — check for conflicts"
         git push origin main || echo "❌ Push failed — remote may have diverged"
-
 
 
