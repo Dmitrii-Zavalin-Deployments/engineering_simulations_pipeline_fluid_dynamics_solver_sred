@@ -29,7 +29,8 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             z=cell.z,
             velocity=cell.velocity if cell.fluid_mask and isinstance(cell.velocity, list) else None,
             pressure=cell.pressure if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
+            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False,
+            boundary_type=getattr(cell, "boundary_type", None)  # Preserve boundary metadata
         )
         for cell in grid
     ]
@@ -60,6 +61,10 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
+            # 🚫 Respect Neumann pressure enforcement on outlet and wall faces
+            if getattr(updated, "boundary_type", None) in {"outlet", "wall"}:
+                continue
+
             initial = old.pressure if isinstance(old.pressure, float) else 0.0
             final = updated.pressure if isinstance(updated.pressure, float) else 0.0
             delta = abs(final - initial)
