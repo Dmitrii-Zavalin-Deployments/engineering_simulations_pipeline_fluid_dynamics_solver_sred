@@ -13,7 +13,7 @@ def minimal_config():
 def fluid_cell(x=0.0, y=0.0, z=0.0, velocity=None, fluid_mask=True):
     return Cell(
         x=x, y=y, z=z,
-        velocity=velocity,  # ✅ no fallback
+        velocity=velocity,
         pressure=133.0,
         fluid_mask=fluid_mask
     )
@@ -39,11 +39,11 @@ def test_divergence_excludes_ghosts(capfd):
 
 # 🧪 Test: Malformed velocity is downgraded
 def test_divergence_downgrades_malformed_velocity(capfd):
-    bad_cell = fluid_cell(velocity=None)
+    bad_cell = fluid_cell(velocity=None, fluid_mask=True)
     grid = [bad_cell]
     result = compute_divergence(grid, minimal_config(), debug=True)
     out, _ = capfd.readouterr()
-    assert "[DEBUG] ⚠️ Downgrading cell" in out
+    assert "[DEBUG] ⚠️ Downgrading cell[0]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
 
 # 🧪 Test: Non-fluid cell is excluded
@@ -51,19 +51,20 @@ def test_divergence_excludes_non_fluid(capfd):
     grid = [fluid_cell(velocity=[1.0, 0.0, 0.0], fluid_mask=False)]
     result = compute_divergence(grid, minimal_config(), debug=True)
     out, _ = capfd.readouterr()
-    assert "[DEBUG] ⚠️ Downgrading cell" in out
+    assert "[DEBUG] ⚠️ Downgrading cell[0]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
 
 # 🧪 Test: Multiple fluid cells with mixed validity
 def test_divergence_mixed_cells(capfd):
     valid = fluid_cell(x=0.0, velocity=[1.0, 0.0, 0.0])
     ghost = fluid_cell(x=1.0, velocity=[1.0, 0.0, 0.0])
-    malformed = fluid_cell(x=2.0, velocity=None)
+    malformed = fluid_cell(x=2.0, velocity=None, fluid_mask=True)
     ghost_registry = {id(ghost)}
     grid = [valid, ghost, malformed]
     result = compute_divergence(grid, minimal_config(), ghost_registry, debug=True)
     out, _ = capfd.readouterr()
     assert "[DEBUG] ✅ Safe grid assembled" in out
+    assert "[DEBUG] ⚠️ Downgrading cell[2]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
     assert len(result) == 1
     assert isinstance(result[0], float)
 
@@ -83,8 +84,6 @@ def test_divergence_debug_and_verbose(capfd):
     assert "[DEBUG] ✅ Safe grid assembled" in out
     assert "🧭 Divergence at" in out
     assert "📈 Max divergence" in out
-
-
 
 
 
