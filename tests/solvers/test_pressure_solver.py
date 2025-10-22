@@ -113,10 +113,9 @@ def test_pressure_mutation_triggered():
         }
     }
 
-    result = apply_pressure_correction(grid, input_data, step=6)
-    _, _, _, metadata = result
+    grid_out, _, _, metadata = apply_pressure_correction(grid, input_data, step=6)
     assert metadata["pressure_mutation_count"] >= 1
-    assert any("mutation_triggered_by" in vars(c) and c.mutation_triggered_by == "ghost_influence" for c in grid)
+    assert any("mutation_triggered_by" in vars(c) and c.mutation_triggered_by == "ghost_influence" for c in grid_out)
 
 # ✅ Test: Velocity field export integrity
 def test_velocity_field_export(tmp_path):
