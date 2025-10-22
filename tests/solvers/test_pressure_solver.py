@@ -91,7 +91,7 @@ def test_invalid_config_rejected():
 
 # ✅ Test: Mutation logic and ghost tagging triggered
 def test_pressure_mutation_triggered():
-    cell = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+    cell = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=-1.0, fluid_mask=True)
     cell.influenced_by_ghost = True
     grid = [cell]
     input_data = {
