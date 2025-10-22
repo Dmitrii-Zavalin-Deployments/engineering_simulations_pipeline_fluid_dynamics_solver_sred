@@ -5,6 +5,7 @@ import os
 import logging
 from src.step_controller import evolve_step
 from src.utils.snapshot_step_processor import process_snapshot_step
+from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     """
@@ -91,6 +92,9 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     for step in range(num_steps + 1):
         # 🚀 Evolve fluid state using full Navier-Stokes logic
         grid, reflex = evolve_step(grid, input_data, step, config=config)
+
+        # 💨 Export velocity field before pressure correction
+        write_velocity_field(grid, step)  # ✅ NEW
 
         # 🧾 Package snapshot with diagnostics and metadata
         grid, snapshot = process_snapshot_step(

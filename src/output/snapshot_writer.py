@@ -5,6 +5,7 @@ import os
 import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
+from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
 
 def export_influence_flags(
     grid: List[Cell],
@@ -75,6 +76,22 @@ def export_influence_flags(
     if not quiet_mode:
         print(f"[DEBUG] 👣 Influence flags exported → {log_path}")
         print(f"[DEBUG] ✏️  Step {step_index}: {len(entries)} fluid cells tagged as influenced by ghosts.")
+
+def export_velocity_field_snapshot(
+    grid: List[Cell],
+    step_index: int,
+    output_folder: str = "data/testing-input-output/navier_stokes_output"
+):
+    """
+    Writes the velocity field snapshot for the given step using the centralized writer.
+
+    Args:
+        grid (List[Cell]): Final grid state for current step
+        step_index (int): Simulation step index
+        output_folder (str): Folder to write velocity snapshot
+    """
+    os.makedirs(output_folder, exist_ok=True)
+    write_velocity_field(grid, step_index, output_dir=output_folder)
 
 
 

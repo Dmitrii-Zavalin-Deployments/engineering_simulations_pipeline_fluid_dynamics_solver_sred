@@ -1,6 +1,9 @@
 import pytest
+import os
+import json
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.grid_modules.cell import Cell
+from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
 
 # 🔧 Mock dependencies
 @pytest.fixture
@@ -50,14 +53,12 @@ def test_pressure_correction_runs(mock_grid, mock_input_data):
 def test_neumann_boundary_skipped(mock_grid, mock_input_data):
     result = apply_pressure_correction(mock_grid, mock_input_data, step=2)
     _, _, _, metadata = result
-    # Validate that no outlet cell was mutated
     assert metadata["pressure_mutation_count"] == 0
 
 # ✅ Test: Ghost-influenced cells are tagged
 def test_ghost_influence_tagging(mock_grid, mock_input_data):
     result = apply_pressure_correction(mock_grid, mock_input_data, step=3)
     _, _, _, metadata = result
-    # Validate that ghost-influenced cells were registered
     ghost_registry = metadata.get("ghost_registry", {})
     assert isinstance(ghost_registry, dict)
     assert any("coordinate" in entry for entry in ghost_registry.values())
@@ -106,6 +107,27 @@ def test_pressure_mutation_triggered():
     _, _, _, metadata = result
     assert metadata["pressure_mutation_count"] >= 1
     assert any("mutation_triggered_by" in vars(c) and c.mutation_triggered_by == "ghost_influence" for c in grid)
+
+# ✅ Test: Velocity field export integrity
+def test_velocity_field_export(tmp_path):
+    cell = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+    grid = [cell]
+    step = 7
+    output_dir = tmp_path / "snapshots"
+    output_dir.mkdir()
+
+    write_velocity_field(grid, step, output_dir=str(output_dir))
+
+    expected_path = output_dir / f"velocity_field_step_{step:04d}.json"
+    assert expected_path.exists()
+
+    with open(expected_path, "r") as f:
+        data = json.load(f)
+        key = "(0.50, 0.50, 0.50)"
+        assert key in data
+        assert data[key]["vx"] == 100.0
+        assert data[key]["vy"] == 0.0
+        assert data[key]["vz"] == 0.0
 
 
 
