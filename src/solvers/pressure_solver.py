@@ -35,8 +35,15 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         new_cell.boundary_type = getattr(cell, "boundary_type", None)
         new_cell.influenced_by_ghost = getattr(cell, "influenced_by_ghost", False)
         safe_grid.append(new_cell)
+
         if DEBUG and not new_cell.fluid_mask:
-            print(f"[DEBUG] ⚠️ Downgrading cell[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) — invalid velocity or fluid_mask")
+            reason = []
+            if not isinstance(cell.velocity, list):
+                reason.append("missing or malformed velocity")
+            if not cell.fluid_mask:
+                reason.append("fluid_mask=False")
+            hint = " | ".join(reason) if reason else "unknown reason"
+            print(f"[DEBUG] ⚠️ Downgrading cell[{i}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) — {hint} (likely placeholder or boundary cell)")
 
     domain = input_data["domain_definition"]
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
