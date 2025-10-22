@@ -91,9 +91,12 @@ def test_invalid_config_rejected():
 
 # ✅ Test: Mutation logic and ghost tagging triggered
 def test_pressure_mutation_triggered():
-    cell = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=-1.0, fluid_mask=True)
-    cell.influenced_by_ghost = True
-    grid = [cell]
+    # Create two adjacent fluid cells with a velocity gradient
+    cell1 = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=-1.0, fluid_mask=True)
+    cell2 = Cell(x=0.6, y=0.5, z=0.5, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+    cell1.influenced_by_ghost = True
+    grid = [cell1, cell2]
+
     input_data = {
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
@@ -103,8 +106,13 @@ def test_pressure_mutation_triggered():
         },
         "simulation_parameters": {"time_step": 0.05},
         "grid_resolution": "normal",
-        "ghost_trigger_chain": []
+        "ghost_trigger_chain": [],
+        "solver_parameters": {
+            "max_pressure_iterations": 50,
+            "pressure_tolerance": 1e-5
+        }
     }
+
     result = apply_pressure_correction(grid, input_data, step=6)
     _, _, _, metadata = result
     assert metadata["pressure_mutation_count"] >= 1
