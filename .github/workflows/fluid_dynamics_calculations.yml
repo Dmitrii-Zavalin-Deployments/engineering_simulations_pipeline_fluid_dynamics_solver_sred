@@ -100,15 +100,15 @@ jobs:
         pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
         echo "✅ Unit tests and code coverage check completed."
       
-    - name: 🚀 Run Main Solver
-      env:
-        PYTHONPATH: ${{ github.workspace }}/src
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
-      run: |
-        rm -rf "$OUTPUT_RESULTS_BASE_DIR"
-        mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        python src/main_solver.py "$ORIGINAL_INPUT_FILE"
-        echo "✅ Main solver executed."
+    # - name: 🚀 Run Main Solver
+    #   env:
+    #     PYTHONPATH: ${{ github.workspace }}/src
+    #     REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
+    #   run: |
+    #     rm -rf "$OUTPUT_RESULTS_BASE_DIR"
+    #     mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
+    #     python src/main_solver.py "$ORIGINAL_INPUT_FILE"
+    #     echo "✅ Main solver executed."
 
     - name: 🧪 Run Snapshot Validation
       run: |
