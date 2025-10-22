@@ -8,11 +8,13 @@ from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
+DEBUG = True  # Centralized toggle for diagnostics
+
 def solve_pressure_poisson(
     grid: List[Cell],
     divergence: List[float],
     config: dict,
-    verbose: bool = False  # ✅ Optional diagnostics
+    verbose: bool = False
 ) -> Tuple[List[Cell], bool, Dict]:
     """
     Computes updated pressure values for fluid cells using the selected solver method,
@@ -81,7 +83,7 @@ def solve_pressure_poisson(
                 updated_cell.mutation_source = "pressure_solver"
                 updated_cell.mutation_step = config.get("step_index", None)
                 updated_cell.pressure_delta = round(delta, 6)
-                if verbose:
+                if DEBUG or verbose:
                     print(f"[MUTATION] Pressure changed @ {coord} → ΔP = {delta:.2e}")
 
             # ✅ Reflex traceability: ghost adjacency tagging
@@ -89,7 +91,7 @@ def solve_pressure_poisson(
                 if all(abs(a - b) <= spacing[i] + 1e-3 for i, (a, b) in enumerate(zip(coord, ghost))):
                     updated_cell.influenced_by_ghost = True
                     updated_cell.mutation_triggered_by = "ghost_influence"
-                    if verbose:
+                    if DEBUG or verbose:
                         print(f"[TRACE] Ghost-influenced mutation @ {coord}")
                     break
 
