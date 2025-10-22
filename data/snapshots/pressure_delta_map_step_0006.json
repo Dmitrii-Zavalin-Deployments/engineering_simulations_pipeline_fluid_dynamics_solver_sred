@@ -1,7 +1,12 @@
 {
   "(0.50, 0.50, 0.50)": {
     "pressure_before": -1.0,
-    "pressure_after": -1.0,
-    "delta": 0.0
+    "pressure_after": -0.500002,
+    "delta": 0.499998
+  },
+  "(0.60, 0.50, 0.50)": {
+    "pressure_before": 0.0,
+    "pressure_after": -0.499998,
+    "delta": 0.499998
   }
 }
