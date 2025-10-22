@@ -12,7 +12,7 @@ from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
 
 # 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+DEBUG = True  # Set to True to enable verbose diagnostics
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
@@ -46,7 +46,8 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         - Metadata dictionary with diagnostics and mutation trace
     """
     validate_config(input_data)
-    grid = build_simulation_grid(input_data)
+    if not grid:
+        grid = build_simulation_grid(input_data)
 
     safe_grid = []
     for cell in grid:
