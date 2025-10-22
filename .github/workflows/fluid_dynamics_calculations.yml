@@ -147,6 +147,13 @@ jobs:
       run: |
         echo "$(date '+%Y-%m-%d %H:%M:%S'): STEP processor triggered by '${{ github.actor }}' via '${{ github.event_name }}' event" >> trigger.txt
 
+    - name: 📂 List diagnostic folders and contents
+      if: always()
+      run: |
+        echo "📁 Directory structure before commit:"
+        ls -R data || echo "⚠️ 'data' folder not found"
+        echo "✅ Directory listing complete."
+    
     - name: 📝 Log trigger & push
       if: always() # Run even if previous steps failed to ensure log and diagnostics are committed
       env:
