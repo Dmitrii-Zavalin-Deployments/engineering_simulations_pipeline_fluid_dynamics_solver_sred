@@ -23,7 +23,7 @@ def fluid_cell(x=0.0, y=0.0, z=0.0, velocity=None, fluid_mask=True):
 def test_divergence_basic():
     grid = [fluid_cell(velocity=[1.0, 0.0, 0.0])]
     config = minimal_config()
-    result = compute_divergence(grid, config, debug=True)
+    result = compute_divergence(grid, config)
     assert isinstance(result, list)
     assert len(result) == 1
     assert isinstance(result[0], float)
@@ -33,7 +33,7 @@ def test_divergence_excludes_ghosts(capfd):
     ghost = fluid_cell(velocity=[1.0, 0.0, 0.0])
     grid = [ghost]
     ghost_registry = {id(ghost)}
-    result = compute_divergence(grid, minimal_config(), ghost_registry, debug=True)
+    result = compute_divergence(grid, minimal_config(), ghost_registry)
     out, _ = capfd.readouterr()
     assert "[DEBUG] ⛔️ Skipping ghost cell" in out
     assert result == []
@@ -42,7 +42,7 @@ def test_divergence_excludes_ghosts(capfd):
 def test_divergence_downgrades_malformed_velocity(capfd):
     bad_cell = fluid_cell(velocity=None, fluid_mask=True)
     grid = [bad_cell]
-    result = compute_divergence(grid, minimal_config(), debug=True)
+    result = compute_divergence(grid, minimal_config())
     out, _ = capfd.readouterr()
     assert "[DEBUG] ⚠️ Downgrading cell[0]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
@@ -50,7 +50,7 @@ def test_divergence_downgrades_malformed_velocity(capfd):
 # 🧪 Test: Non-fluid cell is excluded
 def test_divergence_excludes_non_fluid(capfd):
     grid = [fluid_cell(velocity=[1.0, 0.0, 0.0], fluid_mask=False)]
-    result = compute_divergence(grid, minimal_config(), debug=True)
+    result = compute_divergence(grid, minimal_config())
     out, _ = capfd.readouterr()
     assert "[DEBUG] ⚠️ Downgrading cell[0]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
     assert result == []
@@ -62,7 +62,7 @@ def test_divergence_mixed_cells(capfd):
     malformed = fluid_cell(x=2.0, velocity=None, fluid_mask=True)
     ghost_registry = {id(ghost)}
     grid = [valid, ghost, malformed]
-    result = compute_divergence(grid, minimal_config(), ghost_registry, debug=True)
+    result = compute_divergence(grid, minimal_config(), ghost_registry)
     out, _ = capfd.readouterr()
     assert "[DEBUG] ✅ Safe grid assembled" in out
     assert "[DEBUG] ⚠️ Downgrading cell[2]" in out or "[DEBUG] ⚠️ Downgrading cell" in out
@@ -72,7 +72,7 @@ def test_divergence_mixed_cells(capfd):
 # 🧪 Test: Verbose logging output
 def test_divergence_verbose_logging(capfd):
     grid = [fluid_cell(velocity=[1.0, 0.0, 0.0])]
-    compute_divergence(grid, minimal_config(), verbose=True, debug=False)
+    compute_divergence(grid, minimal_config(), verbose=True)
     out, _ = capfd.readouterr()
     assert "🧭 Divergence at" in out
     assert "📈 Max divergence" in out
@@ -80,7 +80,7 @@ def test_divergence_verbose_logging(capfd):
 # 🧪 Test: Debug + Verbose together
 def test_divergence_debug_and_verbose(capfd):
     grid = [fluid_cell(velocity=[1.0, 0.0, 0.0])]
-    compute_divergence(grid, minimal_config(), verbose=True, debug=True)
+    compute_divergence(grid, minimal_config(), verbose=True)
     out, _ = capfd.readouterr()
     assert "[DEBUG] ✅ Safe grid assembled" in out
     assert "🧭 Divergence at" in out
