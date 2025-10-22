@@ -91,11 +91,12 @@ def test_invalid_config_rejected():
 
 # ✅ Test: Mutation logic and ghost tagging triggered
 def test_pressure_mutation_triggered():
-    # Create two adjacent fluid cells with a velocity gradient
+    # Create three adjacent fluid cells with a velocity gradient
     cell1 = Cell(x=0.5, y=0.5, z=0.5, velocity=[100.0, 0.0, 0.0], pressure=-1.0, fluid_mask=True)
     cell2 = Cell(x=0.6, y=0.5, z=0.5, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+    cell3 = Cell(x=0.4, y=0.5, z=0.5, velocity=[50.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
     cell1.influenced_by_ghost = True
-    grid = [cell1, cell2]
+    grid = [cell1, cell2, cell3]
 
     input_data = {
         "domain_definition": {

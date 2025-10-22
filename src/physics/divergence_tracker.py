@@ -21,39 +21,6 @@ def compute_divergence_stats(
 ) -> Dict:
     """
     Computes divergence across the fluid grid and logs diagnostic stats.
-
-    Roadmap Alignment:
-    Governing Equation:
-        Continuity: ∇ · u = ∂u/∂x + ∂v/∂y + ∂w/∂z
-
-    Modular Enforcement:
-    - Velocity field → advection.py, viscosity.py
-    - Divergence diagnostics → divergence.py
-    - Pressure solve input → pressure_projection.py
-    - Reflex scoring → reflex_controller.py
-
-    Purpose:
-    - Validate incompressibility before and after pressure correction
-    - Support pressure Poisson solve: ∇²P = ∇ · u
-    - Track solver performance and continuity enforcement
-    - Provide diagnostic visibility for reflex scoring and mutation tracing
-
-    Strategy:
-    - Compute divergence at each fluid cell
-    - Log max and mean divergence for audit and reflex overlays
-    - Export diagnostic trace for scoring and mutation pathway tracking
-
-    Args:
-        grid (List[Cell]): Simulation grid with velocity fields
-        spacing (tuple): Grid spacing (dx, dy, dz)
-        label (str): Diagnostic label (e.g. "before projection")
-        step_index (int): Current timestep index
-        output_folder (str): Folder to write divergence logs
-        config (dict): Full simulation config
-        ghost_registry (Set[int]): Set of ghost cell IDs to exclude
-
-    Returns:
-        dict: Summary statistics including max, mean, and divergence array
     """
     dx, dy, dz = spacing
 
@@ -65,6 +32,8 @@ def compute_divergence_stats(
 
     if DEBUG:
         print(f"[DIV] Step {step_index} — {label}: max={max_div:.3e}, mean={mean_div:.3e}")
+        for i, d in enumerate(divergence):
+            print(f"[DEBUG] Divergence[{i}] = {d:.6e}")
 
     # 🧠 Annotate cells with divergence for reflex metadata
     fluid_index = 0

@@ -37,6 +37,10 @@ def solve_pressure_poisson(
             f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
         )
 
+    if DEBUG or verbose:
+        for i, d in enumerate(divergence):
+            print(f"[DEBUG] Divergence[{i}] = {d:.6e}")
+
     # 🧱 Prepare ghost registry
     ghost_registry = build_ghost_registry(grid)
     ghost_coords = extract_ghost_coordinates(ghost_registry)

@@ -15,9 +15,6 @@ from src.config.config_validator import validate_config
 DEBUG = True  # Set to True to enable verbose diagnostics
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
-    """
-    Applies pressure correction to enforce incompressible flow.
-    """
     validate_config(input_data)
     if DEBUG: print(f"[DEBUG] Step {step}: Config validated")
 
@@ -31,9 +28,9 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             x=cell.x,
             y=cell.y,
             z=cell.z,
-            velocity=cell.velocity if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            pressure=cell.pressure if cell.fluid_mask and isinstance(cell.velocity, list) else None,
-            fluid_mask=cell.fluid_mask if cell.fluid_mask and isinstance(cell.velocity, list) else False
+            velocity=cell.velocity if isinstance(cell.velocity, list) else None,
+            pressure=cell.pressure if isinstance(cell.pressure, float) else 0.0,
+            fluid_mask=cell.fluid_mask
         )
         new_cell.boundary_type = getattr(cell, "boundary_type", None)
         new_cell.influenced_by_ghost = getattr(cell, "influenced_by_ghost", False)
