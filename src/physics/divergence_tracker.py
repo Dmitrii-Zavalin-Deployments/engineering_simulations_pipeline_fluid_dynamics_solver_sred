@@ -56,7 +56,9 @@ def compute_divergence_stats(
         dict: Summary statistics including max, mean, and divergence array
     """
     dx, dy, dz = spacing
-    divergence = compute_divergence(grid, config=config, ghost_registry=ghost_registry, debug=False)
+
+    # 🧮 Compute divergence across valid fluid cells
+    divergence = compute_divergence(grid, config=config, ghost_registry=ghost_registry)
 
     max_div = max(abs(d) for d in divergence) if divergence else 0.0
     mean_div = sum(abs(d) for d in divergence) / len(divergence) if divergence else 0.0
@@ -71,12 +73,15 @@ def compute_divergence_stats(
             cell.divergence = round(divergence[fluid_index], 6)
             fluid_index += 1
 
+    # 🗂️ Ensure output folder exists
     os.makedirs(output_folder, exist_ok=True)
 
+    # 🗂️ Export summary log
     log_path = os.path.join(output_folder, "divergence_log.txt")
     with open(log_path, "a") as f:
         f.write(f"Step {step_index:04d} | Stage: {label} | Max: {max_div:.6e} | Mean: {mean_div:.6e}\n")
 
+    # 🗂️ Export per-cell divergence map
     map_path = os.path.join(output_folder, f"divergence_map_step_{step_index:04d}.json")
     divergence_map = {
         f"{cell.x:.2f},{cell.y:.2f},{cell.z:.2f}": cell.divergence

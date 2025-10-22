@@ -17,6 +17,33 @@ DEBUG = False  # Set to True to enable verbose diagnostics
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
     Applies pressure correction to enforce incompressible flow.
+
+    🔬 Physics Context:
+    This function enforces the incompressibility condition for Newtonian fluid flow by solving the pressure Poisson equation derived from the continuity equation.
+
+    Governing Equations:
+    - Continuity: ∇ · u = 0  → ensures mass conservation
+    - Momentum: ∂u/∂t + u · ∇u = −∇P + μ∇²u + f
+    - Pressure Poisson: ∇²P = ∇ · u  → derived by taking divergence of momentum and applying continuity
+
+    Strategy:
+    - Compute divergence field ∇ · u from velocity grid
+    - Solve ∇²P = ∇ · u using ghost-aware boundary conditions
+    - Apply pressure correction to velocity field to enforce ∇ · u ≈ 0
+    - Track mutation logic for reflex diagnostics and ghost influence tagging
+
+    Modular Roles:
+    - divergence_tracker.py → computes ∇ · u
+    - pressure_projection.py → solves ∇²P
+    - mutation_threshold_advisor.py → evaluates mutation thresholds
+    - reflex_pathway_logger.py → logs mutation trace for reflex scoring
+
+    Returns:
+        Tuple containing:
+        - Updated grid with pressure values
+        - Boolean flag indicating if pressure mutation occurred
+        - Number of solver passes
+        - Metadata dictionary with diagnostics and mutation trace
     """
     validate_config(input_data)
     grid = build_simulation_grid(input_data)
