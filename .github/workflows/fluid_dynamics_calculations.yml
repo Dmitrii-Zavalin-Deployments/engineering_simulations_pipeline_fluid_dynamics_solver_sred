@@ -151,7 +151,7 @@ jobs:
       if: always()
       run: |
         echo "📁 Directory structure before commit:"
-        ls -R data || echo "⚠️ 'data' folder not found"
+        ls -R
         echo "✅ Directory listing complete."
     
     - name: 📝 Log trigger & push
