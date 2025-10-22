@@ -1,6 +1,9 @@
 import json
 import os
 
+# 🛠️ Toggle debug logging
+DEBUG = True  # Set to True to enable verbose diagnostics
+
 def write_velocity_field(grid, step, output_dir="data/snapshots"):
     """
     Serialize the velocity field from the simulation grid into a structured JSON file.
@@ -28,7 +31,10 @@ def write_velocity_field(grid, step, output_dir="data/snapshots"):
     with open(filepath, "w") as f:
         json.dump(velocity_snapshot, f, indent=2)
 
-    print(f"💨 Velocity field snapshot saved → {filepath}")
+    if DEBUG:
+        if not velocity_snapshot:
+            print(f"[DEBUG] No fluid cells found for velocity export at step {step}")
+        print(f"💨 Velocity field snapshot saved → {filepath}")
 
 
 

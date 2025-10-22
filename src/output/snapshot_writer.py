@@ -5,7 +5,10 @@ import os
 import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
-from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
+from src.exporters.velocity_field_writer import write_velocity_field
+
+# 🛠️ Toggle debug logging
+DEBUG = True  # Set to True to enable verbose diagnostics
 
 def export_influence_flags(
     grid: List[Cell],
@@ -73,7 +76,7 @@ def export_influence_flags(
     with open(log_path, "w") as f:
         json.dump(existing, f, indent=2)
 
-    if not quiet_mode:
+    if not quiet_mode and DEBUG:
         print(f"[DEBUG] 👣 Influence flags exported → {log_path}")
         print(f"[DEBUG] ✏️  Step {step_index}: {len(entries)} fluid cells tagged as influenced by ghosts.")
 
@@ -92,6 +95,8 @@ def export_velocity_field_snapshot(
     """
     os.makedirs(output_folder, exist_ok=True)
     write_velocity_field(grid, step_index, output_dir=output_folder)
+    if DEBUG:
+        print(f"[DEBUG] 💨 Velocity field snapshot written for step {step_index} → {output_folder}")
 
 
 

@@ -120,6 +120,7 @@ def test_velocity_field_export(tmp_path):
 
     expected_path = output_dir / f"velocity_field_step_{step:04d}.json"
     assert expected_path.exists()
+    print(f"[TEST] Velocity field file created at: {expected_path}")  # ✅ Added
 
     with open(expected_path, "r") as f:
         data = json.load(f)
@@ -128,6 +129,7 @@ def test_velocity_field_export(tmp_path):
         assert data[key]["vx"] == 100.0
         assert data[key]["vy"] == 0.0
         assert data[key]["vz"] == 0.0
+
 
 
 

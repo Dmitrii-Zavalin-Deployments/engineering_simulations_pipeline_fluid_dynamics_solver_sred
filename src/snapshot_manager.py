@@ -5,7 +5,10 @@ import os
 import logging
 from src.step_controller import evolve_step
 from src.utils.snapshot_step_processor import process_snapshot_step
-from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
+from src.exporters.velocity_field_writer import write_velocity_field
+
+# 🛠️ Toggle debug logging
+DEBUG = True  # Set to True to enable verbose diagnostics
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     """
@@ -55,8 +58,9 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     initial_conditions = input_data["initial_conditions"]
     geometry = input_data.get("geometry_definition")
 
-    print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
-    print(f"⚙️  Output interval: {output_interval}")
+    if DEBUG:
+        print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
+        print(f"⚙️  Output interval: {output_interval}")
 
     # 🧱 Grid initialization with optional geometry mask
     if geometry:
@@ -75,7 +79,8 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
     dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
     spacing = (dx, dy, dz)
-    print(f"[DEBUG] Grid spacing → dx={dx:.4f}, dy={dy:.4f}, dz={dz:.4f}")
+    if DEBUG:
+        print(f"[DEBUG] Grid spacing → dx={dx:.4f}, dy={dy:.4f}, dz={dz:.4f}")
 
     # 🔁 Time integration loop
     num_steps = int(total_time / time_step)
@@ -94,7 +99,12 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         grid, reflex = evolve_step(grid, input_data, step, config=config)
 
         # 💨 Export velocity field before pressure correction
-        write_velocity_field(grid, step)  # ✅ NEW
+        if DEBUG:
+            fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
+            print(f"[DEBUG] Velocity export: {fluid_count} fluid cells at step {step}")
+        write_velocity_field(grid, step, output_dir=output_folder)
+        if DEBUG:
+            print(f"[DEBUG] Velocity field written to: {os.path.join(output_folder, f'velocity_field_step_{step:04d}.json')}")
 
         # 🧾 Package snapshot with diagnostics and metadata
         grid, snapshot = process_snapshot_step(
@@ -109,7 +119,8 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
 
         # ✅ Track reflex score injection
         score = snapshot.get("reflex_score", 0.0)
-        print(f"[VERIFY] Injected reflex_score: {score} ({type(score)})")
+        if DEBUG:
+            print(f"[VERIFY] Injected reflex_score: {score} ({type(score)})")
 
         # 📊 Update mutation summary counters
         if snapshot.get("pressure_mutated", False):
@@ -124,10 +135,11 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
             snapshots.append((step, snapshot))
 
     # 📋 Final simulation summary
-    print("🧾 Final Simulation Summary:")
-    print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
-    print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
-    print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
+    if DEBUG:
+        print("🧾 Final Simulation Summary:")
+        print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
+        print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
+        print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
 
     return snapshots
 

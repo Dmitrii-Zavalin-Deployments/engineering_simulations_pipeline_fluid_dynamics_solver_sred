@@ -5,7 +5,9 @@ import os
 import sys
 import json
 import yaml
-import argparse
+
+# 🛠️ Toggle debug logging
+DEBUG = False  # Set to True to enable verbose diagnostics
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -31,7 +33,7 @@ def load_reflex_config(path="config/reflex_debug_config.yaml"):
         }
 
 # ✅ Simulation runner — orchestrates full Navier-Stokes solve
-def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None, debug: bool = False):
+def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None):
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
 
@@ -41,7 +43,7 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
         with open(ghost_rules_path) as f:
             ghost_rules = json.load(f)
         input_data["ghost_rules"] = ghost_rules
-        if debug:
+        if DEBUG:
             print(f"👻 Injected ghost_rules from: {ghost_rules_path}")
 
     output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
@@ -52,7 +54,7 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
 
     # ✅ Ghost rule pre-check and logging
     ghost_cfg = input_data.get("ghost_rules", {})
-    if debug:
+    if DEBUG:
         print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}, Default: {ghost_cfg.get('default_type')}")
         print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
 
@@ -63,12 +65,11 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
     build_simulation_grid(input_data)
 
     # 🧠 Simulation metadata
-    print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario_name}")
-    print(f"📄 Input path: {input_path}")
-    print(f"📁 Output folder: {output_folder}")
-    print(f"⚙️  Reflex config path: {reflex_config_path}")
-
-    if debug:
+    if DEBUG:
+        print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario_name}")
+        print(f"📄 Input path: {input_path}")
+        print(f"📁 Output folder: {output_folder}")
+        print(f"⚙️  Reflex config path: {reflex_config_path}")
         print("🛠️ Debug mode enabled.")
         print(f"📦 Input preview (truncated): {json.dumps(input_data, indent=2)[:1000]}")
         domain = input_data.get("domain_definition", {})
@@ -83,7 +84,8 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
         path = os.path.join(output_folder, filename)
         with open(path, "w") as f:
             json.dump(snapshot, f, indent=2)
-        print(f"🔄 Step {formatted_step} written → {filename}")
+        if DEBUG:
+            print(f"🔄 Step {formatted_step} written → {filename}")
 
         # 📉 Optional compaction of pressure delta map
         score = snapshot.get("reflex_score", 0.0)
@@ -91,22 +93,23 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None,
             original_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
             compacted_path = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
             compact_pressure_delta_map(original_path, compacted_path)
-            if debug:
+            if DEBUG:
                 print(f"📉 Compacted pressure delta map for step {formatted_step}")
 
-    print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
+    if DEBUG:
+        print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")
 
     # 📋 Reflex Audit — bundled scoring, overlays, and integrity panel
     run_reflex_audit()
 
 # ✅ CLI entrypoint
 if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="Run Navier-Stokes simulation and generate snapshots.")
     parser.add_argument("input_file", type=str, help="Path to simulation input file.")
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode with verbose logging.")
     args = parser.parse_args()
 
-    run_navier_stokes_simulation(args.input_file, debug=args.debug)
+    run_navier_stokes_simulation(args.input_file)
 
 
 
