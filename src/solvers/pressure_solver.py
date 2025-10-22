@@ -9,19 +9,18 @@ from src.diagnostics.mutation_threshold_advisor import get_delta_threshold
 from src.physics.divergence_tracker import compute_divergence_stats
 from src.reflex.reflex_pathway_logger import log_reflex_pathway
 from src.initialization.fluid_mask_initializer import build_simulation_grid
-from src.config.config_validator import validate_config  # ✅ Added
+from src.config.config_validator import validate_config
+
+# 🛠️ Toggle debug logging
+DEBUG = False  # Set to True to enable verbose diagnostics
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
     """
     Applies pressure correction to enforce incompressible flow.
     """
-    # ✅ Validate config before grid setup
     validate_config(input_data)
-
-    # ✅ Ensure grid is reflex-tagged
     grid = build_simulation_grid(input_data)
 
-    # ✅ Filter valid fluid cells for pressure solve
     safe_grid = []
     for cell in grid:
         new_cell = Cell(
@@ -36,7 +35,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         new_cell.influenced_by_ghost = getattr(cell, "influenced_by_ghost", False)
         safe_grid.append(new_cell)
 
-    # 📊 Step 1: Compute divergence using modular tracker
     domain = input_data["domain_definition"]
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
@@ -52,22 +50,18 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     divergence = div_stats["divergence"]
     max_div = div_stats["max"]
 
-    # 💧 Step 2: Solve pressure Poisson equation ∇²P = ∇ · u
     grid_with_pressure, pressure_mutated, ghost_registry = solve_pressure_poisson(safe_grid, divergence, input_data)
 
-    # ✅ Preserve metadata from safe_grid
     for old, new in zip(safe_grid, grid_with_pressure):
         new.boundary_type = getattr(old, "boundary_type", None)
         new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
 
-    # 🧠 Step 3: Analyze pressure mutations
     mutation_count = 0
     mutated_cells = []
     pressure_delta_map = []
 
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
-            # 🚫 Respect Neumann pressure enforcement on outlet and wall faces
             if getattr(updated, "boundary_type", None) in {"outlet", "wall"}:
                 continue
 
@@ -82,15 +76,17 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             }
 
             threshold = get_delta_threshold(updated, context)
-            print(f"[DEBUG] Step {step}: cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) → threshold = {threshold:.2e}, delta = {delta:.2e}")
-            
+            if DEBUG:
+                print(f"[DEBUG] Step {step}: cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) → threshold = {threshold:.2e}, delta = {delta:.2e}")
+
             if delta > threshold:
                 mutation_count += 1
                 mutated_cells.append(updated)
                 updated.pressure_mutated = True
                 updated.mutation_source = "pressure_solver"
                 updated.mutation_step = step
-                print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")
+                if DEBUG:
+                    print(f"Pressure updated @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f}) ← source: solver")
 
             pressure_delta_map.append({
                 "x": updated.x,
@@ -103,15 +99,15 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
             if getattr(updated, "influenced_by_ghost", False):
                 updated.mutation_triggered_by = "ghost_influence"
-                print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
+                if DEBUG:
+                    print(f"[TRACE] Step {step}: pressure mutation at ghost-influenced cell ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
 
-    # 📋 Step 4: Log mutation summary
-    if mutation_count == 0:
-        print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
-    else:
-        print(f"✅ Step {step}: Pressure correction modified {mutation_count} fluid cells.")
+    if DEBUG:
+        if mutation_count == 0:
+            print(f"⚠️ Step {step}: Pressure solver ran but no pressure values changed.")
+        else:
+            print(f"✅ Step {step}: Pressure correction modified {mutation_count} fluid cells.")
 
-    # ✅ Step 4b: Log reflex pathway
     ghost_trigger_chain = input_data.get("ghost_trigger_chain", [])
     log_reflex_pathway(
         step_index=step,
@@ -127,7 +123,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         "ghost_registry": ghost_registry
     }
 
-    # 🗂️ Step 5: Export pressure delta map
     export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
 
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata

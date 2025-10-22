@@ -5,7 +5,7 @@
 from typing import List, Optional
 from src.grid_modules.cell import Cell
 from src.initialization.fluid_mask_initializer import build_simulation_grid
-from src.config.config_validator import validate_config  # ✅ Added
+from src.config.config_validator import validate_config
 from src.reflex.reflex_logic import adjust_time_step
 from src.metrics.velocity_metrics import compute_max_velocity
 from src.metrics.cfl_controller import compute_global_cfl
@@ -17,6 +17,9 @@ from src.metrics.reflex_score_evaluator import compute_score
 from src.reflex.spatial_tagging.ghost_face_mapper import tag_ghost_adjacency
 from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zones, extract_mutated_coordinates
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
+
+# 🛠️ Toggle debug logging
+DEBUG = False  # Set to True to enable verbose diagnostics
 
 def apply_reflex(
     grid: List[Cell],
@@ -37,13 +40,10 @@ def apply_reflex(
     include_pressure_map = (config or {}).get("include_pressure_mutation_map", False)
     log_projection_trace = (config or {}).get("log_projection_trace", False)
 
-    if verbosity == "high":
+    if DEBUG and verbosity == "high":
         print(f"[DEBUG] Step {step} → Reflex diagnostics active")
 
-    # ✅ Validate config before grid setup
     validate_config(config)
-
-    # ✅ Ensure grid is reflex-tagged
     grid = build_simulation_grid(config)
 
     domain = input_data["domain_definition"]
@@ -54,7 +54,6 @@ def apply_reflex(
         (domain["max_z"] - domain["min_z"]) / domain["nz"]
     )
 
-    # 🧠 Physical diagnostics
     max_velocity = compute_max_velocity(grid)
     max_divergence = compute_max_divergence(grid, domain)
     global_cfl = compute_global_cfl(grid, time_step, domain)
@@ -71,7 +70,6 @@ def apply_reflex(
         if getattr(c, "fluid_mask", False) and getattr(c, "influenced_by_ghost", False)
     )
 
-    # 🧭 Ghost registry and adjacency tagging
     ghost_registry = ghost_registry or build_ghost_registry(grid)
     ghost_coords = extract_ghost_coordinates(ghost_registry)
     adjacency_zones = tag_ghost_adjacency(grid, ghost_coords, spacing)
@@ -79,7 +77,6 @@ def apply_reflex(
     mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
     suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
-    # 📊 Mutation density and trigger counts
     fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
     mutation_count = len(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else 0
     mutation_density = mutation_count / fluid_count if fluid_count > 0 else 0.0
@@ -95,7 +92,7 @@ def apply_reflex(
     if damping_enabled:
         triggered_by.append("damping_enabled")
 
-    if verbosity != "low":
+    if DEBUG and verbosity != "low":
         print(f"📊 [reflex] Step {step}: Max velocity = {max_velocity:.3e}")
         print(f"📊 [reflex] Step {step}: Max divergence = {max_divergence:.3e}")
         if post_projection_divergence is not None:
@@ -142,24 +139,28 @@ def apply_reflex(
         "mutation": reflex_data["pressure_mutated"]
     }
 
-    print(f"[DEBUG] Step {step} → reflex scoring inputs: {score_inputs}")
+    if DEBUG:
+        print(f"[DEBUG] Step {step} → reflex scoring inputs: {score_inputs}")
     score = compute_score(score_inputs)
-    print(f"[DEBUG] Step {step} → computed reflex score: {score}")
+    if DEBUG:
+        print(f"[DEBUG] Step {step} → computed reflex score: {score}")
     reflex_data["reflex_score"] = score if isinstance(score, (int, float)) else 0.0
 
-    print(f"[DEBUG] reflex_data from reflex controller {reflex_data}")
+    if DEBUG:
+        print(f"[DEBUG] reflex_data from reflex controller {reflex_data}")
 
     if (
         reflex_data["pressure_mutated"]
         and reflex_data["ghost_influence_count"] > 0
         and reflex_data["fluid_cells_modified_by_ghost"] == 0
     ):
-        print(f"[SUPPRESSION] Step {step}: ghost influence present but no fluid cells tagged — check tagging logic")
+        if DEBUG:
+            print(f"[SUPPRESSION] Step {step}: ghost influence present but no fluid cells tagged — check tagging logic")
 
-    if verbosity == "high" and include_div_delta:
+    if DEBUG and verbosity == "high" and include_div_delta:
         print(f"[DEBUG] Step {step} → Divergence delta tracking enabled")
 
-    if verbosity == "high" and include_pressure_map:
+    if DEBUG and verbosity == "high" and include_pressure_map:
         print(f"[DEBUG] Step {step} → Pressure mutation map tracing enabled")
 
     return reflex_data

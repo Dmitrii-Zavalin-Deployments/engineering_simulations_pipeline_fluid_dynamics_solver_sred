@@ -3,6 +3,9 @@
 
 from typing import Dict
 
+# 🛠️ Toggle debug logging
+DEBUG = False  # Set to True to enable verbose diagnostics
+
 def validate_config(config: Dict) -> None:
     """
     Validates the configuration object passed to initialize_masks().
@@ -54,7 +57,8 @@ def validate_config(config: Dict) -> None:
         if "no_slip" in bc and not isinstance(bc["no_slip"], bool):
             raise ValueError(f"boundary_conditions[{i}] 'no_slip' must be boolean if present.")
 
-    print("[CONFIG] Validation passed — config is structurally complete.")
+    if DEBUG:
+        print("[CONFIG] Validation passed — config is structurally complete.")
 
 
 
