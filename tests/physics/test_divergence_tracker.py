@@ -5,6 +5,7 @@ import tempfile
 import pytest
 from src.physics.divergence_tracker import compute_divergence_stats
 from src.grid_modules.cell import Cell
+import src.physics.divergence as divergence_module
 
 def create_test_cell(x, y, z, velocity, fluid_mask=True):
     return Cell(x=x, y=y, z=z, velocity=velocity, pressure=None, fluid_mask=fluid_mask)
@@ -14,6 +15,10 @@ def temp_output_dir():
     path = tempfile.mkdtemp()
     yield path
     shutil.rmtree(path)
+
+@pytest.fixture(autouse=True)
+def enable_debug(monkeypatch):
+    monkeypatch.setattr(divergence_module, "DEBUG", True)
 
 def test_divergence_stats_basic(temp_output_dir):
     grid = [

@@ -3,7 +3,13 @@ import os
 import json
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.grid_modules.cell import Cell
-from src.exporters.velocity_field_writer import write_velocity_field  # ✅ NEW
+from src.exporters.velocity_field_writer import write_velocity_field
+import src.physics.divergence as divergence_module
+
+# 🔧 Enable centralized debug for divergence module
+@pytest.fixture(autouse=True)
+def enable_debug(monkeypatch):
+    monkeypatch.setattr(divergence_module, "DEBUG", True)
 
 # 🔧 Mock dependencies
 @pytest.fixture
@@ -25,15 +31,11 @@ def mock_input_data():
 @pytest.fixture
 def mock_grid():
     cell1 = Cell(x=0.1, y=0.1, z=0.1, velocity=[1.0, 0.0, 0.0], pressure=1.0, fluid_mask=True)
-
     cell2 = Cell(x=0.2, y=0.2, z=0.2, velocity=[0.0, 1.0, 0.0], pressure=1.0, fluid_mask=True)
-    cell2.boundary_type = "outlet"  # ✅ Set manually
-
+    cell2.boundary_type = "outlet"
     cell3 = Cell(x=0.3, y=0.3, z=0.3, velocity=[0.0, 0.0, 1.0], pressure=1.0, fluid_mask=True)
-    cell3.influenced_by_ghost = True  # ✅ Set manually
-
+    cell3.influenced_by_ghost = True
     cell4 = Cell(x=0.4, y=0.4, z=0.4, velocity=None, pressure=None, fluid_mask=False)
-
     return [cell1, cell2, cell3, cell4]
 
 # ✅ Test: Basic pressure correction flow

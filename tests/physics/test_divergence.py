@@ -2,6 +2,7 @@ import pytest
 from src.physics.divergence import compute_divergence
 from src.physics.divergence_methods.divergence_helpers import get_neighbor_velocity, central_difference
 from src.grid_modules.cell import Cell
+import src.physics.divergence as divergence_module
 
 def minimal_config():
     return {
@@ -18,6 +19,10 @@ def fluid_cell(x=0.0, y=0.0, z=0.0, velocity=None, fluid_mask=True):
         pressure=133.0,
         fluid_mask=fluid_mask
     )
+
+@pytest.fixture(autouse=True)
+def enable_debug(monkeypatch):
+    monkeypatch.setattr(divergence_module, "DEBUG", True)
 
 # 🧪 Test: Basic divergence computation
 def test_divergence_basic():
