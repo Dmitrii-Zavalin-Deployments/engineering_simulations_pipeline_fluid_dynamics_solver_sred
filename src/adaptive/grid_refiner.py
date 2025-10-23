@@ -1,12 +1,22 @@
 # src/adaptive/grid_refiner.py
 # 🧭 Grid Refiner — identifies mutation clusters for spatial refinement
+# 📌 This module operates on exported pressure delta maps.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 import os
 import json
 from typing import List, Tuple
 from collections import Counter
 
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
+
 def load_delta_map(path: str) -> List[Tuple[float, float, float]]:
+    """
+    Loads a pressure delta map and extracts coordinates with non-zero delta.
+    These represent candidate locations for refinement.
+    """
     try:
         with open(path, "r") as f:
             data = json.load(f)
@@ -26,6 +36,7 @@ def detect_mutation_clusters(
     threshold: int = 5  # ✅ Made configurable
 ) -> List[Tuple[float, float, float]]:
     """
+    Identifies clusters of mutation points based on spatial proximity.
     Returns coordinates with high mutation neighbor density.
     """
     dx, dy, dz = spacing
@@ -49,22 +60,29 @@ def propose_refinement_zones(
     output_folder: str = "data/refinement",
     threshold: int = 5  # ✅ Newly added for configurability
 ) -> List[Tuple[float, float, float]]:
+    """
+    Loads a delta map and proposes refinement zones based on mutation clustering.
+    Outputs a JSON file if clusters are found.
+    """
     os.makedirs(output_folder, exist_ok=True)
     active_coords = load_delta_map(delta_map_path)
 
     if not active_coords:
-        print(f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}")
+        if debug:
+            print(f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}")
         return []
 
-    clusters = detect_mutation_clusters(active_coords, spacing, threshold=threshold)  # ✅ patched
+    clusters = detect_mutation_clusters(active_coords, spacing, threshold=threshold)
 
     if clusters:
         output_path = os.path.join(output_folder, f"refinement_step_{step_index:04d}.json")
         with open(output_path, "w") as f:
             json.dump({"refinement_zones": clusters}, f, indent=2)
-        print(f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → {output_path}")
+        if debug:
+            print(f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → {output_path}")
     else:
-        print(f"[REFINER] 🚫 No clusters detected in step {step_index}")
+        if debug:
+            print(f"[REFINER] 🚫 No clusters detected in step {step_index}")
 
     return clusters
 

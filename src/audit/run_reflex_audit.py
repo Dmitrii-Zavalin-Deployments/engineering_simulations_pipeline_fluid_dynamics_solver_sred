@@ -1,10 +1,16 @@
 # src/audit/run_reflex_audit.py
 # 📋 Reflex Audit Runner — bundles scoring, overlays, and dashboard export for simulation integrity review
+# 📌 This module operates entirely on exported snapshot data.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 import os
 import json
 from src.metrics.reflex_score_evaluator import batch_evaluate_trace
 from src.visualization.overlay_integrity_panel import render_integrity_panel
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def load_snapshots(snapshot_dir: str) -> list:
     """
@@ -25,7 +31,8 @@ def load_snapshots(snapshot_dir: str) -> list:
                     data = json.load(f)
                     snapshots.append(data)
             except Exception as e:
-                print(f"[ERROR] Failed to load {fname}: {e}")
+                if debug:
+                    print(f"[ERROR] Failed to load {fname}: {e}")
     return snapshots
 
 def run_reflex_audit(
@@ -43,26 +50,31 @@ def run_reflex_audit(
     """
     os.makedirs(output_folder, exist_ok=True)
 
-    print(f"📋 Starting Reflex Audit...")
+    if debug:
+        print(f"📋 Starting Reflex Audit...")
     snapshots = load_snapshots(snapshot_dir)
     if not snapshots:
-        print("[AUDIT] No snapshots found.")
+        if debug:
+            print("[AUDIT] No snapshots found.")
         return
 
     trace_report = batch_evaluate_trace(snapshot_dir, pathway_log, snapshots)
 
-    print(f"\n📊 Reflex Snapshot Summary:")
-    for entry in trace_report:
-        print(f"[AUDIT] Step {entry['step_index']:04d} → "
-              f"Mutations={entry['mutated_cells']}, "
-              f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
-              f"Projection={'✓' if entry['has_projection'] else '✗'}, "
-              f"Score={entry['reflex_score']}")
+    if debug:
+        print(f"\n📊 Reflex Snapshot Summary:")
+        for entry in trace_report:
+            print(f"[AUDIT] Step {entry['step_index']:04d} → "
+                  f"Mutations={entry['mutated_cells']}, "
+                  f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
+                  f"Projection={'✓' if entry['has_projection'] else '✗'}, "
+                  f"Score={entry['reflex_score']}")
 
-    print(f"\n🖼️ Generating Overlay Integrity Panel...")
+        print(f"\n🖼️ Generating Overlay Integrity Panel...")
+
     render_integrity_panel(snapshot_dir=snapshot_dir, output_path=os.path.join(output_folder, "integrity_panel.png"))
 
-    print(f"\n✅ Reflex Audit Complete. Outputs saved to → {output_folder}")
+    if debug:
+        print(f"\n✅ Reflex Audit Complete. Outputs saved to → {output_folder}")
 
 # ✅ CLI entrypoint
 if __name__ == "__main__":

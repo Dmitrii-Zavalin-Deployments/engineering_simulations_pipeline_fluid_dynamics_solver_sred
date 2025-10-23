@@ -1,10 +1,20 @@
 # src/adaptive/timestep_controller.py
 # 🔄 Timestep Controller — proposes dynamic timestep adjustment based on mutation intensity
+# 📌 This module operates on exported pressure delta maps and reflex traces.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 import json
 from typing import Optional
 
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
+
 def load_pressure_delta(path: str) -> dict:
+    """
+    Loads a pressure delta map from disk.
+    Returns a dictionary of cell coordinates and delta values.
+    """
     try:
         with open(path, "r") as f:
             return json.load(f)
@@ -12,6 +22,10 @@ def load_pressure_delta(path: str) -> dict:
         return {}
 
 def load_mutation_trace(path: str) -> list:
+    """
+    Loads a reflex mutation trace from disk.
+    Returns a list of step-level mutation metadata.
+    """
     try:
         with open(path, "r") as f:
             trace = json.load(f)
@@ -20,6 +34,9 @@ def load_mutation_trace(path: str) -> list:
         return []
 
 def compute_mutation_density(pressure_delta_map: dict) -> float:
+    """
+    Computes the fraction of cells with non-zero pressure delta.
+    """
     total_cells = len(pressure_delta_map)
     mutated = sum(1 for cell in pressure_delta_map.values() if cell.get("delta", 0.0) > 0.0)
     if total_cells == 0:
@@ -27,6 +44,9 @@ def compute_mutation_density(pressure_delta_map: dict) -> float:
     return mutated / total_cells
 
 def compute_mutation_frequency(mutation_trace: list, recent_steps: int = 5) -> float:
+    """
+    Computes the fraction of recent steps that triggered pressure mutation.
+    """
     recent = mutation_trace[-recent_steps:]
     if not recent:
         return 0.0
@@ -40,6 +60,10 @@ def suggest_timestep(
     reflex_score: Optional[int] = None,
     min_score: int = 4
 ) -> float:
+    """
+    Suggests a new timestep based on mutation density and frequency.
+    Reduces timestep if mutation is high, increases if mutation is low.
+    """
     delta_map = load_pressure_delta(pressure_delta_path)
     mutation_trace = load_mutation_trace(mutation_trace_path)
 
@@ -48,21 +72,26 @@ def suggest_timestep(
 
     score_ok = reflex_score is None or reflex_score >= min_score
     if not score_ok:
-        print(f"[TIMESTEP] Reflex score below threshold → maintaining base_dt={base_dt:.6f}")
+        if debug:
+            print(f"[TIMESTEP] Reflex score below threshold → maintaining base_dt={base_dt:.6f}")
         return base_dt
 
-    print(f"[TIMESTEP] Mutation density={mutation_density:.4f}, frequency={mutation_frequency:.2f}")
+    if debug:
+        print(f"[TIMESTEP] Mutation density={mutation_density:.4f}, frequency={mutation_frequency:.2f}")
 
     if mutation_density > 0.20 and mutation_frequency >= 0.8:
         new_dt = base_dt * 0.5
-        print(f"[TIMESTEP] 🔻 High mutation → reducing timestep to {new_dt:.6f}")
+        if debug:
+            print(f"[TIMESTEP] 🔻 High mutation → reducing timestep to {new_dt:.6f}")
         return new_dt
     elif mutation_density < 0.05 and mutation_frequency <= 0.2:
         new_dt = base_dt * 1.5
-        print(f"[TIMESTEP] 🔺 Low mutation → increasing timestep to {new_dt:.6f}")
+        if debug:
+            print(f"[TIMESTEP] 🔺 Low mutation → increasing timestep to {new_dt:.6f}")
         return new_dt
     else:
-        print(f"[TIMESTEP] ⚖️ Timestep unchanged → {base_dt:.6f}")
+        if debug:
+            print(f"[TIMESTEP] ⚖️ Timestep unchanged → {base_dt:.6f}")
         return base_dt
 
 

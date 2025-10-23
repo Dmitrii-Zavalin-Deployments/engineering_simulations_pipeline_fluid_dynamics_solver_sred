@@ -1,5 +1,8 @@
 # src/ci/reflex_log_score.py
 # 📊 Reflex Log Score — CI log parser and simulation summary evaluator
+# 📌 This module operates on exported logs and summaries.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
