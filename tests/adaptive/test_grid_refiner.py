@@ -91,7 +91,7 @@ def test_propose_refinement_zones_creates_output(delta_map_with_mutations):
         assert "refinement_zones" in data
         assert isinstance(data["refinement_zones"], list)
 
-def test_propose_refinement_zones_skips_empty(empty_delta_map, capsys):
+def test_propose_refinement_zones_skips_empty_delta_map(empty_delta_map, capsys):
     with tempfile.TemporaryDirectory() as tmpdir:
         result = propose_refinement_zones(
             delta_map_path=empty_delta_map,
@@ -102,8 +102,32 @@ def test_propose_refinement_zones_skips_empty(empty_delta_map, capsys):
         )
         captured = capsys.readouterr()
         assert result == []
-        assert "[REFINER] 🚫 No clusters detected in step 99" in captured.out
+        assert "[REFINER] ⚠️ No pressure deltas found → skipping step 99" in captured.out
         output_path = os.path.join(tmpdir, "refinement_step_0099.json")
+        assert not os.path.exists(output_path)
+
+def test_propose_refinement_zones_no_clusters_detected(tmp_path, capsys):
+    path = tmp_path / "sparse_map.json"
+    data = {
+        "(0.0, 0.0, 0.0)": {"delta": 0.1},
+        "(5.0, 5.0, 5.0)": {"delta": 0.2},
+        "(10.0, 10.0, 10.0)": {"delta": 0.3}
+    }
+    with open(path, "w") as f:
+        json.dump(data, f)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        result = propose_refinement_zones(
+            delta_map_path=str(path),
+            spacing=(1.0, 1.0, 1.0),
+            step_index=88,
+            output_folder=tmpdir,
+            threshold=3
+        )
+        captured = capsys.readouterr()
+        assert result == []
+        assert "[REFINER] 🚫 No clusters detected in step 88" in captured.out
+        output_path = os.path.join(tmpdir, "refinement_step_0088.json")
         assert not os.path.exists(output_path)
 
 
