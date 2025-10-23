@@ -10,11 +10,12 @@ BASE_OUTPUT_DIR="${GITHUB_WORKSPACE}/data/testing-input-output"
 ZIP_FILE_NAME="navier_stokes_output.zip"
 LOCAL_ZIP_FILE_PATH="${BASE_OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
-# Create zip archive from simulation output (contents only, no full path)
+# Create zip archive from simulation output (flattened structure, no folders)
 (
   cd "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output" || exit 1
   echo "📦 Creating archive: ${ZIP_FILE_NAME}"
-  zip -r "${LOCAL_ZIP_FILE_PATH}" ./*
+  zip -r -j "${ZIP_FILE_NAME}" ./*
+  mv "${ZIP_FILE_NAME}" "${LOCAL_ZIP_FILE_PATH}"
 )
 
 # Confirm zip file exists
