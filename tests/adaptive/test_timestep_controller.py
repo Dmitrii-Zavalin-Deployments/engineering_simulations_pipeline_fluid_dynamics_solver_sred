@@ -28,6 +28,17 @@ def valid_pressure_delta(tmp_path):
     return str(path)
 
 @pytest.fixture
+def sparse_pressure_delta(tmp_path):
+    path = tmp_path / "sparse_delta.json"
+    data = {
+        f"({i}, 0.0, 0.0)": {"delta": 0.0} for i in range(20)
+    }
+    data["(0.0, 0.0, 0.0)"]["delta"] = 0.1  # Only one mutated cell
+    with open(path, "w") as f:
+        json.dump(data, f)
+    return str(path)
+
+@pytest.fixture
 def high_mutation_trace(tmp_path):
     path = tmp_path / "trace.json"
     trace = [{"pressure_mutated": True} for _ in range(5)]
@@ -41,6 +52,13 @@ def low_mutation_trace(tmp_path):
     trace = [{"pressure_mutated": False} for _ in range(5)]
     with open(path, "w") as f:
         json.dump(trace, f)
+    return str(path)
+
+@pytest.fixture
+def empty_mutation_trace(tmp_path):
+    path = tmp_path / "empty_trace.json"
+    with open(path, "w") as f:
+        json.dump([], f)
     return str(path)
 
 @pytest.fixture
@@ -107,6 +125,10 @@ def test_compute_mutation_frequency_mixed():
     freq = compute_mutation_frequency(trace, recent_steps=2)
     assert freq == 0.5
 
+def test_compute_mutation_frequency_empty_list():
+    freq = compute_mutation_frequency([], recent_steps=5)
+    assert freq == 0.0  # Covers line 52
+
 def test_suggest_timestep_reflex_score_block(valid_pressure_delta, high_mutation_trace):
     result = suggest_timestep(
         pressure_delta_path=valid_pressure_delta,
@@ -126,14 +148,14 @@ def test_suggest_timestep_high_mutation(valid_pressure_delta, high_mutation_trac
     )
     assert result == pytest.approx(0.005)
 
-def test_suggest_timestep_low_mutation(valid_pressure_delta, low_mutation_trace):
+def test_suggest_timestep_low_mutation(sparse_pressure_delta, low_mutation_trace):
     result = suggest_timestep(
-        pressure_delta_path=valid_pressure_delta,
+        pressure_delta_path=sparse_pressure_delta,
         mutation_trace_path=low_mutation_trace,
         base_dt=0.01,
         reflex_score=5
     )
-    assert result == pytest.approx(0.015)
+    assert result == pytest.approx(0.015)  # Covers lines 88–91
 
 def test_suggest_timestep_mixed_mutation(valid_pressure_delta, mixed_mutation_trace):
     result = suggest_timestep(
