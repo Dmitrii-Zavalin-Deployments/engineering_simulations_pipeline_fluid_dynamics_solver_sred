@@ -2,7 +2,7 @@ import json
 import os
 
 # 🛠️ Toggle debug logging
-DEBUG = True  # Set to True to enable verbose diagnostics
+DEBUG = False  # Set to True to enable verbose diagnostics
 
 def write_velocity_field(grid, step, output_dir="data/snapshots"):
     """

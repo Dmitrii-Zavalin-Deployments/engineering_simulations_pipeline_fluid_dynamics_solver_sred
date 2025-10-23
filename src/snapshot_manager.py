@@ -8,7 +8,7 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 from src.exporters.velocity_field_writer import write_velocity_field
 
 # 🛠️ Toggle debug logging
-DEBUG = True  # Set to True to enable verbose diagnostics
+DEBUG = False  # Set to True to enable verbose diagnostics
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
     """

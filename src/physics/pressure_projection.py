@@ -8,7 +8,7 @@ from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
-DEBUG = True  # Centralized toggle for diagnostics
+DEBUG = False  # Centralized toggle for diagnostics
 
 def solve_pressure_poisson(
     grid: List[Cell],
