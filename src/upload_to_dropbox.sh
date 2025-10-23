@@ -10,6 +10,10 @@ BASE_OUTPUT_DIR="${GITHUB_WORKSPACE}/data/testing-output-run"
 ZIP_FILE_NAME="navier_stokes_output.zip"
 LOCAL_ZIP_FILE_PATH="${BASE_OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
+# Create zip archive from simulation output
+echo "📦 Creating archive: ${ZIP_FILE_NAME}"
+zip -r "${LOCAL_ZIP_FILE_PATH}" "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output"
+
 # Confirm zip file exists
 if [ ! -f "${LOCAL_ZIP_FILE_PATH}" ]; then
     echo "❌ ERROR: Archive not found at ${LOCAL_ZIP_FILE_PATH}"
