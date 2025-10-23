@@ -10,6 +10,7 @@ from src.physics.divergence_tracker import compute_divergence_stats
 from src.reflex.reflex_pathway_logger import log_reflex_pathway
 from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
+from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered  # ✅ Verifier integration
 
 # 🛠️ Toggle debug logging
 DEBUG = True  # Set to True to enable verbose diagnostics
@@ -142,6 +143,17 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
     if DEBUG: print(f"[DEBUG] Step {step}: Pressure delta map exported")
+
+    # ✅ Trigger Navier-Stokes verification if needed
+    triggered_flags = []
+    if mutation_count == 0:
+        triggered_flags.append("no_pressure_mutation")
+    if not divergence:
+        triggered_flags.append("empty_divergence")
+    if any(not isinstance(c.velocity, list) or not c.fluid_mask for c in grid):
+        triggered_flags.append("downgraded_cells")
+
+    run_verification_if_triggered(grid_with_pressure, spacing, step, output_folder, triggered_flags)
 
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
 
