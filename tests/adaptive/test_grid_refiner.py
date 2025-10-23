@@ -42,15 +42,16 @@ def test_load_delta_map_filters_zero_deltas(delta_map_with_mutations):
 def test_detect_mutation_clusters_threshold_met():
     coords = [
         (0.0, 0.0, 0.0),
-        (0.1, 0.0, 0.0),
-        (0.2, 0.0, 0.0),
-        (0.3, 0.0, 0.0),
-        (0.4, 0.0, 0.0),
+        (0.05, 0.0, 0.0),
+        (0.10, 0.0, 0.0),
+        (0.15, 0.0, 0.0),
+        (0.20, 0.0, 0.0),
+        (0.25, 0.0, 0.0),
     ]
     spacing = (0.1, 0.1, 0.1)
     clusters = detect_mutation_clusters(coords, spacing, radius=1, threshold=3)
     assert len(clusters) > 0
-    assert all(isinstance(c, tuple) and len(c) == 3 for c in clusters)
+    assert any(c == (0.10, 0.0, 0.0) for c in clusters)
 
 def test_detect_mutation_clusters_threshold_not_met():
     coords = [
