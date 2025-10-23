@@ -45,7 +45,7 @@ def solve_navier_stokes_step(
         triggered_flags.append("downgraded_cells")
 
     run_verification_if_triggered(
-        grid=grid_after_projection,
+        grid=grid,  # ✅ Pass original grid for downgrade detection
         spacing=(
             (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"],
             (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"],

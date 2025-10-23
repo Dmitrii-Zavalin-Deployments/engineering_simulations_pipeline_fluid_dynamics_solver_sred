@@ -1,5 +1,5 @@
 # src/diagnostics/navier_stokes_verifier.py
-# 🧠 Navier-Stokes Verifier — validates continuity and pressure consistency when diagnostic warnings are triggered
+# 🧠 Navier-Stokes Verifier — validates continuity, pressure consistency, and downgrade diagnostics when triggered
 
 import os
 import json
@@ -65,6 +65,41 @@ def verify_pressure_consistency(grid: List[Cell], step_index: int, output_folder
         print(f"[VERIFIER] Pressure consistency check → {len(flagged)} cells flagged")
         print(f"[VERIFIER] Status: {result['status']} → saved to {log_path}")
 
+def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: str):
+    """
+    Logs downgraded cells and reasons for exclusion from pressure correction.
+    Always writes a verification file, even if no cells are flagged.
+    """
+    downgraded = []
+    for i, cell in enumerate(grid):
+        reasons = []
+        if not isinstance(cell.velocity, list):
+            reasons.append("missing or malformed velocity")
+        if not cell.fluid_mask:
+            reasons.append("fluid_mask=False")
+        downgraded.append({
+            "index": i,
+            "x": cell.x,
+            "y": cell.y,
+            "z": cell.z,
+            "reasons": reasons if reasons else ["no downgrade reason detected"]
+        })
+
+    result = {
+        "step_index": step_index,
+        "downgraded_cell_count": len(downgraded),
+        "downgraded_cells": downgraded
+    }
+
+    os.makedirs(output_folder, exist_ok=True)
+    log_path = os.path.join(output_folder, f"downgrade_verification_step_{step_index:04d}.json")
+    with open(log_path, "w") as f:
+        json.dump(result, f, indent=2)
+
+    if DEBUG:
+        print(f"[VERIFIER] Downgrade check → {len(downgraded)} cells processed")
+        print(f"[VERIFIER] Downgrade log saved to {log_path}")
+
 def run_verification_if_triggered(
     grid: List[Cell],
     spacing: Tuple[float, float, float],
@@ -82,8 +117,14 @@ def run_verification_if_triggered(
         print(f"[VERIFIER] Triggered flags: {triggered_flags}")
         print(f"[VERIFIER] Running physics-based verification for step {step_index}")
 
-    verify_continuity(grid, spacing, step_index, output_folder)
-    verify_pressure_consistency(grid, step_index, output_folder)
+    if "empty_divergence" in triggered_flags or "no_pressure_mutation" in triggered_flags:
+        verify_continuity(grid, spacing, step_index, output_folder)
+
+    if "no_pressure_mutation" in triggered_flags:
+        verify_pressure_consistency(grid, step_index, output_folder)
+
+    if "downgraded_cells" in triggered_flags:
+        verify_downgraded_cells(grid, step_index, output_folder)
 
 
 
