@@ -1,8 +1,14 @@
 # src/compression/snapshot_compactor.py
 # 📦 Snapshot Compactor — removes unmutated cells from pressure delta map exports
+# 📌 This module operates on exported pressure delta maps.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 import os
 import json
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compact_pressure_delta_map(
     input_path: str,
@@ -24,7 +30,8 @@ def compact_pressure_delta_map(
         with open(input_path, "r") as f:
             data = json.load(f)
     except Exception as e:
-        print(f"[COMPACTOR] ❌ Failed to load {input_path}: {e}")
+        if debug:
+            print(f"[COMPACTOR] ❌ Failed to load {input_path}: {e}")
         return 0
 
     retained = {
@@ -34,15 +41,17 @@ def compact_pressure_delta_map(
     }
 
     if not retained:
-        print(f"[COMPACTOR] ⚠️ No cells retained after compaction — skipping write.")
+        if debug:
+            print(f"[COMPACTOR] ⚠️ No cells retained after compaction — skipping write.")
         return 0
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w") as f:
         json.dump(retained, f, indent=2)
 
-    print(f"[COMPACTOR] ✅ Compacted snapshot saved → {output_path}")
-    print(f"[COMPACTOR] 🧮 Cells retained: {len(retained)} of {len(data)}")
+    if debug:
+        print(f"[COMPACTOR] ✅ Compacted snapshot saved → {output_path}")
+        print(f"[COMPACTOR] 🧮 Cells retained: {len(retained)} of {len(data)}")
     return len(retained)
 
 

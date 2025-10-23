@@ -6,6 +6,9 @@
 
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
+
 # ✅ Updated markers for boolean-style summary detection
 MARKERS = {
     "Pressure mutated: True": "pressure_mutation",
@@ -29,10 +32,13 @@ def score_reflex_log_text(log_text: str) -> dict:
     matched = [label for marker, label in MARKERS.items() if marker in log_text]
     found = len(matched)
     total = len(MARKERS)
-    return {
+    result = {
         "reflex_score": f"{found} / {total}",
         "markers_matched": matched
     }
+    if debug:
+        print(f"[CI SCORE] Matched {found}/{total} markers → {matched}")
+    return result
 
 def score_from_summary_file(summary_path: str) -> dict:
     """
@@ -44,7 +50,10 @@ def score_from_summary_file(summary_path: str) -> dict:
     Returns:
     - dict containing step scores and summary statistics
     """
-    return evaluate_reflex_score(summary_path)
+    result = evaluate_reflex_score(summary_path)
+    if debug:
+        print(f"[CI SCORE] Summary file evaluated → {summary_path}")
+    return result
 
 def score_combined(log_text: str, summary_path: str) -> dict:
     """
@@ -57,10 +66,13 @@ def score_combined(log_text: str, summary_path: str) -> dict:
     Returns:
     - Combined dict with CI and simulation score results
     """
-    return {
+    combined = {
         "ci_log_score": score_reflex_log_text(log_text),
         "summary_score": score_from_summary_file(summary_path)
     }
+    if debug:
+        print(f"[CI SCORE] Combined scoring complete.")
+    return combined
 
 
 

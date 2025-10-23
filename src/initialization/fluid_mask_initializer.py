@@ -1,18 +1,23 @@
 # src/initialization/fluid_mask_initializer.py
 # 🧬 Fluid Mask Initializer — constructs simulation grid and assigns fluid, solid, and ghost masks with reflex-aware tagging
+# 📌 This module enforces geometry-mask-driven inclusion logic.
+# Only ghost-boundary cells are marked fluid_mask=False.
+# All other cells are initialized as fluid_mask=True.
 
 from typing import List, Dict
 from src.grid_modules.cell import Cell
 from src.config.config_validator import validate_config
 
-def initialize_masks(grid: List[Cell], config: Dict, verbose: bool = False) -> List[Cell]:
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
+
+def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
     Applies reflex-aware fluid/ghost tagging to a raw grid.
 
     Args:
         grid (List[Cell]): Raw simulation grid
         config (Dict): Domain and boundary configuration
-        verbose (bool): If True, prints debug info
 
     Returns:
         List[Cell]: Grid with updated mask and reflex metadata
@@ -74,7 +79,7 @@ def initialize_masks(grid: List[Cell], config: Dict, verbose: bool = False) -> L
             initialized_cell.originated_from_boundary = True
             initialized_cell.mutation_triggered_by = "boundary_enforcement"  # ✅ Reflex traceability
 
-            if verbose:
+            if debug:
                 print(f"[MASK] Ghost cell @ ({x:.2f}, {y:.2f}, {z:.2f}) → face={ghost_face}, type={ghost_type}")
 
         initialized.append(initialized_cell)
@@ -82,13 +87,12 @@ def initialize_masks(grid: List[Cell], config: Dict, verbose: bool = False) -> L
     return initialized
 
 
-def build_simulation_grid(config: Dict, verbose: bool = False) -> List[Cell]:
+def build_simulation_grid(config: Dict) -> List[Cell]:
     """
     Constructs the simulation grid and applies fluid/ghost masks.
 
     Args:
         config (Dict): Domain and boundary configuration
-        verbose (bool): If True, prints debug info
 
     Returns:
         List[Cell]: Reflex-tagged simulation grid
@@ -115,8 +119,16 @@ def build_simulation_grid(config: Dict, verbose: bool = False) -> List[Cell]:
                 cell = Cell(x=x, y=y, z=z, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
                 raw_grid.append(cell)
 
+    if debug:
+        print(f"[GRID] Constructed raw grid with {len(raw_grid)} cells")
+
     # ✅ Apply reflex-aware fluid/ghost tagging
-    grid = initialize_masks(raw_grid, config, verbose=verbose)
+    grid = initialize_masks(raw_grid, config)
+
+    if debug:
+        fluid_count = sum(1 for c in grid if c.fluid_mask)
+        ghost_count = len(grid) - fluid_count
+        print(f"[GRID] Final grid → fluid={fluid_count}, ghost={ghost_count}")
 
     return grid
 

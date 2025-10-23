@@ -1,8 +1,14 @@
 # src/physics/divergence_methods/divergence_helpers.py
-# 🧮 Divergence helper utilities for central difference scheme
+# 🧮 Divergence Helpers — velocity access and gradient computation for central-difference ∇ · u enforcement
+# 📌 This module supports continuity diagnostics and projection validation.
+# It excludes only neighbors explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or boundary proximity.
 
 from src.grid_modules.cell import Cell
 from typing import List, Tuple, Optional, Dict
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def get_neighbor_velocity(
     grid_lookup: Dict[Tuple[float, float, float], Cell],
@@ -37,7 +43,12 @@ def get_neighbor_velocity(
     neighbor = grid_lookup.get(target)
 
     if neighbor and neighbor.fluid_mask and isinstance(neighbor.velocity, list):
+        if debug:
+            print(f"[HELPERS] Neighbor @ {target} → velocity = {neighbor.velocity}")
         return neighbor.velocity
+
+    if debug:
+        print(f"[HELPERS] Neighbor @ {target} skipped → fluid_mask={getattr(neighbor, 'fluid_mask', None)}")
     return None
 
 def central_difference(
@@ -59,7 +70,12 @@ def central_difference(
         float: Gradient value ∂v/∂axis or zero if neighbors are missing
     """
     if v_pos is not None and v_neg is not None:
-        return (v_pos[component] - v_neg[component]) / (2.0 * spacing)
+        gradient = (v_pos[component] - v_neg[component]) / (2.0 * spacing)
+        if debug:
+            print(f"[HELPERS] ∂v[{component}]/∂axis = ({v_pos[component]} - {v_neg[component]}) / (2 * {spacing}) = {gradient:.6f}")
+        return gradient
+    if debug:
+        print(f"[HELPERS] Central difference skipped → missing neighbors")
     return 0.0
 
 

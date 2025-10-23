@@ -1,8 +1,14 @@
 # src/reflex/spatial_tagging/ghost_face_mapper.py
 # 🧭 Ghost Face Mapper — tags fluid cells adjacent to ghost cells for reflex overlays and scoring
+# 📌 This module identifies ghost-adjacent fluid cells for reflex overlays and mutation causality.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or proximity — all logic is geometry-mask-driven.
 
 from src.grid_modules.cell import Cell
 from typing import List, Tuple, Set
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def tag_ghost_adjacency(
     grid: List[Cell],
@@ -50,7 +56,7 @@ def tag_ghost_adjacency(
                 cell.ghost_adjacent = True
                 cell.mutation_triggered_by = "ghost_adjacency"
                 adjacency_coords.append((cell.x, cell.y))
-                if verbose:
+                if debug and verbose:
                     print(f"[ADJACENCY] Fluid cell @ {coord} adjacent to ghost @ {ghost}")
                 break  # Tag once per cell
 

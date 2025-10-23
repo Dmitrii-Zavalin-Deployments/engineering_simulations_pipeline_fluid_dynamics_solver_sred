@@ -1,8 +1,14 @@
 # src/physics/advection.py
 # 🌀 Advection Operator — computes nonlinear transport term u · ∇u for momentum enforcement
+# 📌 This module enforces directional momentum transfer via convective transport.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency, boundary proximity, or velocity anomalies.
 
 from typing import List
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compute_advection(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     """
@@ -85,6 +91,9 @@ def compute_advection(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
         updated_cell.mutation_source = "advection"
         updated_cell.mutation_step = config.get("step_index", None)
         updated_cell.transport_triggered = True
+
+        if debug:
+            print(f"[ADVECTION] Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → transport={transport}, velocity={new_velocity}")
 
         advected.append(updated_cell)
 

@@ -1,5 +1,8 @@
 # src/physics/divergence_methods/central.py
-# 📏 Central-difference divergence scheme for structured fluid grids
+# 📏 Central-Difference Divergence — computes ∇ · u across fluid cells using symmetric stencil
+# 📌 This module supports continuity enforcement and reflex diagnostics.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip cells based on adjacency, boundary proximity, or velocity anomalies.
 
 from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
@@ -7,6 +10,9 @@ from src.physics.divergence_methods.divergence_helpers import (
     get_neighbor_velocity,
     central_difference
 )
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
     """
@@ -38,7 +44,7 @@ def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
     divergence = []
     for cell in grid:
         if not cell.fluid_mask or not isinstance(cell.velocity, list):
-            continue
+            continue  # ❌ Explicit exclusion: solid or ghost cell
 
         grad_x = central_difference(
             get_neighbor_velocity(lookup, cell.x, cell.y, cell.z, 'x', +1, spacing['x']),
@@ -61,7 +67,11 @@ def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
             component=2
         )
 
-        divergence.append(grad_x + grad_y + grad_z)
+        div = grad_x + grad_y + grad_z
+        divergence.append(div)
+
+        if debug:
+            print(f"[CENTRAL ∇·u] Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → ∇·u = {div:.6f}")
 
     return divergence
 

@@ -1,11 +1,17 @@
 # src/physics/ghost_influence_applier.py
 # 🧱 Ghost Influence Applier — applies pressure/velocity from ghosts to adjacent fluid cells
+# 📌 This module propagates ghost-enforced boundary fields into neighboring fluid cells.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or proximity — all logic is geometry-mask-driven.
 
 import logging
 from typing import List, Tuple
 from src.grid_modules.cell import Cell
 
 logger = logging.getLogger(__name__)
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def fuzzy_equal(v1: List[float], v2: List[float], tol: float = 1e-6) -> bool:
     return all(abs(a - b) <= tol for a, b in zip(v1, v2))
@@ -63,8 +69,8 @@ def apply_ghost_influence(
     for ghost in ghost_cells:
         ghost_coord = (round(ghost.x, 6), round(ghost.y, 6), round(ghost.z, 6))
 
-        if verbose:
-            print(f"[ghost_gen] ghost.cell @ {ghost_coord} → velocity={ghost.velocity}, pressure={ghost.pressure}")
+        if debug and verbose:
+            print(f"[GHOST] ghost.cell @ {ghost_coord} → velocity={ghost.velocity}, pressure={ghost.pressure}")
 
         for f_coord, fluid_cell in fluid_coord_map.items():
             if coords_are_neighbors(ghost_coord, f_coord):
@@ -87,26 +93,26 @@ def apply_ghost_influence(
                 if modified:
                     fluid_cell.influenced_by_ghost = True
                     influence_count += 1
-                    if verbose:
-                        print(f"[DEBUG] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
+                    if debug and verbose:
+                        print(f"[GHOST] Ghost @ {ghost_coord} → influenced fluid @ {f_coord}")
                 else:
                     fluid_cell.triggered_by = "ghost adjacency — no mutation (fields matched)"
-                    if verbose and velocity_match and pressure_match:
+                    if debug and verbose and velocity_match and pressure_match:
                         skipped_due_to_match += 1
-                        print(f"Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")
+                        print(f"[GHOST] Influence skipped: matched fields → ghost={ghost.velocity}, fluid={fluid_cell.velocity}")
                     logger.debug(f"[influence] ghost.v={ghost.velocity}, fluid.v={fluid_cell.velocity}")
                     logger.debug(f"[influence] suppression reason: fields matched within tolerance")
 
                 # ✅ Optional audit: log adjacency context even if no pressure mutation occurred
                 logger.debug(f"[audit] Ghost→Fluid neighbor match @ {f_coord}, enforced={modified}")
 
-    if verbose:
-        print(f"[DEBUG] Total fluid cells influenced by ghosts: {influence_count}")
-        print(f"[DEBUG] Total fluid cells adjacent to ghosts: {bordering_fluid_count}")
+    if debug and verbose:
+        print(f"[GHOST] Total fluid cells influenced by ghosts: {influence_count}")
+        print(f"[GHOST] Total fluid cells adjacent to ghosts: {bordering_fluid_count}")
         if bordering_fluid_count > 0 and influence_count == 0:
-            print("⚠️ Ghosts adjacent to fluid cells did not trigger influence propagation.")
+            print("[GHOST] ⚠️ Ghosts adjacent to fluid cells did not trigger influence propagation.")
         if skipped_due_to_match > 0:
-            print(f"[DEBUG] Skipped influence due to field match: {skipped_due_to_match} fluid cells")
+            print(f"[GHOST] Skipped influence due to field match: {skipped_due_to_match} fluid cells")
 
     return influence_count
 

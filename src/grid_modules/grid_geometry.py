@@ -1,6 +1,13 @@
 # src/grid_modules/grid_geometry.py
+# 🌐 Grid Geometry Generator — computes grid indices and physical coordinates for simulation domain
+# 📌 This module initializes the spatial layout of the simulation grid.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 import logging
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float, float]]:
     """
@@ -54,6 +61,10 @@ def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float
             for iz in range(nz):
                 z = min_z + (iz + 0.5) * dz
                 coordinates.append((ix, iy, iz, x, y, z))
+
+    if debug:
+        print(f"[GEOMETRY] Generated {len(coordinates)} grid coordinates "
+              f"(nx={nx}, ny={ny}, nz={nz}, dx={dx:.3f}, dy={dy:.3f}, dz={dz:.3f})")
 
     return coordinates
 

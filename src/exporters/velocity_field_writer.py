@@ -1,8 +1,14 @@
+# src/exporters/velocity_field_writer.py
+# 💨 Velocity Field Writer — exports per-cell velocity vectors for fluid cells
+# 📌 This module operates on post-simulation velocity data.
+# It includes only cells where fluid_mask=True.
+# It does NOT exclude cells based on adjacency or boundary logic.
+
 import json
 import os
 
-# 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def write_velocity_field(grid, step, output_dir="data/snapshots"):
     """
@@ -31,10 +37,10 @@ def write_velocity_field(grid, step, output_dir="data/snapshots"):
     with open(filepath, "w") as f:
         json.dump(velocity_snapshot, f, indent=2)
 
-    if DEBUG:
+    if debug:
         if not velocity_snapshot:
-            print(f"[DEBUG] No fluid cells found for velocity export at step {step}")
-        print(f"💨 Velocity field snapshot saved → {filepath}")
+            print(f"[EXPORT] ⚠️ No fluid cells found for velocity export at step {step}")
+        print(f"[EXPORT] 💨 Velocity field snapshot saved → {filepath}")
 
 
 

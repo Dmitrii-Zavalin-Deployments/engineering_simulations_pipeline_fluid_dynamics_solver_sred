@@ -1,7 +1,13 @@
 # src/grid_modules/initial_field_assigner.py
 # 🌀 Initial Field Assigner — seeds velocity and pressure for ∂u/∂t initialization and reflex diagnostics
+# 📌 This module assigns initial conditions to fluid cells only.
+# It enforces that only fluid_mask=True cells receive velocity and pressure.
+# Solid and ghost cells are sanitized to None.
 
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
     """
@@ -47,7 +53,8 @@ def assign_fields(cells: list[Cell], initial_conditions: dict) -> list[Cell]:
         if fluid:
             cell.velocity = velocity[:]
             cell.pressure = pressure
-            print(f"[DEBUG] Initial fluid @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity: {velocity}, pressure: {pressure}")
+            if debug:
+                print(f"[INIT] Fluid @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity: {velocity}, pressure: {pressure}")
         else:
             cell.velocity = None
             cell.pressure = None

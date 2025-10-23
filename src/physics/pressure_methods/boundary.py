@@ -1,7 +1,13 @@
 # src/physics/pressure_methods/boundary.py
 # 🧱 Boundary Condition Enforcement — ghost-aware and solid-safe pressure neighbor logic
+# 📌 This module enforces Neumann and Dirichlet pressure conditions at domain boundaries.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or proximity — all logic is geometry-mask-driven.
 
 from typing import Tuple, List, Dict, Set
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def apply_neumann_conditions(coord: Tuple[float, float, float],
                              neighbor: Tuple[float, float, float],
@@ -26,7 +32,10 @@ def apply_neumann_conditions(coord: Tuple[float, float, float],
     Returns:
         Approximated pressure value using Neumann boundary logic
     """
-    return pressure_map.get(coord, 0.0)
+    fallback = pressure_map.get(coord, 0.0)
+    if debug:
+        print(f"[BOUNDARY] Neumann fallback → neighbor={neighbor}, pressure={fallback}")
+    return fallback
 
 
 def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
@@ -74,15 +83,20 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
                 total += ghost_pressure_map[n]
                 if diagnostics is not None:
                     diagnostics["ghost_dirichlet"] = diagnostics.get("ghost_dirichlet", 0) + 1
+                if debug:
+                    print(f"[BOUNDARY] Ghost Dirichlet → {n} = {ghost_pressure_map[n]}")
             else:
                 total += apply_neumann_conditions(coord, n, pressure_map)
                 if diagnostics is not None:
                     diagnostics["ghost_neumann"] = diagnostics.get("ghost_neumann", 0) + 1
         elif n in fluid_mask_map:
             if fluid_mask_map[n]:
-                total += pressure_map.get(n, pressure_map.get(coord, 0.0))
+                pressure = pressure_map.get(n, pressure_map.get(coord, 0.0))
+                total += pressure
                 if diagnostics is not None:
                     diagnostics["fluid_neighbor"] = diagnostics.get("fluid_neighbor", 0) + 1
+                if debug:
+                    print(f"[BOUNDARY] Fluid neighbor → {n} = {pressure}")
             else:
                 total += apply_neumann_conditions(coord, n, pressure_map)
                 if diagnostics is not None:
@@ -91,6 +105,7 @@ def handle_solid_or_ghost_neighbors(coord: Tuple[float, float, float],
             total += apply_neumann_conditions(coord, n, pressure_map)
             if diagnostics is not None:
                 diagnostics["missing_neumann"] = diagnostics.get("missing_neumann", 0) + 1
+
     return total
 
 

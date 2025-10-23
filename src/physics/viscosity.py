@@ -1,10 +1,16 @@
 # src/physics/viscosity.py
 # 💧 Viscous Diffusion Module — applies μ∇²u smoothing to velocity field with mutation diagnostics
+# 📌 This module enforces viscous damping via Laplacian stencil.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
 from src.physics.advection_methods.helpers import vector_add, vector_scale, copy_cell
 import math
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     """
@@ -107,7 +113,8 @@ def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]
 
         updated.append(updated_cell)
 
-    print(f"💧 Viscosity applied to {len(updated)} cells → {mutation_count} velocity mutations")
+    if debug:
+        print(f"[VISCOSITY] Applied to {len(updated)} cells → {mutation_count} velocity mutations")
 
     return updated
 

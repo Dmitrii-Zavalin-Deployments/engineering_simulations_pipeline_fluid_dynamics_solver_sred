@@ -1,13 +1,16 @@
 # src/output/snapshot_writer.py
 # 🟨 Influence Flags Exporter — logs fluid cells influenced by ghost boundaries per step
+# 📌 This module tracks ghost-induced influence on fluid cells for reflex diagnostics and ParaView overlays.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip cells based on adjacency, boundary proximity, or solver artifacts.
 
 import os
 import json
 from typing import List, Optional
 from src.grid_modules.cell import Cell
 
-# 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def export_influence_flags(
     grid: List[Cell],
@@ -75,9 +78,9 @@ def export_influence_flags(
     with open(log_path, "w") as f:
         json.dump(existing, f, indent=2)
 
-    if not quiet_mode and DEBUG:
-        print(f"[DEBUG] 👣 Influence flags exported → {log_path}")
-        print(f"[DEBUG] ✏️  Step {step_index}: {len(entries)} fluid cells tagged as influenced by ghosts.")
+    if not quiet_mode and debug:
+        print(f"[INFLUENCE] 👣 Influence flags exported → {log_path}")
+        print(f"[INFLUENCE] ✏️ Step {step_index}: {len(entries)} fluid cells tagged as influenced by ghosts")
 
 
 

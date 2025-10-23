@@ -1,8 +1,14 @@
+# src/physics/ghost_cell_generator.py
 # 🧱 Ghost Cell Generator — injects ghost padding based on boundary conditions and fluid adjacency
-# 🧪 Debug-log-enabled version with toggle
+# 📌 This module generates ghost cells for boundary enforcement and reflex diagnostics.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or proximity — all logic is geometry-mask-driven.
 
 from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> Tuple[List[Cell], Dict[int, dict]]:
     """
@@ -35,10 +41,10 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
     default_type = ghost_rules.get("default_type", "wall")
 
     if debug:
-        print("[DEBUG] 📘 [ghost_gen] Ghost rule config:")
-        print(f"[DEBUG]    Boundary faces: {boundary_faces}")
-        print(f"[DEBUG]    Default type: {default_type}")
-        print(f"[DEBUG]    Face Types: {face_types}")
+        print("[GHOST] 📘 Ghost rule config:")
+        print(f"[GHOST]    Boundary faces: {boundary_faces}")
+        print(f"[GHOST]    Default type: {default_type}")
+        print(f"[GHOST]    Face Types: {face_types}")
 
     # Build lookup from boundary_conditions
     face_bc_map = {}
@@ -107,14 +113,14 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
         }
         creation_counts[face] += 1
         if debug:
-            print(f"[DEBUG] 🧱 Ghost created @ ({ghost.x:.2f}, {ghost.y:.2f}, {ghost.z:.2f}) ← from fluid @ ({fluid_cell.x:.2f}, {fluid_cell.y:.2f}, {fluid_cell.z:.2f}) → face: {face} ({face_type})")
+            print(f"[GHOST] 🧱 Ghost @ ({ghost.x:.2f}, {ghost.y:.2f}, {ghost.z:.2f}) ← fluid @ ({fluid_cell.x:.2f}, {fluid_cell.y:.2f}, {fluid_cell.z:.2f}) → face: {face} ({face_type})")
 
     for cell_index, cell in enumerate(grid):
         if not cell.fluid_mask:
             continue
         x, y, z = cell.x, cell.y, cell.z
         if debug:
-            print(f"[DEBUG] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
+            print(f"[GHOST] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
         if "x_min" in boundary_faces and abs(x - x_min) <= 0.5 * dx:
             face_type = face_types.get("x_min", default_type)
@@ -137,10 +143,10 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
 
     total_ghosts = len(ghost_cells)
     if debug:
-        print(f"[DEBUG] 📊 Ghost generation complete → total: {total_ghosts}")
+        print(f"[GHOST] 📊 Ghost generation complete → total: {total_ghosts}")
         for face, count in creation_counts.items():
             if count > 0:
-                print(f"[DEBUG]    {face}: {count} ghosts")
+                print(f"[GHOST]    {face}: {count} ghosts")
 
     padded_grid = grid + ghost_cells
     return padded_grid, ghost_registry

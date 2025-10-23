@@ -1,5 +1,8 @@
 # src/diagnostics/navier_stokes_verifier.py
 # 🧠 Navier-Stokes Verifier — validates continuity, pressure consistency, and downgrade diagnostics when triggered
+# 📌 This module operates on post-simulation grid data.
+# It verifies divergence, pressure anomalies, and downgrade reasons.
+# It enforces that only fluid_mask=False cells are excluded from solver routines.
 
 import os
 import json
@@ -7,8 +10,8 @@ from typing import List, Tuple
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 
-# 🛠️ Toggle debug logging
-DEBUG = True
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def verify_continuity(grid: List[Cell], spacing: Tuple[float, float, float], step_index: int, output_folder: str):
     """
@@ -30,14 +33,14 @@ def verify_continuity(grid: List[Cell], spacing: Tuple[float, float, float], ste
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
-    if DEBUG:
+    if debug:
         print(f"[VERIFIER] Continuity check → max ∇·u = {max_div:.3e}, mean = {mean_div:.3e}")
         print(f"[VERIFIER] Status: {result['status']} → saved to {log_path}")
 
 def verify_pressure_consistency(grid: List[Cell], step_index: int, output_folder: str):
     """
-    Placeholder for pressure gradient verification logic.
-    Will compare pressure gradients to expected momentum balance in future iterations.
+    Flags fluid cells with extreme pressure values.
+    Placeholder for future momentum-balance verification.
     """
     flagged = []
     for cell in grid:
@@ -61,14 +64,14 @@ def verify_pressure_consistency(grid: List[Cell], step_index: int, output_folder
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
-    if DEBUG:
+    if debug:
         print(f"[VERIFIER] Pressure consistency check → {len(flagged)} cells flagged")
         print(f"[VERIFIER] Status: {result['status']} → saved to {log_path}")
 
 def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: str):
     """
     Logs downgraded cells and reasons for exclusion from pressure correction.
-    Always writes a verification file, even if no cells are flagged.
+    Only flags cells with malformed velocity or fluid_mask=False.
     """
     downgraded = []
     for i, cell in enumerate(grid):
@@ -77,6 +80,7 @@ def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: st
             reasons.append("missing or malformed velocity")
         if not cell.fluid_mask:
             reasons.append("fluid_mask=False")
+
         downgraded.append({
             "index": i,
             "x": cell.x,
@@ -96,7 +100,7 @@ def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: st
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
-    if DEBUG:
+    if debug:
         print(f"[VERIFIER] Downgrade check → {len(downgraded)} cells processed")
         print(f"[VERIFIER] Downgrade log saved to {log_path}")
 
@@ -113,7 +117,7 @@ def run_verification_if_triggered(
     if not triggered_flags:
         return
 
-    if DEBUG:
+    if debug:
         print(f"[VERIFIER] Triggered flags: {triggered_flags}")
         print(f"[VERIFIER] Running physics-based verification for step {step_index}")
 

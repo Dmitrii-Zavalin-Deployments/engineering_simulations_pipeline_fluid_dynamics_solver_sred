@@ -1,4 +1,11 @@
 # src/diagnostics/mutation_threshold_advisor.py
+# 📐 Mutation Threshold Advisor — computes adaptive pressure delta thresholds for mutation detection
+# 📌 This module operates on per-cell simulation metadata.
+# It does NOT interact with fluid_mask or geometry masking logic.
+# It is NOT responsible for solver inclusion/exclusion decisions.
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def get_delta_threshold(cell, context):
     """
@@ -53,8 +60,14 @@ def get_delta_threshold(cell, context):
     elif mutation_density < 0.05:
         base_threshold *= 1.25
 
-    # Clamp to machine precision floor
-    return max(base_threshold, 1e-15)
+    final_threshold = max(base_threshold, 1e-15)
+
+    if debug:
+        print(f"[THRESHOLD] Computed delta threshold: {final_threshold:.2e} "
+              f"(resolution={resolution}, divergence={local_divergence}, dt={time_step}, "
+              f"score={reflex_score}, density={mutation_density})")
+
+    return final_threshold
 
 
 

@@ -1,8 +1,15 @@
 # src/metrics/cfl_controller.py
+# ⏱️ CFL Controller — computes global CFL number for timestep control and reflex diagnostics
+# 📌 This module evaluates CFL stability across fluid cells.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip cells based on adjacency, boundary proximity, or velocity magnitude.
 
 import math
 from src.grid_modules.cell import Cell
 from typing import List, Dict
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compute_global_cfl(grid: List[Cell], time_step: float, domain: Dict, cfl_threshold: float = 1.0) -> float:
     """
@@ -28,16 +35,26 @@ def compute_global_cfl(grid: List[Cell], time_step: float, domain: Dict, cfl_thr
 
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     max_cfl = 0.0
+    flagged = 0
 
     for cell in grid:
+        if not cell.fluid_mask:
+            continue  # ❌ Explicit exclusion: solid or ghost cell
+
         velocity = cell.velocity
-        if cell.fluid_mask and isinstance(velocity, list) and len(velocity) == 3:
+        if isinstance(velocity, list) and len(velocity) == 3:
             magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
             cfl = magnitude * time_step / dx
             if cfl > cfl_threshold:
                 cell.cfl_exceeded = True
                 cell.mutation_source = "cfl_violation"
+                flagged += 1
             max_cfl = max(max_cfl, cfl)
+
+    if debug:
+        print(f"[CFL] Max CFL across fluid cells: {max_cfl:.5f}")
+        if flagged > 0:
+            print(f"[CFL] ⚠️ {flagged} cells exceeded CFL threshold ({cfl_threshold})")
 
     return round(max_cfl, 5)
 

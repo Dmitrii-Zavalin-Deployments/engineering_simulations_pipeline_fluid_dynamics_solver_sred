@@ -1,10 +1,13 @@
 # src/config/config_validator.py
 # ✅ Config Validator — ensures required fields for reflex-aware grid initialization are present and valid
+# 📌 This module validates the structure of the simulation configuration.
+# It does NOT interact with fluid_mask or geometry masking logic directly.
+# It is NOT responsible for solver inclusion/exclusion decisions.
 
 from typing import Dict
 
-# 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def validate_config(config: Dict) -> None:
     """
@@ -57,7 +60,7 @@ def validate_config(config: Dict) -> None:
         if "no_slip" in bc and not isinstance(bc["no_slip"], bool):
             raise ValueError(f"boundary_conditions[{i}] 'no_slip' must be boolean if present.")
 
-    if DEBUG:
+    if debug:
         print("[CONFIG] Validation passed — config is structurally complete.")
 
 

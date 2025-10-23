@@ -1,8 +1,14 @@
 # src/physics/velocity_projection.py
 # 💨 Velocity Projection — adjusts fluid velocity using pressure gradient ∇P
+# 📌 This module enforces incompressibility by subtracting ∇P from velocity.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from typing import List
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[Cell]:
     """
@@ -79,6 +85,10 @@ def apply_pressure_velocity_projection(grid: List[Cell], config: dict) -> List[C
             pressure=cell.pressure,
             fluid_mask=True
         )
+
+        if debug:
+            print(f"[PROJECTION] Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → ∇P = {grad}, u_new = {projected_velocity}")
+
         updated.append(updated_cell)
 
     return updated

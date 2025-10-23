@@ -1,10 +1,16 @@
 # src/physics/pressure_methods/jacobi.py
-# 🔁 Jacobi iteration for pressure Poisson solve (∇²P = ∇ · u) — ghost-aware and modular
+# 🔁 Jacobi Pressure Solver — solves ∇²P = ∇ · u using ghost-aware modular iteration
+# 📌 This module enforces incompressibility via pressure correction.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency, boundary proximity, or divergence anomalies.
 
 from src.grid_modules.cell import Cell
 from typing import List, Tuple, Set, Dict, Union
 from src.physics.pressure_methods.utils import index_fluid_cells, build_pressure_map
 from src.physics.pressure_methods.boundary import handle_solid_or_ghost_neighbors
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def solve_jacobi_pressure(
     grid: List[Cell],
@@ -104,11 +110,19 @@ def solve_jacobi_pressure(
             max_residual = max(max_residual, residual)
             new_map[coord] = new_p
 
+            if debug:
+                print(f"[JACOBI] Coord {coord} → new_p={new_p:.6f}, residual={residual:.6f}")
+
         pressure_map = new_map
         iteration_count += 1
         final_residual = max_residual
 
+        if debug:
+            print(f"[JACOBI] Iteration {iteration_count} → max_residual={max_residual:.6f}")
+
         if max_residual < tolerance:
+            if debug:
+                print(f"[JACOBI] ✅ Converged after {iteration_count} iterations")
             break
 
     # 📦 Flatten output in fluid cell order

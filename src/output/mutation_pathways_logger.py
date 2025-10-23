@@ -1,10 +1,16 @@
 # src/output/mutation_pathways_logger.py
 # 🧠 Mutation Pathways Logger — tracks pressure mutation causality and suppression diagnostics per timestep
+# 📌 This module logs reflex-triggered pressure mutations and ghost influence chains.
+# It supports audit-grade traceability of solver decisions and mutation propagation.
+# It does NOT exclude cells based on adjacency or boundary proximity — only explicit fluid_mask=False cells are excluded upstream.
 
 import os
 import json
 from typing import List, Union, Optional
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def serialize_cell(cell: Union[Cell, tuple], reason: Optional[str] = None, step_linked_from: Optional[int] = None) -> dict:
     """
@@ -79,12 +85,14 @@ def log_mutation_pathway(
         with open(log_path, "w") as f:
             json.dump(log, f, indent=2)
     except TypeError as e:
-        print(f"[ERROR] Failed to serialize mutation pathway log: {e}")
-        print(f"[DEBUG] Problematic entry that caused failure:")
-        print(entry)
+        if debug:
+            print(f"[ERROR] Failed to serialize mutation pathway log: {e}")
+            print(f"[DEBUG] Problematic entry that caused failure:")
+            print(entry)
         raise
 
-    print(f"Mutation pathway recorded → {log_path}")
+    if debug:
+        print(f"[PATHWAY] Mutation pathway recorded → {log_path}")
 
 
 

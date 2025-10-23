@@ -1,11 +1,17 @@
 # src/metrics/reflex_score_evaluator.py
 # 📊 Reflex Score Evaluator — audits both summary logs and snapshot trace integrity
+# 📌 This module evaluates solver trace fidelity and mutation causality.
+# It supports reflex scoring, suppression diagnostics, and projection depth analysis.
+# It does NOT exclude cells based on adjacency or boundary proximity — only explicit fluid_mask=False cells are excluded upstream.
 
 import os
 import json
 import statistics
 from typing import List
 from src.visualization.reflex_score_visualizer import plot_reflex_score_evolution  # ✅ Added
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 # 🔍 Line-based scoring from step_summary.txt
 def evaluate_reflex_score(summary_file_path: str) -> dict:
@@ -60,7 +66,9 @@ def compute_score(inputs: dict) -> float:
     triggered_by = inputs.get("triggered_by", [])
     boundary_mutation_ratio = inputs.get("boundary_mutation_ratio", 0.0)  # ✅ New input
 
-    print(f"[DEBUG] [score] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, density={mutation_density}, passes={projection_passes}, triggered_by={triggered_by}, boundary_mutation_ratio={boundary_mutation_ratio}")
+    if debug:
+        print(f"[SCORE] Inputs → mutation={mutation}, adjacency={adjacency}, influence={influence}, suppression={suppression}, "
+              f"density={mutation_density}, passes={projection_passes}, triggered_by={triggered_by}, boundary_mutation_ratio={boundary_mutation_ratio}")
 
     score = 0.0
     if mutation:
@@ -96,7 +104,10 @@ def compute_score(inputs: dict) -> float:
         score -= 0.1 * suppression
 
     score = max(score, 0.0)
-    print(f"[DEBUG] [score] Final score={score}")
+
+    if debug:
+        print(f"[SCORE] Final reflex score = {score:.3f}")
+
     return round(score, 3)
 
 # 🧠 Snapshot-based scoring — evaluates trace integrity and solver metadata

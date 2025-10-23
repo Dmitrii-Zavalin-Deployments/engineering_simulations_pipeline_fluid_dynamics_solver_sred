@@ -1,5 +1,8 @@
 # src/physics/divergence_tracker.py
 # 📊 Divergence Tracker — computes and logs ∇ · u for continuity enforcement and reflex diagnostics
+# 📌 This module tracks divergence across fluid cells and exports reflex metadata.
+# It excludes ghost cells and cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or boundary proximity.
 
 import os
 import json
@@ -7,8 +10,8 @@ from typing import List, Dict, Set
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 
-# 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compute_divergence_stats(
     grid: List[Cell],
@@ -30,10 +33,10 @@ def compute_divergence_stats(
     max_div = max(abs(d) for d in divergence) if divergence else 0.0
     mean_div = sum(abs(d) for d in divergence) / len(divergence) if divergence else 0.0
 
-    if DEBUG:
-        print(f"[DIV] Step {step_index} — {label}: max={max_div:.3e}, mean={mean_div:.3e}")
+    if debug:
+        print(f"[TRACKER] Step {step_index} — {label}: max={max_div:.3e}, mean={mean_div:.3e}")
         for i, d in enumerate(divergence):
-            print(f"[DEBUG] Divergence[{i}] = {d:.6e}")
+            print(f"[TRACKER] Divergence[{i}] = {d:.6e}")
 
     # 🧠 Annotate cells with divergence for reflex metadata
     fluid_index = 0
@@ -58,6 +61,10 @@ def compute_divergence_stats(
     }
     with open(map_path, "w") as f:
         json.dump(divergence_map, f, indent=2)
+
+    if debug:
+        print(f"[TRACKER] Divergence log written → {log_path}")
+        print(f"[TRACKER] Divergence map exported → {map_path}")
 
     return {
         "max": max_div,

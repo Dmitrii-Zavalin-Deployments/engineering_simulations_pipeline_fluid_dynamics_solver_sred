@@ -1,8 +1,14 @@
 # src/reflex/spatial_tagging/suppression_zones.py
 # 🚫 Suppression Zones — tags fluid cells near ghost boundaries that failed to mutate or register influence
+# 📌 This module identifies ghost-adjacent fluid cells that were not mutated or tagged as influenced.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or proximity — all logic is geometry-mask-driven.
 
 from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def detect_suppression_zones(
     grid: List[Cell],
@@ -48,6 +54,8 @@ def detect_suppression_zones(
         for ghost in ghost_coords:
             if is_adjacent(coord, ghost):
                 suppressed.append((cell.x, cell.y))
+                if debug:
+                    print(f"[SUPPRESSION] Fluid cell @ {coord} adjacent to ghost @ {ghost} but not mutated/influenced")
                 break
 
     return suppressed
@@ -68,7 +76,10 @@ def extract_mutated_coordinates(mutated_cells: List[object]) -> Set[Tuple[float,
         if isinstance(cell, tuple) and len(cell) == 3:
             coords.add(cell)
         elif hasattr(cell, "x") and hasattr(cell, "y") and hasattr(cell, "z"):
-            coords.add((cell.x, cell.y, cell.z))
+            coord = (cell.x, cell.y, cell.z)
+            coords.add(coord)
+            if debug:
+                print(f"[SUPPRESSION] Extracted mutated coord → {coord}")
     return coords
 
 

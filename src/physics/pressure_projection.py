@@ -1,5 +1,8 @@
 # src/physics/pressure_projection.py
 # 🔁 Pressure Projection — solves ∇²P = ∇ · u and applies velocity correction for incompressibility
+# 📌 This module enforces incompressibility via pressure solve and velocity projection.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
@@ -8,7 +11,8 @@ from src.physics.pressure_methods.utils import index_fluid_cells
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
-DEBUG = False  # Centralized toggle for diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def solve_pressure_poisson(
     grid: List[Cell],
@@ -37,9 +41,9 @@ def solve_pressure_poisson(
             f"Divergence list length ({len(divergence)}) does not match number of fluid cells ({fluid_cell_count})"
         )
 
-    if DEBUG or verbose:
+    if debug or verbose:
         for i, d in enumerate(divergence):
-            print(f"[DEBUG] Divergence[{i}] = {d:.6e}")
+            print(f"[PRESSURE] Divergence[{i}] = {d:.6e}")
 
     # 🧱 Prepare ghost registry
     ghost_registry = build_ghost_registry(grid)
@@ -87,7 +91,7 @@ def solve_pressure_poisson(
                 updated_cell.mutation_source = "pressure_solver"
                 updated_cell.mutation_step = config.get("step_index", None)
                 updated_cell.pressure_delta = round(delta, 6)
-                if DEBUG or verbose:
+                if debug or verbose:
                     print(f"[MUTATION] Pressure changed @ {coord} → ΔP = {delta:.2e}")
 
             # ✅ Reflex traceability: ghost adjacency tagging
@@ -95,7 +99,7 @@ def solve_pressure_poisson(
                 if all(abs(a - b) <= spacing[i] + 1e-3 for i, (a, b) in enumerate(zip(coord, ghost))):
                     updated_cell.influenced_by_ghost = True
                     updated_cell.mutation_triggered_by = "ghost_influence"
-                    if DEBUG or verbose:
+                    if debug or verbose:
                         print(f"[TRACE] Ghost-influenced mutation @ {coord}")
                     break
 

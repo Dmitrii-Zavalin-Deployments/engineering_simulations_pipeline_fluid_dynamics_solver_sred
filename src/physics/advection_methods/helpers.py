@@ -1,9 +1,14 @@
 # src/physics/advection_methods/helpers.py
-# 🔧 Math support utilities — vector operations, interpolation, cell manipulation
+# 🔧 Advection Math Utilities — vector operations, interpolation, and cell manipulation for ∂u/∂t routines
+# 📌 This module supports velocity advection and cell mutation logic.
+# It preserves fluid_mask status for solver inclusion integrity.
+# It does NOT exclude cells — masking logic is enforced upstream.
 
 from src.grid_modules.cell import Cell
 from typing import Optional, List
 
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def copy_cell(
     cell: Cell,
@@ -21,7 +26,7 @@ def copy_cell(
     Returns:
         Cell: Copied cell with updated fields if specified
     """
-    return Cell(
+    new_cell = Cell(
         x=cell.x,
         y=cell.y,
         z=cell.z,
@@ -29,6 +34,11 @@ def copy_cell(
         pressure=pressure if pressure is not None else cell.pressure,
         fluid_mask=cell.fluid_mask
     )
+
+    if debug:
+        print(f"[HELPERS] Copied cell @ ({new_cell.x:.2f}, {new_cell.y:.2f}, {new_cell.z:.2f}) → velocity={new_cell.velocity}, pressure={new_cell.pressure}, fluid_mask={new_cell.fluid_mask}")
+
+    return new_cell
 
 
 def vector_add(a: List[float], b: List[float]) -> List[float]:
@@ -42,7 +52,10 @@ def vector_add(a: List[float], b: List[float]) -> List[float]:
     Returns:
         List[float]: Resulting vector
     """
-    return [a[i] + b[i] for i in range(3)]
+    result = [a[i] + b[i] for i in range(3)]
+    if debug:
+        print(f"[HELPERS] vector_add → {a} + {b} = {result}")
+    return result
 
 
 def vector_scale(v: List[float], scalar: float) -> List[float]:
@@ -56,7 +69,10 @@ def vector_scale(v: List[float], scalar: float) -> List[float]:
     Returns:
         List[float]: Scaled vector
     """
-    return [scalar * comp for comp in v]
+    result = [scalar * comp for comp in v]
+    if debug:
+        print(f"[HELPERS] vector_scale → {v} * {scalar} = {result}")
+    return result
 
 
 

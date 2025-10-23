@@ -1,8 +1,14 @@
 # src/physics/boundary_condition_solver.py
 # 🧪 Boundary Condition Solver — enforces inlet/outlet/wall/symmetry logic on ghost cells and adjacent fluid cells
+# 📌 This module enforces Dirichlet and Neumann conditions on ghost cells and reflects changes into adjacent fluid cells.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or boundary proximity — all logic is geometry-mask-driven.
 
 from typing import List, Dict
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict], config: dict) -> List[Cell]:
     """
@@ -30,14 +36,16 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
     """
     boundary_blocks = config.get("boundary_conditions", [])
     if not isinstance(boundary_blocks, list):
-        print(f"⚠️ Unexpected boundary_conditions format: {type(boundary_blocks)} → expected list of dicts")
+        if debug:
+            print(f"[BOUNDARY] ⚠️ Unexpected boundary_conditions format: {type(boundary_blocks)} → expected list of dicts")
         return grid
 
     ghost_ids = set(ghost_registry.keys())
 
     for bc in boundary_blocks:
         if not isinstance(bc, dict):
-            print(f"⚠️ Skipping malformed boundary block: {type(bc)} → {bc}")
+            if debug:
+                print(f"[BOUNDARY] ⚠️ Skipping malformed boundary block: {type(bc)} → {bc}")
             continue
 
         enforced_velocity = bc.get("velocity", None)
@@ -59,6 +67,9 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
                 cell.pressure = enforced_pressure
             elif "pressure" not in apply_to:
                 cell.pressure = None
+
+            if debug:
+                print(f"[BOUNDARY] Ghost cell updated → velocity={cell.velocity}, pressure={cell.pressure}")
 
         # ✅ Step 2: Reflect enforcement into adjacent fluid cells using ghost origin mapping
         origin_map = {
@@ -84,6 +95,9 @@ def apply_boundary_conditions(grid: List[Cell], ghost_registry: Dict[int, dict],
 
             if "pressure" in apply_to and isinstance(enforced_pressure, (int, float)):
                 fluid_cell.pressure = enforced_pressure
+
+            if debug:
+                print(f"[BOUNDARY] Fluid cell @ {origin_coord} updated → velocity={fluid_cell.velocity}, pressure={fluid_cell.pressure}")
 
     return grid
 
