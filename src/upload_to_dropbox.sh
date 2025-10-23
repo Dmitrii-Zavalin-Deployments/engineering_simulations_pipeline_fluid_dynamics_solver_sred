@@ -5,14 +5,17 @@ APP_KEY="${APP_KEY}"             # Dropbox App Key (Client ID)
 APP_SECRET="${APP_SECRET}"       # Dropbox App Secret (Client Secret)
 REFRESH_TOKEN="${REFRESH_TOKEN}" # Dropbox Refresh Token
 
-# Location of pre-zipped archive
+# Location of archive output
 BASE_OUTPUT_DIR="${GITHUB_WORKSPACE}/data/testing-input-output"
 ZIP_FILE_NAME="navier_stokes_output.zip"
 LOCAL_ZIP_FILE_PATH="${BASE_OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
-# Create zip archive from simulation output
-echo "📦 Creating archive: ${ZIP_FILE_NAME}"
-zip -r "${LOCAL_ZIP_FILE_PATH}" "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output"
+# Create zip archive from simulation output (contents only, no full path)
+(
+  cd "${GITHUB_WORKSPACE}/data/testing-input-output/navier_stokes_output" || exit 1
+  echo "📦 Creating archive: ${ZIP_FILE_NAME}"
+  zip -r "${LOCAL_ZIP_FILE_PATH}" ./*
+)
 
 # Confirm zip file exists
 if [ ! -f "${LOCAL_ZIP_FILE_PATH}" ]; then
