@@ -6,7 +6,7 @@ APP_SECRET="${APP_SECRET}"       # Dropbox App Secret (Client Secret)
 REFRESH_TOKEN="${REFRESH_TOKEN}" # Dropbox Refresh Token
 
 # Location of pre-zipped archive
-BASE_OUTPUT_DIR="${GITHUB_WORKSPACE}/data/testing-output-run"
+BASE_OUTPUT_DIR="${GITHUB_WORKSPACE}/data/testing-input-output"
 ZIP_FILE_NAME="navier_stokes_output.zip"
 LOCAL_ZIP_FILE_PATH="${BASE_OUTPUT_DIR}/${ZIP_FILE_NAME}"
 
