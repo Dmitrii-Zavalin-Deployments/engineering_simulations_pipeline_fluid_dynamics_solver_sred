@@ -39,6 +39,12 @@ def test_load_delta_map_filters_zero_deltas(delta_map_with_mutations):
     assert len(coords) == 5
     assert (1.0, 1.0, 1.0) not in coords
 
+def test_load_delta_map_handles_invalid_json(tmp_path):
+    broken_path = tmp_path / "broken.json"
+    broken_path.write_text("not valid json")
+    result = load_delta_map(str(broken_path))
+    assert result == []
+
 def test_detect_mutation_clusters_threshold_met():
     coords = [
         (0.0, 0.0, 0.0),
@@ -85,16 +91,18 @@ def test_propose_refinement_zones_creates_output(delta_map_with_mutations):
         assert "refinement_zones" in data
         assert isinstance(data["refinement_zones"], list)
 
-def test_propose_refinement_zones_skips_empty(empty_delta_map):
+def test_propose_refinement_zones_skips_empty(empty_delta_map, capsys):
     with tempfile.TemporaryDirectory() as tmpdir:
         result = propose_refinement_zones(
             delta_map_path=empty_delta_map,
             spacing=(1.0, 1.0, 1.0),
             step_index=99,
             output_folder=tmpdir,
-            threshold=1
+            threshold=5
         )
+        captured = capsys.readouterr()
         assert result == []
+        assert "[REFINER] 🚫 No clusters detected in step 99" in captured.out
         output_path = os.path.join(tmpdir, "refinement_step_0099.json")
         assert not os.path.exists(output_path)
 

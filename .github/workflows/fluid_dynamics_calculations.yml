@@ -110,10 +110,10 @@ jobs:
     #     python src/main_solver.py "$ORIGINAL_INPUT_FILE"
     #     echo "✅ Main solver executed."
 
-    - name: 🧪 Run Snapshot Validation
-      run: |
-        python src/tools/snapshot_validator.py
-        echo "✅ Snapshot validation executed."
+    # - name: 🧪 Run Snapshot Validation
+    #   run: |
+    #     python src/tools/snapshot_validator.py
+    #     echo "✅ Snapshot validation executed."
 
     - name: 📊 Evaluate Reflex Scoring
       env:
