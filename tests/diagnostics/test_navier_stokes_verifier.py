@@ -2,6 +2,7 @@
 # ✅ Verifier Activation Test — confirms that navier_stokes_verifier runs when diagnostic flags are triggered
 
 import os
+import json
 
 def test_verifier_triggered_on_empty_divergence(tmp_path):
     from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
@@ -26,7 +27,13 @@ def test_verifier_triggered_on_empty_divergence(tmp_path):
 
     assert os.path.exists(continuity_path), "Continuity verification file missing"
     assert os.path.exists(pressure_path), "Pressure verification file missing"
-    assert os.path.exists(downgrade_path), "Downgrade verification file missing"
+    assert os.path.exists(downgrade_path), "Expected downgrade verification file even if empty"
+
+    # ✅ Validate downgrade file structure
+    with open(downgrade_path) as f:
+        data = json.load(f)
+        assert "downgraded_cells" in data
+        assert isinstance(data["downgraded_cells"], list)
 
 
 
