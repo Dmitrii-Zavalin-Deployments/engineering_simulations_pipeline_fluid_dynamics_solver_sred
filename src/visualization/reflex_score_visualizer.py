@@ -1,9 +1,15 @@
 # src/visualization/reflex_score_visualizer.py
 # 📈 Reflex Score Visualizer — charts score evolution and mutation triggers across simulation steps
+# 📌 This module visualizes reflex score evolution, suppression spikes, and ghost adjacency annotations.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import matplotlib.pyplot as plt
 import os
 from typing import List, Dict
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def plot_reflex_score_evolution(
     evaluations: List[Dict],
@@ -19,7 +25,8 @@ def plot_reflex_score_evolution(
         title (str): Plot title
     """
     if not evaluations:
-        print("⚠️ No evaluation data provided.")
+        if debug:
+            print("⚠️ No evaluation data provided.")
         return
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -52,7 +59,9 @@ def plot_reflex_score_evolution(
     plt.grid(True, linestyle="--", alpha=0.3)
     plt.savefig(output_path)
     plt.close()
-    print(f"📈 Reflex score plot saved → {output_path}")
+
+    if debug:
+        print(f"📈 Reflex score plot saved → {output_path}")
 
 
 

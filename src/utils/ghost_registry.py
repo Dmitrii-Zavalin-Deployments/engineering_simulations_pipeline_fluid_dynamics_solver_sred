@@ -1,8 +1,14 @@
 # src/utils/ghost_registry.py
 # 🧭 Ghost Registry — centralizes ghost cell metadata for reflex scoring, mutation tagging, and diagnostics
+# 📌 This module builds a registry of ghost cells for adjacency scoring and reflex overlays.
+# It includes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from typing import List, Dict, Tuple
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def build_ghost_registry(grid: List[Cell], verbose: bool = False) -> Dict[int, Dict]:
     """
@@ -37,7 +43,7 @@ def build_ghost_registry(grid: List[Cell], verbose: bool = False) -> Dict[int, D
             }
             registry[id(cell)] = entry
 
-            if verbose:
+            if debug and verbose:
                 print(f"[REGISTRY] Ghost cell @ {entry['coordinate']} → face={entry['ghost_face']}, type={entry['ghost_type']}")
 
     return registry

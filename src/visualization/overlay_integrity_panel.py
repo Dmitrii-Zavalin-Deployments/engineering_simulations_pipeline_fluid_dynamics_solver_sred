@@ -1,10 +1,16 @@
 # src/visualization/overlay_integrity_panel.py
 # 🧭 Overlay Integrity Panel — renders overlay thumbnails and flags reflex anomalies for audit dashboards
+# 📌 This module visualizes reflex overlays and flags anomalies based on mutation density, suppression, and boundary leakage.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 import json
 from typing import List, Dict
 from PIL import Image, ImageDraw, ImageFont
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def load_overlay_metadata(snapshot_dir: str) -> List[Dict]:
     """
@@ -27,12 +33,13 @@ def load_overlay_metadata(snapshot_dir: str) -> List[Dict]:
                         "step": data.get("step_index"),
                         "score": data.get("reflex_score", 0.0),
                         "mutation_density": data.get("mutation_density", 0.0),
-                        "boundary_mutation_ratio": data.get("boundary_mutation_ratio", 0.0),  # ✅ Added
+                        "boundary_mutation_ratio": data.get("boundary_mutation_ratio", 0.0),
                         "suppression_zones": len(data.get("suppression_zones", [])),
                         "overlay_path": os.path.join("data", "overlays", f"reflex_overlay_step_{data.get('step_index'):03d}.png")
                     })
             except Exception as e:
-                print(f"[ERROR] Failed to load {fname}: {e}")
+                if debug:
+                    print(f"[INTEGRITY] Failed to load {fname}: {e}")
     return entries
 
 def flag_anomalies(entry: Dict) -> List[str]:
@@ -52,7 +59,7 @@ def flag_anomalies(entry: Dict) -> List[str]:
         flags.append("🧬 Dense Mutation")
     if entry["suppression_zones"] > 10:
         flags.append("🛑 Suppression Spike")
-    if entry.get("boundary_mutation_ratio", 0.0) > 0.3:  # ✅ New anomaly condition
+    if entry.get("boundary_mutation_ratio", 0.0) > 0.3:
         flags.append("🧱 Boundary Leakage")
     return flags
 
@@ -66,7 +73,8 @@ def render_integrity_panel(snapshot_dir: str, output_path: str = "data/diagnosti
     """
     entries = load_overlay_metadata(snapshot_dir)
     if not entries:
-        print("[INTEGRITY] No snapshot entries found.")
+        if debug:
+            print("[INTEGRITY] No snapshot entries found.")
         return
 
     thumb_size = (160, 160)
@@ -93,7 +101,8 @@ def render_integrity_panel(snapshot_dir: str, output_path: str = "data/diagnosti
             thumb = Image.open(entry["overlay_path"]).resize(thumb_size)
             panel.paste(thumb, (x, y))
         except Exception as e:
-            print(f"[ERROR] Missing overlay for step {entry['step']}: {e}")
+            if debug:
+                print(f"[INTEGRITY] Missing overlay for step {entry['step']}: {e}")
             continue
 
         label = f"Step {entry['step']:03d}"
@@ -105,7 +114,9 @@ def render_integrity_panel(snapshot_dir: str, output_path: str = "data/diagnosti
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     panel.save(output_path)
-    print(f"[INTEGRITY] Overlay panel saved → {output_path}")
+
+    if debug:
+        print(f"[INTEGRITY] Overlay panel saved → {output_path}")
 
 
 

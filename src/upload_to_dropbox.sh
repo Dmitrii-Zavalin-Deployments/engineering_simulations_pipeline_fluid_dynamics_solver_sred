@@ -1,4 +1,6 @@
 #!/bin/bash
+# src/upload_to_dropbox.sh
+# 📤 Dropbox Upload Script — zips simulation output and uploads to Dropbox with audit-grade trace
 
 # Set environment variables from GitHub Actions secrets
 APP_KEY="${APP_KEY}"             # Dropbox App Key (Client ID)

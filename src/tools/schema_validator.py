@@ -1,9 +1,14 @@
 # src/tools/schema_validator.py
+# 📐 Schema Validator — validates simulation input against JSON schema and reflex-aware structural rules
+# 📌 This module enforces schema compliance and reflex-critical structure for boundary and ghost logic.
 
 import json
 import sys
 import os
 from jsonschema import Draft202012Validator, exceptions as jsonschema_exceptions
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 SCHEMA_PATH = "./schema/fluid_simulation_input.schema.json"
 
@@ -18,7 +23,8 @@ def load_json(file_path: str) -> dict:
 def validate_schema(instance: dict, schema: dict) -> None:
     try:
         Draft202012Validator(schema).validate(instance)
-        print("✅ Input file is schema-valid.")
+        if debug:
+            print("✅ Input file is schema-valid.")
     except jsonschema_exceptions.ValidationError as ve:
         print("❌ Schema validation failed:")
         print(f"→ {ve.message}")
@@ -53,6 +59,9 @@ def validate_schema(instance: dict, schema: dict) -> None:
             if key not in ghost_rules:
                 print(f"❌ ghost_rules missing required key: {key}")
                 sys.exit(1)
+
+    if debug:
+        print("✅ Manual structure validation passed.")
 
 def main():
     if len(sys.argv) != 2:

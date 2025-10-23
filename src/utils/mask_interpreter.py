@@ -1,7 +1,13 @@
 # src/utils/mask_interpreter.py
 # 🧩 Shared utility for interpreting geometry mask flattening
+# 📌 This module decodes flattened geometry masks into fluid/solid booleans for grid initialization.
+# It includes only cells explicitly marked as fluid via encoding["fluid"].
+# It does NOT skip based on adjacency or ghost proximity — all logic is encoding-driven.
 
 from typing import List
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def decode_geometry_mask_flat(
     flat_mask: List[int],
@@ -52,7 +58,8 @@ def decode_geometry_mask_flat(
     else:
         raise ValueError(f"❌ Unsupported flattening order: {order}")
 
-    print(f"[DEBUG] Decoded mask → fluid cells: {sum(interpreted)} / {len(interpreted)}")
+    if debug:
+        print(f"[MASK] Decoded mask → fluid cells: {sum(interpreted)} / {len(interpreted)}")
 
     return interpreted
 

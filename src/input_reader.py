@@ -1,8 +1,12 @@
 # src/input_reader.py
 # 📥 Input Reader — parses and validates structured Navier-Stokes simulation input
+# 📌 This module anchors schema alignment for reflex scoring, mutation overlays, and diagnostic traceability.
 
 import os
 import json
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def load_simulation_input(filepath: str) -> dict:
     """
@@ -34,7 +38,6 @@ def load_simulation_input(filepath: str) -> dict:
         except json.JSONDecodeError as e:
             raise ValueError(f"❌ Failed to parse JSON: {e}")
 
-    # ✅ Required schema sections
     required_sections = [
         "domain_definition",
         "fluid_properties",
@@ -46,7 +49,6 @@ def load_simulation_input(filepath: str) -> dict:
         if section not in data:
             raise KeyError(f"❌ Missing required section: {section}")
 
-    # 🧩 Domain Definition — supports spatial discretization
     domain = data["domain_definition"]
     nx, ny, nz = domain.get("nx"), domain.get("ny"), domain.get("nz")
     bounds = (
@@ -54,51 +56,51 @@ def load_simulation_input(filepath: str) -> dict:
         domain.get("min_y"), domain.get("max_y"),
         domain.get("min_z"), domain.get("max_z")
     )
-    print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
-    print(f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}")
+    if debug:
+        print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
+        print(f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}")
 
-    # 🌊 Fluid Properties — used in momentum equation: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
     fluid = data["fluid_properties"]
-    print(f"🌊 Fluid density (ρ): {fluid.get('density', 'N/A')}")
-    print(f"🌊 Fluid viscosity (μ): {fluid.get('viscosity', 'N/A')}")
+    if debug:
+        print(f"🌊 Fluid density (ρ): {fluid.get('density', 'N/A')}")
+        print(f"🌊 Fluid viscosity (μ): {fluid.get('viscosity', 'N/A')}")
 
-    # 🌀 Initial Conditions — sets ∂u/∂t and pressure field at t=0
     init = data["initial_conditions"]
-    print(f"🌀 Initial velocity: {init.get('initial_velocity', 'N/A')}")
-    print(f"🌀 Initial pressure: {init.get('initial_pressure', 'N/A')}")
+    if debug:
+        print(f"🌀 Initial velocity: {init.get('initial_velocity', 'N/A')}")
+        print(f"🌀 Initial pressure: {init.get('initial_pressure', 'N/A')}")
 
-    # ⏱️ Simulation Parameters — controls time loop and output cadence
     sim = data["simulation_parameters"]
-    print(f"⏱️ Time step (Δt): {sim.get('time_step', 'N/A')}")
-    print(f"⏱️ Total time (T): {sim.get('total_time', 'N/A')}")
-    print(f"⚙️ Output interval: {sim.get('output_interval', 'N/A')}")
+    if debug:
+        print(f"⏱️ Time step (Δt): {sim.get('time_step', 'N/A')}")
+        print(f"⏱️ Total time (T): {sim.get('total_time', 'N/A')}")
+        print(f"⚙️ Output interval: {sim.get('output_interval', 'N/A')}")
 
-    # 💧 Pressure Solver Configuration — governs ∇²P = ∇ · u enforcement
     pressure_cfg = data.get("pressure_solver", {})
     method = pressure_cfg.get("method", "jacobi")
     tolerance = pressure_cfg.get("tolerance", 1e-6)
-    print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
+    if debug:
+        print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
 
-    # 🚧 Boundary Conditions — governs ghost logic and ∇P coupling
     bc_list = data.get("boundary_conditions", [])
-    for bc in bc_list:
-        if isinstance(bc, dict):
-            print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
-            print(f"   Velocity Enforced: {bc.get('velocity')}")
-            print(f"   Pressure Enforced: {bc.get('pressure')}")
-            print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
-        else:
-            print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
+    if debug:
+        for bc in bc_list:
+            if isinstance(bc, dict):
+                print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
+                print(f"   Velocity Enforced: {bc.get('velocity')}")
+                print(f"   Pressure Enforced: {bc.get('pressure')}")
+                print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
+            else:
+                print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
 
-    # 👻 Ghost Rule Logging — confirms ghost logic schema
     ghost_cfg = data.get("ghost_rules", {})
-    print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
-    print(f"   Default Type: {ghost_cfg.get('default_type')}")
-    print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
+    if debug:
+        print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
+        print(f"   Default Type: {ghost_cfg.get('default_type')}")
+        print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
 
-    # 🧱 Geometry Masking (optional) — defines fluid vs solid topology
     geometry = data.get("geometry_definition")
-    if geometry:
+    if geometry and debug:
         shape = geometry.get("geometry_mask_shape")
         encoding = geometry.get("mask_encoding", {})
         print(f"🧱 Geometry mask shape: {shape}")

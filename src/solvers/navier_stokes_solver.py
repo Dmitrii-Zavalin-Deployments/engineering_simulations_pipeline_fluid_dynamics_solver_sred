@@ -1,5 +1,8 @@
 # src/solvers/navier_stokes_solver.py
 # 🧠 Navier-Stokes Solver — centralized logic for momentum and continuity enforcement
+# 📌 This module sequences momentum evolution, pressure correction, and velocity projection.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
@@ -8,6 +11,9 @@ from src.solvers.pressure_solver import apply_pressure_correction
 from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered  # ✅ Verifier integration
 
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
+
 def solve_navier_stokes_step(
     grid: List[Cell],
     input_data: dict,
@@ -15,6 +21,20 @@ def solve_navier_stokes_step(
 ) -> Tuple[List[Cell], Dict]:
     """
     Executes one full Navier-Stokes update step.
+
+    Roadmap Alignment:
+    Governing Equation:
+        ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u + F
+        ∇ · u = 0
+
+    Modular Enforcement:
+    - Momentum update → advection + viscosity
+    - Pressure solve → ∇²P = ∇ · u
+    - Velocity projection → u ← u - ∇P
+    - Reflex diagnostics → mutation traceability and suppression detection
+
+    Returns:
+        Tuple[List[Cell], Dict]: Updated grid and reflex metadata
     """
     # 💨 Step 1: Momentum update — applies advection and viscosity
     grid_after_momentum = apply_momentum_update(grid, input_data, step_index)
@@ -43,6 +63,9 @@ def solve_navier_stokes_step(
         triggered_flags.append("empty_divergence")
     if any(not isinstance(c.velocity, list) or not c.fluid_mask for c in grid):
         triggered_flags.append("downgraded_cells")
+
+    if debug and triggered_flags:
+        print(f"[VERIFIER] Step {step_index} → triggered flags: {triggered_flags}")
 
     run_verification_if_triggered(
         grid=grid,  # ✅ Pass original grid for downgrade detection

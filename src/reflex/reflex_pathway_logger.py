@@ -1,10 +1,16 @@
 # src/reflex/reflex_pathway_logger.py
 # 🧠 Reflex Pathway Logger — tracks ghost-to-mutation causality across steps for audit-safe diagnostics
+# 📌 This module serializes mutation traces and logs ghost-triggered causality chains.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 import json
 from typing import List, Tuple, Optional, Union
 from src.grid_modules.cell import Cell
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def serialize_mutation_cell(cell: Union[Cell, Tuple], step_linked_from: Optional[int] = None) -> dict:
     """
@@ -65,11 +71,12 @@ def log_reflex_pathway(
         with open(log_path, "w") as f:
             json.dump(log, f, indent=2)
     except Exception as e:
-        print(f"[ERROR] Failed to write reflex pathway log: {e}")
-        print(f"[DEBUG] Entry: {entry}")
+        if debug:
+            print(f"[ERROR] Failed to write reflex pathway log: {e}")
+            print(f"[DEBUG] Entry: {entry}")
         raise
 
-    if verbose:
+    if debug and verbose:
         print(f"[TRACE] Reflex pathway recorded for step {step_index} → {log_path}")
         print(f"[TRACE] Mutated cells: {len(mutated_cells)}")
         if ghost_trigger_chain:

@@ -1,11 +1,17 @@
 # src/utils/divergence_tracker.py
 # 📈 Divergence Tracker — logs divergence norms and exports structured logs per step
+# 📌 This module computes ∇ · u for fluid cells and exports reflex-aware diagnostics.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 import math
 from typing import List, Optional
 from src.grid_modules.cell import Cell
 from src.exporters.divergence_field_writer import export_divergence_map
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
     if not getattr(cell, "fluid_mask", False):
@@ -64,22 +70,16 @@ def compute_divergence_stats(
 
     values = [abs(v) for v in divergences.values()]
     if not values:
-        if not quiet:
-            print(f"[DEBUG] ⚠️ No fluid cells found for divergence tracking.")
+        if debug and not quiet:
+            print(f"[DIVERGENCE] ⚠️ No fluid cells found for divergence tracking.")
         return {"max": 0.0, "mean": 0.0, "count": 0}
 
     max_div = max(values)
     mean_div = sum(values) / len(values)
     count = len(values)
 
-    if not quiet:
-        if label:
-            print(f"[DEBUG] 📈 Divergence stats ({label}):")
-        else:
-            print(f"[DEBUG] 📈 Divergence stats:")
-        print(f"   Max divergence: {max_div:.6e}")
-        print(f"   Mean divergence: {mean_div:.6e}")
-        print(f"   Cells evaluated: {count}")
+    if debug and not quiet:
+        print(f"[DIVERGENCE] 📈 Stats ({label or 'n/a'}) → max={max_div:.6e}, mean={mean_div:.6e}, count={count}")
 
     if output_folder and step_index is not None:
         os.makedirs(output_folder, exist_ok=True)

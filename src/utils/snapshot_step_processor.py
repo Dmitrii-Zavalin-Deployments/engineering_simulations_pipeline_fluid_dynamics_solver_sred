@@ -1,5 +1,8 @@
 # src/utils/snapshot_step_processor.py
 # ⚙️ Snapshot Step Processor — handles per-step diagnostics, scoring, and export
+# 📌 This module logs reflex overlays, mutation pathways, and ghost adjacency zones.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 from src.output.snapshot_writer import export_influence_flags
@@ -16,8 +19,8 @@ from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zone
 from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
 
-# 🛠️ Toggle debug logging
-DEBUG = False  # Set to True to enable verbose diagnostics
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def process_snapshot_step(
     step: int,
@@ -34,11 +37,10 @@ def process_snapshot_step(
     fluid_cells = [c for c in grid if getattr(c, "fluid_mask", False)]
     ghost_cells = [c for c in grid if not getattr(c, "fluid_mask", True)]
 
-    if DEBUG:
-        print(f"[DEBUG] reflex {reflex}")
-        print(f"[DEBUG] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
+    if debug:
+        print(f"[SNAPSHOT] Step {step} → fluid cells: {len(fluid_cells)}, ghost cells: {len(ghost_cells)}, total: {len(grid)}")
         if len(fluid_cells) != expected_size:
-            print(f"[DEBUG] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
+            print(f"[SNAPSHOT] ⚠️ Unexpected fluid cell count → expected: {expected_size}, found: {len(fluid_cells)}")
 
     export_influence_flags(grid, step_index=step, output_folder=output_folder, config=config)
 
@@ -67,8 +69,8 @@ def process_snapshot_step(
         mutation_causes.append("boundary_override")
 
     mutated_cells_raw = reflex.get("mutated_cells", [])
-    if DEBUG:
-        print(f"[DEBUG] mutated_cells (step {step}): {[type(c) for c in mutated_cells_raw[:3]]}")
+    if debug:
+        print(f"[SNAPSHOT] mutated_cells (step {step}): {[type(c) for c in mutated_cells_raw[:3]]}")
 
     raw_pm = reflex.get("pressure_mutated", False)
     pressure_mutated = (
@@ -178,3 +180,6 @@ def process_snapshot_step(
     )
 
     return grid, snapshot
+
+
+

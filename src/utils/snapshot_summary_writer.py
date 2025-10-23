@@ -1,8 +1,14 @@
 # src/utils/snapshot_summary_writer.py
 # 📊 Snapshot Summary Writer — exports per-step diagnostics to CSV
+# 📌 This module logs reflex score, mutation density, divergence, ghost adjacency, and suppression fallback.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 import csv
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def write_step_summary(
     step_index: int,
@@ -26,7 +32,6 @@ def write_step_summary(
     os.makedirs(output_folder, exist_ok=True)
     summary_path = os.path.join(output_folder, "snapshot_summary.csv")
 
-    # Fields to log
     fields = [
         "step_index",
         "reflex_score",
@@ -36,8 +41,8 @@ def write_step_summary(
         "projection_passes",
         "ghost_influence_count",
         "ghost_adjacency_count",
-        "boundary_cell_count",               # ✅ Added
-        "boundary_mutation_ratio",           # ✅ Added
+        "boundary_cell_count",
+        "boundary_mutation_ratio",
         "max_divergence",
         "mean_divergence",
         "ghost_adjacent_but_influence_suppressed",
@@ -47,13 +52,11 @@ def write_step_summary(
         "cfl_exceeded_count"
     ]
 
-    # ✅ Patch: detect suppression cases via influence tags
     suppression_flag = (
         reflex_metadata.get("fluid_cells_modified_by_ghost", 0) == 0 and
         reflex_metadata.get("ghost_influence_count", 0) > 0
     )
 
-    # ✅ Defensive cast safeguard for reflex_score field
     reflex_score = reflex_metadata.get("reflex_score", 0.0)
     if not isinstance(reflex_score, (int, float)):
         try:
@@ -61,18 +64,17 @@ def write_step_summary(
         except:
             reflex_score = 0.0
 
-    print(f"[SUMMARY DEBUG] Reflex score for step {step_index}: {reflex_score}")
+    if debug:
+        print(f"[SUMMARY] Reflex score for step {step_index}: {reflex_score}")
 
-    # Count mutation diagnostics
     mutation_count = len(reflex_metadata.get("mutated_cells", []))
     damping_count = reflex_metadata.get("damping_triggered_count", 0)
     overflow_count = reflex_metadata.get("overflow_triggered_count", 0)
     cfl_count = reflex_metadata.get("cfl_exceeded_count", 0)
     adjacency_count = len(reflex_metadata.get("adjacency_zones", []))
-    boundary_count = reflex_metadata.get("boundary_cell_count", 0)  # ✅ Added
-    boundary_ratio = reflex_metadata.get("boundary_mutation_ratio", 0.0)  # ✅ Added
+    boundary_count = reflex_metadata.get("boundary_cell_count", 0)
+    boundary_ratio = reflex_metadata.get("boundary_mutation_ratio", 0.0)
 
-    # Construct row
     row = {
         "step_index": step_index,
         "reflex_score": reflex_score,
@@ -93,7 +95,6 @@ def write_step_summary(
         "cfl_exceeded_count": cfl_count
     }
 
-    # Write header if new file
     file_exists = os.path.exists(summary_path)
     with open(summary_path, "a", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
@@ -101,7 +102,8 @@ def write_step_summary(
             writer.writeheader()
         writer.writerow(row)
 
-    print(f"[SUMMARY] 📊 Step {step_index} summary written → {summary_path}")
+    if debug:
+        print(f"[SUMMARY] 📊 Step {step_index} summary written → {summary_path}")
 
 
 

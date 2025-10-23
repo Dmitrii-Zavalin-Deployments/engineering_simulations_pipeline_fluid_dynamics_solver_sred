@@ -1,10 +1,16 @@
 # src/solvers/momentum_solver.py
 # 🔧 Momentum Solver — evolves velocity using advection and viscosity
+# 📌 This module enforces directional momentum transport and viscous damping.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 from typing import List
 from src.grid_modules.cell import Cell
 from src.physics.advection import compute_advection
 from src.physics.viscosity import apply_viscous_terms
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List[Cell]:
     """
@@ -54,6 +60,8 @@ def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List
                 pressure=original.pressure,   # keep pressure unchanged here
                 fluid_mask=True
             )
+            if debug:
+                print(f"[MOMENTUM] Fluid cell @ ({updated_cell.x:.2f}, {updated_cell.y:.2f}, {updated_cell.z:.2f}) → velocity updated")
         else:
             updated_cell = Cell(
                 x=original.x,

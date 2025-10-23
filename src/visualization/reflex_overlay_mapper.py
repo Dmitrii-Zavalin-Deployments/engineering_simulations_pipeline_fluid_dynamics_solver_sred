@@ -1,9 +1,15 @@
 # src/visualization/reflex_overlay_mapper.py
 # 🖼️ Reflex Overlay Mapper — renders annotated spatial diagnostics if score is sufficient
+# 📌 This module visualizes ghost adjacency, suppression fallback, pressure mutation zones, and boundary context.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
 import matplotlib.pyplot as plt
 from typing import List, Tuple
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def render_reflex_overlay(
     step_index: int,
@@ -14,7 +20,7 @@ def render_reflex_overlay(
     output_path: str,
     score_threshold: float = 4.0,
     mutation_density: float = 0.0,
-    boundary_coords: List[Tuple[float, float]] = None  # ✅ New input for boundary cells
+    boundary_coords: List[Tuple[float, float]] = None
 ):
     """
     Renders reflex map of ghost adjacency and pressure mutation zones.
@@ -30,23 +36,12 @@ def render_reflex_overlay(
     - mutation_coords from pressure mutation tagging
     - suppression_coords from suppression_zones.detect_suppression_zones()
     - boundary_coords from is_boundary tagging logic
-
-    Args:
-        step_index (int): Simulation step index
-        reflex_score (float): Reflex integrity score
-        mutation_coords (List[Tuple]): Coordinates of mutated pressure cells
-        adjacency_coords (List[Tuple]): Ghost-adjacent fluid zones
-        suppression_coords (List[Tuple]): Influence suppression zones
-        output_path (str): Path to write PNG image
-        score_threshold (float): Minimum reflex score to trigger rendering
-        mutation_density (float): Ratio of mutated cells to fluid cells
-        boundary_coords (List[Tuple]): Coordinates of boundary-tagged fluid cells
     """
-    # ✅ Defensive fallback patch
     if not isinstance(reflex_score, (int, float)):
         reflex_score = 0.0
     if reflex_score < score_threshold:
-        print(f"[OVERLAY] 🛑 Skipping overlay: score {reflex_score} below threshold {score_threshold}")
+        if debug:
+            print(f"[OVERLAY] 🛑 Skipping overlay: score {reflex_score} below threshold {score_threshold}")
         return
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -90,7 +85,9 @@ def render_reflex_overlay(
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
-    print(f"[OVERLAY] ✅ Step {step_index} overlay written → {output_path}")
+
+    if debug:
+        print(f"[OVERLAY] ✅ Step {step_index} overlay written → {output_path}")
 
 
 

@@ -1,5 +1,8 @@
 # src/grid_generator.py
 # 🧱 Grid Generator — initializes spatial topology, fluid masking, and boundary tags
+# 📌 This module builds structured grids with optional geometry-based fluid masking.
+# It excludes only cells explicitly marked fluid_mask=False.
+# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import logging
 from src.grid_modules.cell import Cell
@@ -7,6 +10,9 @@ from src.grid_modules.grid_geometry import generate_coordinates
 from src.grid_modules.initial_field_assigner import assign_fields
 from src.grid_modules.boundary_manager import apply_boundaries
 from src.utils.mask_interpreter import decode_geometry_mask_flat
+
+# ✅ Centralized debug flag for GitHub Actions logging
+debug = True
 
 def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     """
@@ -21,13 +27,6 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     Purpose:
     - Initializes full fluid domain without topology masking
     - Used for simple test cases or full-domain fluid simulations
-
-    Args:
-        domain (dict): Includes physical bounds and resolution
-        initial_conditions (dict): Input velocity and pressure
-
-    Returns:
-        list[Cell]: Final grid
     """
     required_keys = [
         "min_x", "max_x", "nx",
@@ -39,7 +38,7 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
         raise ValueError(f"Missing domain keys: {missing}")
 
     coordinates = generate_coordinates(domain)
-    if not coordinates:
+    if not coordinates and debug:
         logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
     seeded_cells = assign_fields([
@@ -50,7 +49,6 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     tagged_cells = apply_boundaries(seeded_cells, domain)
 
     return tagged_cells
-
 
 def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: dict) -> list[Cell]:
     """
@@ -66,14 +64,6 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     Purpose:
     - Initializes spatial grid with encoded fluid vs solid topology
     - Supports reflex scoring, ghost logic, and continuity enforcement
-
-    Args:
-        domain (dict): Domain bounds and resolution
-        initial_conditions (dict): Initial velocity and pressure
-        geometry (dict): Geometry mask configuration block from input JSON
-
-    Returns:
-        list[Cell]: Grid tagged with fluid_mask and boundary conditions
     """
     nx, ny, nz = domain["nx"], domain["ny"], domain["nz"]
     shape = geometry["geometry_mask_shape"]
@@ -90,7 +80,7 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
         raise ValueError(f"❌ Failed to decode fluid mask: {e}")
 
     coordinates = generate_coordinates(domain)
-    if not coordinates:
+    if not coordinates and debug:
         logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
 
     if len(fluid_mask_list) != len(coordinates):
