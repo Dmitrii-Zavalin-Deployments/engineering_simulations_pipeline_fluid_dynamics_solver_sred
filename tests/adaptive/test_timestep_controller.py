@@ -31,7 +31,7 @@ def valid_pressure_delta(tmp_path):
 def sparse_pressure_delta(tmp_path):
     path = tmp_path / "sparse_delta.json"
     data = {
-        f"({i}, 0.0, 0.0)": {"delta": 0.0} for i in range(20)
+        f"({i}, 0.0, 0.0)": {"delta": 0.0} for i in range(21)
     }
     data["(0, 0.0, 0.0)"]["delta"] = 0.1  # Only one mutated cell
     with open(path, "w") as f:
