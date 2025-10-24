@@ -47,7 +47,7 @@ def test_missing_domain_keys_raise(missing_key):
     with pytest.raises(ValueError, match=f"Missing or invalid '{missing_key}'"):
         validate_config(cfg)
 
-@pytest.mark.parametrize("bad_type", [None, "string", [], 42])
+@pytest.mark.parametrize("bad_type", [None, "string", []])
 def test_domain_keys_must_be_numeric(bad_type):
     cfg = valid_config()
     cfg["domain_definition"]["min_x"] = bad_type
