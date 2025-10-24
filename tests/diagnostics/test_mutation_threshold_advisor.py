@@ -5,25 +5,26 @@ import pytest
 from src.diagnostics.mutation_threshold_advisor import get_delta_threshold
 
 def test_default_context_behavior(capsys):
+    # Default mutation_density = 0.0 → ×1.25
     threshold = get_delta_threshold(cell={}, context={})
-    assert threshold == pytest.approx(1e-8)
+    assert threshold == pytest.approx(1e-8 * 1.25)
     assert "[THRESHOLD] Computed delta threshold" in capsys.readouterr().out
 
 @pytest.mark.parametrize("resolution,expected", [
-    ("high", 1e-9),
-    ("low", 5e-8),
-    ("normal", 1e-8),
-    ("unknown", 1e-8),
+    ("high", 1e-8 * 0.1 * 1.25),
+    ("low", 1e-8 * 5 * 1.25),
+    ("normal", 1e-8 * 1 * 1.25),
+    ("unknown", 1e-8 * 1 * 1.25),
 ])
 def test_resolution_scaling(resolution, expected):
     threshold = get_delta_threshold(cell={}, context={"resolution": resolution})
     assert threshold == pytest.approx(expected)
 
 @pytest.mark.parametrize("divergence,expected_factor", [
-    (0.0, 2.0),
-    (0.005, 2.0),
-    (0.02, 1.0),
-    (0.2, 0.5),
+    (0.0, 2.0 * 1.25),
+    (0.005, 2.0 * 1.25),
+    (0.02, 1.0 * 1.25),
+    (0.2, 0.5 * 1.25),
 ])
 def test_divergence_scaling(divergence, expected_factor):
     base = 1e-8
@@ -32,9 +33,9 @@ def test_divergence_scaling(divergence, expected_factor):
     assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
 
 @pytest.mark.parametrize("time_step,expected_factor", [
-    (0.005, 2.0),
-    (0.05, 1.0),
-    (0.25, 0.5),
+    (0.005, 2.0 * 1.25),
+    (0.05, 1.0 * 1.25),
+    (0.25, 0.5 * 1.25),
 ])
 def test_time_step_scaling(time_step, expected_factor):
     base = 1e-8
@@ -43,9 +44,9 @@ def test_time_step_scaling(time_step, expected_factor):
     assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
 
 @pytest.mark.parametrize("reflex_score,expected_factor", [
-    (0.1, 0.5),
-    (0.5, 1.0),
-    (0.9, 1.5),
+    (0.1, 0.5 * 1.25),
+    (0.5, 1.0 * 1.25),
+    (0.9, 1.5 * 1.25),
 ])
 def test_reflex_score_scaling(reflex_score, expected_factor):
     base = 1e-8
@@ -77,11 +78,11 @@ def test_combined_context_scaling():
 
 def test_threshold_never_below_minimum():
     context = {
-        "resolution": "high",
-        "divergence": 0.2,
-        "time_step": 0.25,
-        "reflex_score": 0.0,
-        "mutation_density": 0.9
+        "resolution": "high",           # ×0.1
+        "divergence": 0.2,              # ×0.5
+        "time_step": 0.25,              # ×0.5
+        "reflex_score": 0.0,            # ×0.5
+        "mutation_density": 0.9         # ×0.75
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold >= 1e-15
