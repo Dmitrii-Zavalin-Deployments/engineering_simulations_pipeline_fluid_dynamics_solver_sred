@@ -121,10 +121,10 @@ def test_cli_entrypoint_executes(tmp_path):
     output_dir.mkdir()
     log_path = output_dir / "mutation_pathways_log.json"
 
-    # Run the module as a script with CLI arguments
+    # Run the module as a script with CLI arguments using coverage
     result = subprocess.run(
         [
-            "python", "src/audit/run_reflex_audit.py",
+            "coverage", "run", "--source=src/audit", "src/audit/run_reflex_audit.py",
             "--snapshot_dir", str(snapshot_dir),
             "--output_folder", str(output_dir),
             "--pathway_log", str(log_path)
