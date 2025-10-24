@@ -76,12 +76,9 @@ def test_boundary_conditions_must_be_list(bad_type):
 def test_each_boundary_condition_must_be_dict():
     cfg = valid_config()
     cfg["boundary_conditions"][0] = "not a dict"
-    with pytest.raises(ValueError, match=r"boundary_conditions
-
-\[0\]
-
- must be a dictionary."):
+    with pytest.raises(ValueError) as exc_info:
         validate_config(cfg)
+    assert "boundary_conditions[0] must be a dictionary." in str(exc_info.value)
 
 def test_missing_apply_to_raises():
     cfg = valid_config()
