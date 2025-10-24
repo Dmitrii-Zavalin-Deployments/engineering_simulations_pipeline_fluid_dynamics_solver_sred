@@ -1,7 +1,7 @@
 # src/exporters/velocity_field_writer.py
 # 💨 Velocity Field Writer — exports per-cell velocity vectors for fluid cells
 # 📌 This module operates on post-simulation velocity data.
-# It includes only cells where fluid_mask=True.
+# It includes only cells where fluid_mask=True and velocity is present.
 # It does NOT exclude cells based on adjacency or boundary logic.
 
 import json
@@ -22,7 +22,7 @@ def write_velocity_field(grid, step, output_dir="data/snapshots"):
     velocity_snapshot = {}
 
     for cell in grid:
-        if hasattr(cell, "fluid_mask") and cell.fluid_mask:
+        if hasattr(cell, "fluid_mask") and cell.fluid_mask and hasattr(cell, "velocity"):
             key = f"({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})"
             velocity_snapshot[key] = {
                 "vx": cell.velocity[0],
