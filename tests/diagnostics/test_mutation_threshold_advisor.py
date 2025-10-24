@@ -5,23 +5,25 @@ import pytest
 from src.diagnostics.mutation_threshold_advisor import get_delta_threshold
 
 def test_default_context_behavior(capsys):
+    # Defaults: reflex_score=0.0 (×0.5), mutation_density=0.0 (×1.25), divergence=0.0 (×2)
+    expected = 1e-8 * 0.5 * 1.25 * 2
     threshold = get_delta_threshold(cell={}, context={})
-    assert threshold == pytest.approx(1e-8 * 0.5 * 1.25 * 2)  # reflex × mutation × divergence
+    assert threshold == pytest.approx(expected)
     assert "[THRESHOLD] Computed delta threshold" in capsys.readouterr().out
 
 @pytest.mark.parametrize("resolution,expected", [
     ("high", 1e-8 * 0.1),
     ("low", 1e-8 * 5),
-    ("normal", 1e-8 * 1),
-    ("unknown", 1e-8 * 1),
+    ("normal", 1e-8),
+    ("unknown", 1e-8),
 ])
 def test_resolution_scaling(resolution, expected):
     context = {
         "resolution": resolution,
-        "mutation_density": 0.1,
-        "reflex_score": 0.5,
         "divergence": 0.02,
-        "time_step": 0.05
+        "time_step": 0.05,
+        "reflex_score": 0.5,
+        "mutation_density": 0.1
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(expected)
@@ -34,11 +36,11 @@ def test_resolution_scaling(resolution, expected):
 ])
 def test_divergence_scaling(divergence, expected_factor):
     context = {
-        "divergence": divergence,
-        "mutation_density": 0.1,
-        "reflex_score": 0.5,
         "resolution": "normal",
-        "time_step": 0.05
+        "divergence": divergence,
+        "time_step": 0.05,
+        "reflex_score": 0.5,
+        "mutation_density": 0.1
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
@@ -50,11 +52,11 @@ def test_divergence_scaling(divergence, expected_factor):
 ])
 def test_time_step_scaling(time_step, expected_factor):
     context = {
-        "time_step": time_step,
-        "mutation_density": 0.1,
-        "reflex_score": 0.5,
         "resolution": "normal",
-        "divergence": 0.02
+        "divergence": 0.02,
+        "time_step": time_step,
+        "reflex_score": 0.5,
+        "mutation_density": 0.1
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
@@ -66,11 +68,11 @@ def test_time_step_scaling(time_step, expected_factor):
 ])
 def test_reflex_score_scaling(reflex_score, expected_factor):
     context = {
-        "reflex_score": reflex_score,
-        "mutation_density": 0.1,
         "resolution": "normal",
         "divergence": 0.02,
-        "time_step": 0.05
+        "time_step": 0.05,
+        "reflex_score": reflex_score,
+        "mutation_density": 0.1
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
@@ -82,11 +84,11 @@ def test_reflex_score_scaling(reflex_score, expected_factor):
 ])
 def test_mutation_density_scaling(mutation_density, expected_factor):
     context = {
-        "mutation_density": mutation_density,
-        "reflex_score": 0.5,
         "resolution": "normal",
         "divergence": 0.02,
-        "time_step": 0.05
+        "time_step": 0.05,
+        "reflex_score": 0.5,
+        "mutation_density": mutation_density
     }
     threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
