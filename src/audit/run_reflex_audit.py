@@ -78,7 +78,19 @@ def run_reflex_audit(
 
 # ✅ CLI entrypoint
 if __name__ == "__main__":
-    run_reflex_audit()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run Reflex Audit on simulation snapshots.")
+    parser.add_argument("--snapshot_dir", default="data/snapshots", help="Directory containing snapshot JSON files")
+    parser.add_argument("--output_folder", default="data/diagnostics", help="Directory to store audit outputs")
+    parser.add_argument("--pathway_log", default="data/diagnostics/mutation_pathways_log.json", help="Path to mutation pathway log file")
+    args = parser.parse_args()
+
+    run_reflex_audit(
+        snapshot_dir=args.snapshot_dir,
+        output_folder=args.output_folder,
+        pathway_log=args.pathway_log
+    )
 
 
 
