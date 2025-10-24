@@ -16,7 +16,7 @@ from src.grid_modules.cell import Cell
 def mock_cell(x=0, y=0, z=0, velocity=None, pressure=None, fluid_mask=True):
     return Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=fluid_mask)
 
-@patch("src.physics.divergence.compute_divergence")
+@patch("src.diagnostics.navier_stokes_verifier.compute_divergence")
 def test_verify_continuity_pass(mock_divergence):
     mock_divergence.return_value = [1e-8, -2e-8, 3e-8]
     grid = [mock_cell() for _ in range(3)]
@@ -30,7 +30,7 @@ def test_verify_continuity_pass(mock_divergence):
         assert result["status"] == "PASS"
         assert result["max_divergence"] < 1e-6
 
-@patch("src.physics.divergence.compute_divergence")
+@patch("src.diagnostics.navier_stokes_verifier.compute_divergence")
 def test_verify_continuity_fail(mock_divergence):
     mock_divergence.return_value = [1e-4, -2e-4, 3e-4]
     grid = [mock_cell() for _ in range(3)]
