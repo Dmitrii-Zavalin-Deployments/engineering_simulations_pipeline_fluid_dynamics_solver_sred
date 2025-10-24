@@ -76,11 +76,7 @@ def test_boundary_conditions_must_be_list(bad_type):
 def test_each_boundary_condition_must_be_dict():
     cfg = valid_config()
     cfg["boundary_conditions"][0] = "not a dict"
-    with pytest.raises(ValueError, match=r"boundary_conditions
-
-\[0\]
-
- must be a dictionary."):
+    with pytest.raises(ValueError, match=r"boundary_conditions\[0\] must be a dictionary."):
         validate_config(cfg)
 
 def test_missing_apply_to_raises():
@@ -112,6 +108,5 @@ def test_optional_no_slip_wrong_type_raises():
     cfg["boundary_conditions"][0]["no_slip"] = "not a bool"
     with pytest.raises(ValueError, match="'no_slip' must be boolean"):
         validate_config(cfg)
-
 
 
