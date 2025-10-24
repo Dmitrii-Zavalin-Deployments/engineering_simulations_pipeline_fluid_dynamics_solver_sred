@@ -5,54 +5,75 @@ import pytest
 from src.diagnostics.mutation_threshold_advisor import get_delta_threshold
 
 def test_default_context_behavior(capsys):
-    # Default mutation_density = 0.0 → ×1.25
     threshold = get_delta_threshold(cell={}, context={})
-    assert threshold == pytest.approx(1e-8 * 1.25)
+    assert threshold == pytest.approx(1e-8 * 0.5 * 1.25 * 2)  # reflex × mutation × divergence
     assert "[THRESHOLD] Computed delta threshold" in capsys.readouterr().out
 
 @pytest.mark.parametrize("resolution,expected", [
-    ("high", 1e-8 * 0.1 * 1.25),
-    ("low", 1e-8 * 5 * 1.25),
-    ("normal", 1e-8 * 1 * 1.25),
-    ("unknown", 1e-8 * 1 * 1.25),
+    ("high", 1e-8 * 0.1),
+    ("low", 1e-8 * 5),
+    ("normal", 1e-8 * 1),
+    ("unknown", 1e-8 * 1),
 ])
 def test_resolution_scaling(resolution, expected):
-    threshold = get_delta_threshold(cell={}, context={"resolution": resolution})
+    context = {
+        "resolution": resolution,
+        "mutation_density": 0.1,
+        "reflex_score": 0.5,
+        "divergence": 0.02,
+        "time_step": 0.05
+    }
+    threshold = get_delta_threshold(cell={}, context=context)
     assert threshold == pytest.approx(expected)
 
 @pytest.mark.parametrize("divergence,expected_factor", [
-    (0.0, 2.0 * 1.25),
-    (0.005, 2.0 * 1.25),
-    (0.02, 1.0 * 1.25),
-    (0.2, 0.5 * 1.25),
+    (0.0, 2.0),
+    (0.005, 2.0),
+    (0.02, 1.0),
+    (0.2, 0.5),
 ])
 def test_divergence_scaling(divergence, expected_factor):
-    base = 1e-8
-    context = {"divergence": divergence}
+    context = {
+        "divergence": divergence,
+        "mutation_density": 0.1,
+        "reflex_score": 0.5,
+        "resolution": "normal",
+        "time_step": 0.05
+    }
     threshold = get_delta_threshold(cell={}, context=context)
-    assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
+    assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
 
 @pytest.mark.parametrize("time_step,expected_factor", [
-    (0.005, 2.0 * 1.25),
-    (0.05, 1.0 * 1.25),
-    (0.25, 0.5 * 1.25),
+    (0.005, 2.0),
+    (0.05, 1.0),
+    (0.25, 0.5),
 ])
 def test_time_step_scaling(time_step, expected_factor):
-    base = 1e-8
-    context = {"time_step": time_step}
+    context = {
+        "time_step": time_step,
+        "mutation_density": 0.1,
+        "reflex_score": 0.5,
+        "resolution": "normal",
+        "divergence": 0.02
+    }
     threshold = get_delta_threshold(cell={}, context=context)
-    assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
+    assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
 
 @pytest.mark.parametrize("reflex_score,expected_factor", [
-    (0.1, 0.5 * 1.25),
-    (0.5, 1.0 * 1.25),
-    (0.9, 1.5 * 1.25),
+    (0.1, 0.5),
+    (0.5, 1.0),
+    (0.9, 1.5),
 ])
 def test_reflex_score_scaling(reflex_score, expected_factor):
-    base = 1e-8
-    context = {"reflex_score": reflex_score}
+    context = {
+        "reflex_score": reflex_score,
+        "mutation_density": 0.1,
+        "resolution": "normal",
+        "divergence": 0.02,
+        "time_step": 0.05
+    }
     threshold = get_delta_threshold(cell={}, context=context)
-    assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
+    assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
 
 @pytest.mark.parametrize("mutation_density,expected_factor", [
     (0.01, 1.25),
@@ -60,10 +81,15 @@ def test_reflex_score_scaling(reflex_score, expected_factor):
     (0.4, 0.75),
 ])
 def test_mutation_density_scaling(mutation_density, expected_factor):
-    base = 1e-8
-    context = {"mutation_density": mutation_density}
+    context = {
+        "mutation_density": mutation_density,
+        "reflex_score": 0.5,
+        "resolution": "normal",
+        "divergence": 0.02,
+        "time_step": 0.05
+    }
     threshold = get_delta_threshold(cell={}, context=context)
-    assert threshold == pytest.approx(base * expected_factor, rel=1e-6)
+    assert threshold == pytest.approx(1e-8 * expected_factor, rel=1e-6)
 
 def test_combined_context_scaling():
     context = {
