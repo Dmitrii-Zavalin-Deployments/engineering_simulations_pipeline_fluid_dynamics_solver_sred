@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import pytest
 from unittest import mock
+import subprocess
 
 from src.audit.run_reflex_audit import load_snapshots, run_reflex_audit
 
@@ -100,6 +101,36 @@ def test_run_reflex_audit_no_snapshots(empty_snapshot_dir, tmp_path, capsys):
     )
     captured = capsys.readouterr()
     assert "[AUDIT] No snapshots found." in captured.out
+
+def test_cli_entrypoint_executes(tmp_path):
+    # Prepare dummy snapshot directory
+    snapshot_dir = tmp_path / "snapshots"
+    snapshot_dir.mkdir()
+    dummy = {
+        "step_index": 0,
+        "mutated_cells": 1,
+        "pathway_recorded": True,
+        "has_projection": True,
+        "reflex_score": 99
+    }
+    with open(snapshot_dir / "step_0000.json", "w") as f:
+        json.dump(dummy, f)
+
+    # Prepare dummy output directory
+    output_dir = tmp_path / "diagnostics"
+    output_dir.mkdir()
+
+    # Run the module as a script
+    result = subprocess.run(
+        ["python", "src/audit/run_reflex_audit.py"],
+        cwd=os.getcwd(),
+        capture_output=True,
+        text=True
+    )
+
+    # Confirm CLI output includes expected audit messages
+    assert "📋 Starting Reflex Audit" in result.stdout
+    assert "✅ Reflex Audit Complete" in result.stdout
 
 
 
