@@ -43,7 +43,8 @@ def test_get_neighbor_velocity_returns_none_for_missing_neighbor():
 
 def test_get_neighbor_velocity_returns_none_for_invalid_velocity():
     spacing = 1.0
-    bad = make_cell(0.0, 1.0, 0.0, velocity=None)
+    # ✅ Manually construct cell with velocity=None
+    bad = Cell(x=0.0, y=1.0, z=0.0, velocity=None, pressure=0.0, fluid_mask=True)
     grid = {(0.0, 1.0, 0.0): bad}
     result = get_neighbor_velocity(grid, 0.0, 0.0, 0.0, axis='y', sign=+1, spacing=spacing)
     assert result is None
