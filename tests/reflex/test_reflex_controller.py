@@ -2,11 +2,12 @@ import pytest
 from src.reflex.reflex_controller import apply_reflex
 
 class MockCell:
-    def __init__(self, x, y, z, fluid_mask=True, influenced_by_ghost=False,
+    def __init__(self, x, y, z, velocity=None, fluid_mask=True, influenced_by_ghost=False,
                  damping_triggered=False, overflow_triggered=False, cfl_exceeded=False):
         self.x = x
         self.y = y
         self.z = z
+        self.velocity = velocity
         self.fluid_mask = fluid_mask
         self.influenced_by_ghost = influenced_by_ghost
         self.damping_triggered = damping_triggered
@@ -32,11 +33,11 @@ def mock_config():
 
 def test_reflex_basic_metrics(mock_config):
     grid = [
-        MockCell(0.0, 0.0, 0.0),
-        MockCell(1.0, 0.0, 0.0, influenced_by_ghost=True),
-        MockCell(0.0, 1.0, 0.0, damping_triggered=True),
-        MockCell(1.0, 1.0, 0.0, overflow_triggered=True),
-        MockCell(0.0, 0.0, 1.0, cfl_exceeded=True),
+        MockCell(0.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0]),
+        MockCell(1.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0], influenced_by_ghost=True),
+        MockCell(0.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], damping_triggered=True),
+        MockCell(1.0, 1.0, 0.0, velocity=[1e10, 0.0, 0.0]),  # triggers overflow
+        MockCell(0.0, 0.0, 1.0, velocity=[0.1, 0.0, 0.0], cfl_exceeded=True),
         MockCell(1.0, 0.0, 1.0, fluid_mask=False)
     ]
 
