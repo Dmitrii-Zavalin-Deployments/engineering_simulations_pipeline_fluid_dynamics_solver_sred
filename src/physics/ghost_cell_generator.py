@@ -10,27 +10,12 @@ from src.grid_modules.cell import Cell
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+# ✅ Floating-point tolerance for proximity checks
+EPSILON = 1e-8
+
 def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> Tuple[List[Cell], Dict[int, dict]]:
     """
     Generates ghost cells at domain boundaries based on tagged faces and no-slip enforcement.
-
-    Roadmap Alignment:
-    - Governing Equations:
-        - Momentum: ρ(∂u/∂t + u · ∇u) = -∇P + μ∇²u
-        - Continuity: ∇ · u = 0
-
-    Purpose:
-    - Ghost cells extend the domain to enforce boundary conditions
-    - Support Dirichlet (fixed value) and Neumann (zero-gradient) enforcement
-    - Enable pressure coupling and velocity projection near walls and inlets
-
-    Args:
-        grid (List[Cell]): Physical simulation grid.
-        config (dict): Full simulation input with domain_definition and ghost_rules.
-        debug (bool): If True, prints debug logs. If False, suppresses all debug output.
-
-    Returns:
-        Tuple[List[Cell], Dict[int, dict]]: Augmented grid including ghost cells, and ghost registry with metadata
     """
     domain = config.get("domain_definition", {})
     ghost_rules = config.get("ghost_rules", {})
@@ -122,22 +107,22 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
         if debug:
             print(f"[GHOST] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
-        if "x_min" in boundary_faces and abs(x - x_min) <= 0.5 * dx:
+        if "x_min" in boundary_faces and abs(x - x_min) - 0.5 * dx <= EPSILON:
             face_type = face_types.get("x_min", default_type)
             add_ghost(x - dx, y, z, "x_min", (x, y, z), cell, face_type)
-        if "x_max" in boundary_faces and abs(x - x_max) <= 0.5 * dx:
+        if "x_max" in boundary_faces and abs(x - x_max) - 0.5 * dx <= EPSILON:
             face_type = face_types.get("x_max", default_type)
             add_ghost(x + dx, y, z, "x_max", (x, y, z), cell, face_type)
-        if "y_min" in boundary_faces and abs(y - y_min) <= 0.5 * dy:
+        if "y_min" in boundary_faces and abs(y - y_min) - 0.5 * dy <= EPSILON:
             face_type = face_types.get("y_min", default_type)
             add_ghost(x, y - dy, z, "y_min", (x, y, z), cell, face_type)
-        if "y_max" in boundary_faces and abs(y - y_max) <= 0.5 * dy:
+        if "y_max" in boundary_faces and abs(y - y_max) - 0.5 * dy <= EPSILON:
             face_type = face_types.get("y_max", default_type)
             add_ghost(x, y + dy, z, "y_max", (x, y, z), cell, face_type)
-        if "z_min" in boundary_faces and abs(z - z_min) <= 0.5 * dz:
+        if "z_min" in boundary_faces and abs(z - z_min) - 0.5 * dz <= EPSILON:
             face_type = face_types.get("z_min", default_type)
             add_ghost(x, y, z - dz, "z_min", (x, y, z), cell, face_type)
-        if "z_max" in boundary_faces and abs(z - z_max) <= 0.5 * dz:
+        if "z_max" in boundary_faces and abs(z - z_max) - 0.5 * dz <= EPSILON:
             face_type = face_types.get("z_max", default_type)
             add_ghost(x, y, z + dz, "z_max", (x, y, z), cell, face_type)
 

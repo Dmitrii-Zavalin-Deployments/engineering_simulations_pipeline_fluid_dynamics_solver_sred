@@ -15,22 +15,22 @@ def make_cell(x, y, z, velocity=None, pressure=None, fluid_mask=True):
         fluid_mask=fluid_mask
     )
 
-def test_ghost_cells_created_for_boundary_faces():
+def test_ghost_cell_created_for_x_min_face():
     config = {
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0,
-            "nx": 2, "ny": 1, "nz": 1  # ✅ finer resolution → dx = 0.5
+            "nx": 2, "ny": 1, "nz": 1  # dx = 0.5
         },
         "ghost_rules": {
-            "boundary_faces": ["x_min", "x_max"],
-            "face_types": {"x_min": "wall", "x_max": "inlet"},
+            "boundary_faces": ["x_min"],
+            "face_types": {"x_min": "wall"},
             "default_type": "wall"
         },
         "boundary_conditions": [
             {
-                "apply_faces": ["x_min", "x_max"],
+                "apply_faces": ["x_min"],
                 "apply_to": ["velocity", "pressure"],
                 "velocity": [1.0, 0.0, 0.0],
                 "pressure": 5.0,
@@ -39,16 +39,49 @@ def test_ghost_cells_created_for_boundary_faces():
         ]
     }
 
-    # ✅ Place fluid cell at midpoint → triggers both x_min and x_max
     fluid = make_cell(0.5, 0.5, 0.5)
     padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
 
-    assert len(padded_grid) == 3  # original + 2 ghosts
-    assert len(ghost_registry) == 2
+    assert len(padded_grid) == 2  # original + 1 ghost
+    assert len(ghost_registry) == 1
 
-    ghost_coords = [ghost_registry[k]["coordinate"] for k in ghost_registry]
-    assert (fluid.x - 0.5, fluid.y, fluid.z) in ghost_coords  # x_min ghost
-    assert (fluid.x + 0.5, fluid.y, fluid.z) in ghost_coords  # x_max ghost
+    ghost = list(ghost_registry.values())[0]
+    assert ghost["face"] == "x_min"
+    assert ghost["coordinate"] == (fluid.x - 0.5, fluid.y, fluid.z)
+
+def test_ghost_cell_created_for_x_max_face():
+    config = {
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 1.0,
+            "min_y": 0.0, "max_y": 1.0,
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 2, "ny": 1, "nz": 1  # dx = 0.5
+        },
+        "ghost_rules": {
+            "boundary_faces": ["x_max"],
+            "face_types": {"x_max": "inlet"},
+            "default_type": "wall"
+        },
+        "boundary_conditions": [
+            {
+                "apply_faces": ["x_max"],
+                "apply_to": ["velocity", "pressure"],
+                "velocity": [1.0, 0.0, 0.0],
+                "pressure": 5.0,
+                "type": "dirichlet"
+            }
+        ]
+    }
+
+    fluid = make_cell(0.5, 0.5, 0.5)
+    padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
+
+    assert len(padded_grid) == 2  # original + 1 ghost
+    assert len(ghost_registry) == 1
+
+    ghost = list(ghost_registry.values())[0]
+    assert ghost["face"] == "x_max"
+    assert ghost["coordinate"] == (fluid.x + 0.5, fluid.y, fluid.z)
 
 def test_ghost_cells_exclude_nonfluid_cells():
     config = {

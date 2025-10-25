@@ -15,6 +15,40 @@ def make_cell(x, y, z, velocity=None, pressure=None, fluid_mask=True):
         fluid_mask=fluid_mask
     )
 
+# ✅ NEW: Reflex-safe enforcement metadata propagation
+def test_reflex_metadata_propagation_to_fluid_origin():
+    ghost = make_cell(0.0, 0.0, 0.0, fluid_mask=False)
+    fluid = make_cell(0.5, 0.0, 0.0, fluid_mask=True)
+    ghost_registry = {
+        id(ghost): {
+            "origin": (fluid.x, fluid.y, fluid.z),
+            "velocity": [2.0, 0.0, 0.0],
+            "pressure": 88.0,
+            "type": "dirichlet",
+            "enforcement": {
+                "velocity": True,
+                "pressure": True
+            }
+        }
+    }
+    config = {
+        "boundary_conditions": [
+            {
+                "apply_faces": ["x_min"],
+                "apply_to": ["velocity", "pressure"],
+                "velocity": [2.0, 0.0, 0.0],
+                "pressure": 88.0,
+                "type": "dirichlet"
+            }
+        ]
+    }
+
+    result = apply_boundary_conditions([ghost, fluid], ghost_registry, config)
+    assert result[1].velocity == [2.0, 0.0, 0.0]
+    assert result[1].pressure == 88.0
+
+# ✅ Existing tests preserved below
+
 def test_applies_dirichlet_to_ghost_cells():
     ghost = make_cell(0.0, 0.0, 0.0, fluid_mask=False)
     fluid = make_cell(1.0, 0.0, 0.0, fluid_mask=True)
@@ -111,7 +145,7 @@ def test_skips_non_ghost_cells():
     }
 
     result = apply_boundary_conditions([fluid1, fluid2], ghost_registry, config)
-    assert result[0].velocity is None  # ✅ untouched because not in ghost_registry
+    assert result[0].velocity is None
     assert result[1].velocity is None
 
 
