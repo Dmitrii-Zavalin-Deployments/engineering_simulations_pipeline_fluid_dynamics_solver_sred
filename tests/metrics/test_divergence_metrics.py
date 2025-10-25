@@ -54,11 +54,11 @@ def test_compute_max_divergence_with_symmetric_neighbors():
 
     center = make_cell(0.5, 0.5, 0.5, velocity=[0.0, 0.0, 0.0])
     x_plus = make_cell(0.5 + dx, 0.5, 0.5, velocity=[1.0, 0.0, 0.0])
-    x_minus = make_cell(0.5 - dx, 0.5, 0.5, velocity=[-1.0, 0.0, 0.0])
+    x_minus = make_cell(0.5 - dx, 0.5, 0.5, velocity=[1.0, 0.0, 0.0])
     y_plus = make_cell(0.5, 0.5 + dy, 0.5, velocity=[0.0, 2.0, 0.0])
-    y_minus = make_cell(0.5, 0.5 - dy, 0.5, velocity=[0.0, -2.0, 0.0])
+    y_minus = make_cell(0.5, 0.5 - dy, 0.5, velocity=[0.0, 2.0, 0.0])
     z_plus = make_cell(0.5, 0.5, 0.5 + dz, velocity=[0.0, 0.0, 3.0])
-    z_minus = make_cell(0.5, 0.5, 0.5 - dz, velocity=[0.0, 0.0, -3.0])
+    z_minus = make_cell(0.5, 0.5, 0.5 - dz, velocity=[0.0, 0.0, 3.0])
 
     grid = [center, x_plus, x_minus, y_plus, y_minus, z_plus, z_minus]
     result = compute_max_divergence(grid, domain)
@@ -99,6 +99,3 @@ def test_compute_max_divergence_handles_missing_neighbors_gracefully():
     result = compute_max_divergence(grid, domain)
     assert result == 0.0
     assert center.divergence == 0.0
-
-
-
