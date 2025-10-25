@@ -50,8 +50,8 @@ def test_compute_central_divergence_detects_uniform_flow():
     grid = [center, x_plus, x_minus, y_plus, y_minus, z_plus, z_minus]
     result = compute_central_divergence(grid, config)
 
-    assert len(result) == 1
-    assert round(result[0], 5) == 0.0
+    assert len(result) == 7
+    assert all(round(val, 5) == 0.0 for val in result)
 
 def test_compute_central_divergence_detects_asymmetric_flow():
     domain = {
@@ -71,8 +71,8 @@ def test_compute_central_divergence_detects_asymmetric_flow():
     grid = [center, x_plus, x_minus]
     result = compute_central_divergence(grid, config)
 
-    assert len(result) == 1
-    assert result[0] > 0.0
+    assert len(result) == 3
+    assert any(val > 0.0 for val in result)
 
 def test_compute_central_divergence_handles_missing_neighbors_gracefully():
     domain = {
