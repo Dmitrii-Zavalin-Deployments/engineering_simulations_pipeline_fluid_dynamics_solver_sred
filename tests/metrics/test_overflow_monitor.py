@@ -1,6 +1,3 @@
-# tests/metrics/test_overflow_monitor.py
-# ✅ Validation suite for src/metrics/overflow_monitor.py
-
 import pytest
 from src.metrics.overflow_monitor import detect_overflow
 from src.grid_modules.cell import Cell
@@ -58,6 +55,23 @@ def test_detect_overflow_threshold_boundary():
     # Slightly above threshold
     spike_cell = make_cell(1.0, 1.0, 1.0, velocity=[6.1, 8.0, 0.0])
     assert detect_overflow([spike_cell]) is True
+
+def test_detect_overflow_threshold_documentation():
+    """
+    Explicitly documents the overflow threshold used in detect_overflow.
+    This test ensures that velocity magnitude just below the threshold does not trigger overflow,
+    while values just above it do.
+    """
+    threshold = 10.0  # Documented threshold used in overflow detection logic
+
+    below = make_cell(0.0, 0.0, 0.0, velocity=[5.9, 8.0, 0.0])  # magnitude ≈ 9.99
+    above = make_cell(1.0, 1.0, 1.0, velocity=[6.1, 8.0, 0.0])  # magnitude ≈ 10.02
+
+    assert math.sqrt(sum(v**2 for v in below.velocity)) < threshold
+    assert math.sqrt(sum(v**2 for v in above.velocity)) > threshold
+
+    assert detect_overflow([below]) is False
+    assert detect_overflow([above]) is True
 
 
 

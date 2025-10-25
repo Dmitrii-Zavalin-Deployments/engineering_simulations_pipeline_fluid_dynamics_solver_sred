@@ -36,8 +36,8 @@ def test_should_dampen_skips_nonfluid_cells():
 
 def test_adjust_time_step_reduces_dt_on_high_cfl():
     grid = [
-        MockCell(0, 0, 0, velocity=[10.0, 0.0, 0.0]),
-        MockCell(1, 0, 0, velocity=[10.0, 0.0, 0.0])
+        MockCell(0, 0, 0, velocity=[10.1, 0.0, 0.0]),  # ✅ slightly above threshold
+        MockCell(1, 0, 0, velocity=[10.1, 0.0, 0.0])
     ]
     config = {
         "simulation_parameters": {"time_step": 0.1},
