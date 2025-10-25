@@ -83,7 +83,7 @@ def test_log_mutation_pathway_creates_and_appends_log():
         assert "triggered_cells" in entry
         assert "mutated_cells" in entry
         assert len(entry["mutated_cells"]) == 2
-        assert entry["mutated_cells"][0] == (0.0, 0.0, 0.0)
+        assert entry["mutated_cells"][0] == [0.0, 0.0, 0.0]  # ✅ Fixed: tuple → list
 
 def test_log_mutation_pathway_handles_missing_log_file():
     with tempfile.TemporaryDirectory() as temp_dir:
