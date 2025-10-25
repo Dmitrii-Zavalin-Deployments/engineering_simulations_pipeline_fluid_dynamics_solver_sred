@@ -150,7 +150,10 @@ def test_build_simulation_grid_applies_boundary_enforcement_metadata():
             "face_types": {
                 "xmin": "inlet",
                 "ymin": "wall",
-                "zmin": "outlet"
+                "zmin": "outlet",
+                "xmax": "wall",
+                "ymax": "wall",
+                "zmax": "wall"
             },
             "default_type": "wall"
         },
@@ -160,10 +163,18 @@ def test_build_simulation_grid_applies_boundary_enforcement_metadata():
     grid = build_simulation_grid(config)
     ghost_cells = [c for c in grid if not c.fluid_mask]
 
+    # ✅ Assert enforced faces
     assert any(c.ghost_face == "xmin" and c.ghost_type == "inlet" for c in ghost_cells)
     assert any(c.ghost_face == "ymin" and c.ghost_type == "wall" for c in ghost_cells)
     assert any(c.ghost_face == "zmin" and c.ghost_type == "outlet" for c in ghost_cells)
     assert all(c.ghost_source_step == 99 for c in ghost_cells if c.ghost_face in {"xmin", "ymin", "zmin"})
+    assert all(c.was_enforced is True for c in ghost_cells if c.ghost_face in {"xmin", "ymin", "zmin"})
+
+    # ✅ Assert fallback faces
+    assert any(c.ghost_face == "xmax" and c.ghost_type == "wall" for c in ghost_cells)
+    assert any(c.ghost_face == "ymax" and c.ghost_type == "wall" for c in ghost_cells)
+    assert any(c.ghost_face == "zmax" and c.ghost_type == "wall" for c in ghost_cells)
+    assert all(c.was_enforced is False for c in ghost_cells if c.ghost_face in {"xmax", "ymax", "zmax"})
 
 
 
