@@ -33,9 +33,11 @@ def mock_config():
         "reflex_verbosity": "low"
     }
 
+@patch("src.reflex.reflex_controller.damping_metric", return_value=True)
 @patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
-def test_reflex_basic_metrics_with_overflow_patch(mock_overflow, mock_config):
-    grid = [
+@patch("src.reflex.reflex_controller.build_simulation_grid")
+def test_reflex_basic_metrics_with_overflow_patch(mock_build_grid, mock_overflow, mock_damping, mock_config):
+    mock_grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0]),
         MockCell(1.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0], influenced_by_ghost=True),
         MockCell(0.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], damping_triggered=True),
@@ -43,6 +45,7 @@ def test_reflex_basic_metrics_with_overflow_patch(mock_overflow, mock_config):
         MockCell(0.0, 0.0, 1.0, velocity=[0.1, 0.0, 0.0], cfl_exceeded=True),
         MockCell(1.0, 0.0, 1.0, fluid_mask=False)
     ]
+    mock_build_grid.return_value = mock_grid
 
     input_data = {
         "domain_definition": mock_config["domain_definition"],
@@ -51,11 +54,10 @@ def test_reflex_basic_metrics_with_overflow_patch(mock_overflow, mock_config):
     }
 
     result = apply_reflex(
-        grid=grid,
+        config=mock_config,
         input_data=input_data,
         step=1,
         ghost_influence_count=1,
-        config=mock_config,
         pressure_solver_invoked=True,
         pressure_mutated=True,
         post_projection_divergence=1e-9
@@ -64,7 +66,7 @@ def test_reflex_basic_metrics_with_overflow_patch(mock_overflow, mock_config):
     assert result["max_velocity"] >= 0.0
     assert result["max_divergence"] >= 0.0
     assert result["global_cfl"] >= 0.0
-    assert result["overflow_detected"] is True  # ✅ now guaranteed by patch
+    assert result["overflow_detected"] is True
     assert result["damping_enabled"] is True
     assert result["adjusted_time_step"] > 0.0
     assert result["projection_passes"] >= 0

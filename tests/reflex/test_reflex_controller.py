@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from src.reflex.reflex_controller import apply_reflex
 
 class MockCell:
@@ -31,15 +32,17 @@ def mock_config():
         "reflex_verbosity": "low"
     }
 
-def test_reflex_basic_metrics(mock_config):
-    grid = [
+@patch("src.reflex.reflex_controller.build_simulation_grid")
+def test_reflex_basic_metrics(mock_build_grid, mock_config):
+    mock_grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0]),
         MockCell(1.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0], influenced_by_ghost=True),
         MockCell(0.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], damping_triggered=True),
-        MockCell(1.0, 1.0, 0.0, velocity=[1e20, 0.0, 0.0]),  # ✅ updated to trigger overflow
+        MockCell(1.0, 1.0, 0.0, velocity=[1e20, 0.0, 0.0], overflow_triggered=True),
         MockCell(0.0, 0.0, 1.0, velocity=[0.1, 0.0, 0.0], cfl_exceeded=True),
         MockCell(1.0, 0.0, 1.0, fluid_mask=False)
     ]
+    mock_build_grid.return_value = mock_grid
 
     input_data = {
         "domain_definition": mock_config["domain_definition"],
@@ -48,11 +51,10 @@ def test_reflex_basic_metrics(mock_config):
     }
 
     result = apply_reflex(
-        grid=grid,
+        config=mock_config,
         input_data=input_data,
         step=1,
         ghost_influence_count=1,
-        config=mock_config,
         pressure_solver_invoked=True,
         pressure_mutated=True,
         post_projection_divergence=1e-9
@@ -75,19 +77,21 @@ def test_reflex_basic_metrics(mock_config):
     assert result["cfl_exceeded_count"] == 1
     assert isinstance(result["reflex_score"], float)
 
-def test_reflex_handles_empty_mutation_list(mock_config):
-    grid = [MockCell(0.0, 0.0, 0.0), MockCell(1.0, 0.0, 0.0)]
+@patch("src.reflex.reflex_controller.build_simulation_grid")
+def test_reflex_handles_empty_mutation_list(mock_build_grid, mock_config):
+    mock_grid = [MockCell(0.0, 0.0, 0.0), MockCell(1.0, 0.0, 0.0)]
+    mock_build_grid.return_value = mock_grid
+
     input_data = {
         "domain_definition": mock_config["domain_definition"],
         "simulation_parameters": mock_config["simulation_parameters"]
     }
 
     result = apply_reflex(
-        grid=grid,
+        config=mock_config,
         input_data=input_data,
         step=2,
         ghost_influence_count=0,
-        config=mock_config,
         pressure_solver_invoked=False,
         pressure_mutated=False,
         post_projection_divergence=1e-5
@@ -98,12 +102,14 @@ def test_reflex_handles_empty_mutation_list(mock_config):
     assert result["pressure_mutated"] is False
     assert result["pressure_solver_invoked"] is False
 
-def test_reflex_tags_suppression_when_no_influence(mock_config):
-    grid = [
+@patch("src.reflex.reflex_controller.build_simulation_grid")
+def test_reflex_tags_suppression_when_no_influence(mock_build_grid, mock_config):
+    mock_grid = [
         MockCell(0.0, 0.0, 0.0),
         MockCell(1.0, 0.0, 0.0),
         MockCell(0.0, 1.0, 0.0)
     ]
+    mock_build_grid.return_value = mock_grid
 
     input_data = {
         "domain_definition": mock_config["domain_definition"],
@@ -112,11 +118,10 @@ def test_reflex_tags_suppression_when_no_influence(mock_config):
     }
 
     result = apply_reflex(
-        grid=grid,
+        config=mock_config,
         input_data=input_data,
         step=3,
         ghost_influence_count=2,
-        config=mock_config,
         pressure_solver_invoked=True,
         pressure_mutated=True,
         post_projection_divergence=1e-6

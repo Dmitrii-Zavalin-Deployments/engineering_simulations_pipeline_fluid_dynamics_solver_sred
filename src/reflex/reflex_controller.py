@@ -25,9 +25,9 @@ from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordin
 debug = True
 
 def apply_reflex(
-    grid: List[Cell],
-    input_data: dict,
-    step: int,
+    grid: Optional[List[Cell]] = None,
+    input_data: dict = {},
+    step: int = 0,
     ghost_influence_count: Optional[int] = None,
     config: Optional[dict] = None,
     pressure_solver_invoked: Optional[bool] = None,
@@ -37,6 +37,7 @@ def apply_reflex(
 ) -> dict:
     """
     Computes per-step diagnostics and reflex metrics for solver integrity and mutation traceability.
+    Accepts external grid injection for test-safe diagnostics.
     """
     verbosity = (config or {}).get("reflex_verbosity", "medium")
     include_div_delta = (config or {}).get("include_divergence_delta", False)
@@ -47,7 +48,8 @@ def apply_reflex(
         print(f"[REFLEX] Step {step} → Reflex diagnostics active")
 
     validate_config(config)
-    grid = build_simulation_grid(config)
+    if grid is None:
+        grid = build_simulation_grid(config)
 
     domain = input_data["domain_definition"]
     time_step = input_data["simulation_parameters"]["time_step"]
