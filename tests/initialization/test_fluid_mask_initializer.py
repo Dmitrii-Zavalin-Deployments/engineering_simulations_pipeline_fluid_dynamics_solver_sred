@@ -113,17 +113,29 @@ def test_build_simulation_grid_constructs_expected_cell_count():
             "nx": 2, "ny": 2, "nz": 2
         },
         "ghost_rules": {
-            "boundary_faces": [],
+            "boundary_faces": ["xmin", "xmax", "ymin", "ymax", "zmin", "zmax"],
             "default_type": "wall",
-            "face_types": {}
+            "face_types": {
+                "xmin": "inlet",
+                "xmax": "outlet",
+                "ymin": "wall",
+                "ymax": "wall",
+                "zmin": "wall",
+                "zmax": "wall"
+            }
         }
     }
 
     grid = build_simulation_grid(config)
     assert len(grid) == 27  # (2+1)^3
+
     fluid_cells = [c for c in grid if c.fluid_mask]
     ghost_cells = [c for c in grid if not c.fluid_mask]
+
     assert len(fluid_cells) + len(ghost_cells) == 27
+    assert any(c.ghost_face == "xmin" and c.ghost_type == "inlet" for c in ghost_cells)
+    assert any(c.ghost_face == "xmax" and c.ghost_type == "outlet" for c in ghost_cells)
+    assert all(c.ghost_type in {"inlet", "outlet", "wall"} for c in ghost_cells)
 
 def test_build_simulation_grid_applies_boundary_enforcement_metadata():
     config = {
