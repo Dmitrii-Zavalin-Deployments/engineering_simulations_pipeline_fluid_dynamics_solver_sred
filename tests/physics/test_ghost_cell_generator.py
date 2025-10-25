@@ -21,7 +21,7 @@ def test_ghost_cells_created_for_boundary_faces():
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0,
-            "nx": 1, "ny": 1, "nz": 1
+            "nx": 2, "ny": 1, "nz": 1  # ✅ finer resolution → dx = 0.5
         },
         "ghost_rules": {
             "boundary_faces": ["x_min", "x_max"],
@@ -39,16 +39,16 @@ def test_ghost_cells_created_for_boundary_faces():
         ]
     }
 
-    # ✅ Place fluid cell at both boundaries to trigger both ghost faces
-    fluid = make_cell(1.0, 0.5, 0.5)
+    # ✅ Place fluid cell at midpoint → triggers both x_min and x_max
+    fluid = make_cell(0.5, 0.5, 0.5)
     padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
 
     assert len(padded_grid) == 3  # original + 2 ghosts
     assert len(ghost_registry) == 2
 
     ghost_coords = [ghost_registry[k]["coordinate"] for k in ghost_registry]
-    assert (fluid.x - 1.0, fluid.y, fluid.z) in ghost_coords
-    assert (fluid.x + 1.0, fluid.y, fluid.z) in ghost_coords
+    assert (fluid.x - 0.5, fluid.y, fluid.z) in ghost_coords  # x_min ghost
+    assert (fluid.x + 0.5, fluid.y, fluid.z) in ghost_coords  # x_max ghost
 
 def test_ghost_cells_exclude_nonfluid_cells():
     config = {
