@@ -84,6 +84,7 @@ def test_initialize_masks_defaults_to_wall_when_face_type_missing():
     result = initialize_masks(grid, config)
     assert result[0].fluid_mask is False
     assert result[0].ghost_type == "wall"
+    assert result[0].was_enforced is False
 
 def test_initialize_masks_handles_minimal_config_safely():
     grid = [mock_cell(0.0, 0.0, 0.0)]
@@ -103,6 +104,7 @@ def test_initialize_masks_handles_minimal_config_safely():
     result = initialize_masks(grid, config)
     assert result[0].fluid_mask is False
     assert result[0].ghost_type == "wall"
+    assert result[0].was_enforced is False
 
 def test_build_simulation_grid_constructs_expected_cell_count():
     config = {
@@ -135,6 +137,10 @@ def test_build_simulation_grid_constructs_expected_cell_count():
     assert len(fluid_cells) + len(ghost_cells) == 27
     assert any(c.ghost_face == "xmin" and c.ghost_type == "inlet" for c in ghost_cells)
     assert any(c.ghost_face == "xmax" and c.ghost_type == "outlet" for c in ghost_cells)
+    assert any(c.ghost_face == "ymin" and c.ghost_type == "wall" for c in ghost_cells)
+    assert any(c.ghost_face == "ymax" and c.ghost_type == "wall" for c in ghost_cells)
+    assert any(c.ghost_face == "zmin" and c.ghost_type == "wall" for c in ghost_cells)
+    assert any(c.ghost_face == "zmax" and c.ghost_type == "wall" for c in ghost_cells)
     assert all(c.ghost_type in {"inlet", "outlet", "wall"} for c in ghost_cells)
 
 def test_build_simulation_grid_applies_boundary_enforcement_metadata():
