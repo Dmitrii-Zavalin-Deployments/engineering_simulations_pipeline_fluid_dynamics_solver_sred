@@ -19,6 +19,7 @@ from src.snapshot_manager import generate_snapshots
 from src.compression.snapshot_compactor import compact_pressure_delta_map
 from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
+from src.config.config_loader import load_simulation_config
 from src.audit.run_reflex_audit import run_reflex_audit
 
 def load_reflex_config(path="config/reflex_debug_config.yaml"):
@@ -38,13 +39,18 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None)
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     input_data = load_simulation_input(input_path)
 
-    ghost_rules_path = os.getenv("GHOST_RULES_PATH")
-    if ghost_rules_path and os.path.isfile(ghost_rules_path):
+    # ✅ Load ghost rules from external file if available
+    ghost_rules_path = os.getenv("GHOST_RULES_PATH", "config/ghost_rules.json")
+    if os.path.isfile(ghost_rules_path):
         with open(ghost_rules_path) as f:
             ghost_rules = json.load(f)
         input_data["ghost_rules"] = ghost_rules
         if debug:
             print(f"👻 Injected ghost_rules from: {ghost_rules_path}")
+
+    # ✅ Load domain + ghost config using centralized loader
+    domain_path = input_path
+    config = load_simulation_config(domain_path=domain_path, ghost_path=ghost_rules_path, step_index=0)
 
     output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
     os.makedirs(output_folder, exist_ok=True)
@@ -52,13 +58,13 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None)
     reflex_config_path = os.getenv("REFLEX_CONFIG", "config/reflex_debug_config.yaml")
     reflex_config = load_reflex_config(reflex_config_path)
 
-    ghost_cfg = input_data.get("ghost_rules", {})
+    ghost_cfg = config.get("ghost_rules", {})
     if debug:
         print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}, Default: {ghost_cfg.get('default_type')}")
         print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
 
-    validate_config(input_data)
-    build_simulation_grid(input_data)
+    validate_config(config)
+    build_simulation_grid(config)
 
     if debug:
         print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario_name}")
@@ -66,11 +72,11 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None)
         print(f"📁 Output folder: {output_folder}")
         print(f"⚙️ Reflex config path: {reflex_config_path}")
         print("🛠️ Debug mode enabled.")
-        print(f"📦 Input preview (truncated): {json.dumps(input_data, indent=2)[:1000]}")
-        domain = input_data.get("domain_definition", {})
+        print(f"📦 Input preview (truncated): {json.dumps(config, indent=2)[:1000]}")
+        domain = config.get("domain_definition", {})
         print(f"📐 Grid resolution: {domain.get('nx')} × {domain.get('ny')} × {domain.get('nz')}")
 
-    snapshots = generate_snapshots(input_data, scenario_name, config=reflex_config)
+    snapshots = generate_snapshots(config, scenario_name, config=reflex_config)
 
     for step, snapshot in snapshots:
         formatted_step = f"{step:04d}"

@@ -59,7 +59,10 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
         if ghost_face:
             fluid = False
             boundary_tag = ghost_face
-            ghost_type = ghost_rules.get("face_types", {}).get(ghost_face, ghost_type_default)
+
+            # ✅ Normalize ghost_face for lookup compatibility
+            normalized_face = ghost_face.replace("_", "").lower()
+            ghost_type = ghost_rules.get("face_types", {}).get(normalized_face, ghost_type_default)
 
         initialized_cell = Cell(
             x=x,

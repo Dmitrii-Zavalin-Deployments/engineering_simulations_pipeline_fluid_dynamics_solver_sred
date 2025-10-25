@@ -16,14 +16,27 @@ def mock_cell(x, y, z, velocity=None, pressure=None):
 
 def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
     grid = [
-        mock_cell(0.0, 0.5, 0.5),  # xmin → ghost
-        mock_cell(1.0, 0.5, 0.5),  # xmax → ghost
-        mock_cell(0.5, 0.0, 0.5),  # ymin → ghost
-        mock_cell(0.5, 1.0, 0.5),  # ymax → ghost
-        mock_cell(0.5, 0.5, 0.0),  # zmin → ghost
-        mock_cell(0.5, 0.5, 1.0),  # zmax → ghost
+        mock_cell(0.0, 0.5, 0.5),  # xmin → inlet
+        mock_cell(1.0, 0.5, 0.5),  # xmax → outlet
+        mock_cell(0.5, 0.0, 0.5),  # ymin → wall
+        mock_cell(0.5, 1.0, 0.5),  # ymax → wall
+        mock_cell(0.5, 0.5, 0.0),  # zmin → wall
+        mock_cell(0.5, 0.5, 1.0),  # zmax → wall
         mock_cell(0.5, 0.5, 0.5)   # interior → fluid
     ]
+
+    ghost_rules = {
+        "boundary_faces": ["xmin", "xmax", "ymin", "ymax", "zmin", "zmax"],
+        "face_types": {
+            "xmin": "inlet",
+            "xmax": "outlet",
+            "ymin": "wall",
+            "ymax": "wall",
+            "zmin": "wall",
+            "zmax": "wall"
+        },
+        "default_type": "wall"
+    }
 
     config = {
         "domain_definition": {
@@ -31,11 +44,7 @@ def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0
         },
-        "ghost_rules": {
-            "boundary_faces": ["xmin", "ymax"],
-            "face_types": {"xmin": "inlet", "ymax": "wall"},
-            "default_type": "generic"
-        },
+        "ghost_rules": ghost_rules,
         "step_index": 42
     }
 
@@ -51,13 +60,13 @@ def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
     for cell in ghost_cells:
         assert cell.ghost_face in {"xmin", "xmax", "ymin", "ymax", "zmin", "zmax"}
         assert cell.boundary_tag == cell.ghost_face
-        assert cell.ghost_type in {"inlet", "wall", "generic"}
+        assert cell.ghost_type in {"inlet", "outlet", "wall"}
         assert cell.originated_from_boundary is True
         assert cell.mutation_triggered_by == "boundary_enforcement"
         assert cell.ghost_source_step == 42
         assert isinstance(cell.was_enforced, bool)
 
-def test_initialize_masks_defaults_to_generic_when_face_type_missing():
+def test_initialize_masks_defaults_to_wall_when_face_type_missing():
     grid = [mock_cell(0.0, 0.0, 0.0)]  # xmin, ymin, zmin
     config = {
         "domain_definition": {
@@ -67,14 +76,14 @@ def test_initialize_masks_defaults_to_generic_when_face_type_missing():
         },
         "ghost_rules": {
             "face_types": {},  # no overrides
-            "default_type": "generic",
-            "boundary_faces": []  # ✅ Required for schema compliance
+            "default_type": "wall",
+            "boundary_faces": []
         }
     }
 
     result = initialize_masks(grid, config)
     assert result[0].fluid_mask is False
-    assert result[0].ghost_type == "generic"
+    assert result[0].ghost_type == "wall"
 
 def test_initialize_masks_handles_minimal_config_safely():
     grid = [mock_cell(0.0, 0.0, 0.0)]
@@ -86,14 +95,14 @@ def test_initialize_masks_handles_minimal_config_safely():
         },
         "ghost_rules": {
             "boundary_faces": [],
-            "default_type": "generic",
-            "face_types": {}  # ✅ Added for schema compliance
+            "default_type": "wall",
+            "face_types": {}
         }
     }
 
     result = initialize_masks(grid, config)
     assert result[0].fluid_mask is False
-    assert result[0].ghost_type == "generic"
+    assert result[0].ghost_type == "wall"
 
 def test_build_simulation_grid_constructs_expected_cell_count():
     config = {
@@ -105,8 +114,8 @@ def test_build_simulation_grid_constructs_expected_cell_count():
         },
         "ghost_rules": {
             "boundary_faces": [],
-            "default_type": "generic",
-            "face_types": {}  # ✅ Added for schema compliance
+            "default_type": "wall",
+            "face_types": {}
         }
     }
 
@@ -122,12 +131,16 @@ def test_build_simulation_grid_applies_boundary_enforcement_metadata():
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0,
-            "nx": 2, "ny": 2, "nz": 2  # ✅ Increased resolution to ensure face coverage
+            "nx": 2, "ny": 2, "nz": 2
         },
         "ghost_rules": {
             "boundary_faces": ["xmin", "ymin", "zmin"],
-            "face_types": {"xmin": "inlet", "ymin": "wall", "zmin": "outlet"},
-            "default_type": "generic"
+            "face_types": {
+                "xmin": "inlet",
+                "ymin": "wall",
+                "zmin": "outlet"
+            },
+            "default_type": "wall"
         },
         "step_index": 99
     }
