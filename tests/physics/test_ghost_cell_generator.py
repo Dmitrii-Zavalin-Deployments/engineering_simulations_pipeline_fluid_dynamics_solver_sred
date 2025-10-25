@@ -39,7 +39,8 @@ def test_ghost_cells_created_for_boundary_faces():
         ]
     }
 
-    fluid = make_cell(0.0, 0.5, 0.5)
+    # ✅ Place fluid cell at both boundaries to trigger both ghost faces
+    fluid = make_cell(1.0, 0.5, 0.5)
     padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
 
     assert len(padded_grid) == 3  # original + 2 ghosts
