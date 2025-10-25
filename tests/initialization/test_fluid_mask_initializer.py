@@ -86,7 +86,8 @@ def test_initialize_masks_handles_minimal_config_safely():
         },
         "ghost_rules": {
             "boundary_faces": [],
-            "default_type": "generic"
+            "default_type": "generic",
+            "face_types": {}  # ✅ Added for schema compliance
         }
     }
 
@@ -104,7 +105,8 @@ def test_build_simulation_grid_constructs_expected_cell_count():
         },
         "ghost_rules": {
             "boundary_faces": [],
-            "default_type": "generic"
+            "default_type": "generic",
+            "face_types": {}  # ✅ Added for schema compliance
         }
     }
 
