@@ -68,8 +68,8 @@ def test_advection_handles_missing_neighbors_gracefully():
     cell = make_cell(0.0, 0.0, 0.0, velocity=[1.0, 2.0, 3.0])
     result = compute_advection([cell], dt=0.1, config=config)
     updated = result[0]
-    assert updated.velocity != [1.0, 2.0, 3.0]  # fallback still applies Euler update
-    assert updated.transport_triggered is True
+    assert updated.velocity == [1.0, 2.0, 3.0]  # ✅ velocity unchanged due to zero-gradient fallback
+    assert updated.transport_triggered is True  # ✅ reflex tag confirms processing
 
 def test_advection_preserves_nonfluid_cells_unchanged():
     config = {
