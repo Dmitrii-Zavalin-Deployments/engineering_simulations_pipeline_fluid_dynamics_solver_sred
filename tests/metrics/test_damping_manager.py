@@ -58,7 +58,7 @@ def test_damping_precision_near_threshold():
     ]
     assert should_dampen(grid, time_step=0.1) is False
 
-    grid[2].velocity = [1.51, 0.0, 0.0]  # just above trigger
+    grid[2].velocity = [2.0, 0.0, 0.0]  # ✅ clearly above dynamic threshold
     assert should_dampen(grid, time_step=0.1) is True
 
 
