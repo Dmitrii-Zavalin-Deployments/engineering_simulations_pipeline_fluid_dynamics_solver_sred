@@ -8,6 +8,7 @@ ghost_adjacency_depth: 1       # Influence tagging radius (default = 1)
 include_mutation_pathways: true   # Enable mutation causality tracing
 export_influence_flags: true      # Enable ghost influence map export
 enable_reflex_snapshot_overlay: false  # Optional: visualize mutation overlap per step
+ghost_threshold_debug: true     # Optional: log proximity deltas during ghost creation
 
 
 

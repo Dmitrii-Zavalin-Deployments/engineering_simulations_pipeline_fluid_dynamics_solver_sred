@@ -107,22 +107,22 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
         if debug:
             print(f"[GHOST] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
-        if "x_min" in boundary_faces and abs(x - x_min) - 0.5 * dx <= EPSILON:
+        if "x_min" in boundary_faces and abs(abs(x - x_min) - 0.5 * dx) <= EPSILON:
             face_type = face_types.get("x_min", default_type)
             add_ghost(x - dx, y, z, "x_min", (x, y, z), cell, face_type)
-        if "x_max" in boundary_faces and abs(x - x_max) - 0.5 * dx <= EPSILON:
+        if "x_max" in boundary_faces and abs(abs(x - x_max) - 0.5 * dx) <= EPSILON:
             face_type = face_types.get("x_max", default_type)
             add_ghost(x + dx, y, z, "x_max", (x, y, z), cell, face_type)
-        if "y_min" in boundary_faces and abs(y - y_min) - 0.5 * dy <= EPSILON:
+        if "y_min" in boundary_faces and abs(abs(y - y_min) - 0.5 * dy) <= EPSILON:
             face_type = face_types.get("y_min", default_type)
             add_ghost(x, y - dy, z, "y_min", (x, y, z), cell, face_type)
-        if "y_max" in boundary_faces and abs(y - y_max) - 0.5 * dy <= EPSILON:
+        if "y_max" in boundary_faces and abs(abs(y - y_max) - 0.5 * dy) <= EPSILON:
             face_type = face_types.get("y_max", default_type)
             add_ghost(x, y + dy, z, "y_max", (x, y, z), cell, face_type)
-        if "z_min" in boundary_faces and abs(z - z_min) - 0.5 * dz <= EPSILON:
+        if "z_min" in boundary_faces and abs(abs(z - z_min) - 0.5 * dz) <= EPSILON:
             face_type = face_types.get("z_min", default_type)
             add_ghost(x, y, z - dz, "z_min", (x, y, z), cell, face_type)
-        if "z_max" in boundary_faces and abs(z - z_max) - 0.5 * dz <= EPSILON:
+        if "z_max" in boundary_faces and abs(abs(z - z_max) - 0.5 * dz) <= EPSILON:
             face_type = face_types.get("z_max", default_type)
             add_ghost(x, y, z + dz, "z_max", (x, y, z), cell, face_type)
 

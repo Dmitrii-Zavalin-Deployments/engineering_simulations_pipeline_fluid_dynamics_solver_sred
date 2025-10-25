@@ -39,7 +39,7 @@ def test_ghost_cell_created_for_x_min_face():
         ]
     }
 
-    fluid = make_cell(0.5, 0.5, 0.5)
+    fluid = make_cell(0.0, 0.5, 0.5)  # ✅ adjacent to x_min
     padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
 
     assert len(padded_grid) == 2  # original + 1 ghost
@@ -73,7 +73,7 @@ def test_ghost_cell_created_for_x_max_face():
         ]
     }
 
-    fluid = make_cell(0.5, 0.5, 0.5)
+    fluid = make_cell(1.0, 0.5, 0.5)  # ✅ adjacent to x_max
     padded_grid, ghost_registry = generate_ghost_cells([fluid], config, debug=False)
 
     assert len(padded_grid) == 2  # original + 1 ghost
