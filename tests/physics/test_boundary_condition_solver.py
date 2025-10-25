@@ -111,8 +111,8 @@ def test_skips_non_ghost_cells():
     }
 
     result = apply_boundary_conditions([fluid1, fluid2], ghost_registry, config)
-    assert result[0].velocity == [1.0, 1.0, 1.0]
-    assert result[1].velocity == [1.0, 1.0, 1.0]
+    assert result[0].velocity is None  # ✅ untouched because not in ghost_registry
+    assert result[1].velocity is None
 
 
 
