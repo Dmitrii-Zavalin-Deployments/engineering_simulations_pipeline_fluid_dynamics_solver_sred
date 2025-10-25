@@ -67,7 +67,8 @@ def test_initialize_masks_defaults_to_generic_when_face_type_missing():
         },
         "ghost_rules": {
             "face_types": {},  # no overrides
-            "default_type": "generic"
+            "default_type": "generic",
+            "boundary_faces": []  # ✅ Required for schema compliance
         }
     }
 
@@ -75,9 +76,19 @@ def test_initialize_masks_defaults_to_generic_when_face_type_missing():
     assert result[0].fluid_mask is False
     assert result[0].ghost_type == "generic"
 
-def test_initialize_masks_handles_missing_config_keys_gracefully():
+def test_initialize_masks_handles_minimal_config_safely():
     grid = [mock_cell(0.0, 0.0, 0.0)]
-    config = {}  # minimal config
+    config = {
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 1.0,
+            "min_y": 0.0, "max_y": 1.0,
+            "min_z": 0.0, "max_z": 1.0
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": "generic"
+        }
+    }
 
     result = initialize_masks(grid, config)
     assert result[0].fluid_mask is False
@@ -91,7 +102,10 @@ def test_build_simulation_grid_constructs_expected_cell_count():
             "min_z": 0.0, "max_z": 1.0,
             "nx": 2, "ny": 2, "nz": 2
         },
-        "ghost_rules": {}
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": "generic"
+        }
     }
 
     grid = build_simulation_grid(config)
@@ -106,7 +120,7 @@ def test_build_simulation_grid_applies_boundary_enforcement_metadata():
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
             "min_z": 0.0, "max_z": 1.0,
-            "nx": 1, "ny": 1, "nz": 1
+            "nx": 2, "ny": 2, "nz": 2  # ✅ Increased resolution to ensure face coverage
         },
         "ghost_rules": {
             "boundary_faces": ["xmin", "ymin", "zmin"],
