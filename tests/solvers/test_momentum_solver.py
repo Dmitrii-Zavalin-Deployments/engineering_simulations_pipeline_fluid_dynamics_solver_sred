@@ -1,4 +1,4 @@
-import os
+import pathlib
 import pytest
 from unittest.mock import patch
 from src.solvers.momentum_solver import apply_momentum_update
@@ -36,9 +36,9 @@ def base_config():
 
 @pytest.fixture(autouse=True)
 def ensure_output_dir_exists():
-    os.makedirs("data", exist_ok=True)
-    os.makedirs("data/testing-input-output/navier_stokes_output", exist_ok=True)
-    os.makedirs("data/snapshots", exist_ok=True)
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    (root / "data" / "snapshots").mkdir(parents=True, exist_ok=True)
+    (root / "data" / "testing-input-output" / "navier_stokes_output").mkdir(parents=True, exist_ok=True)
 
 @patch("src.solvers.momentum_solver.compute_advection")
 @patch("src.solvers.momentum_solver.apply_viscous_terms")

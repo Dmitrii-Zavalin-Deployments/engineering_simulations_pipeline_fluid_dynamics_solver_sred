@@ -1,4 +1,4 @@
-import os
+import pathlib
 import pytest
 from unittest.mock import patch
 from src.solvers.navier_stokes_solver import solve_navier_stokes_step
@@ -36,9 +36,9 @@ def base_config():
 
 @pytest.fixture(autouse=True)
 def ensure_output_dir_exists():
-    os.makedirs("data", exist_ok=True)  # ✅ ensures parent exists
-    os.makedirs("data/testing-input-output/navier_stokes_output", exist_ok=True)
-    os.makedirs("data/snapshots", exist_ok=True)  # optional for pressure diagnostics
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    (root / "data" / "snapshots").mkdir(parents=True, exist_ok=True)
+    (root / "data" / "testing-input-output" / "navier_stokes_output").mkdir(parents=True, exist_ok=True)
 
 @patch("src.solvers.momentum_solver.apply_momentum_update")
 @patch("src.solvers.pressure_solver.apply_pressure_correction")
@@ -94,6 +94,8 @@ def test_triggered_flags_are_detected(mock_verifier, mock_projection, mock_press
     solve_navier_stokes_step(initial_grid, base_config, step_index=6)
 
     args = mock_verifier.call_args[1]
+    assert isinstance(args, dict)
+    assert args.get("triggered_flags") is not None
     assert "no_pressure_mutation" in args["triggered_flags"]
     assert "empty_divergence" in args["triggered_flags"]
     assert "downgraded_cells" in args["triggered_flags"]

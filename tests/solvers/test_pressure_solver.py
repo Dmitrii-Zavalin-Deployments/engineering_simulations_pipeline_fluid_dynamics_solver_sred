@@ -113,8 +113,8 @@ def test_downgraded_cells_trigger_flag(
     apply_pressure_correction([downgraded], base_config, step=3)
 
     args = mock_verifier.call_args[1]
-    assert args is not None
-    assert "triggered_flags" in args
+    assert isinstance(args, dict)
+    assert args.get("triggered_flags") is not None
     assert "downgraded_cells" in args["triggered_flags"]
     assert "no_pressure_mutation" in args["triggered_flags"]
     assert "empty_divergence" in args["triggered_flags"]
