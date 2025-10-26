@@ -1,3 +1,4 @@
+import pathlib
 import pytest
 from unittest.mock import patch
 from src.solvers.pressure_solver import apply_pressure_correction
@@ -25,6 +26,12 @@ def base_config():
         },
         "ghost_trigger_chain": [0]
     }
+
+@pytest.fixture(autouse=True)
+def ensure_output_dir_exists():
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    (root / "data" / "snapshots").mkdir(parents=True, exist_ok=True)
+    (root / "data" / "testing-input-output" / "navier_stokes_output").mkdir(parents=True, exist_ok=True)
 
 @patch("src.solvers.pressure_solver.validate_config")
 @patch("src.solvers.pressure_solver.compute_divergence_stats")
@@ -106,6 +113,7 @@ def test_downgraded_cells_trigger_flag(
     apply_pressure_correction([downgraded], base_config, step=3)
 
     args = mock_verifier.call_args[1]
+    assert args is not None
     assert "triggered_flags" in args
     assert "downgraded_cells" in args["triggered_flags"]
     assert "no_pressure_mutation" in args["triggered_flags"]
