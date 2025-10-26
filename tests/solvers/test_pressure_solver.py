@@ -48,7 +48,7 @@ def test_pressure_mutation_tagging_and_metadata(
     assert passes == 1
     assert metadata["pressure_mutation_count"] == 1
     assert metadata["ghost_registry"] == {"ghost": "registry"}
-    assert result_grid[0].pressure_mutated is True
+    assert getattr(result_grid[0], "pressure_mutated", False) is True
     assert result_grid[0].mutation_source == "pressure_solver"
     assert result_grid[0].mutation_step == 1
     mock_log.assert_called_once()
@@ -82,9 +82,9 @@ def test_pressure_solver_skips_outlet_and_wall_cells(
     )
 
     assert metadata["pressure_mutation_count"] == 1
-    assert result_grid[2].pressure_mutated is True
-    assert result_grid[0].pressure_mutated is False
-    assert result_grid[1].pressure_mutated is False
+    assert getattr(result_grid[2], "pressure_mutated", False) is True
+    assert getattr(result_grid[0], "pressure_mutated", False) is False
+    assert getattr(result_grid[1], "pressure_mutated", False) is False
 
 @patch("src.solvers.pressure_solver.validate_config")
 @patch("src.solvers.pressure_solver.compute_divergence_stats")
@@ -106,6 +106,7 @@ def test_downgraded_cells_trigger_flag(
     apply_pressure_correction([downgraded], base_config, step=3)
 
     args = mock_verifier.call_args[1]
+    assert "triggered_flags" in args
     assert "downgraded_cells" in args["triggered_flags"]
     assert "no_pressure_mutation" in args["triggered_flags"]
     assert "empty_divergence" in args["triggered_flags"]
