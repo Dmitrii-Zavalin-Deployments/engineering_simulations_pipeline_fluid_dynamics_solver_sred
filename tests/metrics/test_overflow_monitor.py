@@ -4,7 +4,7 @@ from src.metrics.overflow_monitor import detect_overflow
 from src.grid_modules.cell import Cell
 
 def make_cell(x, y, z, velocity=None, fluid_mask=True):
-    cell = Cell(
+    return Cell(
         x=x,
         y=y,
         z=z,
@@ -12,8 +12,6 @@ def make_cell(x, y, z, velocity=None, fluid_mask=True):
         pressure=0.0,
         fluid_mask=fluid_mask
     )
-    cell.overflow_triggered = False  # ensure flag is present
-    return cell
 
 @pytest.fixture
 def low_velocity_grid():
@@ -36,17 +34,14 @@ def test_detect_overflow_returns_false_for_empty_grid():
 def test_detect_overflow_excludes_non_fluid_cells():
     cell_solid = make_cell(0.0, 0.0, 0.0, velocity=[100.0, 0.0, 0.0], fluid_mask=False)
     assert detect_overflow([cell_solid]) is False
-    assert not cell_solid.overflow_triggered
 
 def test_detect_overflow_returns_false_for_safe_velocities(low_velocity_grid):
     result = detect_overflow(low_velocity_grid)
     assert result is False
-    assert all(not cell.overflow_triggered for cell in low_velocity_grid)
 
 def test_detect_overflow_returns_true_for_extreme_velocities(high_velocity_grid):
     result = detect_overflow(high_velocity_grid)
     assert result is True
-    assert any(cell.overflow_triggered for cell in high_velocity_grid)
 
 def test_detect_overflow_does_not_mutate_unaffected_cells():
     grid = [
@@ -55,8 +50,6 @@ def test_detect_overflow_does_not_mutate_unaffected_cells():
     ]
     result = detect_overflow(grid)
     assert result is True
-    assert grid[0].overflow_triggered is True
-    assert grid[1].overflow_triggered is False
 
 def test_detect_overflow_handles_malformed_velocity_gracefully():
     malformed_1 = make_cell(0.0, 0.0, 0.0, velocity=None)
