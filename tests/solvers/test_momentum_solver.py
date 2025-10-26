@@ -16,6 +16,12 @@ def make_cell(x, y, z, velocity=None, pressure=0.0, fluid_mask=True):
 @pytest.fixture
 def base_config():
     return {
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 2.0,
+            "min_y": 0.0, "max_y": 2.0,
+            "min_z": 0.0, "max_z": 2.0,
+            "nx": 2, "ny": 2, "nz": 2
+        },
         "simulation_parameters": {
             "time_step": 0.1,
             "total_time": 1.0,
