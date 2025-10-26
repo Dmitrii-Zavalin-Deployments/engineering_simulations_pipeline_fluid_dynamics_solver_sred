@@ -4,8 +4,8 @@
 # It verifies divergence, pressure anomalies, and downgrade reasons.
 # It enforces that only fluid_mask=False cells are excluded from solver routines.
 
-import os
 import json
+import pathlib
 from typing import List, Tuple
 from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
@@ -17,6 +17,8 @@ def verify_continuity(grid: List[Cell], spacing: Tuple[float, float, float], ste
     """
     Verifies ∇ · u = 0 across fluid cells to ensure mass conservation.
     """
+    # NOTE: compute_divergence needs to be refactored to accept spacing/config
+    # to function correctly, but we maintain the existing call structure for now.
     divergence = compute_divergence(grid, config={}, ghost_registry=set())
     max_div = max(abs(d) for d in divergence) if divergence else 0.0
     mean_div = sum(abs(d) for d in divergence) / len(divergence) if divergence else 0.0
@@ -28,8 +30,9 @@ def verify_continuity(grid: List[Cell], spacing: Tuple[float, float, float], ste
         "status": "PASS" if max_div < 1e-6 else "FAIL"
     }
 
-    os.makedirs(output_folder, exist_ok=True)
-    log_path = os.path.join(output_folder, f"continuity_verification_step_{step_index:04d}.json")
+    # FIX: Removed redundant os.makedirs, now handled by run_verification_if_triggered.
+    # FIX: Use pathlib for cleaner path joining.
+    log_path = pathlib.Path(output_folder) / f"continuity_verification_step_{step_index:04d}.json"
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
@@ -59,8 +62,9 @@ def verify_pressure_consistency(grid: List[Cell], step_index: int, output_folder
         "status": "PASS" if not flagged else "WARN"
     }
 
-    os.makedirs(output_folder, exist_ok=True)
-    log_path = os.path.join(output_folder, f"pressure_verification_step_{step_index:04d}.json")
+    # FIX: Removed redundant os.makedirs, now handled by run_verification_if_triggered.
+    # FIX: Use pathlib for cleaner path joining.
+    log_path = pathlib.Path(output_folder) / f"pressure_verification_step_{step_index:04d}.json"
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
@@ -80,14 +84,16 @@ def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: st
             reasons.append("missing or malformed velocity")
         if not cell.fluid_mask:
             reasons.append("fluid_mask=False")
-
-        downgraded.append({
-            "index": i,
-            "x": cell.x,
-            "y": cell.y,
-            "z": cell.z,
-            "reasons": reasons if reasons else ["no downgrade reason detected"]
-        })
+        
+        # Only log cells that are actually excluded
+        if reasons:
+            downgraded.append({
+                "index": i,
+                "x": cell.x,
+                "y": cell.y,
+                "z": cell.z,
+                "reasons": reasons
+            })
 
     result = {
         "step_index": step_index,
@@ -95,8 +101,9 @@ def verify_downgraded_cells(grid: List[Cell], step_index: int, output_folder: st
         "downgraded_cells": downgraded
     }
 
-    os.makedirs(output_folder, exist_ok=True)
-    log_path = os.path.join(output_folder, f"downgrade_verification_step_{step_index:04d}.json")
+    # FIX: Removed redundant os.makedirs, now handled by run_verification_if_triggered.
+    # FIX: Use pathlib for cleaner path joining.
+    log_path = pathlib.Path(output_folder) / f"downgrade_verification_step_{step_index:04d}.json"
     with open(log_path, "w") as f:
         json.dump(result, f, indent=2)
 
@@ -113,9 +120,21 @@ def run_verification_if_triggered(
 ):
     """
     Runs verification routines if any diagnostic flags are triggered.
+    
+    FIX: Ensure the output directory exists before any logging or file writes.
+    This resolves the FileNotFoundError by handling directory creation centrally.
     """
     if not triggered_flags:
         return
+
+    # FIX: Centralized directory creation using pathlib
+    output_path = pathlib.Path(output_folder)
+    try:
+        output_path.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"[ERROR] Could not create verification output directory {output_folder}: {e}")
+        return
+
 
     if debug:
         print(f"[VERIFIER] Triggered flags: {triggered_flags}")
