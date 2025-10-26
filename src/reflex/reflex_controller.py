@@ -59,6 +59,12 @@ def apply_reflex(
         (domain["max_z"] - domain["min_z"]) / domain["nz"]
     )
 
+    # ✅ Counts derived only from pre-existing flags — ensures test isolation
+    # 👉 REVISION: MOVED COUNTING BEFORE MUTATING METRICS TO PREVENT SIDE-EFFECT CONTAMINATION
+    damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
+    overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
+    cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
+
     # ✅ Reflex metrics evaluated before any mutation or tagging
     max_velocity = compute_max_velocity(grid)
     max_divergence = compute_max_divergence(grid, domain)
@@ -67,11 +73,6 @@ def apply_reflex(
     damping_enabled = damping_metric(grid, time_step)
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
-
-    # ✅ Counts derived only from pre-existing flags — ensures test isolation
-    damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
-    overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
-    cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
 
     divergence_zero = post_projection_divergence is not None and post_projection_divergence < 1e-8
     projection_skipped = projection_passes == 0
