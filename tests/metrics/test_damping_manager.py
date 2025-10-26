@@ -61,5 +61,34 @@ def test_damping_precision_near_threshold():
     grid[2].velocity = [2.0, 0.0, 0.0]  # ✅ clearly above dynamic threshold
     assert should_dampen(grid, time_step=0.1) is True
 
+@pytest.mark.parametrize("spike_velocity,expected", [
+    ([1.5, 0.0, 0.0], False),
+    ([2.0, 0.0, 0.0], True),
+    ([3.0, 0.0, 0.0], True),
+    ([5.0, 0.0, 0.0], True)
+])
+def test_damping_threshold_sweep(spike_velocity, expected):
+    grid = [
+        mock_cell(0, 0, 0, [1.0, 0.0, 0.0]),
+        mock_cell(1, 0, 0, [1.0, 0.0, 0.0]),
+        mock_cell(2, 0, 0, spike_velocity)
+    ]
+    assert should_dampen(grid, time_step=0.1) is expected
+
+def test_damping_threshold_documentation():
+    """
+    Documents volatility threshold behavior for damping logic.
+    Ensures that velocity spikes above baseline trigger damping,
+    while near-uniform fields do not.
+    """
+    baseline = [1.0, 0.0, 0.0]
+    spike = [2.0, 0.0, 0.0]
+    grid = [
+        mock_cell(0, 0, 0, baseline),
+        mock_cell(1, 0, 0, baseline),
+        mock_cell(2, 0, 0, spike)
+    ]
+    assert should_dampen(grid, time_step=0.1) is True
+
 
 

@@ -15,6 +15,8 @@ def detect_overflow(grid: list[Cell]) -> bool:
     Detects whether any velocity magnitude in the grid exceeds the overflow threshold.
     Helps catch unstable or non-physical flow values.
 
+    This function performs detection only. It does NOT mutate cell flags.
+
     Args:
         grid (list[Cell]): Structured simulation grid
 
@@ -33,11 +35,14 @@ def detect_overflow(grid: list[Cell]) -> bool:
 
         velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
-            magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
-            if magnitude > overflow_threshold:
-                overflow_detected = True
-                if debug:
-                    print(f"[OVERFLOW] ⚠️ Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity magnitude = {magnitude:.2f} exceeds threshold")
+            try:
+                magnitude = math.sqrt(sum(v**2 for v in velocity))
+                if magnitude > overflow_threshold:
+                    overflow_detected = True
+                    if debug:
+                        print(f"[OVERFLOW] ⚠️ Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity magnitude = {magnitude:.2f} exceeds threshold")
+            except (TypeError, ValueError):
+                continue  # Gracefully skip malformed velocity
 
     if debug and not overflow_detected:
         print("[OVERFLOW] ✅ No overflow detected across fluid cells")

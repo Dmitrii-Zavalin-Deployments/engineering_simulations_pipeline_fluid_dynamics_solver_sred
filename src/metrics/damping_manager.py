@@ -15,8 +15,10 @@ def should_dampen(grid: list[Cell], time_step: float) -> bool:
     Determines whether flow damping should be enabled based on velocity volatility.
     Checks for spikes exceeding 50% above average magnitude.
 
+    This function performs evaluation only. It does NOT mutate grid state.
+
     Args:
-        grid (list[Cell]): Grid of simulation cells
+        grid (list[Cell]): Grid of simulation cells (original or cloned)
         time_step (float): Simulation time step
 
     Returns:
@@ -33,8 +35,11 @@ def should_dampen(grid: list[Cell], time_step: float) -> bool:
 
         velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
-            magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
-            velocity_magnitudes.append(magnitude)
+            try:
+                magnitude = math.sqrt(sum(v**2 for v in velocity))
+                velocity_magnitudes.append(magnitude)
+            except (TypeError, ValueError):
+                continue  # Gracefully skip malformed velocity
 
     if not velocity_magnitudes:
         return False

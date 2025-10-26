@@ -59,6 +59,7 @@ def apply_reflex(
         (domain["max_z"] - domain["min_z"]) / domain["nz"]
     )
 
+    # ✅ Reflex metrics evaluated before any mutation or tagging
     max_velocity = compute_max_velocity(grid)
     max_divergence = compute_max_divergence(grid, domain)
     global_cfl = compute_global_cfl(grid, time_step, domain)
@@ -66,6 +67,11 @@ def apply_reflex(
     damping_enabled = damping_metric(grid, time_step)
     adjusted_time_step = adjust_time_step(grid, input_data)
     projection_passes = calculate_projection_passes(grid)
+
+    # ✅ Counts derived only from pre-existing flags — ensures test isolation
+    damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
+    overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
+    cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
 
     divergence_zero = post_projection_divergence is not None and post_projection_divergence < 1e-8
     projection_skipped = projection_passes == 0
@@ -85,9 +91,6 @@ def apply_reflex(
     fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
     mutation_count = len(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else 0
     mutation_density = mutation_count / fluid_count if fluid_count > 0 else 0.0
-    damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
-    overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
-    cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
 
     triggered_by = []
     if ghost_influence_count and ghost_influence_count > 0:

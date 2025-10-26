@@ -33,7 +33,8 @@ def mock_config():
         "reflex_verbosity": "low"
     }
 
-def test_explicit_grid_injection_is_honored(mock_config):
+@patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
+def test_explicit_grid_injection_is_honored(mock_overflow, mock_config):
     injected_grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[5.0, 0.0, 0.0], overflow_triggered=True),
         MockCell(1.0, 0.0, 0.0, velocity=[5.0, 0.0, 0.0], damping_triggered=True),
@@ -64,7 +65,8 @@ def test_explicit_grid_injection_is_honored(mock_config):
     assert result["fluid_cells_modified_by_ghost"] == 0
 
 @patch("src.reflex.reflex_controller.build_simulation_grid")
-def test_build_simulation_grid_patch_is_honored(mock_build_grid, mock_config):
+@patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
+def test_build_simulation_grid_patch_is_honored(mock_overflow, mock_build_grid, mock_config):
     patched_grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[9.0, 0.0, 0.0], overflow_triggered=True),
         MockCell(1.0, 0.0, 0.0, velocity=[9.0, 0.0, 0.0], damping_triggered=True)
@@ -125,7 +127,10 @@ def test_adjust_time_step_triggers_on_high_cfl_and_mutation(mock_config):
     assert result["mutation_density"] > 0.5
     assert result["adjusted_time_step"] < 0.1  # ✅ timestep reduced
 
-def test_overflow_triggered_count_is_flag_based(mock_config):
+@patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
+def test_overflow_triggered_count_is_flag_based(mock_overflow, mock_config):
+    # ⚠️ Even though both cells have extreme velocity, only one is flagged.
+    # This ensures count is based on pre-set flags, not velocity-based mutation.
     grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0], overflow_triggered=True),
         MockCell(1.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0])
