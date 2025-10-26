@@ -17,7 +17,9 @@ debug = True
 def solve_navier_stokes_step(
     grid: List[Cell],
     input_data: dict,
-    step_index: int
+    step_index: int,
+    # FIX: Added optional output_folder argument for testability, defaulting to the original path.
+    output_folder: str = "data/testing-input-output/navier_stokes_output"
 ) -> Tuple[List[Cell], Dict]:
     """
     Executes one full Navier-Stokes update step.
@@ -75,7 +77,8 @@ def solve_navier_stokes_step(
             (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
         ),
         step_index=step_index,
-        output_folder="data/testing-input-output/navier_stokes_output",
+        # FIX: Use the argument instead of the hardcoded path.
+        output_folder=output_folder, 
         triggered_flags=triggered_flags
     )
 
