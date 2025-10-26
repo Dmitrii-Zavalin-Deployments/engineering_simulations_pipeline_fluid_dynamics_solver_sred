@@ -1,3 +1,4 @@
+import os
 import pytest
 from unittest.mock import patch
 from src.solvers.navier_stokes_solver import solve_navier_stokes_step
@@ -32,6 +33,10 @@ def base_config():
             "viscosity": 0.01
         }
     }
+
+@pytest.fixture(autouse=True)
+def ensure_output_dir_exists():
+    os.makedirs("data/testing-input-output/navier_stokes_output", exist_ok=True)
 
 @patch("src.solvers.momentum_solver.apply_momentum_update")
 @patch("src.solvers.pressure_solver.apply_pressure_correction")
