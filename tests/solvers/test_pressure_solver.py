@@ -112,12 +112,19 @@ def test_downgraded_cells_trigger_flag(
 
     apply_pressure_correction([downgraded], base_config, step=3)
 
-    args = mock_verifier.call_args[1]
-    assert isinstance(args, dict)
-    assert args.get("triggered_flags") is not None
-    assert "downgraded_cells" in args["triggered_flags"]
-    assert "no_pressure_mutation" in args["triggered_flags"]
-    assert "empty_divergence" in args["triggered_flags"]
+    # FIX: The triggered_flags argument is the 5th positional argument (index 4)
+    # when run_verification_if_triggered is called in the solver.
+    # mock_verifier.call_args[0] holds positional arguments.
+    positional_args = mock_verifier.call_args[0]
+    
+    # We expect 5 positional arguments: grid, spacing, step, output_folder, triggered_flags
+    assert len(positional_args) == 5
+    triggered_flags = positional_args[4]
+
+    assert isinstance(triggered_flags, list)
+    assert "downgraded_cells" in triggered_flags
+    assert "no_pressure_mutation" in triggered_flags
+    assert "empty_divergence" in triggered_flags
 
 
 
