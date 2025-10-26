@@ -36,7 +36,9 @@ def base_config():
 
 @pytest.fixture(autouse=True)
 def ensure_output_dir_exists():
+    os.makedirs("data", exist_ok=True)  # ✅ ensures parent exists
     os.makedirs("data/testing-input-output/navier_stokes_output", exist_ok=True)
+    os.makedirs("data/snapshots", exist_ok=True)  # optional for pressure diagnostics
 
 @patch("src.solvers.momentum_solver.apply_momentum_update")
 @patch("src.solvers.pressure_solver.apply_pressure_correction")

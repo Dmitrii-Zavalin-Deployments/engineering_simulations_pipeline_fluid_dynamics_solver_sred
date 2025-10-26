@@ -1,3 +1,4 @@
+import os
 import pytest
 from unittest.mock import patch
 from src.solvers.momentum_solver import apply_momentum_update
@@ -33,25 +34,28 @@ def base_config():
         }
     }
 
-@patch("src.physics.advection.compute_advection")
-@patch("src.physics.viscosity.apply_viscous_terms")
+@pytest.fixture(autouse=True)
+def ensure_output_dir_exists():
+    os.makedirs("data", exist_ok=True)
+    os.makedirs("data/testing-input-output/navier_stokes_output", exist_ok=True)
+    os.makedirs("data/snapshots", exist_ok=True)
+
+@patch("src.solvers.momentum_solver.compute_advection")
+@patch("src.solvers.momentum_solver.apply_viscous_terms")
 def test_velocity_updated_for_fluid_cells(mock_viscosity, mock_advection, base_config):
     grid = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.0, 0.0])
     ]
 
-    advected = [
+    mock_advection.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.1, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.1, 0.0])
     ]
-    viscous = [
+    mock_viscosity.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.2, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.2, 0.0])
     ]
-
-    mock_advection.return_value = advected
-    mock_viscosity.return_value = viscous
 
     result = apply_momentum_update(grid, base_config, step=1)
     assert len(result) == 2
@@ -60,25 +64,22 @@ def test_velocity_updated_for_fluid_cells(mock_viscosity, mock_advection, base_c
     assert result[0].pressure == 0.0
     assert result[1].pressure == 0.0
 
-@patch("src.physics.advection.compute_advection")
-@patch("src.physics.viscosity.apply_viscous_terms")
+@patch("src.solvers.momentum_solver.compute_advection")
+@patch("src.solvers.momentum_solver.apply_viscous_terms")
 def test_solid_cells_are_excluded(mock_viscosity, mock_advection, base_config):
     grid = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.0, 0.0, 0.0], fluid_mask=False),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.0, 0.0])
     ]
 
-    advected = [
+    mock_advection.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.1, 0.0, 0.0], fluid_mask=False),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.1, 0.0])
     ]
-    viscous = [
+    mock_viscosity.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.2, 0.0, 0.0], fluid_mask=False),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.2, 0.0])
     ]
-
-    mock_advection.return_value = advected
-    mock_viscosity.return_value = viscous
 
     result = apply_momentum_update(grid, base_config, step=2)
     assert result[0].fluid_mask is False
@@ -86,49 +87,43 @@ def test_solid_cells_are_excluded(mock_viscosity, mock_advection, base_config):
     assert result[0].pressure is None
     assert result[1].velocity == [0.0, 1.2, 0.0]
 
-@patch("src.physics.advection.compute_advection")
-@patch("src.physics.viscosity.apply_viscous_terms")
+@patch("src.solvers.momentum_solver.compute_advection")
+@patch("src.solvers.momentum_solver.apply_viscous_terms")
 def test_velocity_preserved_shape_and_order(mock_viscosity, mock_advection, base_config):
     grid = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.0, 2.0, 3.0]),
         make_cell(1.0, 1.0, 1.0, velocity=[4.0, 5.0, 6.0])
     ]
 
-    advected = [
+    mock_advection.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.1, 2.1, 3.1]),
         make_cell(1.0, 1.0, 1.0, velocity=[4.1, 5.1, 6.1])
     ]
-    viscous = [
+    mock_viscosity.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.2, 2.2, 3.2]),
         make_cell(1.0, 1.0, 1.0, velocity=[4.2, 5.2, 6.2])
     ]
-
-    mock_advection.return_value = advected
-    mock_viscosity.return_value = viscous
 
     result = apply_momentum_update(grid, base_config, step=3)
     assert result[0].velocity == [1.2, 2.2, 3.2]
     assert result[1].velocity == [4.2, 5.2, 6.2]
 
-@patch("src.physics.advection.compute_advection")
-@patch("src.physics.viscosity.apply_viscous_terms")
+@patch("src.solvers.momentum_solver.compute_advection")
+@patch("src.solvers.momentum_solver.apply_viscous_terms")
 def test_debug_output_for_fluid_cells(mock_viscosity, mock_advection, base_config, capsys):
     grid = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.0, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.0, 0.0])
     ]
 
-    advected = [
+    mock_advection.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.1, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.1, 0.0])
     ]
-    viscous = [
+    mock_viscosity.return_value = [
         make_cell(0.0, 0.0, 0.0, velocity=[1.2, 0.0, 0.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[0.0, 1.2, 0.0])
     ]
-
-    mock_advection.return_value = advected
-    mock_viscosity.return_value = viscous
 
     apply_momentum_update(grid, base_config, step=4)
     captured = capsys.readouterr()
