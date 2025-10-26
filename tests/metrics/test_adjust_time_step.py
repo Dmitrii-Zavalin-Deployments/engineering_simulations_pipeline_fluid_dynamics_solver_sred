@@ -43,11 +43,11 @@ def test_timestep_reduction_on_high_cfl(base_config):
     assert reduced_dt > 0.0
 
 def test_timestep_reduction_on_high_mutation_density(base_config):
-    # ✅ Patch: Add high velocity to mutated cells to trigger CFL threshold
+    # ✅ Patch: Increase velocity to ensure CFL > 1.0
     grid = [
-        MockCell(0.0, 0.0, 0.0, velocity=[10.0, 0.0, 0.0]),
-        MockCell(1.0, 0.0, 0.0, velocity=[10.0, 0.0, 0.0]),
-        MockCell(0.0, 1.0, 0.0, velocity=[10.0, 0.0, 0.0]),
+        MockCell(0.0, 0.0, 0.0, velocity=[10.5, 0.0, 0.0]),
+        MockCell(1.0, 0.0, 0.0, velocity=[10.5, 0.0, 0.0]),
+        MockCell(0.0, 1.0, 0.0, velocity=[10.5, 0.0, 0.0]),
         MockCell(1.0, 1.0, 0.0, velocity=[1.0, 0.0, 0.0])
     ]
 

@@ -129,11 +129,10 @@ def test_adjust_time_step_triggers_on_high_cfl_and_mutation(mock_config):
 
 @patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
 def test_overflow_triggered_count_is_flag_based(mock_overflow, mock_config):
-    # ⚠️ Even though both cells have extreme velocity, only one is flagged.
-    # This ensures count is based on pre-set flags, not velocity-based mutation.
+    # ⚠️ Ensure only one cell is flagged to match assertion
     grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0], overflow_triggered=True),
-        MockCell(1.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0])
+        MockCell(1.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0])  # not flagged
     ]
 
     input_data = {

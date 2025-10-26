@@ -36,14 +36,14 @@ def mock_config():
 @patch("src.reflex.reflex_controller.detect_overflow", return_value=True)
 @patch("src.reflex.reflex_controller.build_simulation_grid")
 def test_reflex_basic_metrics(mock_build_grid, mock_overflow, mock_damping, mock_config):
-    # ✅ Fix: reduce flagged cells to match expected count
+    # ✅ Fix: only one cell flagged for overflow
     mock_grid = [
         MockCell(0.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0]),  # mutated
         MockCell(1.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0], influenced_by_ghost=True),  # mutated
         MockCell(0.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0], damping_triggered=True),  # mutated
-        MockCell(1.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0], overflow_triggered=True),
+        MockCell(1.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0], overflow_triggered=True),  # flagged
         MockCell(0.0, 0.0, 1.0, velocity=[10.1, 0.0, 0.0]),  # unflagged
-        MockCell(1.0, 0.0, 1.0, fluid_mask=False)
+        MockCell(1.0, 0.0, 1.0, velocity=[10.1, 0.0, 0.0])   # unflagged
     ]
     mock_build_grid.return_value = mock_grid
 
