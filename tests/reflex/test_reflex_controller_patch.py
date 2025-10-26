@@ -41,7 +41,7 @@ def test_reflex_basic_metrics_with_overflow_patch(mock_build_grid, mock_overflow
         MockCell(0.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0]),
         MockCell(1.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0], influenced_by_ghost=True),
         MockCell(0.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], damping_triggered=True),
-        MockCell(1.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0]),
+        MockCell(1.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], overflow_triggered=True),  # ✅ added flag
         MockCell(0.0, 0.0, 1.0, velocity=[0.1, 0.0, 0.0], cfl_exceeded=True),
         MockCell(1.0, 0.0, 1.0, fluid_mask=False)
     ]
@@ -76,7 +76,7 @@ def test_reflex_basic_metrics_with_overflow_patch(mock_build_grid, mock_overflow
     assert result["mutation_count"] == 2
     assert result["mutation_density"] > 0.0
     assert result["damping_triggered_count"] == 1
-    assert result["overflow_triggered_count"] == 1
+    assert result["overflow_triggered_count"] == 1  # ✅ now valid
     assert result["cfl_exceeded_count"] == 1
     assert isinstance(result["reflex_score"], float)
 

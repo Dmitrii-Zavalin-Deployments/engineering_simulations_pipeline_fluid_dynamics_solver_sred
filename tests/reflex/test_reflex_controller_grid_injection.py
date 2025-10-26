@@ -92,5 +92,64 @@ def test_build_simulation_grid_patch_is_honored(mock_build_grid, mock_config):
     assert result["mutation_count"] == 1
     assert result["fluid_cells_modified_by_ghost"] == 0
 
+def test_adjust_time_step_triggers_on_high_cfl_and_mutation(mock_config):
+    grid = [
+        MockCell(0.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0]),  # mutated
+        MockCell(1.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0]),  # mutated
+        MockCell(0.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0]),  # mutated
+        MockCell(1.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0])
+    ]
+
+    input_data = {
+        "domain_definition": mock_config["domain_definition"],
+        "simulation_parameters": mock_config["simulation_parameters"],
+        "mutated_cells": [
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0)
+        ]
+    }
+
+    result = apply_reflex(
+        grid=grid,
+        config=mock_config,
+        input_data=input_data,
+        step=2,
+        ghost_influence_count=0,
+        pressure_solver_invoked=True,
+        pressure_mutated=True,
+        post_projection_divergence=1e-8
+    )
+
+    assert result["global_cfl"] > 1.0
+    assert result["mutation_density"] > 0.5
+    assert result["adjusted_time_step"] < 0.1  # ✅ timestep reduced
+
+def test_overflow_triggered_count_is_flag_based(mock_config):
+    grid = [
+        MockCell(0.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0], overflow_triggered=True),
+        MockCell(1.0, 0.0, 0.0, velocity=[1e20, 0.0, 0.0])
+    ]
+
+    input_data = {
+        "domain_definition": mock_config["domain_definition"],
+        "simulation_parameters": mock_config["simulation_parameters"],
+        "mutated_cells": [(0.0, 0.0, 0.0)]
+    }
+
+    result = apply_reflex(
+        grid=grid,
+        config=mock_config,
+        input_data=input_data,
+        step=3,
+        ghost_influence_count=0,
+        pressure_solver_invoked=False,
+        pressure_mutated=False,
+        post_projection_divergence=1e-9
+    )
+
+    assert result["overflow_detected"] is True
+    assert result["overflow_triggered_count"] == 1  # ✅ only one cell flagged
+
 
 

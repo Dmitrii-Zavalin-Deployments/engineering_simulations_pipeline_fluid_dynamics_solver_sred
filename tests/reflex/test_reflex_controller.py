@@ -34,12 +34,14 @@ def mock_config():
 
 @patch("src.reflex.reflex_controller.build_simulation_grid")
 def test_reflex_basic_metrics(mock_build_grid, mock_config):
+    # Increased velocity to ensure CFL > 1.0
+    # Increased mutation ratio: 3 mutated out of 4 fluid cells
     mock_grid = [
-        MockCell(0.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0]),
-        MockCell(1.0, 0.0, 0.0, velocity=[0.1, 0.0, 0.0], influenced_by_ghost=True),
-        MockCell(0.0, 1.0, 0.0, velocity=[0.1, 0.0, 0.0], damping_triggered=True),
-        MockCell(1.0, 1.0, 0.0, velocity=[1e20, 0.0, 0.0], overflow_triggered=True),
-        MockCell(0.0, 0.0, 1.0, velocity=[0.1, 0.0, 0.0], cfl_exceeded=True),
+        MockCell(0.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0]),  # mutated
+        MockCell(1.0, 0.0, 0.0, velocity=[10.1, 0.0, 0.0], influenced_by_ghost=True),  # mutated
+        MockCell(0.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0], damping_triggered=True),  # mutated
+        MockCell(1.0, 1.0, 0.0, velocity=[10.1, 0.0, 0.0], overflow_triggered=True),
+        MockCell(0.0, 0.0, 1.0, velocity=[10.1, 0.0, 0.0], cfl_exceeded=True),
         MockCell(1.0, 0.0, 1.0, fluid_mask=False)
     ]
     mock_build_grid.return_value = mock_grid
@@ -47,7 +49,11 @@ def test_reflex_basic_metrics(mock_build_grid, mock_config):
     input_data = {
         "domain_definition": mock_config["domain_definition"],
         "simulation_parameters": mock_config["simulation_parameters"],
-        "mutated_cells": [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]
+        "mutated_cells": [
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0)
+        ]
     }
 
     result = apply_reflex(
@@ -62,16 +68,16 @@ def test_reflex_basic_metrics(mock_build_grid, mock_config):
 
     assert result["max_velocity"] >= 0.0
     assert result["max_divergence"] >= 0.0
-    assert result["global_cfl"] >= 0.0
+    assert result["global_cfl"] > 1.0
     assert result["overflow_detected"] is True
     assert result["damping_enabled"] is True
-    assert result["adjusted_time_step"] > 0.0
+    assert result["adjusted_time_step"] > 0.0  # ✅ now valid
     assert result["projection_passes"] >= 0
     assert result["divergence_zero"] is True
     assert result["projection_skipped"] in [True, False]
     assert result["fluid_cells_modified_by_ghost"] == 1
-    assert result["mutation_count"] == 2
-    assert result["mutation_density"] > 0.0
+    assert result["mutation_count"] == 3
+    assert result["mutation_density"] > 0.5  # ✅ now exceeds threshold
     assert result["damping_triggered_count"] == 1
     assert result["overflow_triggered_count"] == 1
     assert result["cfl_exceeded_count"] == 1
