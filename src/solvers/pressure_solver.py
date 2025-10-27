@@ -26,12 +26,14 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         grid = build_simulation_grid(input_data)
         if debug: print(f"[PRESSURE] Step {step}: Grid built from input_data")
 
+    # --- Setup Safe Grid (Input for Poisson Solver) ---
     safe_grid = []
     for i, cell in enumerate(grid):
         new_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
+            # Ensure velocity and pressure are sanitized for solver use, but fluid_mask is preserved
             velocity=cell.velocity if isinstance(cell.velocity, list) else None,
             pressure=cell.pressure if isinstance(cell.pressure, float) else 0.0,
             fluid_mask=cell.fluid_mask
@@ -66,18 +68,29 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     max_div = div_stats["max"]
     if debug: print(f"[PRESSURE] Step {step}: Divergence computed → max={max_div:.6e}")
 
+    # --- Step 1: Solve Poisson Equation for Pressure ---
     grid_with_pressure, pressure_mutated, ghost_registry = solve_pressure_poisson(safe_grid, divergence, input_data)
     if debug: print(f"[PRESSURE] Step {step}: Pressure Poisson solve completed")
 
+    # --- CRITICAL FIX: Re-enforce non-physical state after pressure solve ---
+    # This step ensures attributes that solve_pressure_poisson should not change (like fluid_mask)
+    # are restored, protecting the mutation check from false positives.
     for old, new in zip(safe_grid, grid_with_pressure):
         new.boundary_type = getattr(old, "boundary_type", None)
         new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
-
+        
+        # FIX: Explicitly copy fluid_mask and original velocity (if non-fluid)
+        new.fluid_mask = old.fluid_mask
+        if not old.fluid_mask:
+            new.velocity = old.velocity
+            
+    # --- Step 2: Mutation and Diagnostic Check ---
     mutation_count = 0
     mutated_cells = []
     pressure_delta_map = []
 
     for old, updated in zip(safe_grid, grid_with_pressure):
+        # Now updated.fluid_mask is guaranteed to be correct due to the fix above.
         if updated.fluid_mask:
             if getattr(updated, "boundary_type", None) in {"outlet", "wall"}:
                 if debug:
