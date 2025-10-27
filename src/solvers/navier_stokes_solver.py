@@ -9,8 +9,7 @@ from src.grid_modules.cell import Cell
 from src.solvers.momentum_solver import apply_momentum_update
 from src.solvers.pressure_solver import apply_pressure_correction
 from src.physics.velocity_projection import apply_pressure_velocity_projection
-# Removed: from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
-# FIX: The verifier is now called exclusively within pressure_solver.py
+from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered  # ✅ Verifier integration
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
@@ -19,6 +18,7 @@ def solve_navier_stokes_step(
     grid: List[Cell],
     input_data: dict,
     step_index: int,
+    # FIX: Added optional output_folder argument for testability, defaulting to the original path.
     output_folder: str = "data/testing-input-output/navier_stokes_output"
 ) -> Tuple[List[Cell], Dict]:
     """
@@ -34,7 +34,6 @@ def solve_navier_stokes_step(
     - Pressure solve → ∇²P = ∇ · u
     - Velocity projection → u ← u - ∇P
     - Reflex diagnostics → mutation traceability and suppression detection
-    - NOTE: Verification is now handled exclusively by the pressure_solver.py module.
 
     Returns:
         Tuple[List[Cell], Dict]: Updated grid and reflex metadata
@@ -43,7 +42,6 @@ def solve_navier_stokes_step(
     grid_after_momentum = apply_momentum_update(grid, input_data, step_index)
 
     # 💧 Step 2: Pressure correction — solves ∇²P = ∇ · u to enforce ∇ · u = 0
-    # The pressure_solver executes the verification run after its corrections.
     grid_after_pressure, pressure_mutated, projection_passes, pressure_metadata = apply_pressure_correction(
         grid_after_momentum, input_data, step_index
     )
@@ -59,9 +57,32 @@ def solve_navier_stokes_step(
     if isinstance(pressure_metadata, dict):
         metadata.update(pressure_metadata)
 
-    # ❌ REMOVED: Redundant verification flag detection and call to run_verification_if_triggered.
-    # This diagnostic is owned by apply_pressure_correction.
-    
+    # ✅ Trigger verifier if diagnostic flags are present
+    triggered_flags = []
+    if metadata.get("pressure_mutation_count", 0) == 0:
+        triggered_flags.append("no_pressure_mutation")
+    if not metadata.get("divergence", []):
+        triggered_flags.append("empty_divergence")
+    if any(not isinstance(c.velocity, list) or not c.fluid_mask for c in grid):
+        triggered_flags.append("downgraded_cells")
+
+    if debug and triggered_flags:
+        print(f"[VERIFIER] Step {step_index} → triggered flags: {triggered_flags}")
+
+    run_verification_if_triggered(
+        grid=grid,  # ✅ Pass original grid for downgrade detection
+        spacing=(
+            (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"],
+            (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"],
+            (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
+        ),
+        step_index=step_index,
+        # FIX: Use the argument instead of the hardcoded path.
+        output_folder=output_folder, 
+        triggered_flags=triggered_flags
+    )
+
     return grid_after_projection, metadata
+
 
 

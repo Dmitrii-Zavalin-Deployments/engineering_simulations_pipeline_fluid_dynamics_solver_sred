@@ -64,7 +64,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     output_folder = "data/testing-input-output/navier_stokes_output"
     
-    # We rely on the tests to mock or configure compute_divergence_stats
+    # compute_divergence_stats is now guarded by patches in the test file.
     div_stats = compute_divergence_stats(
         safe_grid, spacing,
         label="post-pressure", step_index=step,
@@ -80,8 +80,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     if debug: print(f"[PRESSURE] Step {step}: Pressure Poisson solve completed")
 
     # --- CRITICAL FIX: Re-enforce non-physical state after pressure solve ---
-    # This step ensures attributes that solve_pressure_poisson should not change (like fluid_mask)
-    # are restored, protecting the mutation check from false positives.
     for old, new in zip(safe_grid, grid_with_pressure):
         new.boundary_type = getattr(old, "boundary_type", None)
         new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
@@ -95,9 +93,9 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     mutation_count = 0
     mutated_cells = []
     pressure_delta_map = []
+    # (Mutation logic remains the same...)
 
     for old, updated in zip(safe_grid, grid_with_pressure):
-        # Now updated.fluid_mask is guaranteed to be correct due to the fix above.
         if updated.fluid_mask:
             if getattr(updated, "boundary_type", None) in {"outlet", "wall"}:
                 if debug:
@@ -148,12 +146,18 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
             print(f"[PRESSURE] ✅ Step {step}: {mutation_count} fluid cells mutated.")
 
     ghost_trigger_chain = input_data.get("ghost_trigger_chain", [])
-    log_reflex_pathway(
-        step_index=step,
-        mutated_cells=mutated_cells,
-        ghost_trigger_chain=ghost_trigger_chain
-    )
-    if debug: print(f"[PRESSURE] Step {step}: Reflex pathway logged")
+    
+    # FIX APPLIED HERE: Guard the log_reflex_pathway call
+    if not disable_io_for_testing:
+        log_reflex_pathway(
+            step_index=step,
+            mutated_cells=mutated_cells,
+            ghost_trigger_chain=ghost_trigger_chain
+        )
+        if debug: print(f"[PRESSURE] Step {step}: Reflex pathway logged")
+    else:
+        if debug: print(f"[PRESSURE] Step {step}: Reflex pathway logging skipped (testing mode)")
+
 
     metadata = {
         "max_divergence": max_div,
@@ -164,7 +168,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     }
     if debug: print(f"[PRESSURE] Step {step}: Metadata assembled")
 
-    # FIX APPLIED HERE: Make the explicit I/O conditional
+    # This was the first fix location (already guarded)
     if not disable_io_for_testing:
         export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
         if debug: print(f"[PRESSURE] Step {step}: Pressure delta map exported")
@@ -179,6 +183,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     if any(not isinstance(c.velocity, list) or not c.fluid_mask for c in grid):
         triggered_flags.append("downgraded_cells")
 
+    # This function is successfully mocked in the test file, so we leave it as is.
     run_verification_if_triggered(grid_with_pressure, spacing, step, output_folder, triggered_flags)
 
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
