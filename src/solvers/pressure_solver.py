@@ -19,6 +19,10 @@ from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
 debug = True
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
+    # FIX: Architectural Correction - Extract I/O suppression flag from input_data to prevent FileNotFoundError in tests.
+    # If this flag is True, we skip writing data to disk.
+    disable_io_for_testing = input_data.get("simulation_parameters", {}).get("disable_io_for_testing", False)
+    
     validate_config(input_data)
     if debug: print(f"[PRESSURE] Step {step}: Config validated")
 
@@ -59,10 +63,13 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     if debug: print(f"[PRESSURE] Step {step}: Grid spacing → dx={dx:.2f}, dy={dy:.2f}, dz={dz:.2f}")
 
     output_folder = "data/testing-input-output/navier_stokes_output"
+    
+    # We rely on the tests to mock or configure compute_divergence_stats
     div_stats = compute_divergence_stats(
         safe_grid, spacing,
         label="post-pressure", step_index=step,
-        output_folder=output_folder, config=input_data
+        output_folder=output_folder, 
+        config=input_data
     )
     divergence = div_stats["divergence"]
     max_div = div_stats["max"]
@@ -78,12 +85,12 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     for old, new in zip(safe_grid, grid_with_pressure):
         new.boundary_type = getattr(old, "boundary_type", None)
         new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
-        
+
         # FIX: Explicitly copy fluid_mask and original velocity (if non-fluid)
         new.fluid_mask = old.fluid_mask
         if not old.fluid_mask:
             new.velocity = old.velocity
-            
+
     # --- Step 2: Mutation and Diagnostic Check ---
     mutation_count = 0
     mutated_cells = []
@@ -157,8 +164,12 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     }
     if debug: print(f"[PRESSURE] Step {step}: Metadata assembled")
 
-    export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
-    if debug: print(f"[PRESSURE] Step {step}: Pressure delta map exported")
+    # FIX APPLIED HERE: Make the explicit I/O conditional
+    if not disable_io_for_testing:
+        export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
+        if debug: print(f"[PRESSURE] Step {step}: Pressure delta map exported")
+    else:
+        if debug: print(f"[PRESSURE] Step {step}: Pressure delta map export skipped (testing mode)")
 
     triggered_flags = []
     if mutation_count == 0:
