@@ -18,7 +18,6 @@ def solve_navier_stokes_step(
     grid: List[Cell],
     input_data: dict,
     step_index: int,
-    # FIX: Added optional output_folder argument for testability, defaulting to the original path.
     output_folder: str = "data/testing-input-output/navier_stokes_output"
 ) -> Tuple[List[Cell], Dict]:
     """
@@ -49,6 +48,12 @@ def solve_navier_stokes_step(
     # 🔁 Step 3: Velocity projection — updates u ← u - ∇P to complete continuity enforcement
     grid_after_projection = apply_pressure_velocity_projection(grid_after_pressure, input_data)
 
+    # 🧠 Diagnostic trace for mock integrity
+    if debug:
+        print(f"[DEBUG] Step {step_index} — projection type: {type(grid_after_projection)}")
+        print(f"[DEBUG] Step {step_index} — projection id: {id(grid_after_projection)}")
+        print(f"[DEBUG] Step {step_index} — output_folder received: {output_folder}")
+
     # 📦 Metadata packaging for reflex and diagnostics
     metadata = {
         "pressure_mutated": pressure_mutated,
@@ -77,8 +82,7 @@ def solve_navier_stokes_step(
             (input_data["domain_definition"]["max_z"] - input_data["domain_definition"]["min_z"]) / input_data["domain_definition"]["nz"]
         ),
         step_index=step_index,
-        # FIX: Use the argument instead of the hardcoded path.
-        output_folder=output_folder, 
+        output_folder=output_folder,
         triggered_flags=triggered_flags
     )
 
