@@ -84,6 +84,9 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
     # Pass the temporary path to the solver, which forwards it to the verifier
     result_grid, metadata = solve_navier_stokes_step(initial_grid, base_config, step_index=5, output_folder=temp_output_dir)
 
+    # NEW ASSERTION: Ensure the result_grid is the exact object returned by the mock.
+    assert result_grid is grid_after_projection
+    
     # FIX 3 (Test 1): Assert the final projected velocity is correct
     assert result_grid[0].velocity == [0.8, 0.0, 0.0]
     assert result_grid[1].velocity == [0.0, 0.8, 0.0]
@@ -112,8 +115,9 @@ def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projec
     temp_output_dir = tmp_path / "navier_stokes_output"
     temp_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Set mock_div_stats return value to be CONSISTENT with the 1 fluid cell [0.0].
-    mock_div_stats.return_value = {"divergence": [0.0], "max": 0.0}
+    # CRITICAL FIX (Test 2): To trigger 'empty_divergence', the divergence list MUST be empty []. 
+    # [0.0] is a non-empty list and prevents the flag from being set.
+    mock_div_stats.return_value = {"divergence": [], "max": 0.0}
 
     # Cell 1: velocity is [0,0,0], fluid_mask=True (1 fluid cell)
     # Cell 2: fluid_mask=False (Triggers 'downgraded_cells' flag)
@@ -138,7 +142,7 @@ def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projec
     
     # Check for all three expected flags
     assert "no_pressure_mutation" in triggered_flags
-    assert "empty_divergence" in triggered_flags
+    assert "empty_divergence" in triggered_flags # Now correctly triggered by mock_div_stats returning []
     assert "downgraded_cells" in triggered_flags
     
     # Check the output_folder argument passed to the verifier (4th positional argument, index 3)
