@@ -36,17 +36,23 @@ def base_config():
         }
     }
 
-# REMOVED: The old ensure_output_dir_exists fixture as it is no longer needed.
-# We will use tmp_path to create the test output directory dynamically.
+# FIX: Re-introducing the fixture to ensure hardcoded I/O paths (like 'data/snapshots') 
+# exist before the tests run. This resolves the FileNotFoundError that occurs 
+# when non-mocked internal functions attempt I/O.
+@pytest.fixture(autouse=True)
+def ensure_output_dir_exists():
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    (root / "data" / "snapshots").mkdir(parents=True, exist_ok=True)
+    # Ensure the general data path exists as well
+    (root / "data").mkdir(parents=True, exist_ok=True)
 
 
-# FIX: Mocking compute_divergence_stats to prevent FileNotFoundError during test execution,
-# as the patch on apply_pressure_correction was not fully suppressing the real function's I/O calls.
+# FIX: Mocking compute_divergence_stats is necessary to suppress I/O inside apply_pressure_correction
 @patch("src.solvers.momentum_solver.apply_momentum_update")
 @patch("src.solvers.pressure_solver.apply_pressure_correction")
 @patch("src.physics.velocity_projection.apply_pressure_velocity_projection")
 @patch("src.diagnostics.navier_stokes_verifier.run_verification_if_triggered")
-@patch("src.solvers.pressure_solver.compute_divergence_stats") # FIX: New patch for I/O suppression
+@patch("src.solvers.pressure_solver.compute_divergence_stats")
 def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_projection, mock_pressure, mock_momentum, base_config, tmp_path):
     """
     Tests that the main solver function executes the three core steps 
@@ -55,8 +61,8 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
     # Create the temporary output path and pass it to the verifier mock
     temp_output_dir = tmp_path / "navier_stokes_output"
     temp_output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Mock return for the newly patched I/O function
+
+    # Mock return for mock_div_stats must be consistent with the 2 fluid cells in the grid.
     mock_div_stats.return_value = {"divergence": [0.01, 0.02], "max": 0.02}
 
     initial_grid = [
@@ -91,7 +97,7 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
     assert metadata["projection_passes"] == 2
     assert metadata["pressure_mutation_count"] == 1
     assert metadata["divergence"] == [0.01, 0.02]
-    
+
     # Ensure the verifier was called with the correct temporary path
     mock_verifier.assert_called_once()
     assert mock_verifier.call_args[1]["output_folder"] == str(temp_output_dir)
@@ -101,7 +107,7 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
 @patch("src.solvers.pressure_solver.apply_pressure_correction")
 @patch("src.physics.velocity_projection.apply_pressure_velocity_projection")
 @patch("src.diagnostics.navier_stokes_verifier.run_verification_if_triggered")
-@patch("src.solvers.pressure_solver.compute_divergence_stats") # FIX: New patch for I/O suppression
+@patch("src.solvers.pressure_solver.compute_divergence_stats")
 def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projection, mock_pressure, mock_momentum, base_config, tmp_path):
     """
     Tests that the solver correctly identifies conditions that trigger verification flags, 
@@ -110,21 +116,21 @@ def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projec
     # Create the temporary output path and pass it to the verifier mock
     temp_output_dir = tmp_path / "navier_stokes_output"
     temp_output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Mock return for the newly patched I/O function
-    mock_div_stats.return_value = {"divergence": [], "max": 0.0}
 
-    # Cell 1: velocity is [0,0,0], fluid_mask=True (OK)
-    # Cell 2: fluid_mask=False (Triggers 'downgraded_cells' flag via 'not c.fluid_mask')
+    # FIX: Set mock_div_stats return value to be CONSISTENT with the 1 fluid cell [0.0].
+    # This bypasses the real validation crash.
+    mock_div_stats.return_value = {"divergence": [0.0], "max": 0.0}
+
+    # Cell 1: velocity is [0,0,0], fluid_mask=True (1 fluid cell)
+    # Cell 2: fluid_mask=False (Triggers 'downgraded_cells' flag)
     initial_grid = [
         make_cell(0.0, 0.0, 0.0, velocity=None, fluid_mask=True),
         make_cell(1.0, 0.0, 0.0, velocity=None, fluid_mask=False)
     ]
 
     mock_momentum.return_value = initial_grid
-    # Mocked data results in:
-    # 1. pressure_mutation_count=0 -> Triggers 'no_pressure_mutation'
-    # 2. divergence=[] -> Triggers 'empty_divergence'
+    # The pressure mock *still* returns an empty list in its metadata, 
+    # which is what triggers the 'empty_divergence' flag in navier_stokes_solver.
     mock_pressure.return_value = (initial_grid, False, 0, {"pressure_mutation_count": 0, "divergence": []})
     mock_projection.return_value = initial_grid
 
@@ -134,14 +140,10 @@ def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projec
     args = mock_verifier.call_args[1]
     assert isinstance(args, dict)
     assert args.get("triggered_flags") is not None
-    
+
     # Check for all three expected flags
     assert "no_pressure_mutation" in args["triggered_flags"]
     assert "empty_divergence" in args["triggered_flags"]
-    # This assertion check passed in the previous version, but is likely the source 
-    # of the 'ValueError' in the actual test run if the mock failed.
-    # We keep it here to test the flag logic, but the ValueError needs further investigation 
-    # if it persists after the I/O fix.
     assert "downgraded_cells" in args["triggered_flags"]
     assert mock_verifier.call_args[1]["output_folder"] == str(temp_output_dir)
 
@@ -150,14 +152,14 @@ def test_triggered_flags_are_detected(mock_div_stats, mock_verifier, mock_projec
 @patch("src.solvers.pressure_solver.apply_pressure_correction")
 @patch("src.physics.velocity_projection.apply_pressure_velocity_projection")
 @patch("src.diagnostics.navier_stokes_verifier.run_verification_if_triggered")
-@patch("src.solvers.pressure_solver.compute_divergence_stats") # FIX: New patch for I/O suppression
+@patch("src.solvers.pressure_solver.compute_divergence_stats")
 def test_solver_returns_grid_and_metadata(mock_div_stats, mock_verifier, mock_projection, mock_pressure, mock_momentum, base_config, tmp_path):
     """Tests the structure and content of the final return values (grid and metadata)."""
     # Create the temporary output path and pass it to the verifier mock
     temp_output_dir = tmp_path / "navier_stokes_output"
     temp_output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Mock return for the newly patched I/O function
+
+    # Mock return for the newly patched I/O function (consistent with 1 fluid cell)
     mock_div_stats.return_value = {"divergence": [0.01], "max": 0.01}
 
     grid = [make_cell(0.0, 0.0, 0.0)]
@@ -174,11 +176,10 @@ def test_solver_returns_grid_and_metadata(mock_div_stats, mock_verifier, mock_pr
     assert metadata["divergence"] == [0.01]
     assert "no_pressure_mutation" not in metadata 
     assert "no_pressure_mutation" not in mock_verifier.call_args[1]["triggered_flags"]
-    
+
     # Check that the grid returned is the final projection grid
     mock_projection.assert_called_once_with(grid, base_config)
     assert result_grid is grid
     assert mock_verifier.call_args[1]["output_folder"] == str(temp_output_dir)
-
 
 
