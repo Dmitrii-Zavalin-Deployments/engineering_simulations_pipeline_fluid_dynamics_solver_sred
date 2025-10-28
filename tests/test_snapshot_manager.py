@@ -39,7 +39,7 @@ def config():
 @pytest.fixture
 def output_dir(tmp_path):
     path = tmp_path / "navier_stokes_output"
-    path.mkdir()
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, output_dir):
@@ -58,7 +58,11 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, outp
         return grid, {"reflex_score": 4.0}
     monkeypatch.setattr("src.snapshot_manager.evolve_step", mock_evolve_step)
 
-    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
+    def mock_write_velocity_field(grid, step, output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, f"velocity_field_step_{step:04d}.json"), "w") as f:
+            f.write("{}")
+    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", mock_write_velocity_field)
 
     def mock_process_snapshot_step(step, grid, reflex, spacing, config, expected_size, output_folder):
         return grid, {
@@ -85,7 +89,13 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, ou
         "output_folder",
         str(output_dir)
     )
-    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
+
+    def mock_write_velocity_field(grid, step, output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, f"velocity_field_step_{step:04d}.json"), "w") as f:
+            f.write("{}")
+    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", mock_write_velocity_field)
+
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
 
     mutation_map = {
@@ -118,7 +128,13 @@ def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, co
         "output_folder",
         str(output_dir)
     )
-    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
+
+    def mock_write_velocity_field(grid, step, output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, f"velocity_field_step_{step:04d}.json"), "w") as f:
+            f.write("{}")
+    monkeypatch.setattr("src.snapshot_manager.write_velocity_field", mock_write_velocity_field)
+
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", lambda s, g, r, sp, c, e, o: (g, {"reflex_score": 1.0}))
 
