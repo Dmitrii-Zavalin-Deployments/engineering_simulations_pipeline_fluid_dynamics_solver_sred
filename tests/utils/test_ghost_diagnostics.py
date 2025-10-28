@@ -2,16 +2,14 @@ import pytest
 from src.utils import ghost_diagnostics
 
 class MockCell:
-    def __init__(self, x, y, z, velocity=None, pressure=None, fluid_mask=True, ghost_face=None):
+    def __init__(self, x, y, z, fluid_mask=True, **kwargs):
         self.x = x
         self.y = y
         self.z = z
-        self.velocity = velocity or [1.0, 1.0, 1.0]
-        self.pressure = pressure
         self.fluid_mask = fluid_mask
-        self.ghost_face = ghost_face
         self.influenced_by_ghost = False
         self.mutation_triggered_by = None
+        self.__dict__.update(kwargs)  # ✅ Enables dynamic attribute access
 
 def test_analyze_dict_registry_basic():
     ghost_registry = {
