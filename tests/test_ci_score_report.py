@@ -5,8 +5,6 @@ import pathlib
 import runpy
 from unittest import mock
 
-import src.ci_score_report as ci_report
-
 @pytest.fixture
 def mock_summary_file(tmp_path):
     summary_path = tmp_path / "step_summary.txt"
@@ -19,13 +17,12 @@ def mock_summary_file(tmp_path):
     summary_path.write_text(content)
     return summary_path
 
-def test_missing_summary_file(monkeypatch, capsys):
-    monkeypatch.setattr(ci_report, "SUMMARY_PATH", "nonexistent/path/step_summary.txt")
+def test_missing_summary_file(monkeypatch):
+    ci_path = pathlib.Path(__file__).parent.parent / "src" / "ci_score_report.py"
     with mock.patch("builtins.print") as mock_print:
-        ci_report.__name__ = "__main__"
-        ci_path = pathlib.Path(__file__).parent.parent / "src" / "ci_score_report.py"
+        monkeypatch.delenv("CI_SUMMARY_PATH", raising=False)
         runpy.run_path(str(ci_path), run_name="__main__")
-        mock_print.assert_any_call("❌ Summary file not found → nonexistent/path/step_summary.txt")
+        mock_print.assert_any_call("❌ Summary file not found → data/testing-input-output/navier_stokes_output/step_summary.txt")
 
 def test_score_combined_invoked(monkeypatch, mock_summary_file):
     dummy_scores = {
@@ -33,13 +30,13 @@ def test_score_combined_invoked(monkeypatch, mock_summary_file):
         "summary_score": {"average_score": 0.42}
     }
 
-    monkeypatch.setattr(ci_report, "SUMMARY_PATH", str(mock_summary_file))
-    monkeypatch.setattr(ci_report, "score_combined", lambda text, path: dummy_scores)
+    monkeypatch.setenv("CI_SUMMARY_PATH", str(mock_summary_file))
 
-    with mock.patch("builtins.print") as mock_print:
-        ci_report.__name__ = "__main__"
+    with mock.patch("builtins.print") as mock_print, \
+         mock.patch("src.ci.reflex_log_score.score_combined", return_value=dummy_scores):
         ci_path = pathlib.Path(__file__).parent.parent / "src" / "ci_score_report.py"
         runpy.run_path(str(ci_path), run_name="__main__")
+
         mock_print.assert_any_call("📊 CI Reflex Scoring Results:")
         mock_print.assert_any_call("↪️ Matched markers: 5")
         mock_print.assert_any_call("↪️ Marker score: 0.42")
