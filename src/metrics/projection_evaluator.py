@@ -1,8 +1,10 @@
 # src/metrics/projection_evaluator.py
-# 📐 Projection Evaluator — estimates projection depth based on velocity variability across fluid cells
+# 📐 Projection Evaluator — estimates projection depth based on velocity variability
+# across fluid cells
 # 📌 This module supports reflex scoring for ∇²P enforcement fidelity.
 # It excludes only cells explicitly marked fluid_mask=False.
-# It does NOT skip cells based on adjacency, boundary proximity, or pressure anomalies.
+# It does NOT skip cells based on adjacency, boundary proximity, or pressure
+# anomalies.
 
 from src.grid_modules.cell import Cell
 import math
@@ -10,6 +12,7 @@ from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def calculate_projection_passes(grid: List[Cell]) -> int:
     """
@@ -38,7 +41,9 @@ def calculate_projection_passes(grid: List[Cell]) -> int:
 
         velocity = cell.velocity
         if isinstance(velocity, list) and len(velocity) == 3:
-            magnitude = math.sqrt(velocity[0]**2 + velocity[1]**2 + velocity[2]**2)
+            magnitude = math.sqrt(
+                velocity[0]**2 + velocity[1]**2 + velocity[2]**2
+            )
             velocity_magnitudes.append(magnitude)
 
     if not velocity_magnitudes:
@@ -52,9 +57,9 @@ def calculate_projection_passes(grid: List[Cell]) -> int:
     passes = 1 + int(variation // 0.5)
 
     if debug:
-        print(f"[PROJECTION] Velocity variation → max={max_v:.4f}, avg={avg_v:.4f}, passes={passes}")
+        print(
+            f"[PROJECTION] Velocity variation → max={max_v:.4f}, "
+            f"avg={avg_v:.4f}, passes={passes}"
+        )
 
     return max(passes, 1)
-
-
-

@@ -1,14 +1,18 @@
 # src/metrics/divergence_metrics.py
-# 📊 Divergence Metrics — computes ∇ · u across fluid cells using central difference in 3D
-# 📌 This module enforces continuity diagnostics for reflex scoring and projection validation.
+# 📊 Divergence Metrics — computes ∇ · u across fluid cells using central
+# difference in 3D
+# 📌 This module enforces continuity diagnostics for reflex scoring and projection
+# validation.
 # It excludes only cells explicitly marked fluid_mask=False.
-# It does NOT skip cells based on adjacency, boundary proximity, or velocity anomalies.
+# It does NOT skip cells based on adjacency, boundary proximity, or velocity
+# anomalies.
 
 from src.grid_modules.cell import Cell
 from typing import List, Tuple, Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
     """
@@ -39,7 +43,11 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
     }
 
     def safe_velocity(c: Cell) -> List[float]:
-        return c.velocity if isinstance(c.velocity, list) and len(c.velocity) == 3 else [0.0, 0.0, 0.0]
+        return (
+            c.velocity
+            if isinstance(c.velocity, list) and len(c.velocity) == 3
+            else [0.0, 0.0, 0.0]
+        )
 
     divergence_values = []
 
@@ -58,7 +66,10 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
             plus_cell = grid_lookup.get(tuple(coord_plus))
             minus_cell = grid_lookup.get(tuple(coord_minus))
 
-            if plus_cell and plus_cell.fluid_mask and minus_cell and minus_cell.fluid_mask:
+            if (
+                plus_cell and plus_cell.fluid_mask and
+                minus_cell and minus_cell.fluid_mask
+            ):
                 v_plus = safe_velocity(plus_cell)[axis_index]
                 v_minus = safe_velocity(minus_cell)[axis_index]
                 spacing = [dx, dy, dz][axis_index]
@@ -74,7 +85,10 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
         divergence_values.append(abs(divergence))
 
         if debug:
-            print(f"[DIVERGENCE] Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → ∇·u = {cell.divergence:.6f}")
+            print(
+                f"[DIVERGENCE] Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → "
+                f"∇·u = {cell.divergence:.6f}"
+            )
 
     max_div = round(max(divergence_values), 5) if divergence_values else 0.0
 
@@ -82,6 +96,3 @@ def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:
         print(f"[DIVERGENCE] Max divergence across fluid cells: {max_div:.5f}")
 
     return max_div
-
-
-

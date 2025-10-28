@@ -1,14 +1,17 @@
 # src/metrics/overflow_monitor.py
-# 🚨 Overflow Monitor — detects velocity spikes that exceed physical thresholds for reflex diagnostics
+# 🚨 Overflow Monitor — detects velocity spikes that exceed physical thresholds
+# for reflex diagnostics
 # 📌 This module scans fluid cells for non-physical velocity magnitudes.
 # It excludes only cells explicitly marked fluid_mask=False.
-# It does NOT skip cells based on adjacency, boundary proximity, or pressure anomalies.
+# It does NOT skip cells based on adjacency, boundary proximity, or pressure
+# anomalies.
 
 from src.grid_modules.cell import Cell
 import math
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def detect_overflow(grid: list[Cell]) -> bool:
     """
@@ -40,7 +43,11 @@ def detect_overflow(grid: list[Cell]) -> bool:
                 if magnitude > overflow_threshold:
                     overflow_detected = True
                     if debug:
-                        print(f"[OVERFLOW] ⚠️ Cell @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f}) → velocity magnitude = {magnitude:.2f} exceeds threshold")
+                        print(
+                            f"[OVERFLOW] ⚠️ Cell @ ({cell.x:.2f}, {cell.y:.2f}, "
+                            f"{cell.z:.2f}) → velocity magnitude = {magnitude:.2f} "
+                            f"exceeds threshold"
+                        )
             except (TypeError, ValueError):
                 continue  # Gracefully skip malformed velocity
 
@@ -48,6 +55,3 @@ def detect_overflow(grid: list[Cell]) -> bool:
         print("[OVERFLOW] ✅ No overflow detected across fluid cells")
 
     return overflow_detected
-
-
-
