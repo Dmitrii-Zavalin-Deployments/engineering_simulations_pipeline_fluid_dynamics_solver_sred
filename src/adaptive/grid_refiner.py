@@ -12,6 +12,7 @@ from collections import Counter
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def load_delta_map(path: str) -> List[Tuple[float, float, float]]:
     """
     Loads a pressure delta map and extracts coordinates with non-zero delta.
@@ -29,11 +30,12 @@ def load_delta_map(path: str) -> List[Tuple[float, float, float]]:
         if abs(info.get("delta", 0.0)) > 0.0
     ]
 
+
 def detect_mutation_clusters(
     coords: List[Tuple[float, float, float]],
     spacing: Tuple[float, float, float],
     radius: int = 1,
-    threshold: int = 5  # ✅ Made configurable
+    threshold: int = 5
 ) -> List[Tuple[float, float, float]]:
     """
     Identifies clusters of mutation points based on spatial proximity.
@@ -46,19 +48,22 @@ def detect_mutation_clusters(
         for other in coords:
             if base == other:
                 continue
-            if abs(base[0] - other[0]) <= dx * radius and \
-               abs(base[1] - other[1]) <= dy * radius and \
-               abs(base[2] - other[2]) <= dz * radius:
+            if (
+                abs(base[0] - other[0]) <= dx * radius
+                and abs(base[1] - other[1]) <= dy * radius
+                and abs(base[2] - other[2]) <= dz * radius
+            ):
                 counter[base] += 1
 
     return [coord for coord, count in counter.items() if count >= threshold]
+
 
 def propose_refinement_zones(
     delta_map_path: str,
     spacing: Tuple[float, float, float],
     step_index: int,
     output_folder: str = "data/refinement",
-    threshold: int = 5  # ✅ Newly added for configurability
+    threshold: int = 5
 ) -> List[Tuple[float, float, float]]:
     """
     Loads a delta map and proposes refinement zones based on mutation clustering.
@@ -69,17 +74,25 @@ def propose_refinement_zones(
 
     if not active_coords:
         if debug:
-            print(f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}")
+            print(
+                f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}"
+            )
         return []
 
-    clusters = detect_mutation_clusters(active_coords, spacing, threshold=threshold)
+    clusters = detect_mutation_clusters(
+        active_coords, spacing, threshold=threshold
+    )
 
     if clusters:
-        output_path = os.path.join(output_folder, f"refinement_step_{step_index:04d}.json")
+        output_path = os.path.join(
+            output_folder, f"refinement_step_{step_index:04d}.json"
+        )
         with open(output_path, "w") as f:
             json.dump({"refinement_zones": clusters}, f, indent=2)
         if debug:
-            print(f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → {output_path}")
+            print(
+                f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → {output_path}"
+            )
     else:
         if debug:
             print(f"[REFINER] 🚫 No clusters detected in step {step_index}")
