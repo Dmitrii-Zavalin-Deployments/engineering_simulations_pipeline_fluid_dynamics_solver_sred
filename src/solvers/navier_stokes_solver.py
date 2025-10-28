@@ -62,7 +62,7 @@ def solve_navier_stokes_step(
     }
     if isinstance(pressure_metadata, dict):
         metadata.update(pressure_metadata)
-    else:
+    if "divergence" not in metadata:
         metadata["divergence"] = []
 
     # ✅ Trigger verifier if diagnostic flags are present
