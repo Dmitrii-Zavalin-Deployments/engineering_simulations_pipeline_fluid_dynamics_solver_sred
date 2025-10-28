@@ -10,6 +10,7 @@ import json
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def compact_pressure_delta_map(
     input_path: str,
     output_path: str,
@@ -31,7 +32,9 @@ def compact_pressure_delta_map(
             data = json.load(f)
     except Exception as e:
         if debug:
-            print(f"[COMPACTOR] ❌ Failed to load {input_path}: {e}")
+            print(
+                f"[COMPACTOR] ❌ Failed to load {input_path}: {e}"
+            )
         return 0
 
     retained = {
@@ -42,7 +45,9 @@ def compact_pressure_delta_map(
 
     if not retained:
         if debug:
-            print(f"[COMPACTOR] ⚠️ No cells retained after compaction — skipping write.")
+            print(
+                "[COMPACTOR] ⚠️ No cells retained after compaction — skipping write."
+            )
         return 0
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -50,8 +55,12 @@ def compact_pressure_delta_map(
         json.dump(retained, f, indent=2)
 
     if debug:
-        print(f"[COMPACTOR] ✅ Compacted snapshot saved → {output_path}")
-        print(f"[COMPACTOR] 🧮 Cells retained: {len(retained)} of {len(data)}")
+        print(
+            f"[COMPACTOR] ✅ Compacted snapshot saved → {output_path}"
+        )
+        print(
+            f"[COMPACTOR] 🧮 Cells retained: {len(retained)} of {len(data)}"
+        )
     return len(retained)
 
 
