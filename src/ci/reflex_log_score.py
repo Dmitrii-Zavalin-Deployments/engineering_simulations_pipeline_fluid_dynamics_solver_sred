@@ -39,8 +39,8 @@ def score_reflex_log_text(log_text: str) -> dict:
     }
     if debug:
         print(
-            f"[CI SCORE] Matched {found}/{total} markers → "
-            f"{matched}"
+            f"[CI SCORE] Matched {found}/{total} markers →\n"
+            f"           {matched}"
         )
     return result
 

@@ -93,8 +93,8 @@ def propose_refinement_zones(
             json.dump({"refinement_zones": clusters}, f, indent=2)
         if debug:
             print(
-                f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → "
-                f"{output_path}"
+                f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones →\n"
+                f"          {output_path}"
             )
     else:
         if debug:

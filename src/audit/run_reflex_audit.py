@@ -71,8 +71,8 @@ def run_reflex_audit(
                 f"[AUDIT] Step {entry['step_index']:04d} → "
                 f"Mutations={entry['mutated_cells']}, "
                 f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
-                f"Projection={'✓' if entry['has_projection'] else '✗'}, "
-                f"Score={entry['reflex_score']}"
+                f"Projection={'✓' if entry['has_projection'] else '✗'},\n"
+                f"         Score={entry['reflex_score']}"
             )
 
         print("\n🖼️ Generating Overlay Integrity Panel...")
