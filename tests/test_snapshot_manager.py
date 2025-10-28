@@ -42,6 +42,10 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
     )
+    monkeypatch.setattr(
+        "src.snapshot_manager.os.path.join",
+        lambda *args: str(tmp_path / "navier_stokes_output")
+    )
 
     def mock_evolve_step(grid, input_data, step, config=None):
         return grid, {"reflex_score": 4.0}
@@ -63,11 +67,15 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
     assert snapshots[0][0] == 0
     assert snapshots[-1][0] == 3
 
-def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
+def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, tmp_path):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
+    )
+    monkeypatch.setattr(
+        "src.snapshot_manager.os.path.join",
+        lambda *args: str(tmp_path / "navier_stokes_output")
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
@@ -90,12 +98,16 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
     assert sum(snap[1]["velocity_projected"] for snap in snapshots) == 4
     assert sum(snap[1]["projection_skipped"] for snap in snapshots) == 1
 
-def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config):
+def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config, tmp_path):
     input_data["simulation_parameters"]["output_interval"] = 0
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
+    )
+    monkeypatch.setattr(
+        "src.snapshot_manager.os.path.join",
+        lambda *args: str(tmp_path / "navier_stokes_output")
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
