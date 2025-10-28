@@ -18,6 +18,7 @@ MARKERS = {
     "[🔄 Step": "step_summary_detected"
 }
 
+
 def score_reflex_log_text(log_text: str) -> dict:
     """
     Scans simulation summaries or CI logs for boolean diagnostic markers
@@ -37,8 +38,11 @@ def score_reflex_log_text(log_text: str) -> dict:
         "markers_matched": matched
     }
     if debug:
-        print(f"[CI SCORE] Matched {found}/{total} markers → {matched}")
+        print(
+            f"[CI SCORE] Matched {found}/{total} markers → {matched}"
+        )
     return result
+
 
 def score_from_summary_file(summary_path: str) -> dict:
     """
@@ -52,8 +56,11 @@ def score_from_summary_file(summary_path: str) -> dict:
     """
     result = evaluate_reflex_score(summary_path)
     if debug:
-        print(f"[CI SCORE] Summary file evaluated → {summary_path}")
+        print(
+            f"[CI SCORE] Summary file evaluated → {summary_path}"
+        )
     return result
+
 
 def score_combined(log_text: str, summary_path: str) -> dict:
     """
@@ -71,7 +78,7 @@ def score_combined(log_text: str, summary_path: str) -> dict:
         "summary_score": score_from_summary_file(summary_path)
     }
     if debug:
-        print(f"[CI SCORE] Combined scoring complete.")
+        print("[CI SCORE] Combined scoring complete.")
     return combined
 
 
