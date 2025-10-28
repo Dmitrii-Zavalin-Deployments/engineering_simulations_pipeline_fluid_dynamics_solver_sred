@@ -72,9 +72,9 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
 
     print(f"[DEBUG] Final velocity: {result_grid[0].velocity}")
     assert mock_projection.called
+    assert result_grid is grid_after_projection
     assert result_grid[0].velocity == [0.8, 0.0, 0.0]
     assert result_grid[1].velocity == [0.0, 0.8, 0.0]
-    assert result_grid is grid_after_projection
     assert metadata["pressure_mutated"] is True
     assert metadata["projection_passes"] == 2
     assert metadata["pressure_mutation_count"] == 1
