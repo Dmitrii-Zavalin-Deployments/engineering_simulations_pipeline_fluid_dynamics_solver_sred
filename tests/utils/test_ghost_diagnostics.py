@@ -35,15 +35,15 @@ def test_analyze_set_registry_basic():
     assert result["no_slip_enforced"] == 1
 
 def test_fluid_ghost_adjacency_tags_influence():
-    ghost_registry = {
-        "g1": {
-            "coordinate": (1.0, 1.0, 1.0),
-            "face": "z+",
-            "pressure": 1.0,
-            "velocity": [0.0, 0.0, 0.0],
-            "was_enforced": True
-        }
-    }
+    ghost_cell = MockCell(
+        1.0, 1.0, 1.0,
+        fluid_mask=False,
+        ghost_face="z+",
+        pressure=1.0,
+        velocity=[0.0, 0.0, 0.0],
+        was_enforced=True
+    )
+    ghost_registry = {ghost_cell}
     fluid_cell = MockCell(1.0, 1.0, 0.0, fluid_mask=True)
     grid = [fluid_cell]
     result = ghost_diagnostics.analyze_ghost_registry(ghost_registry, grid, spacing=(1.0, 1.0, 1.0))
