@@ -75,7 +75,8 @@ def propose_refinement_zones(
     if not active_coords:
         if debug:
             print(
-                f"[REFINER] ⚠️ No pressure deltas found → skipping step {step_index}"
+                f"[REFINER] ⚠️ No pressure deltas found → "
+                f"skipping step {step_index}"
             )
         return []
 
@@ -85,17 +86,21 @@ def propose_refinement_zones(
 
     if clusters:
         output_path = os.path.join(
-            output_folder, f"refinement_step_{step_index:04d}.json"
+            output_folder,
+            f"refinement_step_{step_index:04d}.json"
         )
         with open(output_path, "w") as f:
             json.dump({"refinement_zones": clusters}, f, indent=2)
         if debug:
             print(
-                f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → {output_path}"
+                f"[REFINER] 🧭 Proposed {len(clusters)} refinement zones → "
+                f"{output_path}"
             )
     else:
         if debug:
-            print(f"[REFINER] 🚫 No clusters detected in step {step_index}")
+            print(
+                f"[REFINER] 🚫 No clusters detected in step {step_index}"
+            )
 
     return clusters
 
