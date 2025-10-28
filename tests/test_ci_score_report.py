@@ -1,6 +1,7 @@
 import os
 import pytest
 import builtins
+import pathlib
 from unittest import mock
 
 import src.ci_score_report as ci_report
@@ -21,7 +22,8 @@ def test_missing_summary_file(monkeypatch, capsys):
     monkeypatch.setattr(ci_report, "SUMMARY_PATH", "nonexistent/path/step_summary.txt")
     with mock.patch("builtins.print") as mock_print:
         ci_report.__name__ = "__main__"
-        exec(open("src/ci_score_report.py").read(), {"__name__": "__main__"})
+        ci_path = pathlib.Path(__file__).parent.parent / "src" / "ci_score_report.py"
+        exec(ci_path.read_text(), {"__name__": "__main__"})
         mock_print.assert_any_call("❌ Summary file not found → nonexistent/path/step_summary.txt")
 
 def test_score_combined_invoked(monkeypatch, mock_summary_file):
@@ -35,7 +37,8 @@ def test_score_combined_invoked(monkeypatch, mock_summary_file):
 
     with mock.patch("builtins.print") as mock_print:
         ci_report.__name__ = "__main__"
-        exec(open("src/ci_score_report.py").read(), {"__name__": "__main__"})
+        ci_path = pathlib.Path(__file__).parent.parent / "src" / "ci_score_report.py"
+        exec(ci_path.read_text(), {"__name__": "__main__"})
         mock_print.assert_any_call("📊 CI Reflex Scoring Results:")
         mock_print.assert_any_call("↪️ Matched markers: 5")
         mock_print.assert_any_call("↪️ Marker score: 0.42")
