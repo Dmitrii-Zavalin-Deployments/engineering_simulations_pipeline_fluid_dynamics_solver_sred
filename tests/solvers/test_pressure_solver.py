@@ -28,10 +28,9 @@ def base_config():
     }
 
 @pytest.fixture(autouse=True)
-def ensure_output_dir_exists():
-    root = pathlib.Path(__file__).resolve().parent.parent.parent
-    (root / "data" / "snapshots").mkdir(parents=True, exist_ok=True)
-    (root / "data" / "testing-input-output" / "navier_stokes_output").mkdir(parents=True, exist_ok=True)
+def ensure_output_dir_exists(tmp_path):
+    # Use tmp_path to avoid filesystem errors in CI
+    return tmp_path
 
 @patch("src.solvers.pressure_solver.validate_config")
 @patch("src.solvers.pressure_solver.compute_divergence_stats")
@@ -41,7 +40,8 @@ def ensure_output_dir_exists():
 @patch("src.solvers.pressure_solver.export_pressure_delta_map")
 @patch("src.solvers.pressure_solver.run_verification_if_triggered")
 def test_pressure_mutation_tagging_and_metadata(
-    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate, base_config
+    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate,
+    base_config, ensure_output_dir_exists
 ):
     cell = make_cell(0.0, 0.0, 0.0, pressure=1.0)
     updated_cell = make_cell(0.0, 0.0, 0.0, pressure=1.2)
@@ -49,7 +49,9 @@ def test_pressure_mutation_tagging_and_metadata(
     mock_poisson.return_value = ([updated_cell], True, {"ghost": "registry"})
     mock_threshold.return_value = 0.1
 
-    result_grid, pressure_mutated, passes, metadata = apply_pressure_correction([cell], base_config, step=1)
+    result_grid, pressure_mutated, passes, metadata = apply_pressure_correction(
+        [cell], base_config, step=1, output_folder=str(ensure_output_dir_exists)
+    )
 
     assert pressure_mutated is True
     assert passes == 1
@@ -70,7 +72,8 @@ def test_pressure_mutation_tagging_and_metadata(
 @patch("src.solvers.pressure_solver.export_pressure_delta_map")
 @patch("src.solvers.pressure_solver.run_verification_if_triggered")
 def test_pressure_solver_skips_outlet_and_wall_cells(
-    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate, base_config
+    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate,
+    base_config, ensure_output_dir_exists
 ):
     wall_cell = make_cell(0.0, 0.0, 0.0, pressure=1.0, boundary_type="wall")
     outlet_cell = make_cell(1.0, 0.0, 0.0, pressure=1.0, boundary_type="outlet")
@@ -85,7 +88,7 @@ def test_pressure_solver_skips_outlet_and_wall_cells(
     mock_threshold.return_value = 0.1
 
     result_grid, pressure_mutated, passes, metadata = apply_pressure_correction(
-        [wall_cell, outlet_cell, fluid_cell], base_config, step=2
+        [wall_cell, outlet_cell, fluid_cell], base_config, step=2, output_folder=str(ensure_output_dir_exists)
     )
 
     assert metadata["pressure_mutation_count"] == 1
@@ -101,7 +104,8 @@ def test_pressure_solver_skips_outlet_and_wall_cells(
 @patch("src.solvers.pressure_solver.export_pressure_delta_map")
 @patch("src.solvers.pressure_solver.run_verification_if_triggered")
 def test_downgraded_cells_trigger_flag(
-    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate, base_config
+    mock_verifier, mock_export, mock_log, mock_threshold, mock_poisson, mock_div_stats, mock_validate,
+    base_config, ensure_output_dir_exists
 ):
     downgraded = make_cell(0.0, 0.0, 0.0, velocity=None, fluid_mask=False)
     updated = make_cell(0.0, 0.0, 0.0, pressure=1.0)
@@ -110,14 +114,9 @@ def test_downgraded_cells_trigger_flag(
     mock_poisson.return_value = ([updated], False, {})
     mock_threshold.return_value = 0.1
 
-    apply_pressure_correction([downgraded], base_config, step=3)
+    apply_pressure_correction([downgraded], base_config, step=3, output_folder=str(ensure_output_dir_exists))
 
-    # FIX: The triggered_flags argument is the 5th positional argument (index 4)
-    # when run_verification_if_triggered is called in the solver.
-    # mock_verifier.call_args[0] holds positional arguments.
     positional_args = mock_verifier.call_args[0]
-    
-    # We expect 5 positional arguments: grid, spacing, step, output_folder, triggered_flags
     assert len(positional_args) == 5
     triggered_flags = positional_args[4]
 
