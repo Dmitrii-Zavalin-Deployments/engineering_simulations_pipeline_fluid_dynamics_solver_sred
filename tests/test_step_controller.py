@@ -37,7 +37,7 @@ def config():
 def test_evolve_step_runs_all_modules(monkeypatch, input_data, config, mock_cell):
     grid = [mock_cell for _ in range(8)]
 
-    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, ["ghost1", "ghost2"]))
+    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, {"ghost_0": mock.Mock(), "ghost_1": mock.Mock()}))
     monkeypatch.setattr("src.step_controller.log_ghost_summary", lambda ghosts: None)
     monkeypatch.setattr("src.step_controller.apply_boundary_conditions", lambda g, ghosts, i: g)
     monkeypatch.setattr("src.step_controller.apply_ghost_influence", lambda g, s, verbose, radius: 5)
@@ -64,7 +64,7 @@ def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config):
     solid = mock.Mock(spec=Cell, fluid_mask=False)
     grid = [fluid, solid, fluid]
 
-    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, []))
+    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, {"ghost_0": mock.Mock()}))
     monkeypatch.setattr("src.step_controller.apply_boundary_conditions", lambda g, ghosts, i: g)
     monkeypatch.setattr("src.step_controller.apply_ghost_influence", lambda g, s, verbose, radius: sum(1 for c in g if getattr(c, "fluid_mask", False)))
     monkeypatch.setattr("src.step_controller.compute_divergence_stats", lambda *a, **kw: {"max": 0.0})
@@ -79,7 +79,7 @@ def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config):
 def test_evolve_step_handles_missing_config(monkeypatch, input_data, mock_cell):
     grid = [mock_cell for _ in range(4)]
 
-    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, []))
+    monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, {"ghost_0": mock.Mock()}))
     monkeypatch.setattr("src.step_controller.apply_boundary_conditions", lambda g, ghosts, i: g)
     monkeypatch.setattr("src.step_controller.apply_ghost_influence", lambda g, s, verbose, radius: 1)
     monkeypatch.setattr("src.step_controller.compute_divergence_stats", lambda *a, **kw: {"max": 0.0})
