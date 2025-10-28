@@ -53,6 +53,7 @@ def solve_navier_stokes_step(
         print(f"[DEBUG] Step {step_index} — projection type: {type(grid_after_projection)}")
         print(f"[DEBUG] Step {step_index} — projection id: {id(grid_after_projection)}")
         print(f"[DEBUG] Step {step_index} — output_folder received: {output_folder}")
+        print(f"[DEBUG] Returning projection grid: {grid_after_projection[0].velocity}")
 
     # 📦 Metadata packaging for reflex and diagnostics
     metadata = {

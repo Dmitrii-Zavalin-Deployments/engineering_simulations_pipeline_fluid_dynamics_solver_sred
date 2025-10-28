@@ -70,6 +70,8 @@ def test_solver_pipeline_executes_all_steps(mock_div_stats, mock_verifier, mock_
 
     result_grid, metadata = solve_navier_stokes_step(initial_grid, base_config, step_index=5, output_folder=temp_output_dir)
 
+    print(f"[DEBUG] Final velocity: {result_grid[0].velocity}")
+    assert mock_projection.called
     assert result_grid[0].velocity == [0.8, 0.0, 0.0]
     assert result_grid[1].velocity == [0.0, 0.8, 0.0]
     assert result_grid is grid_after_projection
@@ -129,12 +131,14 @@ def test_solver_returns_grid_and_metadata(mock_div_stats, mock_verifier, mock_pr
 
     result_grid, metadata = solve_navier_stokes_step(grid, base_config, step_index=7, output_folder=temp_output_dir)
 
+    print(f"[DEBUG] Metadata returned: {metadata}")
     assert isinstance(result_grid, list)
     assert isinstance(metadata, dict)
     assert metadata["pressure_mutation_count"] == 1
     assert metadata["projection_passes"] == 1
     assert metadata.get("divergence", []) == [0.01]
     assert "no_pressure_mutation" not in metadata
+    assert mock_projection.called
     mock_projection.assert_called_once_with(grid, base_config)
     assert result_grid is grid
     assert mock_verifier.call_args[0][3] == "data/testing-input-output/navier_stokes_output"
