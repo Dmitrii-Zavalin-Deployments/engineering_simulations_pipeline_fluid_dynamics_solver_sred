@@ -5,7 +5,12 @@
 import json
 import os
 
-def load_simulation_config(domain_path: str, ghost_path: str, step_index: int = 0) -> dict:
+
+def load_simulation_config(
+    domain_path: str,
+    ghost_path: str,
+    step_index: int = 0
+) -> dict:
     """
     Loads simulation configuration from domain and ghost rule JSON files.
 
@@ -18,9 +23,13 @@ def load_simulation_config(domain_path: str, ghost_path: str, step_index: int = 
         dict: Combined configuration dictionary with domain, ghost_rules, and step_index
     """
     if not os.path.isfile(domain_path):
-        raise FileNotFoundError(f"Domain config not found: {domain_path}")
+        raise FileNotFoundError(
+            f"Domain config not found: {domain_path}"
+        )
     if not os.path.isfile(ghost_path):
-        raise FileNotFoundError(f"Ghost rules config not found: {ghost_path}")
+        raise FileNotFoundError(
+            f"Ghost rules config not found: {ghost_path}"
+        )
 
     with open(domain_path, "r") as f1:
         domain = json.load(f1)
@@ -29,7 +38,8 @@ def load_simulation_config(domain_path: str, ghost_path: str, step_index: int = 
 
     # ✅ Normalize ghost face keys if needed
     ghost_rules["face_types"] = {
-        k.replace("_", "").lower(): v for k, v in ghost_rules.get("face_types", {}).items()
+        k.replace("_", "").lower(): v
+        for k, v in ghost_rules.get("face_types", {}).items()
     }
 
     return {
