@@ -38,7 +38,9 @@ def test_solver_pipeline_executes_functionally(base_config, tmp_path):
         make_cell(0.0, 0.0, 0.0, velocity=[1.0, 1.0, 1.0]),
         make_cell(1.0, 0.0, 0.0, velocity=[1.0, 1.0, 1.0])
     ]
-    result_grid, metadata = solve_navier_stokes_step(grid, base_config, step_index=0, output_folder=str(tmp_path))
+    result_grid, metadata = solve_navier_stokes_step(
+        grid, base_config, step_index=0, output_folder=str(tmp_path)  # ✅ temp output folder
+    )
 
     assert isinstance(result_grid, list)
     assert all(isinstance(c.velocity, list) for c in result_grid)
@@ -47,14 +49,18 @@ def test_solver_pipeline_executes_functionally(base_config, tmp_path):
 
 def test_solver_metadata_contains_divergence(base_config, tmp_path):
     grid = [make_cell(0.0, 0.0, 0.0)]
-    _, metadata = solve_navier_stokes_step(grid, base_config, step_index=1, output_folder=str(tmp_path))
+    _, metadata = solve_navier_stokes_step(
+        grid, base_config, step_index=1, output_folder=str(tmp_path)  # ✅ temp output folder
+    )
 
     assert "divergence" in metadata
     assert isinstance(metadata["divergence"], list)
 
 def test_solver_triggers_diagnostics(base_config, tmp_path):
     grid = [make_cell(0.0, 0.0, 0.0, velocity=None, fluid_mask=False)]
-    _, metadata = solve_navier_stokes_step(grid, base_config, step_index=2, output_folder=str(tmp_path))
+    _, metadata = solve_navier_stokes_step(
+        grid, base_config, step_index=2, output_folder=str(tmp_path)  # ✅ temp output folder
+    )
 
     triggered_flags = []
     if metadata.get("pressure_mutation_count", 0) == 0:
