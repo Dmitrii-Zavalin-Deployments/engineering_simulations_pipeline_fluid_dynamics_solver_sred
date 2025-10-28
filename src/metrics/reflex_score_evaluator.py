@@ -8,9 +8,7 @@
 # explicit fluid_mask=False cells are excluded upstream.
 
 import os
-import json
 import statistics
-from typing import List
 from src.visualization.reflex_score_visualizer import (
     plot_reflex_score_evolution  # ✅ Added
 )
