@@ -2,6 +2,8 @@ import os
 import json
 import pytest
 from unittest import mock
+import src.snapshot_manager
+
 from src.snapshot_manager import generate_snapshots
 
 @pytest.fixture
@@ -35,18 +37,18 @@ def config():
     }
 
 def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_path):
-    # Patch grid generator
-    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "generate_grid_with_mask",
+        lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
+    )
 
-    # Patch evolve_step
     def mock_evolve_step(grid, input_data, step, config=None):
         return grid, {"reflex_score": 4.0}
     monkeypatch.setattr("src.snapshot_manager.evolve_step", mock_evolve_step)
 
-    # Patch velocity writer
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
 
-    # Patch snapshot processor
     def mock_process_snapshot_step(step, grid, reflex, spacing, config, expected_size, output_folder):
         return grid, {
             "reflex_score": 4.0,
@@ -57,12 +59,16 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process_snapshot_step)
 
     snapshots = generate_snapshots(input_data, "test_scenario", config)
-    assert len(snapshots) == 4  # steps 0 to 3
+    assert len(snapshots) == 4
     assert snapshots[0][0] == 0
     assert snapshots[-1][0] == 3
 
 def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
-    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "generate_grid_with_mask",
+        lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
+    )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
 
@@ -85,14 +91,18 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
     assert sum(snap[1]["projection_skipped"] for snap in snapshots) == 1
 
 def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config):
-    input_data["simulation_parameters"]["output_interval"] = 0  # invalid
-    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    input_data["simulation_parameters"]["output_interval"] = 0
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "generate_grid_with_mask",
+        lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
+    )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", lambda s, g, r, sp, c, e, o: (g, {"reflex_score": 1.0}))
 
     snapshots = generate_snapshots(input_data, "fallback_test", config)
-    assert len(snapshots) == 4  # fallback to interval = 1
+    assert len(snapshots) == 4
 
 
 
