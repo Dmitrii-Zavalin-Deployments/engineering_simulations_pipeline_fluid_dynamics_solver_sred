@@ -41,14 +41,8 @@ def load_reflex_config(path="config/reflex_debug_config.yaml"):
         }
 
 
-def run_navier_stokes_simulation(
-    input_path: str,
-    output_dir: str | None = None
-):
-    scenario_name = os.path.splitext(os.path.basename(input_path))[0]
+def prepare_simulation_config(input_path: str) -> dict:
     input_data = load_simulation_input(input_path)
-
-    # ✅ Load ghost rules from external file if available
     ghost_rules_path = os.getenv("GHOST_RULES_PATH", "config/ghost_rules.json")
     if os.path.isfile(ghost_rules_path):
         with open(ghost_rules_path) as f:
@@ -56,15 +50,35 @@ def run_navier_stokes_simulation(
         input_data["ghost_rules"] = ghost_rules
         if debug:
             print(f"👻 Injected ghost_rules from: {ghost_rules_path}")
-
-    # ✅ Load domain + ghost config using centralized loader
-    domain_path = input_path
-    config = load_simulation_config(
-        domain_path=domain_path,
+    return load_simulation_config(
+        domain_path=input_path,
         ghost_path=ghost_rules_path,
         step_index=0
     )
 
+
+def write_snapshot(output_folder: str, scenario: str, step: int, snapshot: dict):
+    formatted_step = f"{step:04d}"
+    filename = f"{scenario}_step_{formatted_step}.json"
+    path = os.path.join(output_folder, filename)
+    with open(path, "w") as f:
+        json.dump(snapshot, f, indent=2)
+    if debug:
+        print(f"🔄 Step {formatted_step} written → {filename}")
+
+
+def maybe_compact_pressure(step: int, score: float):
+    if isinstance(score, (int, float)) and score >= 4:
+        original = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
+        compacted = f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
+        compact_pressure_delta_map(original, compacted)
+        if debug:
+            print(f"📉 Compacted pressure delta map for step {step:04d}")
+
+
+def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None):
+    scenario = os.path.splitext(os.path.basename(input_path))[0]
+    config = prepare_simulation_config(input_path)
     output_folder = output_dir or os.path.join(
         "data", "testing-input-output", "navier_stokes_output"
     )
@@ -75,57 +89,32 @@ def run_navier_stokes_simulation(
     )
     reflex_config = load_reflex_config(reflex_config_path)
 
-    ghost_cfg = config.get("ghost_rules", {})
     if debug:
+        ghost_cfg = config.get("ghost_rules", {})
         print(
             f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}, "
             f"Default: {ghost_cfg.get('default_type')}"
         )
         print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
-
-    validate_config(config)
-    build_simulation_grid(config)
-
-    if debug:
-        print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario_name}")
+        print(f"🧠 [main_solver] Starting Navier-Stokes simulation for: {scenario}")
         print(f"📄 Input path: {input_path}")
         print(f"📁 Output folder: {output_folder}")
         print(f"⚙️ Reflex config path: {reflex_config_path}")
         print("🛠️ Debug mode enabled.")
-        print(
-            f"📦 Input preview (truncated): "
-            f"{json.dumps(config, indent=2)[:1000]}"
-        )
+        print(f"📦 Input preview (truncated): {json.dumps(config, indent=2)[:1000]}")
         domain = config.get("domain_definition", {})
         print(
             f"📐 Grid resolution: {domain.get('nx')} × {domain.get('ny')} × "
             f"{domain.get('nz')}"
         )
 
-    snapshots = generate_snapshots(
-        config, scenario_name, config=reflex_config
-    )
+    validate_config(config)
+    build_simulation_grid(config)
+    snapshots = generate_snapshots(config, scenario, config=reflex_config)
 
     for step, snapshot in snapshots:
-        formatted_step = f"{step:04d}"
-        filename = f"{scenario_name}_step_{formatted_step}.json"
-        path = os.path.join(output_folder, filename)
-        with open(path, "w") as f:
-            json.dump(snapshot, f, indent=2)
-        if debug:
-            print(f"🔄 Step {formatted_step} written → {filename}")
-
-        score = snapshot.get("reflex_score", 0.0)
-        if isinstance(score, (int, float)) and score >= 4:
-            original_path = (
-                f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
-            )
-            compacted_path = (
-                f"data/snapshots/compacted/pressure_delta_compact_step_{step:04d}.json"
-            )
-            compact_pressure_delta_map(original_path, compacted_path)
-            if debug:
-                print(f"📉 Compacted pressure delta map for step {formatted_step}")
+        write_snapshot(output_folder, scenario, step, snapshot)
+        maybe_compact_pressure(step, snapshot.get("reflex_score", 0.0))
 
     if debug:
         print(f"✅ Simulation complete. Total snapshots: {len(snapshots)}")

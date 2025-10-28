@@ -142,12 +142,12 @@ jobs:
     #     python src/tools/snapshot_validator.py
     #     echo "✅ Snapshot validation executed."
 
-    - name: 📊 Evaluate Reflex Scoring
-      env:
-        PYTHONPATH: ${{ github.workspace }}/src
-      run: |
-        python src/ci_score_report.py
-        echo "✅ Reflex scoring completed."
+    # - name: 📊 Evaluate Reflex Scoring
+    #   env:
+    #     PYTHONPATH: ${{ github.workspace }}/src
+    #   run: |
+    #     python src/ci_score_report.py
+    #     echo "✅ Reflex scoring completed."
 
     - name: 🗃️ Inspect Repository Structure
       run: |
