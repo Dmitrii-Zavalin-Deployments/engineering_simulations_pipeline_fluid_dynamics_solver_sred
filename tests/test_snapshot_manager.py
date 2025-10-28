@@ -36,7 +36,7 @@ def config():
 
 def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_path):
     # Patch grid generator
-    monkeypatch.setattr("src.snapshot_manager.generate_grid_with_mask", lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
 
     # Patch evolve_step
     def mock_evolve_step(grid, input_data, step, config=None):
@@ -62,7 +62,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
     assert snapshots[-1][0] == 3
 
 def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
-    monkeypatch.setattr("src.snapshot_manager.generate_grid_with_mask", lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
 
@@ -86,7 +86,7 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config):
 
 def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config):
     input_data["simulation_parameters"]["output_interval"] = 0  # invalid
-    monkeypatch.setattr("src.snapshot_manager.generate_grid_with_mask", lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
+    monkeypatch.setattr("src.snapshot_manager.generate_snapshots.__globals__['generate_grid_with_mask']",, lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)])
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", lambda s, g, r, sp, c, e, o: (g, {"reflex_score": 1.0}))

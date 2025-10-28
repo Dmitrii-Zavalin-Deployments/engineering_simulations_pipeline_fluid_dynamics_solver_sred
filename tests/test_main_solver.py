@@ -55,7 +55,7 @@ def test_run_simulation_triggers_all(monkeypatch, mock_input_file, tmp_path):
         "velocity_field": {},
         "pressure_field": {}
     }
-    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda input_config, scenario_name, reflex_config=None: [(0, dummy_snapshot)])
+    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda input_data, scenario_name, config: [(0, dummy_snapshot)])
     monkeypatch.setattr("src.main_solver.compact_pressure_delta_map", lambda orig, comp: None)
     monkeypatch.setattr("src.main_solver.run_reflex_audit", lambda: None)
 
@@ -79,7 +79,7 @@ def test_run_simulation_skips_compaction(monkeypatch, mock_input_file, tmp_path)
         "velocity_field": {},
         "pressure_field": {}
     }
-    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda input_config, scenario_name, reflex_config=None: [(0, dummy_snapshot)])
+    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda input_data, scenario_name, config: [(0, dummy_snapshot)])
 
     compact_called = mock.Mock()
     monkeypatch.setattr("src.main_solver.compact_pressure_delta_map", compact_called)
