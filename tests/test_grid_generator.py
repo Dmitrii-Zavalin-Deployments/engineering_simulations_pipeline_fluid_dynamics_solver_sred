@@ -63,7 +63,8 @@ def test_generate_grid_with_mask_invalid_mask_length(domain, initial_conditions,
     geometry_valid["geometry_mask_flat"] = [1, 0]  # too short
     with pytest.raises(ValueError) as e:
         generate_grid_with_mask(domain, initial_conditions, geometry_valid)
-    assert "does not match coordinate count" in str(e.value)
+    assert "Failed to decode fluid mask" in str(e.value)
+    assert "Mask length" in str(e.value)
 
 def test_generate_grid_missing_keys_raises(initial_conditions):
     bad_domain = {"min_x": 0.0, "max_x": 1.0, "nx": 2}  # missing keys
