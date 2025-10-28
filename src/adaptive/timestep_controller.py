@@ -10,6 +10,7 @@ from typing import Optional
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def load_pressure_delta(path: str) -> dict:
     """
     Loads a pressure delta map from disk.
@@ -20,6 +21,7 @@ def load_pressure_delta(path: str) -> dict:
             return json.load(f)
     except Exception:
         return {}
+
 
 def load_mutation_trace(path: str) -> list:
     """
@@ -33,15 +35,20 @@ def load_mutation_trace(path: str) -> list:
     except Exception:
         return []
 
+
 def compute_mutation_density(pressure_delta_map: dict) -> float:
     """
     Computes the fraction of cells with non-zero pressure delta.
     """
     total_cells = len(pressure_delta_map)
-    mutated = sum(1 for cell in pressure_delta_map.values() if cell.get("delta", 0.0) > 0.0)
+    mutated = sum(
+        1 for cell in pressure_delta_map.values()
+        if cell.get("delta", 0.0) > 0.0
+    )
     if total_cells == 0:
         return 0.0
     return mutated / total_cells
+
 
 def compute_mutation_frequency(mutation_trace: list, recent_steps: int = 5) -> float:
     """
@@ -50,8 +57,12 @@ def compute_mutation_frequency(mutation_trace: list, recent_steps: int = 5) -> f
     recent = mutation_trace[-recent_steps:]
     if not recent:
         return 0.0
-    mutated_steps = sum(1 for step in recent if step.get("pressure_mutated", False))
+    mutated_steps = sum(
+        1 for step in recent
+        if step.get("pressure_mutated", False)
+    )
     return mutated_steps / len(recent)
+
 
 def suggest_timestep(
     pressure_delta_path: str,
@@ -73,25 +84,37 @@ def suggest_timestep(
     score_ok = reflex_score is None or reflex_score >= min_score
     if not score_ok:
         if debug:
-            print(f"[TIMESTEP] Reflex score below threshold → maintaining base_dt={base_dt:.6f}")
+            print(
+                f"[TIMESTEP] Reflex score below threshold → "
+                f"maintaining base_dt={base_dt:.6f}"
+            )
         return base_dt
 
     if debug:
-        print(f"[TIMESTEP] Mutation density={mutation_density:.4f}, frequency={mutation_frequency:.2f}")
+        print(
+            f"[TIMESTEP] Mutation density={mutation_density:.4f}, "
+            f"frequency={mutation_frequency:.2f}"
+        )
 
     if mutation_density > 0.20 and mutation_frequency >= 0.8:
         new_dt = base_dt * 0.5
         if debug:
-            print(f"[TIMESTEP] 🔻 High mutation → reducing timestep to {new_dt:.6f}")
+            print(
+                f"[TIMESTEP] 🔻 High mutation → reducing timestep to {new_dt:.6f}"
+            )
         return new_dt
     elif mutation_density < 0.05 and mutation_frequency <= 0.2:
         new_dt = base_dt * 1.5
         if debug:
-            print(f"[TIMESTEP] 🔺 Low mutation → increasing timestep to {new_dt:.6f}")
+            print(
+                f"[TIMESTEP] 🔺 Low mutation → increasing timestep to {new_dt:.6f}"
+            )
         return new_dt
     else:
         if debug:
-            print(f"[TIMESTEP] ⚖️ Timestep unchanged → {base_dt:.6f}")
+            print(
+                f"[TIMESTEP] ⚖️ Timestep unchanged → {base_dt:.6f}"
+            )
         return base_dt
 
 
