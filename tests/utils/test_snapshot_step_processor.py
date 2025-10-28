@@ -1,5 +1,6 @@
 import pytest
 import types
+import os
 from src.utils.snapshot_step_processor import process_snapshot_step
 
 class MockCell:
@@ -51,6 +52,13 @@ def mock_config():
 @pytest.fixture
 def spacing():
     return (1.0, 1.0, 1.0)
+
+@pytest.fixture(autouse=True)
+def ensure_data_dirs(tmp_path):
+    os.makedirs(tmp_path / "data" / "snapshots", exist_ok=True)
+    os.makedirs(tmp_path / "data" / "overlays", exist_ok=True)
+    os.makedirs(tmp_path / "data" / "summaries", exist_ok=True)
+    os.chdir(tmp_path)
 
 def test_process_snapshot_step_returns_grid_and_snapshot(tmp_path, mock_grid, mock_reflex, spacing, mock_config):
     output_folder = str(tmp_path)
