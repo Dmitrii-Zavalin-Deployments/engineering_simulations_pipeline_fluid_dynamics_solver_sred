@@ -42,7 +42,7 @@ def solve_navier_stokes_step(
 
     # 💧 Step 2: Pressure correction — solves ∇²P = ∇ · u to enforce ∇ · u = 0
     grid_after_pressure, pressure_mutated, projection_passes, pressure_metadata = apply_pressure_correction(
-        grid_after_momentum, input_data, step_index
+        grid_after_momentum, input_data, step_index, output_folder
     )
 
     # 🔁 Step 3: Velocity projection — updates u ← u - ∇P to complete continuity enforcement
@@ -77,10 +77,8 @@ def solve_navier_stokes_step(
     if debug and triggered_flags:
         print(f"[VERIFIER] Step {step_index} → triggered flags: {triggered_flags}")
 
-    # Note: The calculation of 'spacing' is performed on every step; consider calculating this
-    # during grid initialization and passing it in 'input_data' for efficiency.
     run_verification_if_triggered(
-        grid=grid,  # ✅ Pass original grid for downgrade detection
+        grid=grid,
         spacing=(
             (input_data["domain_definition"]["max_x"] - input_data["domain_definition"]["min_x"]) / input_data["domain_definition"]["nx"],
             (input_data["domain_definition"]["max_y"] - input_data["domain_definition"]["min_y"]) / input_data["domain_definition"]["ny"],

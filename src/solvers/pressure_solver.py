@@ -18,9 +18,7 @@ from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> Tuple[List[Cell], bool, int, Dict]:
-    # FIX: Architectural Correction - Extract I/O suppression flag from input_data to prevent FileNotFoundError in tests.
-    # If this flag is True, we skip writing data to disk.
+def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int, output_folder: str) -> Tuple[List[Cell], bool, int, Dict]:
     disable_io_for_testing = input_data.get("simulation_parameters", {}).get("disable_io_for_testing", False)
     
     validate_config(input_data)
@@ -30,14 +28,12 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
         grid = build_simulation_grid(input_data)
         if debug: print(f"[PRESSURE] Step {step}: Grid built from input_data")
 
-    # --- Setup Safe Grid (Input for Poisson Solver) ---
     safe_grid = []
     for i, cell in enumerate(grid):
         new_cell = Cell(
             x=cell.x,
             y=cell.y,
             z=cell.z,
-            # Ensure velocity and pressure are sanitized for solver use, but fluid_mask is preserved
             velocity=cell.velocity if isinstance(cell.velocity, list) else None,
             pressure=cell.pressure if isinstance(cell.pressure, float) else 0.0,
             fluid_mask=cell.fluid_mask
@@ -62,9 +58,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     spacing = (dx, dy, dz)
     if debug: print(f"[PRESSURE] Step {step}: Grid spacing → dx={dx:.2f}, dy={dy:.2f}, dz={dz:.2f}")
 
-    output_folder = "data/testing-input-output/navier_stokes_output"
-    
-    # compute_divergence_stats is now guarded by patches in the test file.
     div_stats = compute_divergence_stats(
         safe_grid, spacing,
         label="post-pressure", step_index=step,
@@ -75,25 +68,19 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     max_div = div_stats["max"]
     if debug: print(f"[PRESSURE] Step {step}: Divergence computed → max={max_div:.6e}")
 
-    # --- Step 1: Solve Poisson Equation for Pressure ---
     grid_with_pressure, pressure_mutated, ghost_registry = solve_pressure_poisson(safe_grid, divergence, input_data)
     if debug: print(f"[PRESSURE] Step {step}: Pressure Poisson solve completed")
 
-    # --- CRITICAL FIX: Re-enforce non-physical state after pressure solve ---
     for old, new in zip(safe_grid, grid_with_pressure):
         new.boundary_type = getattr(old, "boundary_type", None)
         new.influenced_by_ghost = getattr(old, "influenced_by_ghost", False)
-
-        # FIX: Explicitly copy fluid_mask and original velocity (if non-fluid)
         new.fluid_mask = old.fluid_mask
         if not old.fluid_mask:
             new.velocity = old.velocity
 
-    # --- Step 2: Mutation and Diagnostic Check ---
     mutation_count = 0
     mutated_cells = []
     pressure_delta_map = []
-    # (Mutation logic remains the same...)
 
     for old, updated in zip(safe_grid, grid_with_pressure):
         if updated.fluid_mask:
@@ -147,7 +134,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
 
     ghost_trigger_chain = input_data.get("ghost_trigger_chain", [])
     
-    # FIX APPLIED HERE: Guard the log_reflex_pathway call
     if not disable_io_for_testing:
         log_reflex_pathway(
             step_index=step,
@@ -158,7 +144,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     else:
         if debug: print(f"[PRESSURE] Step {step}: Reflex pathway logging skipped (testing mode)")
 
-
     metadata = {
         "max_divergence": max_div,
         "pressure_mutation_count": mutation_count,
@@ -168,7 +153,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     }
     if debug: print(f"[PRESSURE] Step {step}: Metadata assembled")
 
-    # This was the first fix location (already guarded)
     if not disable_io_for_testing:
         export_pressure_delta_map(pressure_delta_map, step_index=step, output_dir="data/snapshots")
         if debug: print(f"[PRESSURE] Step {step}: Pressure delta map exported")
@@ -183,7 +167,6 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int) -> 
     if any(not isinstance(c.velocity, list) or not c.fluid_mask for c in grid):
         triggered_flags.append("downgraded_cells")
 
-    # This function is successfully mocked in the test file, so we leave it as is.
     run_verification_if_triggered(grid_with_pressure, spacing, step, output_folder, triggered_flags)
 
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
