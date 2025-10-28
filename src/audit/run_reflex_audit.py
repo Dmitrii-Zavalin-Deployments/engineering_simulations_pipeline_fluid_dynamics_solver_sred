@@ -1,5 +1,6 @@
 # src/audit/run_reflex_audit.py
-# 📋 Reflex Audit Runner — bundles scoring, overlays, and dashboard export for simulation integrity review
+# 📋 Reflex Audit Runner — bundles scoring, overlays, and dashboard export
+# for simulation integrity review
 # 📌 This module operates entirely on exported snapshot data.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -82,7 +83,9 @@ def run_reflex_audit(
     )
 
     if debug:
-        print(f"\n✅ Reflex Audit Complete. Outputs saved to → {output_folder}")
+        print(
+            f"\n✅ Reflex Audit Complete. Outputs saved to → {output_folder}"
+        )
 
 
 # ✅ CLI entrypoint

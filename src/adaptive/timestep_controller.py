@@ -1,5 +1,6 @@
 # src/adaptive/timestep_controller.py
-# 🔄 Timestep Controller — proposes dynamic timestep adjustment based on mutation intensity
+# 🔄 Timestep Controller — proposes dynamic timestep adjustment
+# based on mutation intensity
 # 📌 This module operates on exported pressure delta maps and reflex traces.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -50,7 +51,10 @@ def compute_mutation_density(pressure_delta_map: dict) -> float:
     return mutated / total_cells
 
 
-def compute_mutation_frequency(mutation_trace: list, recent_steps: int = 5) -> float:
+def compute_mutation_frequency(
+    mutation_trace: list,
+    recent_steps: int = 5
+) -> float:
     """
     Computes the fraction of recent steps that triggered pressure mutation.
     """
@@ -100,14 +104,16 @@ def suggest_timestep(
         new_dt = base_dt * 0.5
         if debug:
             print(
-                f"[TIMESTEP] 🔻 High mutation → reducing timestep to {new_dt:.6f}"
+                f"[TIMESTEP] 🔻 High mutation → reducing timestep to "
+                f"{new_dt:.6f}"
             )
         return new_dt
     elif mutation_density < 0.05 and mutation_frequency <= 0.2:
         new_dt = base_dt * 1.5
         if debug:
             print(
-                f"[TIMESTEP] 🔺 Low mutation → increasing timestep to {new_dt:.6f}"
+                f"[TIMESTEP] 🔺 Low mutation → increasing timestep to "
+                f"{new_dt:.6f}"
             )
         return new_dt
     else:
