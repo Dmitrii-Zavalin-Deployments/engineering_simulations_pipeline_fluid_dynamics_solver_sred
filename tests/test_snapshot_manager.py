@@ -36,7 +36,13 @@ def config():
         "ghost_adjacency_depth": 2
     }
 
-def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_path):
+@pytest.fixture
+def output_dir(tmp_path):
+    path = tmp_path / "navier_stokes_output"
+    path.mkdir()
+    return path
+
+def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -45,7 +51,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "output_folder",
-        str(tmp_path / "navier_stokes_output")
+        str(output_dir)
     )
 
     def mock_evolve_step(grid, input_data, step, config=None):
@@ -68,7 +74,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
     assert snapshots[0][0] == 0
     assert snapshots[-1][0] == 3
 
-def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, tmp_path):
+def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -77,7 +83,7 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, tm
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "output_folder",
-        str(tmp_path / "navier_stokes_output")
+        str(output_dir)
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
@@ -100,7 +106,7 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, tm
     assert sum(snap[1]["velocity_projected"] for snap in snapshots) == 4
     assert sum(snap[1]["projection_skipped"] for snap in snapshots) == 1
 
-def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config, tmp_path):
+def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, config, output_dir):
     input_data["simulation_parameters"]["output_interval"] = 0
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
@@ -110,7 +116,7 @@ def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, co
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "output_folder",
-        str(tmp_path / "navier_stokes_output")
+        str(output_dir)
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
