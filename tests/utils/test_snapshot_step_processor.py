@@ -36,7 +36,7 @@ def mock_reflex():
 @pytest.fixture
 def mock_config():
     return {
-        "domain": {"nx": 2, "ny": 2, "nz": 1},
+        "domain_definition": {"nx": 2, "ny": 2, "nz": 1},  # ✅ Corrected key
         "geometry_mask_flat": [1, 1, 0, 1],
         "geometry_mask_shape": [2, 2, 1],
         "mask_encoding": {"fluid": 1, "solid": 0},
