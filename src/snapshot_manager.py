@@ -13,7 +13,7 @@ from src.exporters.velocity_field_writer import write_velocity_field
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> list:
+def generate_snapshots(input_data: dict, scenario_name: str, config: dict, output_dir: str | None = None) -> list:
     """
     Executes the full Navier-Stokes simulation loop.
     """
@@ -58,7 +58,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict) -> li
         "projection_skipped": 0
     }
 
-    output_folder = os.path.join("data", "testing-input-output", "navier_stokes_output")
+    output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
