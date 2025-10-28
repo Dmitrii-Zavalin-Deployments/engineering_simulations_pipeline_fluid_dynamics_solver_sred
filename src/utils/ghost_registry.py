@@ -60,22 +60,5 @@ def extract_ghost_coordinates(registry: Dict[int, Dict]) -> List[Tuple[float, fl
     """
     return [entry["coordinate"] for entry in registry.values() if "coordinate" in entry]
 
-# ✅ Diagnostic utility for threshold proximity tracing
-def log_proximity_debug(fluid_coord: float, boundary_coord: float, spacing: float, face: str):
-    """
-    Logs proximity delta and threshold comparison for ghost creation.
-
-    Args:
-        fluid_coord (float): Fluid cell coordinate (x, y, or z)
-        boundary_coord (float): Boundary face coordinate
-        spacing (float): Grid spacing (dx, dy, dz)
-        face (str): Boundary face label (e.g., 'x_min')
-    """
-    if debug:
-        delta = abs(fluid_coord - boundary_coord)
-        threshold = 0.5 * spacing
-        proximity = abs(delta - threshold)
-        print(f"[PROXIMITY] Face={face} → |{fluid_coord:.6f} - {boundary_coord:.6f}| = {delta:.6f} → Δ={proximity:.6f} vs threshold={threshold:.6f}")
-
 
 

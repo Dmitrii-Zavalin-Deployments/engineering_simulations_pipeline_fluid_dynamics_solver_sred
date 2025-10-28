@@ -55,18 +55,3 @@ def test_extract_ghost_coordinates_returns_all():
     assert (0.0, 0.0, 0.0) in coords
     assert (1.0, 1.0, 1.0) in coords
     assert len(coords) == 2
-
-def test_log_proximity_debug_output(capsys):
-    ghost_registry.log_proximity_debug(
-        fluid_coord=1.0,
-        boundary_coord=1.5,
-        spacing=1.0,
-        face="x_min"
-    )
-    output = capsys.readouterr().out
-    assert "[PROXIMITY] Face=x_min" in output
-    assert "Δ=" in output
-    assert "vs threshold=" in output
-
-
-
