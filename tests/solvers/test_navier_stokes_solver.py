@@ -5,8 +5,6 @@ from src.solvers.navier_stokes_solver import solve_navier_stokes_step
 from src.grid_modules.cell import Cell
 
 def make_cell(x, y, z, velocity=None, pressure=0.0, fluid_mask=True):
-    """Helper function to create a cell with default values."""
-    # FIX: Remove the default velocity injection to prevent potential aliasing issues
     return Cell(
         x=x,
         y=y,
@@ -18,7 +16,6 @@ def make_cell(x, y, z, velocity=None, pressure=0.0, fluid_mask=True):
 
 @pytest.fixture
 def base_config():
-    """Provides a consistent base configuration dictionary."""
     return {
         "domain_definition": {
             "min_x": 0.0, "max_x": 2.0,
@@ -136,7 +133,7 @@ def test_solver_returns_grid_and_metadata(mock_div_stats, mock_verifier, mock_pr
     assert isinstance(metadata, dict)
     assert metadata["pressure_mutation_count"] == 1
     assert metadata["projection_passes"] == 1
-    assert metadata["divergence"] == [0.01]
+    assert metadata.get("divergence", []) == [0.01]
     assert "no_pressure_mutation" not in metadata
     mock_projection.assert_called_once_with(grid, base_config)
     assert result_grid is grid
