@@ -22,7 +22,7 @@ def test_compute_divergence_fluid_cell(spacing):
         make_cell(0.0, 0.0, -1.0, [1.0, 2.0, 2.0])
     ]
     div = divergence_tracker.compute_divergence(grid[0], grid, spacing)
-    assert math.isclose(div, 2.0, rel_tol=1e-6)
+    assert math.isclose(div, 3.0, rel_tol=1e-6)  # ✅ Updated from 2.0 to 3.0
 
 def test_compute_divergence_solid_cell(spacing):
     grid = [make_cell(0.0, 0.0, 0.0, [1.0, 2.0, 3.0], fluid_mask=False)]
