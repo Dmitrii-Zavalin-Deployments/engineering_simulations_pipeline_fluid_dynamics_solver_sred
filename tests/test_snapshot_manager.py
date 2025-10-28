@@ -136,7 +136,10 @@ def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, co
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", mock_write_velocity_field)
 
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
-    monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", lambda s, g, r, sp, c, e, o: (g, {"reflex_score": 1.0}))
+
+    def mock_process_snapshot_step(*, step, grid, reflex, spacing, config, expected_size, output_folder):
+        return grid, {"reflex_score": 1.0}
+    monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process_snapshot_step)
 
     snapshots = generate_snapshots(input_data, "fallback_test", config, output_dir=str(output_dir))
     assert len(snapshots) == 4
