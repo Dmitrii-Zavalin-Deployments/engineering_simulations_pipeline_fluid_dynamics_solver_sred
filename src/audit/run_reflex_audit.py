@@ -12,6 +12,7 @@ from src.visualization.overlay_integrity_panel import render_integrity_panel
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def load_snapshots(snapshot_dir: str) -> list:
     """
     Loads snapshot JSON files from a directory.
@@ -35,6 +36,7 @@ def load_snapshots(snapshot_dir: str) -> list:
                     print(f"[ERROR] Failed to load {fname}: {e}")
     return snapshots
 
+
 def run_reflex_audit(
     snapshot_dir: str = "data/snapshots",
     output_folder: str = "data/diagnostics",
@@ -51,7 +53,8 @@ def run_reflex_audit(
     os.makedirs(output_folder, exist_ok=True)
 
     if debug:
-        print(f"📋 Starting Reflex Audit...")
+        print("📋 Starting Reflex Audit...")
+
     snapshots = load_snapshots(snapshot_dir)
     if not snapshots:
         if debug:
@@ -61,29 +64,49 @@ def run_reflex_audit(
     trace_report = batch_evaluate_trace(snapshot_dir, pathway_log, snapshots)
 
     if debug:
-        print(f"\n📊 Reflex Snapshot Summary:")
+        print("\n📊 Reflex Snapshot Summary:")
         for entry in trace_report:
-            print(f"[AUDIT] Step {entry['step_index']:04d} → "
-                  f"Mutations={entry['mutated_cells']}, "
-                  f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
-                  f"Projection={'✓' if entry['has_projection'] else '✗'}, "
-                  f"Score={entry['reflex_score']}")
+            print(
+                f"[AUDIT] Step {entry['step_index']:04d} → "
+                f"Mutations={entry['mutated_cells']}, "
+                f"Pathway={'✓' if entry['pathway_recorded'] else '✗'}, "
+                f"Projection={'✓' if entry['has_projection'] else '✗'}, "
+                f"Score={entry['reflex_score']}"
+            )
 
-        print(f"\n🖼️ Generating Overlay Integrity Panel...")
+        print("\n🖼️ Generating Overlay Integrity Panel...")
 
-    render_integrity_panel(snapshot_dir=snapshot_dir, output_path=os.path.join(output_folder, "integrity_panel.png"))
+    render_integrity_panel(
+        snapshot_dir=snapshot_dir,
+        output_path=os.path.join(output_folder, "integrity_panel.png")
+    )
 
     if debug:
         print(f"\n✅ Reflex Audit Complete. Outputs saved to → {output_folder}")
+
 
 # ✅ CLI entrypoint
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Run Reflex Audit on simulation snapshots.")
-    parser.add_argument("--snapshot_dir", default="data/snapshots", help="Directory containing snapshot JSON files")
-    parser.add_argument("--output_folder", default="data/diagnostics", help="Directory to store audit outputs")
-    parser.add_argument("--pathway_log", default="data/diagnostics/mutation_pathways_log.json", help="Path to mutation pathway log file")
+    parser = argparse.ArgumentParser(
+        description="Run Reflex Audit on simulation snapshots."
+    )
+    parser.add_argument(
+        "--snapshot_dir",
+        default="data/snapshots",
+        help="Directory containing snapshot JSON files"
+    )
+    parser.add_argument(
+        "--output_folder",
+        default="data/diagnostics",
+        help="Directory to store audit outputs"
+    )
+    parser.add_argument(
+        "--pathway_log",
+        default="data/diagnostics/mutation_pathways_log.json",
+        help="Path to mutation pathway log file"
+    )
     args = parser.parse_args()
 
     run_reflex_audit(
