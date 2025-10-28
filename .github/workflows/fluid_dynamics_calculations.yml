@@ -97,6 +97,10 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}
       run: |
+        # ✅ Clean Python cache to avoid import mismatches
+        find . -name "*.pyc" -delete
+        find . -type d -name "__pycache__" -exec rm -r {} +
+        
         pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
         echo "✅ Unit tests and code coverage check completed."
       
