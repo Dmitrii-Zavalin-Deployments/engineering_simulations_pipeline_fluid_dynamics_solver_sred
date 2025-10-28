@@ -42,9 +42,10 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, tmp_
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
     )
-    monkeypatch.setattr(
-        "src.snapshot_manager.os.path.join",
-        lambda *args: str(tmp_path / "navier_stokes_output")
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "output_folder",
+        str(tmp_path / "navier_stokes_output")
     )
 
     def mock_evolve_step(grid, input_data, step, config=None):
@@ -73,9 +74,10 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, tm
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
     )
-    monkeypatch.setattr(
-        "src.snapshot_manager.os.path.join",
-        lambda *args: str(tmp_path / "navier_stokes_output")
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "output_folder",
+        str(tmp_path / "navier_stokes_output")
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
@@ -105,9 +107,10 @@ def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, co
         "generate_grid_with_mask",
         lambda d, i, g: [mock.Mock(fluid_mask=True) for _ in range(4)]
     )
-    monkeypatch.setattr(
-        "src.snapshot_manager.os.path.join",
-        lambda *args: str(tmp_path / "navier_stokes_output")
+    monkeypatch.setitem(
+        src.snapshot_manager.generate_snapshots.__globals__,
+        "output_folder",
+        str(tmp_path / "navier_stokes_output")
     )
     monkeypatch.setattr("src.snapshot_manager.write_velocity_field", lambda grid, step, output_dir: None)
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
