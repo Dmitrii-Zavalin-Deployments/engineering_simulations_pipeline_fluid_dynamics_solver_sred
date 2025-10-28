@@ -36,7 +36,12 @@ def mock_reflex():
 @pytest.fixture
 def mock_config():
     return {
-        "domain_definition": {"nx": 2, "ny": 2, "nz": 1},  # ✅ Corrected key
+        "domain_definition": {
+            "min_x": 0.0, "max_x": 1.0,
+            "min_y": 0.0, "max_y": 1.0,
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 2, "ny": 2, "nz": 1
+        },
         "geometry_mask_flat": [1, 1, 0, 1],
         "geometry_mask_shape": [2, 2, 1],
         "mask_encoding": {"fluid": 1, "solid": 0},
