@@ -58,7 +58,9 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
         "projection_skipped": 0
     }
 
-    output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
+    # ✅ CI-safe fallback path
+    fallback_dir = os.path.join(os.getcwd(), "navier_stokes_output")
+    output_folder = output_dir or fallback_dir
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
