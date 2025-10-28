@@ -61,6 +61,8 @@ def solve_navier_stokes_step(
     }
     if isinstance(pressure_metadata, dict):
         metadata.update(pressure_metadata)
+    else:
+        metadata["divergence"] = []
 
     # ✅ Trigger verifier if diagnostic flags are present
     triggered_flags = []
@@ -74,6 +76,8 @@ def solve_navier_stokes_step(
     if debug and triggered_flags:
         print(f"[VERIFIER] Step {step_index} → triggered flags: {triggered_flags}")
 
+    # Note: The calculation of 'spacing' is performed on every step; consider calculating this
+    # during grid initialization and passing it in 'input_data' for efficiency.
     run_verification_if_triggered(
         grid=grid,  # ✅ Pass original grid for downgrade detection
         spacing=(
