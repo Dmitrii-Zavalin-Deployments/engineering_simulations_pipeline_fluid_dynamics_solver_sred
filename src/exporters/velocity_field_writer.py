@@ -10,6 +10,7 @@ import os
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def write_velocity_field(grid, step, output_dir="data/snapshots"):
     """
     Serialize the velocity field from the simulation grid into a structured JSON file.
@@ -22,7 +23,10 @@ def write_velocity_field(grid, step, output_dir="data/snapshots"):
     velocity_snapshot = {}
 
     for cell in grid:
-        if hasattr(cell, "fluid_mask") and cell.fluid_mask and hasattr(cell, "velocity"):
+        if (
+            hasattr(cell, "fluid_mask") and cell.fluid_mask and
+            hasattr(cell, "velocity")
+        ):
             key = f"({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})"
             velocity_snapshot[key] = {
                 "vx": cell.velocity[0],
@@ -39,8 +43,9 @@ def write_velocity_field(grid, step, output_dir="data/snapshots"):
 
     if debug:
         if not velocity_snapshot:
-            print(f"[EXPORT] ⚠️ No fluid cells found for velocity export at step {step}")
-        print(f"[EXPORT] 💨 Velocity field snapshot saved → {filepath}")
-
-
-
+            print(
+                f"[EXPORT] ⚠️ No fluid cells found for velocity export at step {step}"
+            )
+        print(
+            f"[EXPORT] 💨 Velocity field snapshot saved → {filepath}"
+        )

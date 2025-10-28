@@ -1,8 +1,11 @@
 # src/grid_generator.py
-# 🧱 Grid Generator — initializes spatial topology, fluid masking, and boundary tags
-# 📌 This module builds structured grids with optional geometry-based fluid masking.
+# 🧱 Grid Generator — initializes spatial topology, fluid masking, and boundary
+# tags
+# 📌 This module builds structured grids with optional geometry-based fluid
+# masking.
 # It excludes only cells explicitly marked fluid_mask=False.
-# It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
+# It does NOT skip based on adjacency or ghost proximity — all logic is
+# geometry-mask-driven.
 
 import logging
 from src.grid_modules.cell import Cell
@@ -14,9 +17,11 @@ from src.utils.mask_interpreter import decode_geometry_mask_flat
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
 def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
     """
-    [LEGACY] Generates a structured 3D grid with seeded velocity/pressure and tagged boundaries.
+    [LEGACY] Generates a structured 3D grid with seeded velocity/pressure and
+    tagged boundaries.
     This does not apply geometry-based fluid masking.
 
     Roadmap Alignment:
@@ -39,7 +44,9 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
 
     coordinates = generate_coordinates(domain)
     if not coordinates and debug:
-        logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
+        logging.warning(
+            "⚠️ Empty grid generated — no spatial cells due to zero resolution"
+        )
 
     seeded_cells = assign_fields([
         Cell(x, y, z, velocity=[], pressure=0.0, fluid_mask=True)
@@ -50,9 +57,15 @@ def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:
 
     return tagged_cells
 
-def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: dict) -> list[Cell]:
+
+def generate_grid_with_mask(
+    domain: dict,
+    initial_conditions: dict,
+    geometry: dict
+) -> list[Cell]:
     """
-    Generates a 3D grid with seeded velocity/pressure, boundary tags, and fluid masking.
+    Generates a 3D grid with seeded velocity/pressure, boundary tags, and fluid
+    masking.
     Fluid masking is extracted using geometry_mask_flat and geometry_mask_shape.
 
     Roadmap Alignment:
@@ -68,35 +81,47 @@ def generate_grid_with_mask(domain: dict, initial_conditions: dict, geometry: di
     nx, ny, nz = domain["nx"], domain["ny"], domain["nz"]
     shape = geometry["geometry_mask_shape"]
     if shape != [nx, ny, nz]:
-        raise ValueError(f"Geometry mask shape {shape} does not match domain resolution [{nx}, {ny}, {nz}]")
+        raise ValueError(
+            f"Geometry mask shape {shape} does not match domain resolution "
+            f"[{nx}, {ny}, {nz}]"
+        )
 
     flat_mask = geometry["geometry_mask_flat"]
     encoding = geometry.get("mask_encoding", {"fluid": 1, "solid": 0})
     order = geometry.get("flattening_order", "x-major")
 
     try:
-        fluid_mask_list = decode_geometry_mask_flat(flat_mask, [nx, ny, nz], encoding, order)
+        fluid_mask_list = decode_geometry_mask_flat(
+            flat_mask, [nx, ny, nz], encoding, order
+        )
     except Exception as e:
         raise ValueError(f"❌ Failed to decode fluid mask: {e}")
 
     coordinates = generate_coordinates(domain)
     if not coordinates and debug:
-        logging.warning("⚠️ Empty grid generated — no spatial cells due to zero resolution")
+        logging.warning(
+            "⚠️ Empty grid generated — no spatial cells due to zero resolution"
+        )
 
     if len(fluid_mask_list) != len(coordinates):
-        raise ValueError(f"❌ Geometry mask length {len(fluid_mask_list)} does not match coordinate count {len(coordinates)}")
+        raise ValueError(
+            f"❌ Geometry mask length {len(fluid_mask_list)} does not match "
+            f"coordinate count {len(coordinates)}"
+        )
 
     cells = []
     for idx, (ix, iy, iz, x, y, z) in enumerate(coordinates):
         fluid_mask = fluid_mask_list[idx]
         velocity = [] if fluid_mask else None
         pressure = 0.0 if fluid_mask else None
-        cells.append(Cell(x, y, z, velocity=velocity, pressure=pressure, fluid_mask=fluid_mask))
+        cells.append(Cell(
+            x, y, z,
+            velocity=velocity,
+            pressure=pressure,
+            fluid_mask=fluid_mask
+        ))
 
     seeded_cells = assign_fields(cells, initial_conditions)
     tagged_cells = apply_boundaries(seeded_cells, domain)
 
     return tagged_cells
-
-
-

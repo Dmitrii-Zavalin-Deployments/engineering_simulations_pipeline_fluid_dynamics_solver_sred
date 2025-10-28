@@ -1,5 +1,6 @@
 # src/compression/snapshot_compactor.py
-# 📦 Snapshot Compactor — removes unmutated cells from pressure delta map exports
+# 📦 Snapshot Compactor — removes unmutated cells from pressure delta map
+# exports
 # 📌 This module operates on exported pressure delta maps.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -46,7 +47,8 @@ def compact_pressure_delta_map(
     if not retained:
         if debug:
             print(
-                "[COMPACTOR] ⚠️ No cells retained after compaction — skipping write."
+                "[COMPACTOR] ⚠️ No cells retained after compaction — "
+                "skipping write."
             )
         return 0
 
@@ -62,6 +64,3 @@ def compact_pressure_delta_map(
             f"[COMPACTOR] 🧮 Cells retained: {len(retained)} of {len(data)}"
         )
     return len(retained)
-
-
-

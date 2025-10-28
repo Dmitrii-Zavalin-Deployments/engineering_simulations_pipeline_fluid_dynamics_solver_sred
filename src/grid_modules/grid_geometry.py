@@ -1,5 +1,6 @@
 # src/grid_modules/grid_geometry.py
-# 🌐 Grid Geometry Generator — computes grid indices and physical coordinates for simulation domain
+# 🌐 Grid Geometry Generator — computes grid indices and physical coordinates
+# for simulation domain
 # 📌 This module initializes the spatial layout of the simulation grid.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -9,7 +10,10 @@ import logging
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float, float]]:
+
+def generate_coordinates(
+    domain: dict
+) -> list[tuple[int, int, int, float, float, float]]:
     """
     Generates 3D grid positions along with physical coordinates.
 
@@ -44,7 +48,9 @@ def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float
         min_z, max_z, nz = float(domain["min_z"]), float(domain["max_z"]), int(domain["nz"])
     except (TypeError, ValueError) as e:
         logging.error(f"Invalid domain value: {e}")
-        raise ValueError("Domain must contain numeric bounds and integer resolution values")
+        raise ValueError(
+            "Domain must contain numeric bounds and integer resolution values"
+        )
 
     if nx <= 0 or ny <= 0 or nz <= 0:
         raise ValueError("Resolution values must be greater than zero")
@@ -63,10 +69,9 @@ def generate_coordinates(domain: dict) -> list[tuple[int, int, int, float, float
                 coordinates.append((ix, iy, iz, x, y, z))
 
     if debug:
-        print(f"[GEOMETRY] Generated {len(coordinates)} grid coordinates "
-              f"(nx={nx}, ny={ny}, nz={nz}, dx={dx:.3f}, dy={dy:.3f}, dz={dz:.3f})")
+        print(
+            f"[GEOMETRY] Generated {len(coordinates)} grid coordinates "
+            f"(nx={nx}, ny={ny}, nz={nz}, dx={dx:.3f}, dy={dy:.3f}, dz={dz:.3f})"
+        )
 
     return coordinates
-
-
-

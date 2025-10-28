@@ -1,5 +1,6 @@
 # src/grid_modules/boundary_manager.py
-# 🧱 Boundary Manager — tags edge cells based on grid resolution for diagnostic overlays and ghost logic
+# 🧱 Boundary Manager — tags edge cells based on grid resolution for diagnostic
+# overlays and ghost logic
 # 📌 This module identifies outermost grid faces using index-based logic.
 # It does NOT exclude cells from solver routines.
 # It does NOT interact with fluid_mask or geometry masking logic.
@@ -8,6 +9,7 @@ from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     """
@@ -31,13 +33,16 @@ def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:
     z_faces = {0, nz - 1} if nz > 0 else set()
 
     # ✅ Removed unused is_boundary assignment
-    # Boundary tagging now handled via coordinate-based diagnostics in scoring and overlays
+    # Boundary tagging now handled via coordinate-based diagnostics in scoring
+    # and overlays
 
     if debug:
-        print(f"[BOUNDARY] Domain resolution → nx={nx}, ny={ny}, nz={nz}")
-        print(f"[BOUNDARY] Tagged boundary faces → x={x_faces}, y={y_faces}, z={z_faces}")
+        print(
+            f"[BOUNDARY] Domain resolution → nx={nx}, ny={ny}, nz={nz}"
+        )
+        print(
+            f"[BOUNDARY] Tagged boundary faces → x={x_faces}, y={y_faces}, "
+            f"z={z_faces}"
+        )
 
     return cells
-
-
-

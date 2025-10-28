@@ -1,5 +1,6 @@
 # src/exporters/pressure_delta_map_writer.py
-# 📘 Pressure Delta Map Writer — exports per-cell pressure mutation diagnostics for reflex scoring and traceability
+# 📘 Pressure Delta Map Writer — exports per-cell pressure mutation diagnostics
+# for reflex scoring and traceability
 # 📌 This module operates on post-simulation pressure deltas.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -11,7 +12,12 @@ from typing import List, Dict  # ✅ Added for correct type hinting
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def export_pressure_delta_map(pressure_delta_map: List[Dict], step_index: int, output_dir: str = "data/snapshots"):
+
+def export_pressure_delta_map(
+    pressure_delta_map: List[Dict],
+    step_index: int,
+    output_dir: str = "data/snapshots"
+):
     """
     Saves pressure delta information for each fluid cell to a JSON file.
 
@@ -45,7 +51,6 @@ def export_pressure_delta_map(pressure_delta_map: List[Dict], step_index: int, o
         json.dump(serialized, f, indent=2)
 
     if debug:
-        print(f"[EXPORT] ✅ Pressure delta map saved → {full_path}")  # ✅ Reflex anchor for CI and mutation trace
-
-
-
+        print(
+            f"[EXPORT] ✅ Pressure delta map saved → {full_path}"
+        )  # ✅ Reflex anchor for CI and mutation trace

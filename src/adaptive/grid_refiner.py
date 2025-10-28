@@ -75,8 +75,8 @@ def propose_refinement_zones(
     if not active_coords:
         if debug:
             print(
-                f"[REFINER] ⚠️ No pressure deltas found → "
-                f"skipping step {step_index}"
+                f"[REFINER] ⚠️ No pressure deltas found → skipping step "
+                f"{step_index}"
             )
         return []
 
@@ -103,6 +103,3 @@ def propose_refinement_zones(
             )
 
     return clusters
-
-
-

@@ -1,5 +1,6 @@
 # src/exporters/divergence_field_writer.py
-# 📘 Divergence Field Writer — exports per-cell divergence before and after projection
+# 📘 Divergence Field Writer — exports per-cell divergence before and after
+# projection
 # 📌 This module operates on post-simulation divergence diagnostics.
 # It does NOT interact with fluid_mask or geometry masking logic.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -10,7 +11,12 @@ import os
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def export_divergence_map(divergence_map: dict, step_index: int, output_dir: str = "data/snapshots"):
+
+def export_divergence_map(
+    divergence_map: dict,
+    step_index: int,
+    output_dir: str = "data/snapshots"
+):
     """
     Exports per-cell divergence values before and after projection.
 
@@ -37,7 +43,6 @@ def export_divergence_map(divergence_map: dict, step_index: int, output_dir: str
         json.dump(serialized, f, indent=2)
 
     if debug:
-        print(f"[EXPORT] ✅ Divergence map saved → {full_path}")
-
-
-
+        print(
+            f"[EXPORT] ✅ Divergence map saved → {full_path}"
+        )

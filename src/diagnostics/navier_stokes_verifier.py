@@ -3,7 +3,8 @@
 # and downgrade diagnostics when triggered
 # 📌 This module operates on post-simulation grid data.
 # It verifies divergence, pressure anomalies, and downgrade reasons.
-# It enforces that only fluid_mask=False cells are excluded from solver routines.
+# It enforces that only fluid_mask=False cells are excluded from solver
+# routines.
 
 import json
 import pathlib
@@ -140,7 +141,9 @@ def verify_downgraded_cells(
         print(
             f"[VERIFIER] Downgrade check → {len(downgraded)} cells processed"
         )
-        print(f"[VERIFIER] Downgrade log saved to {log_path}")
+        print(
+            f"[VERIFIER] Downgrade log saved to {log_path}"
+        )
 
 
 def run_verification_if_triggered(
@@ -172,7 +175,8 @@ def run_verification_if_triggered(
     if debug:
         print(f"[VERIFIER] Triggered flags: {triggered_flags}")
         print(
-            f"[VERIFIER] Running physics-based verification for step {step_index}"
+            f"[VERIFIER] Running physics-based verification for step "
+            f"{step_index}"
         )
 
     if (
@@ -186,6 +190,3 @@ def run_verification_if_triggered(
 
     if "downgraded_cells" in triggered_flags:
         verify_downgraded_cells(grid, step_index, output_folder)
-
-
-

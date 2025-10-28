@@ -1,5 +1,6 @@
 # src/config/config_loader.py
-# 🧠 Config Loader — centralizes domain + ghost rule injection for simulation setup
+# 🧠 Config Loader — centralizes domain + ghost rule injection for simulation
+# setup
 # 📌 Promotes modularity, reuse, and reflex-safe configuration handling
 
 import json
@@ -47,6 +48,3 @@ def load_simulation_config(
         "ghost_rules": ghost_rules,
         "step_index": step_index
     }
-
-
-

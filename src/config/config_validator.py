@@ -1,6 +1,6 @@
 # src/config/config_validator.py
-# ✅ Config Validator — ensures required fields for reflex-aware grid initialization
-# are present and valid
+# ✅ Config Validator — ensures required fields for reflex-aware grid
+# initialization are present and valid
 # 📌 This module validates the structure of the simulation configuration.
 # It does NOT interact with fluid_mask or geometry masking logic directly.
 # It is NOT responsible for solver inclusion/exclusion decisions.
@@ -85,22 +85,21 @@ def validate_config(config: Dict) -> None:
             raise ValueError(
                 f"boundary_conditions[{i}] missing or invalid 'type' string."
             )
-        # Optional fields: velocity, pressure, no_slip
         if "velocity" in bc and not isinstance(bc["velocity"], list):
             raise ValueError(
-                f"boundary_conditions[{i}] 'velocity' must be a list if present."
+                f"boundary_conditions[{i}] 'velocity' must be a list "
+                "if present."
             )
         if "pressure" in bc and not isinstance(bc["pressure"], (int, float)):
             raise ValueError(
-                f"boundary_conditions[{i}] 'pressure' must be numeric if present."
+                f"boundary_conditions[{i}] 'pressure' must be numeric "
+                "if present."
             )
         if "no_slip" in bc and not isinstance(bc["no_slip"], bool):
             raise ValueError(
-                f"boundary_conditions[{i}] 'no_slip' must be boolean if present."
+                f"boundary_conditions[{i}] 'no_slip' must be boolean "
+                "if present."
             )
 
     if debug:
         print("[CONFIG] Validation passed — config is structurally complete.")
-
-
-

@@ -4,6 +4,7 @@
 
 import os
 import sys
+from src.ci.reflex_log_score import score_combined
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
@@ -15,8 +16,6 @@ sys.path.insert(
         os.path.join(os.path.dirname(__file__), "..")
     )
 )
-
-from src.ci.reflex_log_score import score_combined
 
 SUMMARY_PATH = os.environ.get(
     "CI_SUMMARY_PATH",
@@ -57,6 +56,3 @@ if __name__ == "__main__":
         # ✅ Optional export
         # with open("reflex_ci_scores.json", "w") as out:
         #     json.dump(scores, out, indent=2)
-
-
-

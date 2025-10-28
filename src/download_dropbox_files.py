@@ -1,5 +1,6 @@
 # src/download_dropbox_files.py
-# 📦 Dropbox File Downloader — downloads all files from a folder and logs audit trace
+# 📦 Dropbox File Downloader — downloads all files from a folder and logs
+# audit trace
 
 import dropbox
 import os
@@ -8,6 +9,7 @@ import sys
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def refresh_access_token(refresh_token, client_id, client_secret):
     """
@@ -26,7 +28,15 @@ def refresh_access_token(refresh_token, client_id, client_secret):
     else:
         raise Exception("Failed to refresh access token")
 
-def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, client_id, client_secret, log_file_path):
+
+def download_files_from_dropbox(
+    dropbox_folder,
+    local_folder,
+    refresh_token,
+    client_id,
+    client_secret,
+    log_file_path
+):
     """
     Downloads all files from a specified Dropbox folder and logs each step.
     """
@@ -45,7 +55,9 @@ def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, cli
                     result = dbx.files_list_folder_continue(cursor)
                 else:
                     result = dbx.files_list_folder(dropbox_folder)
-                log_file.write(f"Listing files in Dropbox folder: {dropbox_folder}\n")
+                log_file.write(
+                    f"Listing files in Dropbox folder: {dropbox_folder}\n"
+                )
 
                 for entry in result.entries:
                     if isinstance(entry, dropbox.files.FileMetadata):
@@ -53,14 +65,18 @@ def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, cli
                         with open(local_path, "wb") as f:
                             _, res = dbx.files_download(path=entry.path_lower)
                             f.write(res.content)
-                        log_file.write(f"Downloaded {entry.name} to {local_path}\n")
+                        log_file.write(
+                            f"Downloaded {entry.name} to {local_path}\n"
+                        )
                         if debug:
                             print(entry.name)
 
                 has_more = result.has_more
                 cursor = result.cursor
 
-            log_file.write("Download and delete process completed successfully.\n")
+            log_file.write(
+                "Download and delete process completed successfully.\n"
+            )
         except dropbox.exceptions.ApiError as err:
             log_file.write(f"Error downloading files: {err}\n")
             if debug:
@@ -70,6 +86,7 @@ def download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, cli
             if debug:
                 print(f"Unexpected error: {e}")
 
+
 if __name__ == "__main__":
     dropbox_folder = sys.argv[1]
     local_folder = sys.argv[2]
@@ -78,7 +95,11 @@ if __name__ == "__main__":
     client_secret = sys.argv[5]
     log_file_path = sys.argv[6]
 
-    download_files_from_dropbox(dropbox_folder, local_folder, refresh_token, client_id, client_secret, log_file_path)
-
-
-
+    download_files_from_dropbox(
+        dropbox_folder,
+        local_folder,
+        refresh_token,
+        client_id,
+        client_secret,
+        log_file_path
+    )

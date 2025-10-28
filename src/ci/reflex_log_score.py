@@ -39,7 +39,8 @@ def score_reflex_log_text(log_text: str) -> dict:
     }
     if debug:
         print(
-            f"[CI SCORE] Matched {found}/{total} markers → {matched}"
+            f"[CI SCORE] Matched {found}/{total} markers → "
+            f"{matched}"
         )
     return result
 
@@ -80,6 +81,3 @@ def score_combined(log_text: str, summary_path: str) -> dict:
     if debug:
         print("[CI SCORE] Combined scoring complete.")
     return combined
-
-
-

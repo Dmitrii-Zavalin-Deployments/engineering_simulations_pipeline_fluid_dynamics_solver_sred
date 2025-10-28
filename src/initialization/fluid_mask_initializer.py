@@ -1,5 +1,6 @@
 # src/initialization/fluid_mask_initializer.py
-# 🧬 Fluid Mask Initializer — constructs simulation grid and assigns fluid, solid, and ghost masks with reflex-aware tagging
+# 🧬 Fluid Mask Initializer — constructs simulation grid and assigns fluid, solid,
+# and ghost masks with reflex-aware tagging
 # 📌 This module enforces geometry-mask-driven inclusion logic.
 # Only ghost-boundary cells are marked fluid_mask=False.
 # All other cells are initialized as fluid_mask=True.
@@ -10,6 +11,7 @@ from src.config.config_validator import validate_config
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
+
 
 def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
@@ -62,7 +64,9 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
 
             # ✅ Normalize ghost_face for lookup compatibility
             normalized_face = ghost_face.replace("_", "").lower()
-            ghost_type = ghost_rules.get("face_types", {}).get(normalized_face, ghost_type_default)
+            ghost_type = ghost_rules.get("face_types", {}).get(
+                normalized_face, ghost_type_default
+            )
 
         initialized_cell = Cell(
             x=x,
@@ -80,10 +84,15 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
             initialized_cell.ghost_source_step = config.get("step_index", None)
             initialized_cell.was_enforced = ghost_face in boundary_faces
             initialized_cell.originated_from_boundary = True
-            initialized_cell.mutation_triggered_by = "boundary_enforcement"  # ✅ Reflex traceability
+            initialized_cell.mutation_triggered_by = (
+                "boundary_enforcement"  # ✅ Reflex traceability
+            )
 
             if debug:
-                print(f"[MASK] Ghost cell @ ({x:.2f}, {y:.2f}, {z:.2f}) → face={ghost_face}, type={ghost_type}")
+                print(
+                    f"[MASK] Ghost cell @ ({x:.2f}, {y:.2f}, {z:.2f}) → "
+                    f"face={ghost_face}, type={ghost_type}"
+                )
 
         initialized.append(initialized_cell)
 
@@ -119,7 +128,14 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
                 x = min_x + i * dx
                 y = min_y + j * dy
                 z = min_z + k * dz
-                cell = Cell(x=x, y=y, z=z, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+                cell = Cell(
+                    x=x,
+                    y=y,
+                    z=z,
+                    velocity=[0.0, 0.0, 0.0],
+                    pressure=0.0,
+                    fluid_mask=True
+                )
                 raw_grid.append(cell)
 
     if debug:
@@ -131,9 +147,8 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
     if debug:
         fluid_count = sum(1 for c in grid if c.fluid_mask)
         ghost_count = len(grid) - fluid_count
-        print(f"[GRID] Final grid → fluid={fluid_count}, ghost={ghost_count}")
+        print(
+            f"[GRID] Final grid → fluid={fluid_count}, ghost={ghost_count}"
+        )
 
     return grid
-
-
-

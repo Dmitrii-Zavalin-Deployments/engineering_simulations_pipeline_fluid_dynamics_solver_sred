@@ -122,6 +122,3 @@ def suggest_timestep(
                 f"[TIMESTEP] ⚖️ Timestep unchanged → {base_dt:.6f}"
             )
         return base_dt
-
-
-

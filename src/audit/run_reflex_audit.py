@@ -117,6 +117,3 @@ if __name__ == "__main__":
         output_folder=args.output_folder,
         pathway_log=args.pathway_log
     )
-
-
-
