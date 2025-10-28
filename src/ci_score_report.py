@@ -1,5 +1,6 @@
 # src/ci_score_report.py
-# 📊 CI Reflex Score Report — evaluates reflex integrity from step_summary.txt for audit dashboards and CI gating
+# 📊 CI Reflex Score Report — evaluates reflex integrity from step_summary.txt
+# for audit dashboards and CI gating
 
 import os
 import sys
@@ -8,11 +9,20 @@ import sys
 debug = True
 
 # Ensure src/ is available on import path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0,
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..")
+    )
+)
 
 from src.ci.reflex_log_score import score_combined
 
-SUMMARY_PATH = os.environ.get("CI_SUMMARY_PATH", "data/testing-input-output/navier_stokes_output/step_summary.txt")
+SUMMARY_PATH = os.environ.get(
+    "CI_SUMMARY_PATH",
+    "data/testing-input-output/navier_stokes_output/step_summary.txt"
+)
+
 
 if __name__ == "__main__":
     if not os.path.exists(SUMMARY_PATH):
@@ -27,9 +37,18 @@ if __name__ == "__main__":
             print(f"[DEBUG] scores: {scores}")
 
         print("📊 CI Reflex Scoring Results:")
-        print(f"↪️ Matched markers: {scores['ci_log_score']['markers_matched']}")
-        print(f"↪️ Marker score: {scores['ci_log_score']['reflex_score']}")
-        print(f"↪️ Summary score: {scores['summary_score']['average_score']:.2f} (avg)")
+        print(
+            f"↪️ Matched markers: "
+            f"{scores['ci_log_score']['markers_matched']}"
+        )
+        print(
+            f"↪️ Marker score: "
+            f"{scores['ci_log_score']['reflex_score']}"
+        )
+        print(
+            f"↪️ Summary score: "
+            f"{scores['summary_score']['average_score']:.2f} (avg)"
+        )
 
         # ✅ Patch: threshold awareness for audit visibility
         if scores["summary_score"]["average_score"] < 0.5:
