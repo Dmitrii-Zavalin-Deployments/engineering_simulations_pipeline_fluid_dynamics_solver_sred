@@ -6,6 +6,7 @@
 
 import os
 import logging
+import tempfile
 from src.step_controller import evolve_step
 from src.utils.snapshot_step_processor import process_snapshot_step
 from src.exporters.velocity_field_writer import write_velocity_field
@@ -59,8 +60,12 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
     }
 
     # ✅ CI-safe fallback path
-    fallback_dir = os.path.join(os.getcwd(), "navier_stokes_output")
-    output_folder = output_dir or fallback_dir
+    if output_dir is None:
+        fallback_dir = tempfile.mkdtemp(prefix="navier_stokes_output_")
+        output_folder = fallback_dir
+    else:
+        output_folder = output_dir
+
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):

@@ -73,7 +73,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, outp
         }
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process_snapshot_step)
 
-    snapshots = generate_snapshots(input_data, "test_scenario", config)
+    snapshots = generate_snapshots(input_data, "test_scenario", config, output_dir=str(output_dir))
     assert len(snapshots) == 4
     assert snapshots[0][0] == 0
     assert snapshots[-1][0] == 3
@@ -109,7 +109,7 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, ou
         return grid, {"reflex_score": 3.5, **mutation_map[step]}
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process)
 
-    snapshots = generate_snapshots(input_data, "mutation_test", config)
+    snapshots = generate_snapshots(input_data, "mutation_test", config, output_dir=str(output_dir))
     scores = [snap[1]["reflex_score"] for snap in snapshots]
     assert all(isinstance(s, float) for s in scores)
     assert sum(snap[1]["pressure_mutated"] for snap in snapshots) == 1
@@ -138,7 +138,7 @@ def test_generate_snapshots_fallback_output_interval(monkeypatch, input_data, co
     monkeypatch.setattr("src.snapshot_manager.evolve_step", lambda g, i, s, config=None: (g, {}))
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", lambda s, g, r, sp, c, e, o: (g, {"reflex_score": 1.0}))
 
-    snapshots = generate_snapshots(input_data, "fallback_test", config)
+    snapshots = generate_snapshots(input_data, "fallback_test", config, output_dir=str(output_dir))
     assert len(snapshots) == 4
 
 
