@@ -14,10 +14,9 @@ from src.snapshot_manager import generate_snapshots
 from src.compression.snapshot_compactor import compact_pressure_delta_map
 from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
-from src.config.config_loader import load_simulation_config
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -53,16 +52,15 @@ def run_navier_stokes_simulation(input_path: str, output_dir: str | None = None)
     if os.path.isfile(ghost_rules_path):
         with open(ghost_rules_path) as f:
             ghost_rules = json.load(f)
+        ghost_rules["face_types"] = {
+            k.replace("_", "").lower(): v for k, v in ghost_rules.get("face_types", {}).items()
+        }
         input_data["ghost_rules"] = ghost_rules
         if debug:
             print(f"👻 Injected ghost_rules from: {ghost_rules_path}")
 
-    domain_path = input_path
-    config = load_simulation_config(
-        domain_path=domain_path,
-        ghost_path=ghost_rules_path,
-        step_index=0,
-    )
+    input_data["step_index"] = 0
+    config = input_data
 
     output_folder = output_dir or os.path.join(
         "data", "testing-input-output", "navier_stokes_output"
