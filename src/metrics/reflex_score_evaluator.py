@@ -6,20 +6,15 @@
 
 import os
 import statistics
-from src.visualization.reflex_score_visualizer import (
-    plot_reflex_score_evolution  # ✅ Added
-)
+import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
 
-# 🔍 Line-based scoring from step_summary.txt
 def evaluate_reflex_score(summary_file_path: str) -> dict:
     if not os.path.isfile(summary_file_path):
-        raise FileNotFoundError(
-            f"🔍 Summary file not found → {summary_file_path}"
-        )
+        raise FileNotFoundError(f"🔍 Summary file not found → {summary_file_path}")
 
     with open(summary_file_path, "r") as f:
         lines = f.readlines()
@@ -34,9 +29,7 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
             if current_step is not None and score_components:
                 score = compute_score(score_components)
                 step_scores[current_step] = score
-            current_step = int(
-                line.split("Step")[1].split("Summary")[0].strip()
-            )
+            current_step = int(line.split("Step")[1].split("Summary")[0].strip())
             score_components = {}
         elif "Influence applied" in line:
             score_components["influence"] = int(line.split(":")[1].strip())
@@ -54,9 +47,7 @@ def evaluate_reflex_score(summary_file_path: str) -> dict:
 
     return {
         "step_scores": step_scores,
-        "average_score": statistics.mean(step_scores.values())
-        if step_scores
-        else 0.0,
+        "average_score": statistics.mean(step_scores.values()) if step_scores else 0.0,
         "max_score": max(step_scores.values(), default=0.0),
         "min_score": min(step_scores.values(), default=0.0),
         "step_count": len(step_scores),
@@ -72,14 +63,6 @@ def compute_score(inputs: dict) -> float:
     projection_passes = inputs.get("projection_passes", 1)
     triggered_by = inputs.get("triggered_by", [])
     boundary_mutation_ratio = inputs.get("boundary_mutation_ratio", 0.0)
-
-    if debug:
-        print(
-            f"[SCORE] Inputs → mutation={mutation}, adjacency={adjacency}, "
-            f"influence={influence}, suppression={suppression}, "
-            f"density={mutation_density}, passes={projection_passes}, "
-            f"triggered_by={triggered_by}, boundary_mutation_ratio={boundary_mutation_ratio}"
-        )
 
     score = 0.0
     if mutation:
@@ -109,50 +92,61 @@ def compute_score(inputs: dict) -> float:
     if suppression > 0 and not mutation:
         score -= 0.1 * suppression
 
-    score = max(score, 0.0)
-
-    if debug:
-        print(f"[SCORE] Final reflex score = {score:.3f}")
-
-    return round(score, 3)
+    return round(max(score, 0.0), 3)
 
 
-# ✅ Stub for batch_evaluate_trace — used by run_reflex_audit.py
-def batch_evaluate_trace(snapshot_list: list) -> list:
-    if debug:
-        print(f"[AUDIT] Evaluating {len(snapshot_list)} snapshots in batch")
-    return [compute_score(snapshot.get("reflex_components", {})) for snapshot in snapshot_list]
+def score_pressure_mutation_volume(delta_map: dict) -> int:
+    return sum(1 for cell in delta_map.values() if abs(cell.get("delta", 0.0)) > 0.0)
 
 
-# ✅ Stub for evaluate_snapshot_health — used by test modules
-def evaluate_snapshot_health(snapshot: dict) -> dict:
-    score = compute_score(snapshot.get("reflex_components", {}))
+def score_mutation_pathway_presence(trace: list, step_index: int) -> bool:
+    return any(entry.get("step_index") == step_index for entry in trace)
+
+
+def score_reflex_metadata_fields(reflex: dict) -> dict:
     return {
-        "reflex_score": score,
-        "status": "healthy" if score >= 3.5 else "review",
+        "has_projection": reflex.get("pressure_solver_invoked", False),
+        "divergence_logged": "post_projection_divergence" in reflex,
+        "reflex_score": reflex.get("reflex_score", 0.0),
+        "suppression_zone_count": len(reflex.get("suppression_zones", [])),
+        "mutation_density": reflex.get("mutation_density", 0.0),
+        "projection_passes": reflex.get("projection_passes", 1),
+        "adjacency_count": len(reflex.get("adjacency_zones", [])),
+        "triggered_by": reflex.get("triggered_by", []),
+        "boundary_mutation_ratio": reflex.get("boundary_mutation_ratio", 0.0),
     }
 
 
-# ✅ Stub for pressure mutation volume scoring — used by test_reflex_score_evaluator.py
-def score_pressure_mutation_volume(snapshot: dict) -> float:
-    components = snapshot.get("reflex_components", {})
-    volume = components.get("pressure_mutation_volume", 0.0)
-    return round(min(volume * 0.1, 5.0), 3)
+def evaluate_snapshot_health(step_index: int, delta_map_path: str, pathway_log_path: str, reflex_metadata: dict) -> dict:
+    with open(delta_map_path) as f:
+        delta_map = json.load(f)
+    with open(pathway_log_path) as f:
+        trace = json.load(f)
+
+    mutated_cells = score_pressure_mutation_volume(delta_map)
+    pathway_recorded = score_mutation_pathway_presence(trace, step_index)
+    metadata = score_reflex_metadata_fields(reflex_metadata)
+    score = compute_score(reflex_metadata)
+
+    return {
+        "step_index": step_index,
+        "mutated_cells": mutated_cells,
+        "pathway_recorded": pathway_recorded,
+        "reflex_score": score,
+        **metadata,
+    }
 
 
-# ✅ Stub for mutation pathway presence scoring — used by test_reflex_score_evaluator.py
-def score_mutation_pathway_presence(snapshot: dict) -> float:
-    components = snapshot.get("reflex_components", {})
-    present = components.get("mutation_pathway_present", False)
-    return 1.0 if present else 0.0
+def batch_evaluate_trace(snapshot_list: list) -> list:
+    return [compute_score(snapshot.get("reflex_components", {})) for snapshot in snapshot_list]
 
 
-# ✅ Export required functions for downstream imports
 __all__ = [
     "evaluate_reflex_score",
     "compute_score",
-    "batch_evaluate_trace",
     "evaluate_snapshot_health",
     "score_pressure_mutation_volume",
     "score_mutation_pathway_presence",
+    "score_reflex_metadata_fields",
+    "batch_evaluate_trace",
 ]
