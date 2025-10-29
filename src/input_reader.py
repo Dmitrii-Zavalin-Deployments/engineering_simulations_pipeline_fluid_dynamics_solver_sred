@@ -38,6 +38,7 @@ def load_simulation_input(filepath: str) -> dict:
         except json.JSONDecodeError as e:
             raise ValueError(f"❌ Failed to parse JSON: {e}")
 
+    # ✅ Required schema sections
     required_sections = [
         "domain_definition",
         "fluid_properties",
@@ -49,6 +50,7 @@ def load_simulation_input(filepath: str) -> dict:
         if section not in data:
             raise KeyError(f"❌ Missing required section: {section}")
 
+    # ✅ Domain definition
     domain = data["domain_definition"]
     nx, ny, nz = domain.get("nx"), domain.get("ny"), domain.get("nz")
     bounds = (
@@ -60,28 +62,33 @@ def load_simulation_input(filepath: str) -> dict:
         print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
         print(f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}")
 
+    # ✅ Fluid properties
     fluid = data["fluid_properties"]
     if debug:
         print(f"🌊 Fluid density (ρ): {fluid.get('density', 'N/A')}")
         print(f"🌊 Fluid viscosity (μ): {fluid.get('viscosity', 'N/A')}")
 
+    # ✅ Initial conditions
     init = data["initial_conditions"]
     if debug:
         print(f"🌀 Initial velocity: {init.get('initial_velocity', 'N/A')}")
         print(f"🌀 Initial pressure: {init.get('initial_pressure', 'N/A')}")
 
+    # ✅ Simulation parameters
     sim = data["simulation_parameters"]
     if debug:
         print(f"⏱️ Time step (Δt): {sim.get('time_step', 'N/A')}")
         print(f"⏱️ Total time (T): {sim.get('total_time', 'N/A')}")
         print(f"⚙️ Output interval: {sim.get('output_interval', 'N/A')}")
 
+    # ✅ Optional: Pressure solver config
     pressure_cfg = data.get("pressure_solver", {})
     method = pressure_cfg.get("method", "jacobi")
     tolerance = pressure_cfg.get("tolerance", 1e-6)
     if debug:
         print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
 
+    # ✅ Boundary conditions
     bc_list = data.get("boundary_conditions", [])
     if debug:
         for bc in bc_list:
@@ -93,12 +100,14 @@ def load_simulation_input(filepath: str) -> dict:
             else:
                 print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
 
+    # ✅ Optional: Ghost rules
     ghost_cfg = data.get("ghost_rules", {})
     if debug:
         print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
         print(f"   Default Type: {ghost_cfg.get('default_type')}")
         print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
 
+    # ✅ Optional: Geometry definition
     geometry = data.get("geometry_definition")
     if geometry and debug:
         shape = geometry.get("geometry_mask_shape")
