@@ -140,6 +140,13 @@ def score_pressure_mutation_volume(snapshot: dict) -> float:
     return round(min(volume * 0.1, 5.0), 3)
 
 
+# ✅ Stub for mutation pathway presence scoring — used by test_reflex_score_evaluator.py
+def score_mutation_pathway_presence(snapshot: dict) -> float:
+    components = snapshot.get("reflex_components", {})
+    present = components.get("mutation_pathway_present", False)
+    return 1.0 if present else 0.0
+
+
 # ✅ Export required functions for downstream imports
 __all__ = [
     "evaluate_reflex_score",
@@ -147,4 +154,5 @@ __all__ = [
     "batch_evaluate_trace",
     "evaluate_snapshot_health",
     "score_pressure_mutation_volume",
+    "score_mutation_pathway_presence",
 ]
