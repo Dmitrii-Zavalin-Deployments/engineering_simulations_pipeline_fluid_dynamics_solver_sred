@@ -1,3 +1,5 @@
+# tests/test_main_solver_audit.py
+
 import sys
 import json
 import pytest
