@@ -20,7 +20,13 @@ def mock_input_file(tmp_path):
             "geometry_mask_shape": [2, 2, 1],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": None,
+            "face_types": {}
+        },
+        "step_index": 0
     }
     path = tmp_path / "input.json"
     path.write_text(json.dumps(input_data))
@@ -45,7 +51,6 @@ def test_load_reflex_config_fallback():
 
 def test_run_simulation_triggers_all(monkeypatch, mock_input_file, tmp_path):
     monkeypatch.setattr("src.main_solver.load_simulation_input", lambda path: json.loads(mock_input_file.read_text()))
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: json.loads(mock_input_file.read_text()))
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
 
@@ -66,7 +71,6 @@ def test_run_simulation_triggers_all(monkeypatch, mock_input_file, tmp_path):
 
 def test_run_simulation_skips_compaction(monkeypatch, mock_input_file, tmp_path):
     monkeypatch.setattr("src.main_solver.load_simulation_input", lambda path: json.loads(mock_input_file.read_text()))
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: json.loads(mock_input_file.read_text()))
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
 
@@ -92,8 +96,7 @@ def test_ghost_rules_injection(tmp_path, monkeypatch):
     }))
     monkeypatch.setenv("GHOST_RULES_PATH", str(ghost_path))
 
-    dummy_input = tmp_path / "input.json"
-    dummy_input.write_text(json.dumps({
+    dummy_config = {
         "domain_definition": {"nx": 1, "ny": 1, "nz": 1},
         "fluid_properties": {"density": 1.0, "viscosity": 0.001},
         "initial_conditions": {"initial_velocity": [0, 0, 0], "initial_pressure": 101325},
@@ -104,10 +107,18 @@ def test_ghost_rules_injection(tmp_path, monkeypatch):
             "geometry_mask_shape": [1, 1, 1],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
-    }))
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": None,
+            "face_types": {}
+        },
+        "step_index": 0
+    }
 
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: {})
+    dummy_input = tmp_path / "input.json"
+    dummy_input.write_text(json.dumps(dummy_config))
+
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
     monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])

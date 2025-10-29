@@ -24,13 +24,18 @@ def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
             "geometry_mask_shape": [1, 1, 1],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": None,
+            "face_types": {}
+        },
+        "step_index": 0
     }
 
     dummy_input = tmp_path / "input.json"
     dummy_input.write_text(json.dumps(dummy_config))
 
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: dummy_config)
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
     monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
@@ -41,13 +46,11 @@ def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
 
 
 def test_run_reflex_audit_executes(monkeypatch, tmp_path):
-    # ✅ Covers lines 129–131
     called = mock.Mock()
     monkeypatch.setattr("src.main_solver.audit_available", True)
     monkeypatch.setattr("src.main_solver.run_reflex_audit", called)
 
-    dummy_input = tmp_path / "input.json"
-    dummy_input.write_text(json.dumps({
+    dummy_config = {
         "domain_definition": {"nx": 1, "ny": 1, "nz": 1, "min_x": 0, "max_x": 1, "min_y": 0, "max_y": 1, "min_z": 0, "max_z": 1},
         "fluid_properties": {"density": 1.0, "viscosity": 0.001},
         "initial_conditions": {"initial_velocity": [0, 0, 0], "initial_pressure": 101325},
@@ -58,23 +61,30 @@ def test_run_reflex_audit_executes(monkeypatch, tmp_path):
             "geometry_mask_shape": [1, 1, 1],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
-    }))
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": None,
+            "face_types": {}
+        },
+        "step_index": 0
+    }
 
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: json.loads(dummy_input.read_text()))
+    dummy_input = tmp_path / "input.json"
+    dummy_input.write_text(json.dumps(dummy_config))
+
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
     monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
+
     run_navier_stokes_simulation(str(dummy_input))
     called.assert_called_once()
 
 
 def test_run_reflex_audit_skipped(monkeypatch, tmp_path, capsys):
-    # ✅ Covers lines 138–147
     monkeypatch.setattr("src.main_solver.audit_available", False)
 
-    dummy_input = tmp_path / "input.json"
-    dummy_input.write_text(json.dumps({
+    dummy_config = {
         "domain_definition": {"nx": 1, "ny": 1, "nz": 1, "min_x": 0, "max_x": 1, "min_y": 0, "max_y": 1, "min_z": 0, "max_z": 1},
         "fluid_properties": {"density": 1.0, "viscosity": 0.001},
         "initial_conditions": {"initial_velocity": [0, 0, 0], "initial_pressure": 101325},
@@ -85,10 +95,18 @@ def test_run_reflex_audit_skipped(monkeypatch, tmp_path, capsys):
             "geometry_mask_shape": [1, 1, 1],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
-    }))
+        },
+        "ghost_rules": {
+            "boundary_faces": [],
+            "default_type": None,
+            "face_types": {}
+        },
+        "step_index": 0
+    }
 
-    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: json.loads(dummy_input.read_text()))
+    dummy_input = tmp_path / "input.json"
+    dummy_input.write_text(json.dumps(dummy_config))
+
     monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
     monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
     monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
