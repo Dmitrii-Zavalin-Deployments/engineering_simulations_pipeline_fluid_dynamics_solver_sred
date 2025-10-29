@@ -10,6 +10,7 @@ from src.main_solver import run_navier_stokes_simulation
 def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
     monkeypatch.setitem(sys.modules, "src.audit.run_reflex_audit", None)
     monkeypatch.setattr("src.main_solver.audit_available", False)
+    monkeypatch.setattr("src.main_solver.debug", True)  # ✅ Enable debug output
     from src.main_solver import audit_available
     assert audit_available is False
 
@@ -83,6 +84,7 @@ def test_run_reflex_audit_executes(monkeypatch, tmp_path):
 
 def test_run_reflex_audit_skipped(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr("src.main_solver.audit_available", False)
+    monkeypatch.setattr("src.main_solver.debug", True)  # ✅ Enable debug output
 
     dummy_config = {
         "domain_definition": {"nx": 1, "ny": 1, "nz": 1, "min_x": 0, "max_x": 1, "min_y": 0, "max_y": 1, "min_z": 0, "max_z": 1},
