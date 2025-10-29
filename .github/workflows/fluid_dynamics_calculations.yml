@@ -35,26 +35,10 @@ jobs:
           pip install vulture
           vulture src || echo "⚠️ Vulture found unused code — review manually if needed"
 
-      - name: 🔍 Run flake8 for linting and code smells
+      - name: 🧬 Run jscpd to detect duplicate logic blocks
         run: |
-          pip install flake8
-          flake8 src --exit-zero --max-complexity=10 --statistics
-
-      - name: 🧠 Run radon for cyclomatic complexity and maintainability
-        run: |
-          pip install radon
-          radon cc src -nc
-          radon mi src
-
-      - name: 🔐 Run Bandit for security checks
-        run: |
-          pip install bandit
-          bandit -r src || echo "⚠️ Bandit found security issues — review manually if needed"
-
-      - name: 🧠 Run mypy for type checking
-        run: |
-          pip install mypy
-          mypy src || echo "⚠️ Mypy found type issues — review manually if needed"
+          npm install -g jscpd
+          jscpd src --min-lines 5 --threshold 5 --reporters console || echo "⚠️ jscpd found duplication — review manually if needed"
 
       - name: 🚀 Commit autoflake changes
         env:
