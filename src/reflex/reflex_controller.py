@@ -26,7 +26,7 @@ debug = False
 
 def apply_reflex(
     grid: Optional[List[Cell]] = None,
-    input_data: dict = {},
+    sim_config: dict = {},
     step: int = 0,
     ghost_influence_count: Optional[int] = None,
     config: Optional[dict] = None,
@@ -47,31 +47,28 @@ def apply_reflex(
     if debug and verbosity == "high":
         print(f"[REFLEX] Step {step} → Reflex diagnostics active")
 
-    validate_config(config)
+    validate_config(sim_config)
     if grid is None:
-        grid = build_simulation_grid(config)
+        grid = build_simulation_grid(sim_config)
 
-    domain = input_data["domain_definition"]
-    time_step = input_data["simulation_parameters"]["time_step"]
+    domain = sim_config["domain_definition"]
+    time_step = sim_config["simulation_parameters"]["time_step"]
     spacing = (
         (domain["max_x"] - domain["min_x"]) / domain["nx"],
         (domain["max_y"] - domain["min_y"]) / domain["ny"],
         (domain["max_z"] - domain["min_z"]) / domain["nz"]
     )
 
-    # ✅ Counts derived only from pre-existing flags — ensures test isolation
-    # 👉 REVISION: MOVED COUNTING BEFORE MUTATING METRICS TO PREVENT SIDE-EFFECT CONTAMINATION
     damping_triggered_count = sum(1 for c in grid if getattr(c, "damping_triggered", False))
     overflow_triggered_count = sum(1 for c in grid if getattr(c, "overflow_triggered", False))
     cfl_exceeded_count = sum(1 for c in grid if getattr(c, "cfl_exceeded", False))
 
-    # ✅ Reflex metrics evaluated before any mutation or tagging
     max_velocity = compute_max_velocity(grid)
     max_divergence = compute_max_divergence(grid, domain)
     global_cfl = compute_global_cfl(grid, time_step, domain)
     overflow_detected = detect_overflow(grid)
     damping_enabled = damping_metric(grid, time_step)
-    adjusted_time_step = adjust_time_step(grid, input_data)
+    adjusted_time_step = adjust_time_step(grid, sim_config)
     projection_passes = calculate_projection_passes(grid)
 
     divergence_zero = post_projection_divergence is not None and post_projection_divergence < 1e-8
@@ -86,11 +83,11 @@ def apply_reflex(
     ghost_coords = extract_ghost_coordinates(ghost_registry)
     adjacency_zones = tag_ghost_adjacency(grid, ghost_coords, spacing)
 
-    mutated_coords = extract_mutated_coordinates(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else set()
+    mutated_coords = extract_mutated_coordinates(sim_config.get("mutated_cells", [])) if "mutated_cells" in sim_config else set()
     suppression_zones = detect_suppression_zones(grid, ghost_coords, mutated_coords, spacing)
 
     fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
-    mutation_count = len(input_data.get("mutated_cells", [])) if "mutated_cells" in input_data else 0
+    mutation_count = len(sim_config.get("mutated_cells", [])) if "mutated_cells" in sim_config else 0
     mutation_density = mutation_count / fluid_count if fluid_count > 0 else 0.0
 
     triggered_by = []
@@ -134,7 +131,7 @@ def apply_reflex(
         "adjacency_zones": adjacency_zones,
         "suppression_zones": suppression_zones,
         "mutation_density": round(mutation_density, 6),
-        "mutated_cells": input_data.get("mutated_cells", []),
+        "mutated_cells": sim_config.get("mutated_cells", []),
         "mutation_count": mutation_count,
         "damping_triggered_count": damping_triggered_count,
         "overflow_triggered_count": overflow_triggered_count,
@@ -173,6 +170,3 @@ def apply_reflex(
         print(f"[REFLEX] Step {step} → Pressure mutation map tracing enabled")
 
     return reflex_data
-
-
-

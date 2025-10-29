@@ -83,7 +83,8 @@ def generate_snapshots(
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        grid, reflex = evolve_step(grid, sim_config, step, config=reflex_config)
+        # ✅ Pass reflex_config explicitly
+        grid, reflex = evolve_step(grid, sim_config, step, reflex_config=reflex_config)
 
         if debug:
             fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
