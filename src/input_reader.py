@@ -1,15 +1,12 @@
 # src/input_reader.py
-# 📥 Input Reader — parses and validates structured Navier-Stokes simulation
-# input
-# 📌 This module anchors schema alignment for reflex scoring, mutation overlays,
-# and diagnostic traceability.
+# 📥 Input Reader — parses and validates structured Navier-Stokes simulation input
+# 📌 This module anchors schema alignment for reflex scoring, mutation overlays, and diagnostic traceability.
 
 import os
 import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = False
-
+debug = True
 
 def load_simulation_input(filepath: str) -> dict:
     """
@@ -21,11 +18,9 @@ def load_simulation_input(filepath: str) -> dict:
     2. Fluid Properties → momentum_solver.py, viscosity.py
     3. Initial Conditions → grid_generator.py, advection.py
     4. Simulation Parameters → snapshot_manager.py, step_controller.py
-    5. Boundary Conditions → boundary_condition_solver.py,
-       ghost_influence_applier.py
+    5. Boundary Conditions → boundary_condition_solver.py, ghost_influence_applier.py
     6. Pressure Solver → pressure_projection.py, jacobi.py
-    7. Geometry Definition (optional) → grid_generator.py,
-       ghost_cell_generator.py
+    7. Geometry Definition (optional) → grid_generator.py, ghost_cell_generator.py
 
     Reflex Integration:
     - Input parsing anchors diagnostic traceability
@@ -63,10 +58,7 @@ def load_simulation_input(filepath: str) -> dict:
     )
     if debug:
         print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
-        print(
-            f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, "
-            f"y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}"
-        )
+        print(f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}")
 
     fluid = data["fluid_properties"]
     if debug:
@@ -88,30 +80,22 @@ def load_simulation_input(filepath: str) -> dict:
     method = pressure_cfg.get("method", "jacobi")
     tolerance = pressure_cfg.get("tolerance", 1e-6)
     if debug:
-        print(
-            f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}"
-        )
+        print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
 
     bc_list = data.get("boundary_conditions", [])
     if debug:
         for bc in bc_list:
             if isinstance(bc, dict):
-                print(
-                    f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}"
-                )
+                print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
                 print(f"   Velocity Enforced: {bc.get('velocity')}")
                 print(f"   Pressure Enforced: {bc.get('pressure')}")
                 print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
             else:
-                print(
-                    f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}"
-                )
+                print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
 
     ghost_cfg = data.get("ghost_rules", {})
     if debug:
-        print(
-            f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}"
-        )
+        print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
         print(f"   Default Type: {ghost_cfg.get('default_type')}")
         print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
 
@@ -120,12 +104,7 @@ def load_simulation_input(filepath: str) -> dict:
         shape = geometry.get("geometry_mask_shape")
         encoding = geometry.get("mask_encoding", {})
         print(f"🧱 Geometry mask shape: {shape}")
-        print(
-            f"🧱 Mask encoding: fluid={encoding.get('fluid')}, "
-            f"solid={encoding.get('solid')}"
-        )
-        print(
-            f"🧱 Flattening order: {geometry.get('flattening_order', 'x-major')}"
-        )
+        print(f"🧱 Mask encoding: fluid={encoding.get('fluid')}, solid={encoding.get('solid')}")
+        print(f"🧱 Flattening order: {geometry.get('flattening_order', 'x-major')}")
 
     return data
