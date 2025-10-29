@@ -7,7 +7,7 @@ from unittest import mock
 from src.main_solver import run_navier_stokes_simulation
 
 
-def test_reflex_audit_import_fallback(monkeypatch, capsys):
+def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
     # ✅ Covers lines 28–31
     monkeypatch.setitem(sys.modules, "src.audit.run_reflex_audit", None)
     monkeypatch.setattr("src.main_solver.audit_available", False)
@@ -28,7 +28,7 @@ def test_reflex_audit_import_fallback(monkeypatch, capsys):
         }
     }
 
-    dummy_input = capsys.tmp_path / "input.json"
+    dummy_input = tmp_path / "input.json"
     dummy_input.write_text(json.dumps(dummy_config))
 
     monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: dummy_config)
