@@ -8,7 +8,6 @@ from src.main_solver import run_navier_stokes_simulation
 
 
 def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
-    # ✅ Covers lines 28–31
     monkeypatch.setitem(sys.modules, "src.audit.run_reflex_audit", None)
     monkeypatch.setattr("src.main_solver.audit_available", False)
     from src.main_solver import audit_available
@@ -38,7 +37,7 @@ def test_reflex_audit_import_fallback(monkeypatch, capsys, tmp_path):
 
     run_navier_stokes_simulation(str(dummy_input))
     captured = capsys.readouterr()
-    assert "⚠️ Reflex audit module not available" in captured.out
+    assert "⚠️ Reflex audit skipped — module not available." in captured.out
 
 
 def test_run_reflex_audit_executes(monkeypatch, tmp_path):
