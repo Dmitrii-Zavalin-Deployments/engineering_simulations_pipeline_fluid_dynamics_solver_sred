@@ -1,11 +1,8 @@
 # src/metrics/reflex_score_evaluator.py
-# 📊 Reflex Score Evaluator — audits both summary logs and snapshot trace
-# integrity
-# 📌 This module evaluates solver trace fidelity and mutation causality.
-# It supports reflex scoring, suppression diagnostics, and projection depth
-# analysis.
-# It does NOT exclude cells based on adjacency or boundary proximity — only
-# explicit fluid_mask=False cells are excluded upstream.
+# 📊 Reflex Score Evaluator — audits both summary logs and snapshot trace integrity
+# 📌 Evaluates solver trace fidelity and mutation causality.
+# Supports reflex scoring, suppression diagnostics, and projection depth analysis.
+# Does NOT exclude cells based on adjacency or boundary proximity — only explicit fluid_mask=False cells are excluded upstream.
 
 import os
 import statistics
@@ -118,3 +115,28 @@ def compute_score(inputs: dict) -> float:
         print(f"[SCORE] Final reflex score = {score:.3f}")
 
     return round(score, 3)
+
+
+# ✅ Stub for batch_evaluate_trace — used by run_reflex_audit.py
+def batch_evaluate_trace(snapshot_list: list) -> list:
+    if debug:
+        print(f"[AUDIT] Evaluating {len(snapshot_list)} snapshots in batch")
+    return [compute_score(snapshot.get("reflex_components", {})) for snapshot in snapshot_list]
+
+
+# ✅ Stub for evaluate_snapshot_health — used by test modules
+def evaluate_snapshot_health(snapshot: dict) -> dict:
+    score = compute_score(snapshot.get("reflex_components", {}))
+    return {
+        "reflex_score": score,
+        "status": "healthy" if score >= 3.5 else "review",
+    }
+
+
+# ✅ Export required functions for downstream imports
+__all__ = [
+    "evaluate_reflex_score",
+    "compute_score",
+    "batch_evaluate_trace",
+    "evaluate_snapshot_health",
+]
