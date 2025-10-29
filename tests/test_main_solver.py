@@ -102,3 +102,73 @@ def test_run_simulation_skips_compaction(monkeypatch, mock_input_file, tmp_path)
     run_navier_stokes_simulation(str(mock_input_file), output_dir=str(output_dir))
 
     compact_called.assert_not_called()
+
+
+def test_reflex_audit_import_fallback(monkeypatch):
+    # Simulate ImportError for reflex audit
+    monkeypatch.setitem(sys.modules, "src.audit.run_reflex_audit", None)
+    monkeypatch.setattr("src.main_solver.audit_available", False)
+    from src.main_solver import audit_available
+    assert audit_available is False
+
+
+def test_ghost_rules_injection(tmp_path, monkeypatch):
+    ghost_path = tmp_path / "ghost_rules.json"
+    ghost_path.write_text(json.dumps({
+        "boundary_faces": ["x+", "y-"],
+        "default_type": "ghost",
+        "face_types": {"x+": "ghost", "y-": "ghost"}
+    }))
+    monkeypatch.setenv("GHOST_RULES_PATH", str(ghost_path))
+    from src.main_solver import run_navier_stokes_simulation
+
+    dummy_input = tmp_path / "input.json"
+    dummy_input.write_text(json.dumps({
+        "domain_definition": {"nx": 1, "ny": 1, "nz": 1},
+        "fluid_properties": {"density": 1.0, "viscosity": 0.001},
+        "initial_conditions": {"initial_velocity": [0, 0, 0], "initial_pressure": 101325},
+        "simulation_parameters": {"time_step": 0.01, "total_time": 0.01, "output_interval": 0.01},
+        "boundary_conditions": [],
+        "geometry_definition": {
+            "geometry_mask_flat": [1],
+            "geometry_mask_shape": [1, 1, 1],
+            "mask_encoding": {"fluid": 1, "solid": 0},
+            "flattening_order": "x-major"
+        }
+    }))
+
+    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: {})
+    monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
+    monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
+    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
+    monkeypatch.setattr("src.main_solver.compact_pressure_delta_map", lambda *a, **kw: None)
+    monkeypatch.setattr("src.main_solver.run_reflex_audit", lambda: None)
+
+    run_navier_stokes_simulation(str(dummy_input), output_dir=str(tmp_path))
+
+
+def test_run_reflex_audit_executes(monkeypatch):
+    called = mock.Mock()
+    monkeypatch.setattr("src.main_solver.audit_available", True)
+    monkeypatch.setattr("src.main_solver.run_reflex_audit", called)
+    from src.main_solver import run_navier_stokes_simulation
+    dummy_path = "tests/assets/dummy_input.json"
+    monkeypatch.setattr("src.main_solver.load_simulation_input", lambda path: {})
+    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: {})
+    monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
+    monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
+    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
+    run_navier_stokes_simulation(dummy_path)
+    called.assert_called_once()
+
+
+def test_run_reflex_audit_skipped(monkeypatch):
+    monkeypatch.setattr("src.main_solver.audit_available", False)
+    from src.main_solver import run_navier_stokes_simulation
+    dummy_path = "tests/assets/dummy_input.json"
+    monkeypatch.setattr("src.main_solver.load_simulation_input", lambda path: {})
+    monkeypatch.setattr("src.main_solver.load_simulation_config", lambda *a, **kw: {})
+    monkeypatch.setattr("src.main_solver.validate_config", lambda config: None)
+    monkeypatch.setattr("src.main_solver.build_simulation_grid", lambda config: None)
+    monkeypatch.setattr("src.main_solver.generate_snapshots", lambda *a, **kw: [])
+    run_navier_stokes_simulation(dummy_path)
