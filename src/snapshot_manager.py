@@ -93,12 +93,13 @@ def generate_snapshots(
         if debug:
             print(f"[DEBUG] Velocity field written to: {os.path.join(output_folder, f'velocity_field_step_{step:04d}.json')}")
 
+        # ✅ Pass sim_config instead of reflex_config to ensure correct validation
         grid, snapshot = process_snapshot_step(
             step=step,
             grid=grid,
             reflex=reflex,
             spacing=spacing,
-            config=reflex_config,
+            config=sim_config,
             expected_size=expected_size,
             output_folder=output_folder
         )
