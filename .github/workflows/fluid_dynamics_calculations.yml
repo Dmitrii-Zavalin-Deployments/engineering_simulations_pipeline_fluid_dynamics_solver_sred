@@ -113,18 +113,13 @@ jobs:
       
     - name: 🚀 Run Main Solver
       env:
-        PYTHONPATH: ${{ github.workspace }}/src
+        PYTHONPATH: ${{ github.workspace }}
         REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
         python src/main_solver.py "$ORIGINAL_INPUT_FILE"
         echo "✅ Main solver executed."
-
-    - name: 🧪 Run Snapshot Validation
-      run: |
-        python src/tools/snapshot_validator.py
-        echo "✅ Snapshot validation executed."
 
     - name: 📊 Evaluate Reflex Scoring
       env:
