@@ -22,8 +22,11 @@ def load_simulation_config(domain_path: str, ghost_path: str, step_index: int = 
     if not os.path.isfile(ghost_path):
         raise FileNotFoundError(f"Ghost rules config not found: {ghost_path}")
 
+    # ✅ Unwrap domain_definition if nested
     with open(domain_path, "r") as f1:
-        domain = json.load(f1)
+        domain_raw = json.load(f1)
+        domain = domain_raw.get("domain_definition", domain_raw)
+
     with open(ghost_path, "r") as f2:
         ghost_rules = json.load(f2)
 
