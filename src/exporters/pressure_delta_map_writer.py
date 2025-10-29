@@ -10,7 +10,7 @@ import os
 from typing import List, Dict  # ✅ Added for correct type hinting
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def export_pressure_delta_map(

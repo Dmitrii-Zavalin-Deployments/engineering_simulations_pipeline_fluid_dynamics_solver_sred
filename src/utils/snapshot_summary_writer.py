@@ -8,7 +8,7 @@ import os
 import csv
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def write_step_summary(
     step_index: int,

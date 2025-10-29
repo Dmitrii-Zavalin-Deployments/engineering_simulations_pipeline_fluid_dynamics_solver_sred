@@ -9,7 +9,7 @@ from typing import List, Set
 from src.physics.divergence_methods.central import compute_central_divergence
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def compute_divergence(grid: List[Cell],
                        config: dict = {},

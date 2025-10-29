@@ -8,7 +8,7 @@ from typing import List, Dict, Tuple
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def build_ghost_registry(grid: List[Cell], verbose: bool = False) -> Dict[int, Dict]:
     """

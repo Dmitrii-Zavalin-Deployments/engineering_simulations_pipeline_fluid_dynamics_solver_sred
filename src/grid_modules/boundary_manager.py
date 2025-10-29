@@ -8,7 +8,7 @@
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def apply_boundaries(cells: list[Cell], domain: dict) -> list[Cell]:

@@ -11,7 +11,7 @@ from src.grid_modules.cell import Cell
 from typing import List, Tuple, Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def compute_max_divergence(grid: List[Cell], domain: Dict) -> float:

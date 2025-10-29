@@ -9,7 +9,7 @@ import json
 import os
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def export_divergence_map(

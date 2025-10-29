@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import os
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def render_influence_overlay(influence_log, output_path, score_threshold=0.85):
     """

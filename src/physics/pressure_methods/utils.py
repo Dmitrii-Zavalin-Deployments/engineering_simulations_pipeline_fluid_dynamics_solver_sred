@@ -8,7 +8,7 @@ from src.grid_modules.cell import Cell
 from typing import List, Dict, Tuple
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def index_fluid_cells(grid: List[Cell]) -> List[Tuple[float, float, float]]:
     """

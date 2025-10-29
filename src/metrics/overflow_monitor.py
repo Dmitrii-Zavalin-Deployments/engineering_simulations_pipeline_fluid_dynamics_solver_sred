@@ -10,7 +10,7 @@ from src.grid_modules.cell import Cell
 import math
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def detect_overflow(grid: list[Cell]) -> bool:

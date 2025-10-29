@@ -10,7 +10,7 @@ from typing import List, Tuple
 from collections import Counter
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def load_delta_map(path: str) -> List[Tuple[float, float, float]]:

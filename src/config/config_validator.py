@@ -8,7 +8,7 @@
 from typing import Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def validate_config(config: Dict) -> None:

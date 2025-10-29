@@ -22,7 +22,7 @@ from src.reflex.spatial_tagging.suppression_zones import detect_suppression_zone
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def apply_reflex(
     grid: Optional[List[Cell]] = None,

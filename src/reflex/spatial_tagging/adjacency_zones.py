@@ -6,7 +6,7 @@
 from typing import Set, Tuple
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def extract_ghost_coordinates(ghost_registry) -> Set[Tuple[float, float, float]]:
     """

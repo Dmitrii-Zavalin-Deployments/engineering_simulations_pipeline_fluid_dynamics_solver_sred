@@ -8,7 +8,7 @@ from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 # ✅ Floating-point tolerance for proximity checks
 EPSILON = 1e-8

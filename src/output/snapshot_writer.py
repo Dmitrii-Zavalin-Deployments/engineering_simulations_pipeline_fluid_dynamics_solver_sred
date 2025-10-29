@@ -10,7 +10,7 @@ from typing import List, Optional
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def export_influence_flags(
     grid: List[Cell],

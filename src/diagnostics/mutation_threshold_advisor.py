@@ -6,7 +6,7 @@
 # It is NOT responsible for solver inclusion/exclusion decisions.
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def get_delta_threshold(cell, context):

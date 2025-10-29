@@ -8,7 +8,7 @@ import os
 from jsonschema import Draft202012Validator, exceptions as jsonschema_exceptions
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 SCHEMA_PATH = "./schema/fluid_simulation_input.schema.json"
 

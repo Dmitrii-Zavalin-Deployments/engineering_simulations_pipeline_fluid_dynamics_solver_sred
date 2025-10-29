@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def render_reflex_overlay(
     step_index: int,

@@ -10,7 +10,7 @@ from src.physics.advection import compute_advection
 from src.physics.viscosity import apply_viscous_terms
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def apply_momentum_update(grid: List[Cell], input_data: dict, step: int) -> List[Cell]:
     """

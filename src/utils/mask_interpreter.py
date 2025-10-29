@@ -7,7 +7,7 @@
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def decode_geometry_mask_flat(
     flat_mask: List[int],

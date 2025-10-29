@@ -9,7 +9,7 @@ import json
 from typing import Optional
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def load_pressure_delta(path: str) -> dict:

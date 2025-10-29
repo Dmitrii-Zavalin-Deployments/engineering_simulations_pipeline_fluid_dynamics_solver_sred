@@ -12,7 +12,7 @@ from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered  # ✅ Verifier integration
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def solve_navier_stokes_step(
     grid: List[Cell],

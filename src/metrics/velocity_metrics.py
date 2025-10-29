@@ -9,7 +9,7 @@ from src.grid_modules.cell import Cell
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def compute_max_velocity(grid: List[Cell], overflow_threshold: float = 10.0) -> float:
     """

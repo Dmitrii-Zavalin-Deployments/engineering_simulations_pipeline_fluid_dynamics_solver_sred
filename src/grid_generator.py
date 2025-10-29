@@ -15,7 +15,7 @@ from src.grid_modules.boundary_manager import apply_boundaries
 from src.utils.mask_interpreter import decode_geometry_mask_flat
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def generate_grid(domain: dict, initial_conditions: dict) -> list[Cell]:

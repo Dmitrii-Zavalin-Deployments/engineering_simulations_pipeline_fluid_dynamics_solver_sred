@@ -16,7 +16,7 @@ from src.config.config_validator import validate_config
 from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int, output_folder: str) -> Tuple[List[Cell], bool, int, Dict]:
     disable_io_for_testing = input_data.get("simulation_parameters", {}).get("disable_io_for_testing", False)

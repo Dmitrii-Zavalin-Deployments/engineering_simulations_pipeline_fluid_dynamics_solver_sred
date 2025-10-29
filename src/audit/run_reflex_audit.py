@@ -11,7 +11,7 @@ from src.metrics.reflex_score_evaluator import batch_evaluate_trace
 from src.visualization.overlay_integrity_panel import render_integrity_panel
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def load_snapshots(snapshot_dir: str) -> list:

@@ -9,7 +9,7 @@ import os
 import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def compact_pressure_delta_map(

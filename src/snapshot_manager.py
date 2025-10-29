@@ -12,7 +12,7 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 from src.exporters.velocity_field_writer import write_velocity_field
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def generate_snapshots(input_data: dict, scenario_name: str, config: dict, output_dir: str | None = None) -> list:
     """

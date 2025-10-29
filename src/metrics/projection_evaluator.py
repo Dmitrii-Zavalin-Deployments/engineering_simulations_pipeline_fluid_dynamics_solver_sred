@@ -11,7 +11,7 @@ import math
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def calculate_projection_passes(grid: List[Cell]) -> int:

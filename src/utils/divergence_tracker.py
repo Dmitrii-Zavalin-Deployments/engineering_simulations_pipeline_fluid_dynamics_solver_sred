@@ -11,7 +11,7 @@ from src.grid_modules.cell import Cell
 from src.exporters.divergence_field_writer import export_divergence_map
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def compute_divergence(cell: Cell, grid: List[Cell], spacing: tuple) -> float:
     if not getattr(cell, "fluid_mask", False):

@@ -10,7 +10,7 @@ from src.physics.pressure_methods.utils import index_fluid_cells, build_pressure
 from src.physics.pressure_methods.boundary import handle_solid_or_ghost_neighbors
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def solve_jacobi_pressure(
     grid: List[Cell],

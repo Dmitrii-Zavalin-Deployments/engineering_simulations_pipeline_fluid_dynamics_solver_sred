@@ -8,7 +8,7 @@ import json
 import os
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def write_velocity_field(grid, step, output_dir="data/snapshots"):

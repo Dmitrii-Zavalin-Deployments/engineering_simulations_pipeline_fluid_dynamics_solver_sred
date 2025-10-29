@@ -8,7 +8,7 @@ import os
 import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def load_simulation_input(filepath: str) -> dict:

@@ -13,7 +13,7 @@ from src.grid_modules.cell import Cell
 from src.physics.divergence import compute_divergence
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def verify_continuity(

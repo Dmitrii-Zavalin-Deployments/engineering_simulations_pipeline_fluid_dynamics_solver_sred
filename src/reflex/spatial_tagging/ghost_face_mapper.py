@@ -8,7 +8,7 @@ from src.grid_modules.cell import Cell
 from typing import List, Tuple, Set
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def tag_ghost_adjacency(
     grid: List[Cell],

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 @dataclass

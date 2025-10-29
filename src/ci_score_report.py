@@ -7,7 +7,7 @@ import sys
 from src.ci.reflex_log_score import score_combined
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 # Ensure src/ is available on import path
 sys.path.insert(

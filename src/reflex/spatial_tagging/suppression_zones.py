@@ -8,7 +8,7 @@ from typing import List, Tuple, Set
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def detect_suppression_zones(
     grid: List[Cell],

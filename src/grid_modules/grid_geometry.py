@@ -8,7 +8,7 @@
 import logging
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def generate_coordinates(

@@ -7,7 +7,7 @@ import requests
 import sys
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def refresh_access_token(refresh_token, client_id, client_secret):
     """Refreshes the Dropbox access token using the refresh token."""

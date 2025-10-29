@@ -10,7 +10,7 @@ from src.physics.advection_methods.helpers import vector_add, vector_scale, copy
 import math
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def apply_viscous_terms(grid: List[Cell], dt: float, config: dict) -> List[Cell]:
     """

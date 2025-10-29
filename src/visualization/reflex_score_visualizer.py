@@ -9,7 +9,7 @@ import os
 from typing import List, Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def plot_reflex_score_evolution(
     evaluations: List[Dict],

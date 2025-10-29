@@ -10,7 +10,7 @@ from typing import List, Dict
 from PIL import Image, ImageDraw, ImageFont
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def load_overlay_metadata(snapshot_dir: str) -> List[Dict]:
     """

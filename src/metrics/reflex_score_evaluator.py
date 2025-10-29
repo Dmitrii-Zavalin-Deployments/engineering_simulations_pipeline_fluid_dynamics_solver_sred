@@ -9,7 +9,7 @@ import statistics
 import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def evaluate_reflex_score(summary_file_path: str) -> dict:

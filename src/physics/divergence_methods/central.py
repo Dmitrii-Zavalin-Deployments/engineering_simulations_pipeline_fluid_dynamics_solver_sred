@@ -12,7 +12,7 @@ from src.physics.divergence_methods.divergence_helpers import (
 )
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def compute_central_divergence(grid: List[Cell], config: dict) -> List[float]:
     """

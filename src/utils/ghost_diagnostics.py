@@ -7,7 +7,7 @@
 from collections import defaultdict
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def analyze_ghost_registry(ghost_registry, grid=None, spacing=(1.0, 1.0, 1.0)) -> dict:
     """

@@ -7,7 +7,7 @@
 from typing import Tuple, List, Dict, Set
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def apply_neumann_conditions(coord: Tuple[float, float, float],
                              neighbor: Tuple[float, float, float],

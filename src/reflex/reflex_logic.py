@@ -8,7 +8,7 @@ from src.grid_modules.cell import Cell
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def should_dampen(grid: List[Cell], volatility_threshold: float = 0.5) -> bool:
     """

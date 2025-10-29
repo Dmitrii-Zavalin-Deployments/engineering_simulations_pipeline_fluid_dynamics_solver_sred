@@ -10,7 +10,7 @@ import math
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def should_dampen(grid: list[Cell], time_step: float) -> bool:

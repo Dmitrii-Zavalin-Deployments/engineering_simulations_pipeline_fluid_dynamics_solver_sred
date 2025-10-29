@@ -10,7 +10,7 @@ from src.grid_modules.cell import Cell
 from src.config.config_validator import validate_config
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 
 def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:

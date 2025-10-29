@@ -8,7 +8,7 @@ from src.grid_modules.cell import Cell
 from typing import List, Tuple, Optional, Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def get_neighbor_velocity(
     grid_lookup: Dict[Tuple[float, float, float], Cell],

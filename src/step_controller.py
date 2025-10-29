@@ -17,7 +17,7 @@ from src.utils.divergence_tracker import compute_divergence_stats
 from src.adaptive.timestep_controller import suggest_timestep
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def evolve_step(
     grid: List[Cell],

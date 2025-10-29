@@ -11,7 +11,7 @@ from src.grid_modules.cell import Cell
 logger = logging.getLogger(__name__)
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def fuzzy_equal(v1: List[float], v2: List[float], tol: float = 1e-6) -> bool:
     return all(abs(a - b) <= tol for a, b in zip(v1, v2))

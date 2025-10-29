@@ -12,7 +12,7 @@ from src.physics.velocity_projection import apply_pressure_velocity_projection
 from src.utils.ghost_registry import build_ghost_registry, extract_ghost_coordinates
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def solve_pressure_poisson(
     grid: List[Cell],

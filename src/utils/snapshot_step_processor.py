@@ -20,7 +20,7 @@ from src.initialization.fluid_mask_initializer import build_simulation_grid
 from src.config.config_validator import validate_config
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def process_snapshot_step(
     step: int,

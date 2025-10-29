@@ -7,7 +7,7 @@
 from src.metrics.reflex_score_evaluator import evaluate_reflex_score
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 # ✅ Updated markers for boolean-style summary detection
 MARKERS = {
