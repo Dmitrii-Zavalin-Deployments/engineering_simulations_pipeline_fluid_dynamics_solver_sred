@@ -133,10 +133,18 @@ def evaluate_snapshot_health(snapshot: dict) -> dict:
     }
 
 
+# ✅ Stub for pressure mutation volume scoring — used by test_reflex_score_evaluator.py
+def score_pressure_mutation_volume(snapshot: dict) -> float:
+    components = snapshot.get("reflex_components", {})
+    volume = components.get("pressure_mutation_volume", 0.0)
+    return round(min(volume * 0.1, 5.0), 3)
+
+
 # ✅ Export required functions for downstream imports
 __all__ = [
     "evaluate_reflex_score",
     "compute_score",
     "batch_evaluate_trace",
     "evaluate_snapshot_health",
+    "score_pressure_mutation_volume",
 ]
