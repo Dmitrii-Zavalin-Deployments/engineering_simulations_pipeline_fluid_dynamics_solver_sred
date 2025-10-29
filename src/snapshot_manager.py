@@ -14,20 +14,34 @@ from src.exporters.velocity_field_writer import write_velocity_field
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = False
 
-def generate_snapshots(input_data: dict, scenario_name: str, config: dict, output_dir: str | None = None) -> list:
+def generate_snapshots(
+    sim_config: dict,
+    scenario_name: str,
+    reflex_config: dict,
+    output_dir: str | None = None
+) -> list:
     """
     Executes the full Navier-Stokes simulation loop.
+
+    Args:
+        sim_config (dict): Full simulation configuration including domain, fluid, geometry, etc.
+        scenario_name (str): Name of the simulation scenario
+        reflex_config (dict): Reflex audit configuration
+        output_dir (str | None): Optional output directory override
+
+    Returns:
+        list: List of (step_index, snapshot_dict) tuples
     """
-    time_step = input_data["simulation_parameters"]["time_step"]
-    total_time = input_data["simulation_parameters"]["total_time"]
-    output_interval = input_data["simulation_parameters"].get("output_interval", 1)
+    time_step = sim_config["simulation_parameters"]["time_step"]
+    total_time = sim_config["simulation_parameters"]["total_time"]
+    output_interval = sim_config["simulation_parameters"].get("output_interval", 1)
     if output_interval <= 0:
         logging.warning(f"⚠️ output_interval was set to {output_interval}. Using fallback of 1.")
         output_interval = 1
 
-    domain = input_data["domain_definition"]
-    initial_conditions = input_data["initial_conditions"]
-    geometry = input_data.get("geometry_definition")
+    domain = sim_config["domain_definition"]
+    initial_conditions = sim_config["initial_conditions"]
+    geometry = sim_config.get("geometry_definition")
 
     if debug:
         print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
@@ -69,7 +83,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        grid, reflex = evolve_step(grid, input_data, step, config=config)
+        grid, reflex = evolve_step(grid, sim_config, step, config=reflex_config)
 
         if debug:
             fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
@@ -83,7 +97,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
             grid=grid,
             reflex=reflex,
             spacing=spacing,
-            config=config,
+            config=reflex_config,
             expected_size=expected_size,
             output_folder=output_folder
         )
@@ -109,6 +123,3 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
         print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
 
     return snapshots
-
-
-
