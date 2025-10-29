@@ -95,14 +95,17 @@ def compute_score(inputs: dict) -> float:
     return round(max(score, 0.0), 3)
 
 
+# 🧩 STUB — pressure mutation volume scoring
 def score_pressure_mutation_volume(delta_map: dict) -> int:
     return sum(1 for cell in delta_map.values() if abs(cell.get("delta", 0.0)) > 0.0)
 
 
+# 🧩 STUB — mutation pathway presence detection
 def score_mutation_pathway_presence(trace: list, step_index: int) -> bool:
     return any(entry.get("step_index") == step_index for entry in trace)
 
 
+# 🧩 STUB — reflex metadata field extraction
 def score_reflex_metadata_fields(reflex: dict) -> dict:
     return {
         "has_projection": reflex.get("pressure_solver_invoked", False),
@@ -137,7 +140,10 @@ def evaluate_snapshot_health(step_index: int, delta_map_path: str, pathway_log_p
     }
 
 
-def batch_evaluate_trace(snapshot_list: list) -> list:
+# 🧩 STUB — batch audit scoring interface (CLI-compatible)
+def batch_evaluate_trace(snapshot_dir: str, pathway_log: str, snapshot_list: list) -> list:
+    if debug:
+        print(f"[AUDIT] Evaluating {len(snapshot_list)} snapshots from {snapshot_dir}")
     return [compute_score(snapshot.get("reflex_components", {})) for snapshot in snapshot_list]
 
 

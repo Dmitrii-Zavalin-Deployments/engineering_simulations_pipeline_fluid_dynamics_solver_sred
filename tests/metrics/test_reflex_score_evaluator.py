@@ -131,6 +131,8 @@ def test_evaluate_snapshot_health_returns_expected_structure():
         trace_file.flush()
 
     reflex_metadata = {
+        "mutation": True,
+        "influence": 1,
         "pressure_mutated": True,
         "ghost_influence_count": 1,
         "suppression_zones": [1],
@@ -161,6 +163,3 @@ def test_evaluate_snapshot_health_returns_expected_structure():
     assert result["reflex_score"] > 0.0
     assert result["suppression_zone_count"] == 1
     assert result["adjacency_count"] == 2
-
-
-
