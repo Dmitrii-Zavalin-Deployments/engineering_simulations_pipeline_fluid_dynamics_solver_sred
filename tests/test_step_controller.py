@@ -1,5 +1,3 @@
-# tests/test_step_controller.py
-
 import pytest
 from unittest import mock
 from src.step_controller import evolve_step
@@ -26,7 +24,8 @@ def input_data():
             "geometry_mask_shape": [2, 2, 2],
             "mask_encoding": {"fluid": 1, "solid": 0},
             "flattening_order": "x-major"
-        }
+        },
+        "default_timestep": 0.01
     }
 
 @pytest.fixture
@@ -75,12 +74,12 @@ def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config, 
     monkeypatch.setattr("src.step_controller.apply_ghost_influence", lambda g, s, verbose, radius: sum(1 for c in g if getattr(c, "fluid_mask", False)))
     monkeypatch.setattr("src.step_controller.compute_divergence_stats", lambda *a, **kw: {"max": 0.0})
     monkeypatch.setattr("src.step_controller.suggest_timestep", lambda *a, **kw: 0.01)
-    monkeypatch.setattr("src.step_controller.solve_navier_stokes_step", lambda g, i, s: (g, {}))
+    monkeypatch.setattr("src.step_controller.solve_navier_stokes_step", lambda g, i, s: (g, {"pressure_mutated": True, "projection_passes": 1}))
     monkeypatch.setattr("src.step_controller.apply_reflex", lambda *a, **kw: {"reflex_score": 1.0})
     monkeypatch.setattr("src.step_controller.inject_diagnostics", lambda m, ghosts, grid, spacing: m)
 
     evolved_grid, metadata = evolve_step(grid, input_data, step=1, config=config, sim_config=sim_config)
-    assert metadata["ghost_influence_count"] == 2  # only fluid cells counted
+    assert metadata["ghost_influence_count"] == 2
 
 def test_evolve_step_handles_missing_config(monkeypatch, input_data, sim_config, mock_cell):
     grid = [mock_cell for _ in range(4)]
@@ -90,10 +89,9 @@ def test_evolve_step_handles_missing_config(monkeypatch, input_data, sim_config,
     monkeypatch.setattr("src.step_controller.apply_ghost_influence", lambda g, s, verbose, radius: 1)
     monkeypatch.setattr("src.step_controller.compute_divergence_stats", lambda *a, **kw: {"max": 0.0})
     monkeypatch.setattr("src.step_controller.suggest_timestep", lambda *a, **kw: 0.01)
-    monkeypatch.setattr("src.step_controller.solve_navier_stokes_step", lambda g, i, s: (g, {}))
+    monkeypatch.setattr("src.step_controller.solve_navier_stokes_step", lambda g, i, s: (g, {"pressure_mutated": True, "projection_passes": 1}))
     monkeypatch.setattr("src.step_controller.apply_reflex", lambda *a, **kw: {"reflex_score": 1.0})
     monkeypatch.setattr("src.step_controller.inject_diagnostics", lambda m, ghosts, grid, spacing: m)
 
-    evolved_grid, metadata = evolve_step(grid, input_data, step=2, config=None, sim_config=sim_config)
-    assert metadata["reflex_score"] == 1.0
-    assert metadata["adaptive_timestep"] == 0.01
+    with pytest.raises(ValueError):
+        evolve_step(grid, input_data, step=2, config=None, sim_config=sim_config)

@@ -15,7 +15,7 @@ from src.reflex.reflex_controller import apply_reflex
 from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 from src.utils.divergence_tracker import compute_divergence_stats
 from src.adaptive.timestep_controller import suggest_timestep
-from src.utils.grid_spacing import compute_grid_spacing  # ✅ Modular spacing logic
+from src.utils.grid_spacing import compute_grid_spacing
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
@@ -25,6 +25,7 @@ def evolve_step(
     input_data: dict,
     step: int,
     config: Optional[dict] = None,
+    sim_config: Optional[dict] = None,
     reflex_score: Optional[int] = None
 ) -> Tuple[List[Cell], dict]:
     """
@@ -32,8 +33,10 @@ def evolve_step(
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
+    if "domain_definition" not in input_data:
+        raise KeyError("Missing required 'domain_definition' in input_data")
     domain = input_data["domain_definition"]
-    dx, dy, dz = compute_grid_spacing(domain)  # ✅ Replaced inline logic
+    dx, dy, dz = compute_grid_spacing(domain)
     spacing = (dx, dy, dz)
 
     output_folder = "data/testing-input-output/navier_stokes_output"
@@ -46,11 +49,18 @@ def evolve_step(
     boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
     boundary_applied = True
 
+    if config is None:
+        raise ValueError("Missing required 'config' dictionary")
+    if "ghost_adjacency_depth" not in config:
+        raise KeyError("Missing required 'ghost_adjacency_depth' in config")
+    if "reflex_verbosity" not in config:
+        raise KeyError("Missing required 'reflex_verbosity' in config")
+
     influence_count = apply_ghost_influence(
         boundary_tagged_grid,
         spacing,
-        verbose=(config or {}).get("reflex_verbosity", "") == "high",
-        radius=(config or {}).get("ghost_adjacency_depth", 1)
+        verbose=config["reflex_verbosity"] == "high",
+        radius=config["ghost_adjacency_depth"]
     )
     if debug:
         logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
@@ -62,7 +72,10 @@ def evolve_step(
     )
     stats_before["max"]
 
-    base_dt = input_data.get("default_timestep", 0.01)
+    if "default_timestep" not in input_data:
+        raise KeyError("Missing required 'default_timestep' in input_data")
+    base_dt = input_data["default_timestep"]
+
     delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
     trace_path = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
     dt = suggest_timestep(delta_path, trace_path, base_dt=base_dt, reflex_score=reflex_score)
@@ -76,14 +89,20 @@ def evolve_step(
     )
     divergence_after = stats_after["max"]
 
+    if "pressure_mutated" not in ns_metadata:
+        raise KeyError("Missing required 'pressure_mutated' in Navier-Stokes metadata")
+    if "projection_passes" not in ns_metadata:
+        raise KeyError("Missing required 'projection_passes' in Navier-Stokes metadata")
+
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
         input_data,
         step,
         ghost_influence_count=influence_count,
         config=config,
+        sim_config=sim_config,
         pressure_solver_invoked=True,
-        pressure_mutated=ns_metadata.get("pressure_mutated", False),
+        pressure_mutated=ns_metadata["pressure_mutated"],
         post_projection_divergence=divergence_after
     )
     if debug:
@@ -92,7 +111,7 @@ def evolve_step(
     reflex_metadata["ghost_influence_count"] = influence_count
     reflex_metadata["ghost_registry"] = ghost_registry
     reflex_metadata["boundary_condition_applied"] = boundary_applied
-    reflex_metadata["projection_passes"] = ns_metadata.get("projection_passes", 1)
+    reflex_metadata["projection_passes"] = ns_metadata["projection_passes"]
     reflex_metadata["adaptive_timestep"] = dt
     reflex_metadata.update(ns_metadata)
 
