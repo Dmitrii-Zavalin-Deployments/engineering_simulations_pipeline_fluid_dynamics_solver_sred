@@ -1,3 +1,5 @@
+# tests/test_step_controller.py
+
 import pytest
 from unittest import mock
 from src.step_controller import evolve_step
@@ -34,7 +36,11 @@ def config():
         "ghost_adjacency_depth": 2
     }
 
-def test_evolve_step_runs_all_modules(monkeypatch, input_data, config, mock_cell):
+@pytest.fixture
+def sim_config(input_data):
+    return input_data
+
+def test_evolve_step_runs_all_modules(monkeypatch, input_data, config, sim_config, mock_cell):
     grid = [mock_cell for _ in range(8)]
 
     monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, {"ghost_0": mock.Mock(), "ghost_1": mock.Mock()}))
@@ -44,10 +50,10 @@ def test_evolve_step_runs_all_modules(monkeypatch, input_data, config, mock_cell
     monkeypatch.setattr("src.step_controller.compute_divergence_stats", lambda g, s, label, step_index, output_folder, config=None: {"max": 0.01})
     monkeypatch.setattr("src.step_controller.suggest_timestep", lambda delta_path, trace_path, base_dt, reflex_score=None: 0.005)
     monkeypatch.setattr("src.step_controller.solve_navier_stokes_step", lambda g, i, s: (g, {"pressure_mutated": True, "projection_passes": 2}))
-    monkeypatch.setattr("src.step_controller.apply_reflex", lambda g, i, s, ghost_influence_count, config, pressure_solver_invoked, pressure_mutated, post_projection_divergence: {"reflex_score": 4.2})
+    monkeypatch.setattr("src.step_controller.apply_reflex", lambda g, i, s, ghost_influence_count, config, sim_config, pressure_solver_invoked, pressure_mutated, post_projection_divergence: {"reflex_score": 4.2})
     monkeypatch.setattr("src.step_controller.inject_diagnostics", lambda m, ghosts, grid, spacing: m)
 
-    evolved_grid, metadata = evolve_step(grid, input_data, step=0, config=config)
+    evolved_grid, metadata = evolve_step(grid, input_data, step=0, config=config, sim_config=sim_config)
 
     assert isinstance(evolved_grid, list)
     assert all(isinstance(c, Cell) or isinstance(c, mock.Mock) for c in evolved_grid)
@@ -59,7 +65,7 @@ def test_evolve_step_runs_all_modules(monkeypatch, input_data, config, mock_cell
     assert metadata["boundary_condition_applied"] is True
     assert "ghost_registry" in metadata
 
-def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config):
+def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config, sim_config):
     fluid = mock.Mock(spec=Cell, fluid_mask=True)
     solid = mock.Mock(spec=Cell, fluid_mask=False)
     grid = [fluid, solid, fluid]
@@ -73,10 +79,10 @@ def test_evolve_step_excludes_only_solid_cells(monkeypatch, input_data, config):
     monkeypatch.setattr("src.step_controller.apply_reflex", lambda *a, **kw: {"reflex_score": 1.0})
     monkeypatch.setattr("src.step_controller.inject_diagnostics", lambda m, ghosts, grid, spacing: m)
 
-    evolved_grid, metadata = evolve_step(grid, input_data, step=1, config=config)
+    evolved_grid, metadata = evolve_step(grid, input_data, step=1, config=config, sim_config=sim_config)
     assert metadata["ghost_influence_count"] == 2  # only fluid cells counted
 
-def test_evolve_step_handles_missing_config(monkeypatch, input_data, mock_cell):
+def test_evolve_step_handles_missing_config(monkeypatch, input_data, sim_config, mock_cell):
     grid = [mock_cell for _ in range(4)]
 
     monkeypatch.setattr("src.step_controller.generate_ghost_cells", lambda g, i: (g, {"ghost_0": mock.Mock()}))
@@ -88,9 +94,6 @@ def test_evolve_step_handles_missing_config(monkeypatch, input_data, mock_cell):
     monkeypatch.setattr("src.step_controller.apply_reflex", lambda *a, **kw: {"reflex_score": 1.0})
     monkeypatch.setattr("src.step_controller.inject_diagnostics", lambda m, ghosts, grid, spacing: m)
 
-    evolved_grid, metadata = evolve_step(grid, input_data, step=2, config=None)
+    evolved_grid, metadata = evolve_step(grid, input_data, step=2, config=None, sim_config=sim_config)
     assert metadata["reflex_score"] == 1.0
     assert metadata["adaptive_timestep"] == 0.01
-
-
-

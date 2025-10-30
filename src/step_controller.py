@@ -15,6 +15,7 @@ from src.reflex.reflex_controller import apply_reflex
 from src.utils.ghost_diagnostics import log_ghost_summary, inject_diagnostics
 from src.utils.divergence_tracker import compute_divergence_stats
 from src.adaptive.timestep_controller import suggest_timestep
+from src.utils.grid_spacing import compute_grid_spacing  # ✅ Modular spacing logic
 
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
@@ -32,9 +33,7 @@ def evolve_step(
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
     domain = input_data["domain_definition"]
-    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
-    dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
-    dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
+    dx, dy, dz = compute_grid_spacing(domain)  # ✅ Replaced inline logic
     spacing = (dx, dy, dz)
 
     output_folder = "data/testing-input-output/navier_stokes_output"
@@ -105,6 +104,3 @@ def evolve_step(
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return velocity_projected_grid, reflex_metadata
-
-
-
