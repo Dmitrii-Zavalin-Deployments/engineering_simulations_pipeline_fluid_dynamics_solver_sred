@@ -18,6 +18,14 @@ from src.diagnostics.navier_stokes_verifier import run_verification_if_triggered
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = False
 
+def log_mutation_summary(mutation_count: int, step: int):
+    if not debug:
+        return
+    if mutation_count == 0:
+        print(f"[PRESSURE] ⚠️ Step {step}: No pressure mutations detected.")
+    else:
+        print(f"[PRESSURE] ✅ Step {step}: {mutation_count} fluid cells mutated.")
+
 def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int, output_folder: str) -> Tuple[List[Cell], bool, int, Dict]:
     disable_io_for_testing = input_data.get("simulation_parameters", {}).get("disable_io_for_testing", False)
     
@@ -126,11 +134,7 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int, out
                 if debug:
                     print(f"[TRACE] Step {step}: ghost-influenced mutation @ ({updated.x:.2f}, {updated.y:.2f}, {updated.z:.2f})")
 
-    if debug:
-        if mutation_count == 0:
-            print(f"[PRESSURE] ⚠️ Step {step}: No pressure mutations detected.")
-        else:
-            print(f"[PRESSURE] ✅ Step {step}: {mutation_count} fluid cells mutated.")
+    log_mutation_summary(mutation_count, step)
 
     ghost_trigger_chain = input_data.get("ghost_trigger_chain", [])
     
@@ -170,6 +174,3 @@ def apply_pressure_correction(grid: List[Cell], input_data: dict, step: int, out
     run_verification_if_triggered(grid_with_pressure, spacing, step, output_folder, triggered_flags)
 
     return grid_with_pressure, pressure_mutated, metadata["pressure_solver_passes"], metadata
-
-
-

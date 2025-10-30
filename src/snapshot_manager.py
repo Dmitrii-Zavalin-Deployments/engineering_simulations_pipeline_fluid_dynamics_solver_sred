@@ -12,36 +12,44 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 from src.exporters.velocity_field_writer import write_velocity_field
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = False
+debug = True
 
-def generate_snapshots(
-    sim_config: dict,
-    scenario_name: str,
-    reflex_config: dict,
-    output_dir: str | None = None
-) -> list:
+def log_mutation_summary(mutation_report: dict):
+    if not debug:
+        return
+    print("🧾 Final Simulation Summary:")
+    print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
+    print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
+    print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
+
+def generate_snapshots(input_data: dict, scenario_name: str, config: dict, output_dir: str | None = None) -> list:
     """
     Executes the full Navier-Stokes simulation loop.
-
-    Args:
-        sim_config (dict): Full simulation configuration including domain, fluid, geometry, etc.
-        scenario_name (str): Name of the simulation scenario
-        reflex_config (dict): Reflex audit configuration
-        output_dir (str | None): Optional output directory override
-
-    Returns:
-        list: List of (step_index, snapshot_dict) tuples
     """
-    time_step = sim_config["simulation_parameters"]["time_step"]
-    total_time = sim_config["simulation_parameters"]["total_time"]
-    output_interval = sim_config["simulation_parameters"].get("output_interval", 1)
-    if output_interval <= 0:
-        logging.warning(f"⚠️ output_interval was set to {output_interval}. Using fallback of 1.")
-        output_interval = 1
+    sim_params = input_data.get("simulation_parameters")
+    if sim_params is None:
+        raise ValueError("Missing required block: 'simulation_parameters'")
 
-    domain = sim_config["domain_definition"]
-    initial_conditions = sim_config["initial_conditions"]
-    geometry = sim_config.get("geometry_definition")
+    required_keys = ["time_step", "total_time", "output_interval"]
+    missing_keys = [key for key in required_keys if key not in sim_params]
+    if missing_keys:
+        raise ValueError(f"Missing required simulation parameters: {', '.join(missing_keys)}")
+
+    time_step = sim_params["time_step"]
+    total_time = sim_params["total_time"]
+    output_interval = sim_params["output_interval"]
+    if output_interval <= 0:
+        raise ValueError(f"Invalid output_interval: {output_interval}. Must be a positive integer.")
+
+    domain = input_data.get("domain_definition")
+    if domain is None:
+        raise ValueError("Missing required block: 'domain_definition'")
+
+    initial_conditions = input_data.get("initial_conditions")
+    if initial_conditions is None:
+        raise ValueError("Missing required block: 'initial_conditions'")
+
+    geometry = input_data.get("geometry_definition")
 
     if debug:
         print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
@@ -51,7 +59,9 @@ def generate_snapshots(
         from src.grid_generator import generate_grid_with_mask
         grid = generate_grid_with_mask(domain, initial_conditions, geometry)
         mask_flat = geometry.get("geometry_mask_flat", [])
-        fluid_code = geometry.get("mask_encoding", {}).get("fluid", 1)
+        fluid_code = geometry.get("mask_encoding", {}).get("fluid")
+        if fluid_code is None:
+            raise ValueError("Missing required mask_encoding key: 'fluid'")
         expected_size = mask_flat.count(fluid_code)
     else:
         from src.grid_generator import generate_grid
@@ -73,18 +83,11 @@ def generate_snapshots(
         "projection_skipped": 0
     }
 
-    # ✅ CI-safe fallback path
-    if output_dir is None:
-        fallback_dir = tempfile.mkdtemp(prefix="navier_stokes_output_")
-        output_folder = fallback_dir
-    else:
-        output_folder = output_dir
-
+    output_folder = output_dir or tempfile.mkdtemp(prefix="navier_stokes_output_")
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        # ✅ Pass reflex_config explicitly
-        grid, reflex = evolve_step(grid, sim_config, step, reflex_config=reflex_config)
+        grid, reflex = evolve_step(grid, input_data, step, config=config)
 
         if debug:
             fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
@@ -93,35 +96,34 @@ def generate_snapshots(
         if debug:
             print(f"[DEBUG] Velocity field written to: {os.path.join(output_folder, f'velocity_field_step_{step:04d}.json')}")
 
-        # ✅ Pass sim_config instead of reflex_config to ensure correct validation
         grid, snapshot = process_snapshot_step(
             step=step,
             grid=grid,
             reflex=reflex,
             spacing=spacing,
-            config=sim_config,
+            config=config,
             expected_size=expected_size,
             output_folder=output_folder
         )
 
-        score = snapshot.get("reflex_score", 0.0)
+        required_flags = ["reflex_score", "pressure_mutated", "velocity_projected", "projection_skipped"]
+        missing_flags = [key for key in required_flags if key not in snapshot]
+        if missing_flags:
+            raise ValueError(f"Missing required snapshot flags: {', '.join(missing_flags)}")
+
+        score = snapshot["reflex_score"]
         if debug:
             print(f"[VERIFY] Injected reflex_score: {score} ({type(score)})")
 
-        if snapshot.get("pressure_mutated", False):
+        if snapshot["pressure_mutated"]:
             mutation_report["pressure_mutated"] += 1
-        if snapshot.get("velocity_projected", True):
+        if snapshot["velocity_projected"]:
             mutation_report["velocity_projected"] += 1
-        if snapshot.get("projection_skipped", False):
+        if snapshot["projection_skipped"]:
             mutation_report["projection_skipped"] += 1
 
         if step % output_interval == 0:
             snapshots.append((step, snapshot))
 
-    if debug:
-        print("🧾 Final Simulation Summary:")
-        print(f"   Pressure mutated steps   → {mutation_report['pressure_mutated']}")
-        print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
-        print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
-
+    log_mutation_summary(mutation_report)
     return snapshots
