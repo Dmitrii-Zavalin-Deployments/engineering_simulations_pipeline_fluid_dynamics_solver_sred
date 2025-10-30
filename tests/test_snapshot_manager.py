@@ -27,7 +27,7 @@ def input_data():
     }
 
 @pytest.fixture
-def config():
+def reflex_config():
     return {
         "reflex_verbosity": "high",
         "include_divergence_delta": True,
@@ -46,7 +46,7 @@ def output_dir(tmp_path):
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, sim_config, output_dir):
+def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, reflex_config, sim_config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -72,7 +72,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, sim_
         }
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process_snapshot_step)
 
-    snapshots = generate_snapshots(input_data, "test_scenario", config, output_dir=str(output_dir), sim_config=sim_config)
+    snapshots = generate_snapshots(sim_config, "test_scenario", reflex_config, output_dir=str(output_dir))
     assert len(snapshots) == 4
     assert snapshots[0][0] == 0
     assert snapshots[-1][0] == 3
@@ -80,7 +80,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, config, sim_
         for key in ["reflex_score", "pressure_mutated", "velocity_projected", "projection_skipped"]:
             assert key in snap
 
-def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, sim_config, output_dir):
+def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, reflex_config, sim_config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -106,14 +106,14 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, config, si
         return grid, {"reflex_score": 3.5, **mutation_map[step]}
     monkeypatch.setattr("src.snapshot_manager.process_snapshot_step", mock_process)
 
-    snapshots = generate_snapshots(input_data, "mutation_test", config, output_dir=str(output_dir), sim_config=sim_config)
+    snapshots = generate_snapshots(sim_config, "mutation_test", reflex_config, output_dir=str(output_dir))
     scores = [snap[1]["reflex_score"] for snap in snapshots]
     assert all(isinstance(s, float) for s in scores)
     assert sum(snap[1]["pressure_mutated"] for snap in snapshots) == 1
     assert sum(snap[1]["velocity_projected"] for snap in snapshots) == 4
     assert sum(snap[1]["projection_skipped"] for snap in snapshots) == 1
 
-def test_generate_snapshots_raises_on_invalid_output_interval(monkeypatch, input_data, config, sim_config, output_dir):
+def test_generate_snapshots_raises_on_invalid_output_interval(monkeypatch, input_data, reflex_config, sim_config, output_dir):
     input_data["simulation_parameters"]["output_interval"] = 0
 
     monkeypatch.setitem(
@@ -132,4 +132,4 @@ def test_generate_snapshots_raises_on_invalid_output_interval(monkeypatch, input
     }))
 
     with pytest.raises(ValueError, match="Invalid output_interval: 0"):
-        generate_snapshots(input_data, "fallback_test", config, output_dir=str(output_dir), sim_config=sim_config)
+        generate_snapshots(sim_config, "fallback_test", reflex_config, output_dir=str(output_dir))

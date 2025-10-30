@@ -22,15 +22,17 @@ def log_mutation_summary(mutation_report: dict):
     print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
 
 def generate_snapshots(
-    input_data: dict,
+    sim_config: dict,
     scenario_name: str,
-    config: dict,
-    output_dir: str | None = None,
-    sim_config: dict | None = None
+    reflex_config: dict,
+    output_dir: str | None = None
 ) -> list:
     """
     Executes the full Navier-Stokes simulation loop.
     """
+    input_data = sim_config
+    config = reflex_config
+
     sim_params = input_data.get("simulation_parameters")
     if sim_params is None:
         raise ValueError("Missing required block: 'simulation_parameters'")
