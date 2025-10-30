@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import List
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 @dataclass
 class Cell:
@@ -18,6 +18,3 @@ class Cell:
     velocity: List[float]    # Velocity vector [vx, vy, vz]
     pressure: float          # Scalar pressure value
     fluid_mask: bool         # ✅ True if cell contains fluid, False if solid
-
-
-
