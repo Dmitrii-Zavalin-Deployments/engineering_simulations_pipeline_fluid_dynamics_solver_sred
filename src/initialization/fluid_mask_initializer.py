@@ -11,6 +11,35 @@ from src.config.config_validator import validate_config
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
+
+def extract_domain_bounds(domain: Dict) -> tuple:
+    """
+    Extracts resolution and physical bounds from the domain definition.
+
+    Raises:
+        ValueError: If any required domain key is missing.
+
+    Returns:
+        Tuple of (nx, ny, nz, min_x, max_x, min_y, max_y, min_z, max_z)
+    """
+    required_keys = [
+        "nx", "ny", "nz",
+        "min_x", "max_x",
+        "min_y", "max_y",
+        "min_z", "max_z"
+    ]
+    missing = [key for key in required_keys if key not in domain]
+    if missing:
+        raise ValueError(f"Missing required domain keys: {', '.join(missing)}")
+
+    return (
+        domain["nx"], domain["ny"], domain["nz"],
+        domain["min_x"], domain["max_x"],
+        domain["min_y"], domain["max_y"],
+        domain["min_z"], domain["max_z"]
+    )
+
+
 def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
     Applies reflex-aware fluid/ghost tagging to a raw grid.
@@ -29,9 +58,7 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     boundary_faces = ghost_rules.get("boundary_faces", [])
     ghost_type_default = ghost_rules.get("default_type", "generic")
 
-    min_x, max_x = domain.get("min_x", 0.0), domain.get("max_x", 1.0)
-    min_y, max_y = domain.get("min_y", 0.0), domain.get("max_y", 1.0)
-    min_z, max_z = domain.get("min_z", 0.0), domain.get("max_z", 1.0)
+    _, _, _, min_x, max_x, min_y, max_y, min_z, max_z = extract_domain_bounds(domain)
 
     initialized = []
 
@@ -103,10 +130,7 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
     validate_config(config)
 
     domain = config.get("domain_definition", {})
-    nx, ny, nz = domain.get("nx", 10), domain.get("ny", 10), domain.get("nz", 10)
-    min_x, max_x = domain.get("min_x", 0.0), domain.get("max_x", 1.0)
-    min_y, max_y = domain.get("min_y", 0.0), domain.get("max_y", 1.0)
-    min_z, max_z = domain.get("min_z", 0.0), domain.get("max_z", 1.0)
+    nx, ny, nz, min_x, max_x, min_y, max_y, min_z, max_z = extract_domain_bounds(domain)
 
     dx = (max_x - min_x) / nx
     dy = (max_y - min_y) / ny
@@ -134,6 +158,3 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
         print(f"[GRID] Final grid → fluid={fluid_count}, ghost={ghost_count}")
 
     return grid
-
-
-
