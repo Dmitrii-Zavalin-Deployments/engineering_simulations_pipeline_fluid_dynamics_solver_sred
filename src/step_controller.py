@@ -17,31 +17,21 @@ from src.utils.divergence_tracker import compute_divergence_stats
 from src.adaptive.timestep_controller import suggest_timestep
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = False
+debug = True
 
 def evolve_step(
     grid: List[Cell],
-    sim_config: dict,
+    input_data: dict,
     step: int,
-    reflex_config: Optional[dict] = None,
+    config: Optional[dict] = None,
     reflex_score: Optional[int] = None
 ) -> Tuple[List[Cell], dict]:
     """
     Evolves the fluid grid by one simulation step using the full Navier-Stokes formulation.
-
-    Args:
-        grid (List[Cell]): Current fluid grid
-        sim_config (dict): Full simulation configuration
-        step (int): Current timestep index
-        reflex_config (dict | None): Reflex audit configuration
-        reflex_score (int | None): Optional reflex score for adaptive timestep
-
-    Returns:
-        Tuple[List[Cell], dict]: Updated grid and reflex metadata
     """
     logging.info(f"🌀 [evolve_step] Step {step}: Starting evolution")
 
-    domain = sim_config["domain_definition"]
+    domain = input_data["domain_definition"]
     dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
     dy = (domain["max_y"] - domain["min_y"]) / domain["ny"]
     dz = (domain["max_z"] - domain["min_z"]) / domain["nz"]
@@ -49,19 +39,19 @@ def evolve_step(
 
     output_folder = "data/testing-input-output/navier_stokes_output"
 
-    padded_grid, ghost_registry = generate_ghost_cells(grid, sim_config)
+    padded_grid, ghost_registry = generate_ghost_cells(grid, input_data)
     if debug:
         logging.debug(f"🧱 Generated {len(ghost_registry)} ghost cells")
         log_ghost_summary(ghost_registry)
 
-    boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, sim_config)
+    boundary_tagged_grid = apply_boundary_conditions(padded_grid, ghost_registry, input_data)
     boundary_applied = True
 
     influence_count = apply_ghost_influence(
         boundary_tagged_grid,
         spacing,
-        verbose=(reflex_config or {}).get("reflex_verbosity", "") == "high",
-        radius=(reflex_config or {}).get("ghost_adjacency_depth", 1)
+        verbose=(config or {}).get("reflex_verbosity", "") == "high",
+        radius=(config or {}).get("ghost_adjacency_depth", 1)
     )
     if debug:
         logging.debug(f"👣 Ghost influence applied to {influence_count} fluid cells")
@@ -69,31 +59,30 @@ def evolve_step(
     stats_before = compute_divergence_stats(
         boundary_tagged_grid, spacing,
         label="before projection", step_index=step,
-        output_folder=output_folder, config=reflex_config
+        output_folder=output_folder, config=config
     )
     stats_before["max"]
 
-    base_dt = sim_config.get("default_timestep", 0.01)
+    base_dt = input_data.get("default_timestep", 0.01)
     delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
     trace_path = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
     dt = suggest_timestep(delta_path, trace_path, base_dt=base_dt, reflex_score=reflex_score)
 
-    velocity_projected_grid, ns_metadata = solve_navier_stokes_step(boundary_tagged_grid, sim_config, step)
+    velocity_projected_grid, ns_metadata = solve_navier_stokes_step(boundary_tagged_grid, input_data, step)
 
     stats_after = compute_divergence_stats(
         velocity_projected_grid, spacing,
         label="after projection", step_index=step,
-        output_folder=output_folder, config=reflex_config
+        output_folder=output_folder, config=config
     )
     divergence_after = stats_after["max"]
 
-    # ✅ Pass both configs correctly
     reflex_metadata = apply_reflex(
         velocity_projected_grid,
-        sim_config,
+        input_data,
         step,
         ghost_influence_count=influence_count,
-        config=reflex_config,
+        config=config,
         pressure_solver_invoked=True,
         pressure_mutated=ns_metadata.get("pressure_mutated", False),
         post_projection_divergence=divergence_after
@@ -116,3 +105,6 @@ def evolve_step(
 
     logging.info(f"✅ [evolve_step] Step {step}: Evolution complete")
     return velocity_projected_grid, reflex_metadata
+
+
+
