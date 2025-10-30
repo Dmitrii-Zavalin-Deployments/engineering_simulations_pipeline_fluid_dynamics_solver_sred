@@ -11,7 +11,7 @@ from src.utils.snapshot_step_processor import process_snapshot_step
 from src.exporters.velocity_field_writer import write_velocity_field
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def log_mutation_summary(mutation_report: dict):
     if not debug:

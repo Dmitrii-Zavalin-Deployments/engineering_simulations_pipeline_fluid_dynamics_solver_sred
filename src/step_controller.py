@@ -18,7 +18,7 @@ from src.adaptive.timestep_controller import suggest_timestep
 from src.utils.grid_spacing import compute_grid_spacing
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = True
+debug = False
 
 def evolve_step(
     grid: List[Cell],
