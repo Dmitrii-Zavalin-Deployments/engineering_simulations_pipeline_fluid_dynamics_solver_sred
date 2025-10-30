@@ -11,7 +11,6 @@ from src.config.config_validator import validate_config
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = False
 
-
 def extract_domain_bounds(domain: Dict) -> tuple:
     """
     Extracts resolution and physical bounds from the domain definition.
@@ -20,13 +19,13 @@ def extract_domain_bounds(domain: Dict) -> tuple:
         ValueError: If any required domain key is missing.
 
     Returns:
-        Tuple of (nx, ny, nz, min_x, max_x, min_y, max_y, min_z, max_z)
+        Tuple of (nx, ny, nz, x_min, x_max, y_min, y_max, z_min, z_max)
     """
     required_keys = [
         "nx", "ny", "nz",
-        "min_x", "max_x",
-        "min_y", "max_y",
-        "min_z", "max_z"
+        "x_min", "x_max",
+        "y_min", "y_max",
+        "z_min", "z_max"
     ]
     missing = [key for key in required_keys if key not in domain]
     if missing:
@@ -34,11 +33,19 @@ def extract_domain_bounds(domain: Dict) -> tuple:
 
     return (
         domain["nx"], domain["ny"], domain["nz"],
-        domain["min_x"], domain["max_x"],
-        domain["min_y"], domain["max_y"],
-        domain["min_z"], domain["max_z"]
+        domain["x_min"], domain["x_max"],
+        domain["y_min"], domain["y_max"],
+        domain["z_min"], domain["z_max"]
     )
 
+def get_boundary_condition(face: str, config: Dict) -> Dict:
+    """
+    Returns the boundary condition dict for a given face, if any.
+    """
+    for bc in config.get("boundary_conditions", []):
+        if face in bc.get("apply_faces", []):
+            return bc
+    return {}
 
 def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
@@ -53,12 +60,12 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     """
     validate_config(config)
 
-    domain = config.get("domain_definition", {})
-    ghost_rules = config.get("ghost_rules", {})
-    boundary_faces = ghost_rules.get("boundary_faces", [])
-    ghost_type_default = ghost_rules.get("default_type", "generic")
+    domain = config["domain_definition"]
+    ghost_rules = config["ghost_rules"]
+    boundary_faces = ghost_rules["boundary_faces"]
+    ghost_type_default = ghost_rules["default_type"]
 
-    _, _, _, min_x, max_x, min_y, max_y, min_z, max_z = extract_domain_bounds(domain)
+    nx, ny, nz, x_min, x_max, y_min, y_max, z_min, z_max = extract_domain_bounds(domain)
 
     initialized = []
 
@@ -68,35 +75,42 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
         ghost_face = None
         ghost_type = ghost_type_default
         boundary_tag = None
+        velocity = None
+        pressure = None
 
-        # Detect ghost boundaries
-        if x <= min_x:
-            ghost_face = "xmin"
-        elif x >= max_x:
-            ghost_face = "xmax"
-        elif y <= min_y:
-            ghost_face = "ymin"
-        elif y >= max_y:
-            ghost_face = "ymax"
-        elif z <= min_z:
-            ghost_face = "zmin"
-        elif z >= max_z:
-            ghost_face = "zmax"
+        # ✅ Canonical ghost face detection
+        if x <= x_min:
+            ghost_face = "x_min"
+        elif x >= x_max:
+            ghost_face = "x_max"
+        elif y <= y_min:
+            ghost_face = "y_min"
+        elif y >= y_max:
+            ghost_face = "y_max"
+        elif z <= z_min:
+            ghost_face = "z_min"
+        elif z >= z_max:
+            ghost_face = "z_max"
 
         if ghost_face:
             fluid = False
             boundary_tag = ghost_face
+            ghost_type = ghost_rules.get("face_types", {}).get(ghost_face, ghost_type_default)
 
-            # ✅ Normalize ghost_face for lookup compatibility
-            normalized_face = ghost_face.replace("_", "").lower()
-            ghost_type = ghost_rules.get("face_types", {}).get(normalized_face, ghost_type_default)
+            # ✅ Apply boundary condition if Dirichlet
+            bc = get_boundary_condition(ghost_face, config)
+            if bc.get("type") == "dirichlet":
+                if "velocity" in bc.get("apply_to", []):
+                    velocity = bc.get("velocity", None)
+                if "pressure" in bc.get("apply_to", []):
+                    pressure = bc.get("pressure", None)
 
         initialized_cell = Cell(
             x=x,
             y=y,
             z=z,
-            velocity=cell.velocity,
-            pressure=cell.pressure,
+            velocity=velocity,
+            pressure=pressure,
             fluid_mask=fluid
         )
 
@@ -107,7 +121,7 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
             initialized_cell.ghost_source_step = config.get("step_index", None)
             initialized_cell.was_enforced = ghost_face in boundary_faces
             initialized_cell.originated_from_boundary = True
-            initialized_cell.mutation_triggered_by = "boundary_enforcement"  # ✅ Reflex traceability
+            initialized_cell.mutation_triggered_by = "boundary_enforcement"
 
             if debug:
                 print(f"[MASK] Ghost cell @ ({x:.2f}, {y:.2f}, {z:.2f}) → face={ghost_face}, type={ghost_type}")
@@ -115,7 +129,6 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
         initialized.append(initialized_cell)
 
     return initialized
-
 
 def build_simulation_grid(config: Dict) -> List[Cell]:
     """
@@ -129,27 +142,28 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
     """
     validate_config(config)
 
-    domain = config.get("domain_definition", {})
-    nx, ny, nz, min_x, max_x, min_y, max_y, min_z, max_z = extract_domain_bounds(domain)
+    domain = config["domain_definition"]
+    nx, ny, nz, x_min, x_max, y_min, y_max, z_min, z_max = extract_domain_bounds(domain)
 
-    dx = (max_x - min_x) / nx
-    dy = (max_y - min_y) / ny
-    dz = (max_z - min_z) / nz
+    dx = (x_max - x_min) / nx
+    dy = (y_max - y_min) / ny
+    dz = (z_max - z_min) / nz
 
     raw_grid = []
     for i in range(nx + 1):
         for j in range(ny + 1):
             for k in range(nz + 1):
-                x = min_x + i * dx
-                y = min_y + j * dy
-                z = min_z + k * dz
-                cell = Cell(x=x, y=y, z=z, velocity=[0.0, 0.0, 0.0], pressure=0.0, fluid_mask=True)
+                x = x_min + i * dx
+                y = y_min + j * dy
+                z = z_min + k * dz
+                cell = Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=True)
                 raw_grid.append(cell)
 
     if debug:
         print(f"[GRID] Constructed raw grid with {len(raw_grid)} cells")
+        for idx, cell in enumerate(raw_grid):
+            print(f"[GRID] Cell[{idx}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
 
-    # ✅ Apply reflex-aware fluid/ghost tagging
     grid = initialize_masks(raw_grid, config)
 
     if debug:
