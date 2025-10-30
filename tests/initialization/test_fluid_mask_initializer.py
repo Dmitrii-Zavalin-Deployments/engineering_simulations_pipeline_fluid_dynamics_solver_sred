@@ -16,13 +16,13 @@ def mock_cell(x, y, z, velocity=None, pressure=None):
 
 def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
     grid = [
-        mock_cell(0.0, 0.5, 0.5),  # xmin → inlet
-        mock_cell(1.0, 0.5, 0.5),  # xmax → outlet
-        mock_cell(0.5, 0.0, 0.5),  # ymin → wall
-        mock_cell(0.5, 1.0, 0.5),  # ymax → wall
-        mock_cell(0.5, 0.5, 0.0),  # zmin → wall
-        mock_cell(0.5, 0.5, 1.0),  # zmax → wall
-        mock_cell(0.5, 0.5, 0.5)   # interior → fluid
+        mock_cell(0.0, 0.5, 0.5),
+        mock_cell(1.0, 0.5, 0.5),
+        mock_cell(0.5, 0.0, 0.5),
+        mock_cell(0.5, 1.0, 0.5),
+        mock_cell(0.5, 0.5, 0.0),
+        mock_cell(0.5, 0.5, 1.0),
+        mock_cell(0.5, 0.5, 0.5)
     ]
 
     ghost_rules = {
@@ -42,7 +42,8 @@ def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
-            "min_z": 0.0, "max_z": 1.0
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 10, "ny": 10, "nz": 10
         },
         "ghost_rules": ghost_rules,
         "step_index": 42
@@ -67,15 +68,16 @@ def test_initialize_masks_applies_fluid_mask_and_reflex_metadata():
         assert isinstance(cell.was_enforced, bool)
 
 def test_initialize_masks_defaults_to_wall_when_face_type_missing():
-    grid = [mock_cell(0.0, 0.0, 0.0)]  # xmin, ymin, zmin
+    grid = [mock_cell(0.0, 0.0, 0.0)]
     config = {
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
-            "min_z": 0.0, "max_z": 1.0
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 10, "ny": 10, "nz": 10
         },
         "ghost_rules": {
-            "face_types": {},  # no overrides
+            "face_types": {},
             "default_type": "wall",
             "boundary_faces": []
         }
@@ -92,7 +94,8 @@ def test_initialize_masks_handles_minimal_config_safely():
         "domain_definition": {
             "min_x": 0.0, "max_x": 1.0,
             "min_y": 0.0, "max_y": 1.0,
-            "min_z": 0.0, "max_z": 1.0
+            "min_z": 0.0, "max_z": 1.0,
+            "nx": 10, "ny": 10, "nz": 10
         },
         "ghost_rules": {
             "boundary_faces": [],
@@ -129,7 +132,7 @@ def test_build_simulation_grid_constructs_expected_cell_count():
     }
 
     grid = build_simulation_grid(config)
-    assert len(grid) == 27  # (2+1)^3
+    assert len(grid) == 27
 
     fluid_cells = [c for c in grid if c.fluid_mask]
     ghost_cells = [c for c in grid if not c.fluid_mask]
@@ -169,18 +172,14 @@ def test_build_simulation_grid_applies_boundary_enforcement_metadata():
     grid = build_simulation_grid(config)
     ghost_cells = [c for c in grid if not c.fluid_mask]
 
-    # ✅ Enforced faces
     enforced_faces = {"xmin": "inlet", "ymin": "wall", "zmin": "outlet"}
     for face, expected_type in enforced_faces.items():
         assert any(c.ghost_face == face and c.ghost_type == expected_type for c in ghost_cells)
         assert all(c.was_enforced is True for c in ghost_cells if c.ghost_face == face)
         assert all(c.ghost_source_step == 99 for c in ghost_cells if c.ghost_face == face)
 
-    # ✅ Fallback faces
     fallback_faces = {"xmax": "wall", "ymax": "wall", "zmax": "wall"}
     for face, expected_type in fallback_faces.items():
         assert any(c.ghost_face == face and c.ghost_type == expected_type for c in ghost_cells)
         assert all(c.was_enforced is False for c in ghost_cells if c.ghost_face == face)
-        assert all(c.ghost_source_step == 99 for c in ghost_cells if c.ghost_face == face)  # still tagged with step
-
-
+        assert all(c.ghost_source_step == 99 for c in ghost_cells if c.ghost_face == face)
