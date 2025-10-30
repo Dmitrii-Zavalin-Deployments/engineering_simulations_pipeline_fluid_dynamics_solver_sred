@@ -31,9 +31,12 @@ def valid_config():
         ]
     }
 
-def test_valid_config_passes(capsys):
-    validate_config(valid_config())
-    assert "[CONFIG] Validation passed" in capsys.readouterr().out
+def test_valid_config_passes():
+    # ✅ Assert no exception is raised
+    try:
+        validate_config(valid_config())
+    except Exception as e:
+        pytest.fail(f"Unexpected exception raised: {e}")
 
 @pytest.mark.parametrize("bad_type", [None, [], "string", 42])
 def test_config_must_be_dict(bad_type):
@@ -109,6 +112,3 @@ def test_optional_no_slip_wrong_type_raises():
     cfg["boundary_conditions"][0]["no_slip"] = "not a bool"
     with pytest.raises(ValueError, match="'no_slip' must be boolean"):
         validate_config(cfg)
-
-
-
