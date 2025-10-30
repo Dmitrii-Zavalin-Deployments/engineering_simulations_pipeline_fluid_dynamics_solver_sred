@@ -21,7 +21,13 @@ def log_mutation_summary(mutation_report: dict):
     print(f"   Velocity projected steps → {mutation_report['velocity_projected']}")
     print(f"   Projection skipped steps → {mutation_report['projection_skipped']}")
 
-def generate_snapshots(input_data: dict, scenario_name: str, config: dict, output_dir: str | None = None) -> list:
+def generate_snapshots(
+    input_data: dict,
+    scenario_name: str,
+    config: dict,
+    output_dir: str | None = None,
+    sim_config: dict | None = None
+) -> list:
     """
     Executes the full Navier-Stokes simulation loop.
     """
@@ -86,7 +92,7 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
     os.makedirs(output_folder, exist_ok=True)
 
     for step in range(num_steps + 1):
-        grid, reflex = evolve_step(grid, input_data, step, config=config)
+        grid, reflex = evolve_step(grid, input_data, step, config=config, sim_config=sim_config)
 
         if debug:
             fluid_count = sum(1 for c in grid if getattr(c, "fluid_mask", False))
@@ -102,7 +108,8 @@ def generate_snapshots(input_data: dict, scenario_name: str, config: dict, outpu
             spacing=spacing,
             config=config,
             expected_size=expected_size,
-            output_folder=output_folder
+            output_folder=output_folder,
+            sim_config=sim_config
         )
 
         required_flags = ["reflex_score", "pressure_mutated", "velocity_projected", "projection_skipped"]
