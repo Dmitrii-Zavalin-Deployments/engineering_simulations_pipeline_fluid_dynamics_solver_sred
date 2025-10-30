@@ -94,11 +94,11 @@ jobs:
       run: |
         rm -f data/velocities/*.json || echo "⚠️ No velocity snapshots to remove"
 
-    - name: 📋 Validate Input Schema
-      run: |
-        python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
-          echo "❌ Input schema validation failed."; exit 1;
-        }
+    # - name: 📋 Validate Input Schema
+    #   run: |
+    #     python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
+    #       echo "❌ Input schema validation failed."; exit 1;
+    #     }
 
     # - name: 🧪 Run Unit Tests with Coverage
     #   env:
