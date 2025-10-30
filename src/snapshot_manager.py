@@ -5,7 +5,6 @@
 # It does NOT skip based on adjacency or ghost proximity — all logic is geometry-mask-driven.
 
 import os
-import logging
 import tempfile
 from src.step_controller import evolve_step
 from src.utils.snapshot_step_processor import process_snapshot_step
