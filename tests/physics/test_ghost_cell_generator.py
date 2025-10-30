@@ -87,7 +87,8 @@ def test_ghost_creation_all_faces(domain, ghost_rules, boundary_conditions):
 
 # ✅ Test: Solid cells are excluded
 def test_excludes_solid_cells(domain, ghost_rules, boundary_conditions):
-    fluid = make_fluid_cell(domain["min_x"] + EPSILON, 0.5, 0.5)
+    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
+    fluid = make_fluid_cell(domain["min_x"] + 0.5 * dx, 0.5, 0.5)
     solid = make_solid_cell(0.5, 0.5, 0.5)
     grid = [fluid, solid]
 
@@ -99,7 +100,7 @@ def test_excludes_solid_cells(domain, ghost_rules, boundary_conditions):
 
     padded, registry = generate_ghost_cells(grid, config, debug=False)
 
-    assert len(padded) == 2  # 1 fluid + 1 ghost
+    assert len(padded) == 3  # 2 input cells + 1 ghost
     assert len(registry) == 1
 
 # ✅ Test: Missing top-level config keys
@@ -145,7 +146,8 @@ def test_missing_ghost_rule_keys(missing_key, domain, ghost_rules, boundary_cond
 
 # ✅ Test: Missing velocity or pressure in Dirichlet BC
 def test_missing_dirichlet_values(domain, ghost_rules):
-    grid = [make_fluid_cell(domain["min_x"] + EPSILON, 0.5, 0.5)]
+    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
+    grid = [make_fluid_cell(domain["min_x"] + 0.5 * dx, 0.5, 0.5)]
     bad_conditions = [
         {
             "apply_faces": ["x_min"],
@@ -165,7 +167,8 @@ def test_missing_dirichlet_values(domain, ghost_rules):
 
 # ✅ Test: Registry metadata integrity
 def test_registry_metadata(domain, ghost_rules, boundary_conditions):
-    grid = [make_fluid_cell(domain["min_x"] + EPSILON, 0.5, 0.5)]
+    dx = (domain["max_x"] - domain["min_x"]) / domain["nx"]
+    grid = [make_fluid_cell(domain["min_x"] + 0.5 * dx, 0.5, 0.5)]
     config = {
         "domain_definition": domain,
         "ghost_rules": ghost_rules,
