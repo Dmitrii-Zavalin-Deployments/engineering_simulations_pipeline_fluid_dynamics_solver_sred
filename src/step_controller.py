@@ -72,9 +72,12 @@ def evolve_step(
     )
     stats_before["max"]
 
-    if "default_timestep" not in input_data:
-        raise KeyError("Missing required 'default_timestep' in input_data")
-    base_dt = input_data["default_timestep"]
+    if "simulation_parameters" not in input_data:
+        raise KeyError("Missing 'simulation_parameters' in input_data")
+    sim_params = input_data["simulation_parameters"]
+    if "time_step" not in sim_params:
+        raise KeyError("Missing 'time_step' in simulation_parameters")
+    base_dt = sim_params["time_step"]
 
     delta_path = f"data/snapshots/pressure_delta_map_step_{step:04d}.json"
     trace_path = "data/testing-input-output/navier_stokes_output/mutation_pathways_log.json"
