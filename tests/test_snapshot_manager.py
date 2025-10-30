@@ -37,8 +37,8 @@ def reflex_config():
     }
 
 @pytest.fixture
-def sim_config():
-    return {}
+def sim_config(input_data):
+    return input_data
 
 @pytest.fixture
 def output_dir(tmp_path):
@@ -46,7 +46,7 @@ def output_dir(tmp_path):
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, reflex_config, sim_config, output_dir):
+def test_generate_snapshots_runs_all_steps(monkeypatch, reflex_config, sim_config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -80,7 +80,7 @@ def test_generate_snapshots_runs_all_steps(monkeypatch, input_data, reflex_confi
         for key in ["reflex_score", "pressure_mutated", "velocity_projected", "projection_skipped"]:
             assert key in snap
 
-def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, reflex_config, sim_config, output_dir):
+def test_generate_snapshots_tracks_mutations(monkeypatch, reflex_config, sim_config, output_dir):
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
         "generate_grid_with_mask",
@@ -113,8 +113,8 @@ def test_generate_snapshots_tracks_mutations(monkeypatch, input_data, reflex_con
     assert sum(snap[1]["velocity_projected"] for snap in snapshots) == 4
     assert sum(snap[1]["projection_skipped"] for snap in snapshots) == 1
 
-def test_generate_snapshots_raises_on_invalid_output_interval(monkeypatch, input_data, reflex_config, sim_config, output_dir):
-    input_data["simulation_parameters"]["output_interval"] = 0
+def test_generate_snapshots_raises_on_invalid_output_interval(monkeypatch, sim_config, reflex_config, output_dir):
+    sim_config["simulation_parameters"]["output_interval"] = 0
 
     monkeypatch.setitem(
         src.snapshot_manager.generate_snapshots.__globals__,
