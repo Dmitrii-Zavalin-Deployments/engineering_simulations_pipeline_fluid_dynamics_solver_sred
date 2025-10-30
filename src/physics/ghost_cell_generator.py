@@ -8,7 +8,7 @@ from typing import List, Tuple, Dict
 from src.grid_modules.cell import Cell
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = False
+debug = True
 
 # ✅ Floating-point tolerance for proximity checks
 EPSILON = 1e-8
@@ -17,13 +17,39 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
     """
     Generates ghost cells at domain boundaries based on tagged faces and no-slip enforcement.
     """
-    domain = config.get("domain_definition", {})
-    ghost_rules = config.get("ghost_rules", {})
-    boundary_conditions = config.get("boundary_conditions", [])
+    # Validate top-level keys
+    for key in ["domain_definition", "ghost_rules", "boundary_conditions"]:
+        if key not in config:
+            raise KeyError(f"Missing required '{key}' in config")
 
-    boundary_faces = ghost_rules.get("boundary_faces", [])
-    face_types = ghost_rules.get("face_types", {})
-    default_type = ghost_rules.get("default_type", "wall")
+    domain = config["domain_definition"]
+    ghost_rules = config["ghost_rules"]
+    boundary_conditions = config["boundary_conditions"]
+
+    # Validate domain keys
+    required_domain_keys = ["nx", "ny", "nz", "min_x", "max_x", "min_y", "max_y", "min_z", "max_z"]
+    for key in required_domain_keys:
+        if key not in domain:
+            raise KeyError(f"Missing required '{key}' in domain_definition")
+
+    nx = domain["nx"]
+    ny = domain["ny"]
+    nz = domain["nz"]
+    dx = (domain["max_x"] - domain["min_x"]) / nx
+    dy = (domain["max_y"] - domain["min_y"]) / ny
+    dz = (domain["max_z"] - domain["min_z"]) / nz
+    x_min, x_max = domain["min_x"], domain["max_x"]
+    y_min, y_max = domain["min_y"], domain["max_y"]
+    z_min, z_max = domain["min_z"], domain["max_z"]
+
+    # Validate ghost_rules keys
+    for key in ["boundary_faces", "face_types", "default_type"]:
+        if key not in ghost_rules:
+            raise KeyError(f"Missing required '{key}' in ghost_rules")
+
+    boundary_faces = ghost_rules["boundary_faces"]
+    face_types = ghost_rules["face_types"]
+    default_type = ghost_rules["default_type"]
 
     if debug:
         print("[GHOST] 📘 Ghost rule config:")
@@ -34,24 +60,14 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
     # Build lookup from boundary_conditions
     face_bc_map = {}
     for bc in boundary_conditions:
-        for face in bc.get("apply_faces", []):
+        for face in bc["apply_faces"]:
             face_bc_map[face] = {
-                "velocity": bc.get("velocity"),
-                "pressure": bc.get("pressure"),
-                "apply_to": bc.get("apply_to", []),
-                "type": bc.get("type", "neumann"),
+                "velocity": bc["velocity"] if "velocity" in bc else None,
+                "pressure": bc["pressure"] if "pressure" in bc else None,
+                "apply_to": bc["apply_to"],
+                "type": bc["type"],
                 "role": bc.get("role", "unknown")
             }
-
-    nx = domain.get("nx", 1)
-    ny = domain.get("ny", 1)
-    nz = domain.get("nz", 1)
-    dx = (domain.get("max_x", 1.0) - domain.get("min_x", 0.0)) / nx
-    dy = (domain.get("max_y", 1.0) - domain.get("min_y", 0.0)) / ny
-    dz = (domain.get("max_z", 1.0) - domain.get("min_z", 0.0)) / nz
-    x_min, x_max = domain.get("min_x", 0.0), domain.get("max_x", 1.0)
-    y_min, y_max = domain.get("min_y", 0.0), domain.get("max_y", 1.0)
-    z_min, z_max = domain.get("min_z", 0.0), domain.get("max_z", 1.0)
 
     ghost_cells = []
     ghost_registry = {}
@@ -70,16 +86,11 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
                 if bc["velocity"] is None:
                     raise ValueError(f"Missing velocity for face '{face}' with Dirichlet enforcement")
                 velocity = bc["velocity"]
-            elif bc["type"] == "neumann":
-                velocity = None
-
         if "pressure" in bc["apply_to"]:
             if bc["type"] == "dirichlet":
                 if bc["pressure"] is None:
                     raise ValueError(f"Missing pressure for face '{face}' with Dirichlet enforcement")
                 pressure = bc["pressure"]
-            elif bc["type"] == "neumann":
-                pressure = None
 
         ghost = Cell(x=x, y=y, z=z, velocity=velocity, pressure=pressure, fluid_mask=False)
         setattr(ghost, "ghost_face", face)
@@ -108,22 +119,22 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
             print(f"[GHOST] 🔍 Evaluating fluid[{cell_index}] @ ({x:.2f}, {y:.2f}, {z:.2f})")
 
         if "x_min" in boundary_faces and abs(abs(x - x_min) - 0.5 * dx) <= EPSILON:
-            face_type = face_types.get("x_min", default_type)
+            face_type = face_types["x_min"]
             add_ghost(x - dx, y, z, "x_min", (x, y, z), cell, face_type)
         if "x_max" in boundary_faces and abs(abs(x - x_max) - 0.5 * dx) <= EPSILON:
-            face_type = face_types.get("x_max", default_type)
+            face_type = face_types["x_max"]
             add_ghost(x + dx, y, z, "x_max", (x, y, z), cell, face_type)
         if "y_min" in boundary_faces and abs(abs(y - y_min) - 0.5 * dy) <= EPSILON:
-            face_type = face_types.get("y_min", default_type)
+            face_type = face_types["y_min"]
             add_ghost(x, y - dy, z, "y_min", (x, y, z), cell, face_type)
         if "y_max" in boundary_faces and abs(abs(y - y_max) - 0.5 * dy) <= EPSILON:
-            face_type = face_types.get("y_max", default_type)
+            face_type = face_types["y_max"]
             add_ghost(x, y + dy, z, "y_max", (x, y, z), cell, face_type)
         if "z_min" in boundary_faces and abs(abs(z - z_min) - 0.5 * dz) <= EPSILON:
-            face_type = face_types.get("z_min", default_type)
+            face_type = face_types["z_min"]
             add_ghost(x, y, z - dz, "z_min", (x, y, z), cell, face_type)
         if "z_max" in boundary_faces and abs(abs(z - z_max) - 0.5 * dz) <= EPSILON:
-            face_type = face_types.get("z_max", default_type)
+            face_type = face_types["z_max"]
             add_ghost(x, y, z + dz, "z_max", (x, y, z), cell, face_type)
 
     total_ghosts = len(ghost_cells)
@@ -135,6 +146,3 @@ def generate_ghost_cells(grid: List[Cell], config: dict, debug: bool = True) -> 
 
     padded_grid = grid + ghost_cells
     return padded_grid, ghost_registry
-
-
-
