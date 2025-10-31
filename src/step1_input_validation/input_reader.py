@@ -6,7 +6,7 @@ import os
 import json
 
 # ✅ Centralized debug flag for GitHub Actions logging
-debug = False
+debug = True
 
 def load_simulation_input(filepath: str) -> dict:
     """
@@ -48,72 +48,83 @@ def load_simulation_input(filepath: str) -> dict:
     ]
     for section in required_sections:
         if section not in data:
-            raise KeyError(f"❌ Missing required section: {section}")
+            raise KeyError(f"❌ Missing required section: '{section}'")
 
     # ✅ Domain definition
     domain = data["domain_definition"]
-    nx, ny, nz = domain.get("nx"), domain.get("ny"), domain.get("nz")
-    bounds = (
-        domain.get("min_x"), domain.get("max_x"),
-        domain.get("min_y"), domain.get("max_y"),
-        domain.get("min_z"), domain.get("max_z")
-    )
+    for key in ["nx", "ny", "nz", "x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]:
+        if key not in domain:
+            raise KeyError(f"❌ Missing domain key: '{key}'")
     if debug:
-        print(f"🧩 Domain resolution: {nx}×{ny}×{nz}")
-        print(f"📐 Domain bounds: x={bounds[0]}→{bounds[1]}, y={bounds[2]}→{bounds[3]}, z={bounds[4]}→{bounds[5]}")
+        print(f"🧩 Domain resolution: {domain['nx']}×{domain['ny']}×{domain['nz']}")
+        print(f"📐 Domain bounds: x={domain['x_min']}→{domain['x_max']}, y={domain['y_min']}→{domain['y_max']}, z={domain['z_min']}→{domain['z_max']}")
 
     # ✅ Fluid properties
     fluid = data["fluid_properties"]
+    for key in ["density", "viscosity"]:
+        if key not in fluid:
+            raise KeyError(f"❌ Missing fluid property: '{key}'")
     if debug:
-        print(f"🌊 Fluid density (ρ): {fluid.get('density', 'N/A')}")
-        print(f"🌊 Fluid viscosity (μ): {fluid.get('viscosity', 'N/A')}")
+        print(f"🌊 Fluid density (ρ): {fluid['density']}")
+        print(f"🌊 Fluid viscosity (μ): {fluid['viscosity']}")
 
     # ✅ Initial conditions
     init = data["initial_conditions"]
+    for key in ["initial_velocity", "initial_pressure"]:
+        if key not in init:
+            raise KeyError(f"❌ Missing initial condition: '{key}'")
     if debug:
-        print(f"🌀 Initial velocity: {init.get('initial_velocity', 'N/A')}")
-        print(f"🌀 Initial pressure: {init.get('initial_pressure', 'N/A')}")
+        print(f"🌀 Initial velocity: {init['initial_velocity']}")
+        print(f"🌀 Initial pressure: {init['initial_pressure']}")
 
     # ✅ Simulation parameters
     sim = data["simulation_parameters"]
+    for key in ["time_step", "total_time", "output_interval"]:
+        if key not in sim:
+            raise KeyError(f"❌ Missing simulation parameter: '{key}'")
     if debug:
-        print(f"⏱️ Time step (Δt): {sim.get('time_step', 'N/A')}")
-        print(f"⏱️ Total time (T): {sim.get('total_time', 'N/A')}")
-        print(f"⚙️ Output interval: {sim.get('output_interval', 'N/A')}")
+        print(f"⏱️ Time step (Δt): {sim['time_step']}")
+        print(f"⏱️ Total time (T): {sim['total_time']}")
+        print(f"⚙️ Output interval: {sim['output_interval']}")
 
     # ✅ Optional: Pressure solver config
-    pressure_cfg = data.get("pressure_solver", {})
-    method = pressure_cfg.get("method", "jacobi")
-    tolerance = pressure_cfg.get("tolerance", 1e-6)
-    if debug:
-        print(f"💧 Pressure Solver → Method: {method}, Tolerance: {tolerance}")
+    if "pressure_solver" in data:
+        pressure_cfg = data["pressure_solver"]
+        for key in ["method", "tolerance"]:
+            if key not in pressure_cfg:
+                raise KeyError(f"❌ Missing pressure solver key: '{key}'")
+        if debug:
+            print(f"💧 Pressure Solver → Method: {pressure_cfg['method']}, Tolerance: {pressure_cfg['tolerance']}")
 
     # ✅ Boundary conditions
-    bc_list = data.get("boundary_conditions", [])
-    if debug:
-        for bc in bc_list:
-            if isinstance(bc, dict):
-                print(f"🚧 Boundary Conditions → Apply To: {bc.get('apply_to', [])}")
-                print(f"   Velocity Enforced: {bc.get('velocity')}")
-                print(f"   Pressure Enforced: {bc.get('pressure')}")
-                print(f"   No-Slip Mode: {bc.get('no_slip', False)}")
-            else:
-                print(f"⚠️ Unexpected boundary condition format: {type(bc)} → {bc}")
-
-    # ✅ Optional: Ghost rules
-    ghost_cfg = data.get("ghost_rules", {})
-    if debug:
-        print(f"👻 Ghost Rules → Faces: {ghost_cfg.get('boundary_faces', [])}")
-        print(f"   Default Type: {ghost_cfg.get('default_type')}")
-        print(f"   Face Types: {ghost_cfg.get('face_types', {})}")
+    bc_list = data["boundary_conditions"]
+    if not isinstance(bc_list, list):
+        raise TypeError("❌ 'boundary_conditions' must be a list.")
+    for i, bc in enumerate(bc_list):
+        if not isinstance(bc, dict):
+            raise TypeError(f"❌ boundary_conditions[{i}] must be a dictionary.")
+        for key in ["role", "type", "apply_to", "apply_faces"]:
+            if key not in bc:
+                raise KeyError(f"❌ boundary_conditions[{i}] missing required key: '{key}'")
+        if debug:
+            print(f"🚧 Boundary Role: {bc['role']}")
+            print(f"   Type: {bc['type']}")
+            print(f"   Apply To: {bc['apply_to']}")
+            print(f"   Apply Faces: {bc['apply_faces']}")
+            print(f"   Velocity: {bc['velocity']}" if "velocity" in bc else "   Velocity: —")
+            print(f"   Pressure: {bc['pressure']}" if "pressure" in bc else "   Pressure: —")
+            print(f"   No-Slip: {bc['no_slip']}" if "no_slip" in bc else "   No-Slip: —")
 
     # ✅ Optional: Geometry definition
-    geometry = data.get("geometry_definition")
-    if geometry and debug:
-        shape = geometry.get("geometry_mask_shape")
-        encoding = geometry.get("mask_encoding", {})
-        print(f"🧱 Geometry mask shape: {shape}")
-        print(f"🧱 Mask encoding: fluid={encoding.get('fluid')}, solid={encoding.get('solid')}")
-        print(f"🧱 Flattening order: {geometry.get('flattening_order', 'x-major')}")
+    if "geometry_definition" in data:
+        geometry = data["geometry_definition"]
+        for key in ["geometry_mask_flat", "geometry_mask_shape", "mask_encoding", "flattening_order"]:
+            if key not in geometry:
+                raise KeyError(f"❌ Missing geometry key: '{key}'")
+        if debug:
+            print(f"🧱 Geometry mask shape: {geometry['geometry_mask_shape']}")
+            print(f"🧱 Mask encoding: fluid={geometry['mask_encoding']['fluid']}, solid={geometry['mask_encoding']['solid']}")
+            print(f"🧱 Flattening order: {geometry['flattening_order']}")
+            print(f"🧱 Mask preview (first 32): {geometry['geometry_mask_flat'][:32]}")
 
     return data
