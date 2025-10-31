@@ -11,7 +11,7 @@ from src.step1_input_validation.config_validator import validate_config
 # from src.initialization.fluid_mask_initializer import build_simulation_grid
 # from src.snapshot_manager import generate_snapshots
 # from src.output.snapshot_writer import write_snapshot
-from src.upload_to_dropbox import upload_to_dropbox
+# from src.upload_to_dropbox import upload_to_dropbox
 
 # ✅ Centralized debug flag
 debug = True
