@@ -22,7 +22,7 @@ def step_1_parse_and_validate(input_path: str) -> dict:
     validate_config(config)
     if debug:
         print("✅ [Step 1] Parsed and validated input schema.")
-        print(json.dumps(config, indent=2)[:1000])
+        print(json.dumps(config, indent=2))
     return config
 
 
