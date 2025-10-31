@@ -75,6 +75,10 @@ jobs:
         pip install -r requirements.txt pytest numpy jsonschema jq
         echo "✅ Python and dependencies installed."
 
+    - name: 🧹 Cleanup previous integration test errors
+      run: |
+        rm -f tests/integration_tests_errors/*.txt || echo "⚠️ No previous error files to remove"
+      
     - name: 📥 Clean Previous Input & Download from Dropbox
       env:
         APP_KEY: ${{ secrets.APP_KEY }}
