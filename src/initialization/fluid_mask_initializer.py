@@ -1,36 +1,20 @@
 # src/initialization/fluid_mask_initializer.py
 # 🧬 Fluid Mask Initializer — constructs simulation grid and assigns fluid, solid, and ghost masks with reflex-aware tagging
 # 📌 This module enforces geometry-mask-driven inclusion logic.
-# Only ghost-boundary cells are marked fluid_mask=False.
-# All other cells are initialized as fluid_mask=True.
+# Cells marked as solid in geometry_mask are assigned fluid_mask=False.
+# Boundary-touching cells are tagged as ghost cells with reflex metadata.
 
 from typing import List, Dict
 from src.grid_modules.cell import Cell
 from src.config.config_validator import validate_config
 
-# ✅ Centralized debug flag for GitHub Actions logging
-debug = False
+debug = False  # Centralized debug flag
 
 def extract_domain_bounds(domain: Dict) -> tuple:
-    """
-    Extracts resolution and physical bounds from the domain definition.
-
-    Raises:
-        ValueError: If any required domain key is missing.
-
-    Returns:
-        Tuple of (nx, ny, nz, x_min, x_max, y_min, y_max, z_min, z_max)
-    """
-    required_keys = [
-        "nx", "ny", "nz",
-        "x_min", "x_max",
-        "y_min", "y_max",
-        "z_min", "z_max"
-    ]
+    required_keys = ["nx", "ny", "nz", "x_min", "x_max", "y_min", "y_max", "z_min", "z_max"]
     missing = [key for key in required_keys if key not in domain]
     if missing:
         raise ValueError(f"Missing required domain keys: {', '.join(missing)}")
-
     return (
         domain["nx"], domain["ny"], domain["nz"],
         domain["x_min"], domain["x_max"],
@@ -39,25 +23,27 @@ def extract_domain_bounds(domain: Dict) -> tuple:
     )
 
 def get_boundary_condition(face: str, config: Dict) -> Dict:
-    """
-    Returns the boundary condition dict for a given face, if any.
-    """
     for bc in config.get("boundary_conditions", []):
         if face in bc.get("apply_faces", []):
             return bc
     return {}
 
-def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
-    """
-    Applies reflex-aware fluid/ghost tagging to a raw grid.
+def decode_geometry_mask(config: Dict) -> List[bool]:
+    mask_flat = config["geometry_definition"]["geometry_mask_flat"]
+    shape = config["geometry_definition"]["geometry_mask_shape"]
+    encoding = config["geometry_definition"]["mask_encoding"]
+    order = config["geometry_definition"].get("flattening_order", "x-major")
 
-    Args:
-        grid (List[Cell]): Raw simulation grid
-        config (Dict): Domain and boundary configuration
+    fluid_value = encoding["fluid"]
+    solid_value = encoding["solid"]
 
-    Returns:
-        List[Cell]: Grid with updated mask and reflex metadata
-    """
+    if order != "x-major":
+        raise NotImplementedError(f"Flattening order '{order}' not supported yet.")
+
+    # Convert flat mask to boolean fluid_mask list
+    return [val == fluid_value for val in mask_flat]
+
+def initialize_masks(grid: List[Cell], config: Dict, fluid_mask_flags: List[bool]) -> List[Cell]:
     validate_config(config)
 
     domain = config["domain_definition"]
@@ -69,9 +55,9 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
 
     initialized = []
 
-    for cell in grid:
+    for idx, cell in enumerate(grid):
         x, y, z = cell.x, cell.y, cell.z
-        fluid = True
+        fluid = fluid_mask_flags[idx]  # geometry-driven inclusion
         ghost_face = None
         ghost_type = ghost_type_default
         boundary_tag = None
@@ -114,7 +100,7 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
             fluid_mask=fluid
         )
 
-        if not fluid:
+        if not fluid and ghost_face:
             initialized_cell.ghost_face = ghost_face
             initialized_cell.boundary_tag = boundary_tag
             initialized_cell.ghost_type = ghost_type
@@ -131,15 +117,6 @@ def initialize_masks(grid: List[Cell], config: Dict) -> List[Cell]:
     return initialized
 
 def build_simulation_grid(config: Dict) -> List[Cell]:
-    """
-    Constructs the simulation grid and applies fluid/ghost masks.
-
-    Args:
-        config (Dict): Domain and boundary configuration
-
-    Returns:
-        List[Cell]: Reflex-tagged simulation grid
-    """
     validate_config(config)
 
     domain = config["domain_definition"]
@@ -159,12 +136,17 @@ def build_simulation_grid(config: Dict) -> List[Cell]:
                 cell = Cell(x=x, y=y, z=z, velocity=None, pressure=None, fluid_mask=True)
                 raw_grid.append(cell)
 
+    fluid_mask_flags = decode_geometry_mask(config)
+
+    if len(fluid_mask_flags) != len(raw_grid):
+        raise ValueError(f"Geometry mask size mismatch: expected {len(raw_grid)}, got {len(fluid_mask_flags)}")
+
     if debug:
         print(f"[GRID] Constructed raw grid with {len(raw_grid)} cells")
         for idx, cell in enumerate(raw_grid):
             print(f"[GRID] Cell[{idx}] @ ({cell.x:.2f}, {cell.y:.2f}, {cell.z:.2f})")
 
-    grid = initialize_masks(raw_grid, config)
+    grid = initialize_masks(raw_grid, config, fluid_mask_flags)
 
     if debug:
         fluid_count = sum(1 for c in grid if c.fluid_mask)
