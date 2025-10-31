@@ -1,4 +1,4 @@
-# src/input_reader.py
+# src/step1_input_validation/input_reader.py
 # 📥 Input Reader — parses and validates structured Navier-Stokes simulation input
 # 📌 This module anchors schema alignment for reflex scoring, mutation overlays, and diagnostic traceability.
 
