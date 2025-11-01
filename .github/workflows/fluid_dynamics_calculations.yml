@@ -132,7 +132,7 @@ jobs:
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        python main_solver.py "$ORIGINAL_INPUT_FILE"
+        python src/main_solver.py "$ORIGINAL_INPUT_FILE"
         echo "✅ Main solver executed."
 
     - name: 📊 Evaluate Reflex Scoring
