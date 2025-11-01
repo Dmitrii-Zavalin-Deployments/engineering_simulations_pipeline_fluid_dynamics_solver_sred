@@ -1,8 +1,0 @@
-❌ INTEGRATION TEST FAILED: Output mismatch for config_validator_output.json
-
---- JSON UNIFIED DIFF (Expected vs Generated) ---
---- config_validator_output.json+++ config_validator_cli_output.json@@ -1,4 +1,4 @@ {
--  "message": "Config is structurally completed.",
-+  "message": "Config is structurally complete.",
-   "status": "success"
- }-------------------------------------------------
