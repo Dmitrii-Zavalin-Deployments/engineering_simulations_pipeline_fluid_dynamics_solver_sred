@@ -10,12 +10,15 @@ from typing import Dict
 # ✅ Centralized debug flag for GitHub Actions logging
 debug = True
 
-def validate_config(config: Dict) -> None:
+def validate_config(config: Dict) -> Dict:
     """
     Validates the configuration object passed to initialize_masks().
 
     Raises:
         ValueError: If required fields are missing or malformed.
+
+    Returns:
+        Dict: Status dictionary confirming successful validation
     """
     if not isinstance(config, dict):
         raise ValueError("Config must be a dictionary.")
@@ -93,3 +96,5 @@ def validate_config(config: Dict) -> None:
 
     if debug:
         print("[CONFIG] Validation passed — config is structurally complete.")
+
+    return {"status": "success", "message": "Config is structurally complete."}
