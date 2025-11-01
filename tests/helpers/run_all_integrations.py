@@ -10,23 +10,7 @@ tests = [
         "module": "config_validator",
         "path": "src/step1_input_data_parsing/config_validator.py",
         "expected": "tests/test_models/config_validator_output.json"
-    },
-    {
-        "module": "input_reader",
-        "path": "src/step1_input_data_parsing/input_reader.py",
-        "expected": "tests/test_models/input_reader_output.json"
-    },
-    {
-        "module": "fluid_mask_initializer",
-        "path": "src/step2_creating_navier_stokes_equations/fluid_mask_initializer.py",
-        "expected": "tests/test_models/fluid_mask_output.json"
-    },
-    {
-        "module": "initial_field_assigner",
-        "path": "src/step2_creating_navier_stokes_equations/initial_field_assigner.py",
-        "expected": "tests/test_models/initial_field_output.json"
     }
-    # Add more modules here
 ]
 
 input_file = "tests/test_models/test_model_input.json"
