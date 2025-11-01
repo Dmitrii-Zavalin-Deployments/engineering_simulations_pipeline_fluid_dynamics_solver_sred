@@ -134,7 +134,7 @@ def load_simulation_input(filepath: str) -> dict:
             print(f"🧱 Geometry mask shape: {geometry['geometry_mask_shape']}")
             print(f"🧱 Mask encoding: fluid={geometry['mask_encoding']['fluid']}, solid={geometry['mask_encoding']['solid']}")
             print(f"🧱 Flattening order: {geometry['flattening_order']}")
-            print(f"🧱 Mask preview (first 32): {geometry['geometry_mask_flat'][:32]}")
+            print(f"🧱 Mask preview: {geometry['geometry_mask_flat']}")
             print(f"🧮 Mask length: {len(geometry['geometry_mask_flat'])}")
             expected_len = geometry["geometry_mask_shape"][0] * geometry["geometry_mask_shape"][1] * geometry["geometry_mask_shape"][2]
             print(f"🧮 Expected mask length from shape: {expected_len}")
