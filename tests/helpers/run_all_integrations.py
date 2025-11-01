@@ -11,6 +11,11 @@ tests = [
         "module": "config_validator",
         "path": "src/step1_input_data_parsing/config_validator.py",
         "expected": "tests/test_models/config_validator_output.json"
+    },
+    {
+        "module": "input_reader",
+        "path": "src/step1_input_data_parsing/input_reader.py",
+        "expected": "tests/test_models/input_reader_output.json"
     }
 ]
 
