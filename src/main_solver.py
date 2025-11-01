@@ -8,10 +8,15 @@ import json
 
 from step1_input_data_parsing.input_reader import load_simulation_input
 from step1_input_data_parsing.config_validator import validate_config
-# from src.initialization.fluid_mask_initializer import build_simulation_grid
-# from src.snapshot_manager import generate_snapshots
-# from src.output.snapshot_writer import write_snapshot
-# from src.upload_to_dropbox import upload_to_dropbox
+
+from step2_creating_navier_stokes_equations.fluid_mask_initializer import build_grid
+from step2_creating_navier_stokes_equations.initial_field_assigner import assign_initial_fields
+from step2_creating_navier_stokes_equations.ghost_cell_generator import tag_ghost_cells
+from step2_creating_navier_stokes_equations.boundary_condition_solver import apply_boundary_conditions
+
+from snapshot_manager import generate_snapshots
+from output.snapshot_writer import write_snapshot
+from upload_to_dropbox import upload_to_dropbox
 
 # ✅ Centralized debug flag
 debug = True
@@ -27,16 +32,26 @@ def step_1_parse_and_validate(input_path: str) -> dict:
 
 
 def step_2_formulate_system(config: dict) -> dict:
-    build_simulation_grid(config)
+    # 1. Initialize Grid & Mask
+    grid = build_grid(config["domain_definition"], config["geometry_definition"])
+
+    # 2. Assign Initial Fields
+    grid = assign_initial_fields(grid, config["initial_conditions"])
+
+    # 3. Generate Ghost Cells
+    grid = tag_ghost_cells(grid, config["domain_definition"])
+
+    # 4. Apply Boundary Conditions
+    grid = apply_boundary_conditions(grid, config["boundary_conditions"])
 
     navier_stokes_system = {
-        "domain": config.get("domain_definition"),
-        "fluid_properties": config.get("fluid_properties"),
-        "initial_conditions": config.get("initial_conditions"),
-        "boundary_conditions": config.get("boundary_conditions"),
-        "simulation_parameters": config.get("simulation_parameters"),
-        "geometry_definition": config.get("geometry_definition"),
-        "grid": config.get("grid"),  # Assumes grid was injected by build_simulation_grid
+        "domain": config["domain_definition"],
+        "fluid_properties": config["fluid_properties"],
+        "simulation_parameters": config["simulation_parameters"],
+        "geometry_definition": config["geometry_definition"],
+        "initial_conditions": config["initial_conditions"],
+        "boundary_conditions": config["boundary_conditions"],
+        "grid": grid
     }
 
     if debug:
@@ -73,8 +88,6 @@ def run_simulation(input_path: str, output_dir: str | None = None):
     output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
 
     config = step_1_parse_and_validate(input_path)
-    config["step_index"] = 0
-
     navier_stokes_system = step_2_formulate_system(config)
     snapshots = step_3_solve_system(navier_stokes_system)
     step_4_write_output(snapshots, scenario_name, output_folder)
