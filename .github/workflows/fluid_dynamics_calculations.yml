@@ -127,8 +127,6 @@ jobs:
     #     echo "✅ Unit tests and code coverage check completed."
       
     - name: 🚀 Run Main Solver
-      env:
-        PYTHONPATH: ${{ github.workspace }}/src
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
