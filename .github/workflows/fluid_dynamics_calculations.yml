@@ -98,6 +98,13 @@ jobs:
       run: |
         rm -f data/velocities/*.json || echo "⚠️ No velocity snapshots to remove"
 
+    - name: 🏃 Run All Integration Tests
+      id: integration_test_all_modules
+      run: |
+        echo "--- Running all integration tests via orchestrator ---"
+        python3 tests/helpers/run_all_integrations.py
+        echo "✅ All integration tests completed successfully."
+
     # - name: 📋 Validate Input Schema
     #   run: |
     #     python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
