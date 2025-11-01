@@ -128,7 +128,7 @@ jobs:
       
     - name: 🚀 Run Main Solver
       env:
-        PYTHONPATH: src
+        PYTHONPATH: ${{ github.workspace }}/src
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
