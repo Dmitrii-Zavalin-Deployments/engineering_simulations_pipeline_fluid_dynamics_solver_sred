@@ -1,5 +1,5 @@
 {
-  "domain": {
+  "domain_definition": {
     "x_min": -0.0,
     "x_max": 3.0,
     "y_min": -1.5,
@@ -10,11 +10,11 @@
     "ny": 4,
     "nz": 4
   },
-  "fluid": {
+  "fluid_properties": {
     "density": 1.137,
     "viscosity": 0.09
   },
-  "initial": {
+  "initial_conditions": {
     "initial_velocity": [
       1,
       0,
@@ -22,12 +22,12 @@
     ],
     "initial_pressure": 133.105
   },
-  "simulation": {
+  "simulation_parameters": {
     "time_step": 0.1,
     "total_time": 1.0,
     "output_interval": 2
   },
-  "boundaries": [
+  "boundary_conditions": [
     {
       "role": "inlet",
       "type": "dirichlet",
@@ -84,7 +84,7 @@
       ]
     }
   ],
-  "geometry": {
+  "geometry_definition": {
     "geometry_mask_flat": [
       0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0,
