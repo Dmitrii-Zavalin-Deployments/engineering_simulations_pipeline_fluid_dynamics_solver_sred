@@ -133,8 +133,9 @@ jobs:
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
         echo "📍 Current directory: $(pwd)"
-        # 💡 FIX: Changed 'src.main_solver' to 'src/main_solver.py'
-        python src/main_solver.py "$ORIGINAL_INPUT_FILE"
+        # 💡 FIX: Use '-m' to execute 'src.main_solver' as a module
+        # This resolves relative imports like 'from step1_input_validation...'
+        python -m src.main_solver "$ORIGINAL_INPUT_FILE"
         echo "✅ Main solver executed."
 
     - name: 📊 Evaluate Reflex Scoring
