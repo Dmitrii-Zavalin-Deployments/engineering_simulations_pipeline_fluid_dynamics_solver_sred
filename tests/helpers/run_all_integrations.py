@@ -19,7 +19,7 @@ tests = [
     },
     {
         "module": "fluid_mask_initializer",
-        "path": "src/step1_geometry_mask/fluid_mask_initializer.py",
+        "path": "src/step2_creating_navier_stokes_equations/fluid_mask_initializer.py",
         "expected": "tests/test_models/fluid_mask_initializer_output.json",
         "input": "tests/test_models/test_step1_output.json"
     }
