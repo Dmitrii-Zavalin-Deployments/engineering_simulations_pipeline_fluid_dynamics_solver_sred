@@ -30,12 +30,12 @@ def get_boundary_condition(face: str, config: Dict) -> Dict:
 
 def decode_geometry_mask(config: Dict) -> List[bool]:
     mask_flat = config["geometry_definition"]["geometry_mask_flat"]
-    shape = config["geometry_definition"]["geometry_mask_shape"]
+    config["geometry_definition"]["geometry_mask_shape"]
     encoding = config["geometry_definition"]["mask_encoding"]
     order = config["geometry_definition"].get("flattening_order", "x-major")
 
     fluid_value = encoding["fluid"]
-    solid_value = encoding["solid"]
+    encoding["solid"]
 
     if order != "x-major":
         raise NotImplementedError(f"Flattening order '{order}' not supported yet.")
