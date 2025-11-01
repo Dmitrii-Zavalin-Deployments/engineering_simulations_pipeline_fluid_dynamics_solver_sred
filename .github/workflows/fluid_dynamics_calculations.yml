@@ -134,14 +134,22 @@ jobs:
         echo "✅ Inspection complete."
 
     - name: 🚀 Run Main Solver
+      # Change PYTHONPATH to explicitly include the workspace root.
+      # This ensures Python looks in the current directory for the 'src' package.
       env:
         PYTHONPATH: ${{ github.workspace }}
       run: |
+        # Check that the current directory is indeed the workspace
+        echo "CWD: $(pwd)"
+        echo "PYTHONPATH set to: $PYTHONPATH"
+        
+        # Test imports:
+        # If the failure persists, try adding 'export PYTHONPATH=.:$PYTHONPATH'
+        
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-        echo "📍 Current directory: $(pwd)"
-        # 💡 FIX: Use '-m' to execute 'src.main_solver' as a module
-        # This resolves relative imports like 'from step1_input_validation...'
+        
+        # The -m command is correct for running from the root.
         python -m src.main_solver "$ORIGINAL_INPUT_FILE"
         echo "✅ Main solver executed."
 
