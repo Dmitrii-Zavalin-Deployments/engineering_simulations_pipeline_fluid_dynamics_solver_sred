@@ -6,8 +6,8 @@ import os
 import sys
 import json
 
-from step1_input_validation.input_reader import load_simulation_input
-from step1_input_validation.config_validator import validate_config
+from step1_input_data_parsing.input_reader import load_simulation_input
+from step1_input_data_parsing.config_validator import validate_config
 # from src.initialization.fluid_mask_initializer import build_simulation_grid
 # from src.snapshot_manager import generate_snapshots
 # from src.output.snapshot_writer import write_snapshot
