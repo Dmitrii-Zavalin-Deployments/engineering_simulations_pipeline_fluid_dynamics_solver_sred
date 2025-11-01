@@ -57,8 +57,9 @@ jobs:
     needs: code_quality_check
     runs-on: ubuntu-latest
 
+    # 💡 Simplified PYTHONPATH to the workspace root for general package access
     env:
-      PYTHONPATH: ${{ github.workspace }}/src
+      PYTHONPATH: ${{ github.workspace }}
       ORIGINAL_INPUT_FILE: ${{ github.workspace }}/data/testing-input-output/fluid_simulation_input.json
       OUTPUT_RESULTS_BASE_DIR: ${{ github.workspace }}/data/testing-output-run
       UPLOAD_DIR: ${{ github.workspace }}/data/testing-input-output/navier_stokes_output
@@ -109,48 +110,21 @@ jobs:
         python3 tests/helpers/run_all_integrations.py
         echo "✅ All integration tests completed successfully."
 
-    # - name: 📋 Validate Input Schema
-    #   run: |
-    #     python src/tools/schema_validator.py "$ORIGINAL_INPUT_FILE" || {
-    #       echo "❌ Input schema validation failed."; exit 1;
-    #     }
-
-    # - name: 🧪 Run Unit Tests with Coverage
-    #   env:
-    #     PYTHONPATH: ${{ github.workspace }}
-    #   run: |
-    #     # ✅ Clean Python cache to avoid import mismatches
-    #     find . -name "*.pyc" -delete
-    #     find . -type d -name "__pycache__" -exec rm -r {} +
-        
-    #     pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
-    #     echo "✅ Unit tests and code coverage check completed."
-      
-    - name: 🗃️ Inspect Python Package Structure
-      run: |
-        echo "Listing contents of src/ and src/step1_input_data_parsing/"
-        ls -F src/
-        ls -F src/step1_input_data_parsing/
-        echo "✅ Inspection complete."
+    # The package structure inspection step is removed as the fix should resolve the issue.
 
     - name: 🚀 Run Main Solver
-      # Change PYTHONPATH to explicitly include the workspace root.
-      # This ensures Python looks in the current directory for the 'src' package.
-      env:
-        PYTHONPATH: ${{ github.workspace }}
       run: |
-        # Check that the current directory is indeed the workspace
+        # 💡 FIX: Export CWD to PYTHONPATH and run by file path for maximum stability
+        export PYTHONPATH=$PYTHONPATH:.
         echo "CWD: $(pwd)"
-        echo "PYTHONPATH set to: $PYTHONPATH"
-        
-        # Test imports:
-        # If the failure persists, try adding 'export PYTHONPATH=.:$PYTHONPATH'
+        echo "Final PYTHONPATH: $PYTHONPATH"
         
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
+        echo "📍 Current directory: $(pwd)"
         
-        # The -m command is correct for running from the root.
-        python -m src.main_solver "$ORIGINAL_INPUT_FILE"
+        # 💡 FIX: Changed execution to use direct file path for robustness
+        python src/main_solver.py "$ORIGINAL_INPUT_FILE" 
         echo "✅ Main solver executed."
 
     - name: 📊 Evaluate Reflex Scoring
