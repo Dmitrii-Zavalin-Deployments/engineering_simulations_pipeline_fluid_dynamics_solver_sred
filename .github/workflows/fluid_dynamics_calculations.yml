@@ -126,6 +126,13 @@ jobs:
     #     pytest --cov=src --cov-report=term-missing -s tests/ --verbose -ra
     #     echo "✅ Unit tests and code coverage check completed."
       
+    - name: 🗃️ Inspect Python Package Structure
+      run: |
+        echo "Listing contents of src/ and src/step1_input_data_parsing/"
+        ls -F src/
+        ls -F src/step1_input_data_parsing/
+        echo "✅ Inspection complete."
+
     - name: 🚀 Run Main Solver
       env:
         PYTHONPATH: ${{ github.workspace }}
