@@ -1,7 +1,8 @@
 # tests/helpers/run_all_integrations.py
 
-import subprocess
 import json
+import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,8 +15,35 @@ tests = [
 ]
 
 input_file = "tests/test_models/test_model_input.json"
-runner_script = "tests/helpers/run_all_integrations.py"
 compare_script = "tests/helpers/compare_json.py"
+
+def integration_tests_runner(module_path: str, input_path: str, output_path: str):
+    try:
+        with open(input_path, "r") as f:
+            config = json.load(f)
+    except Exception as e:
+        print(f"❌ Failed to load input file: {e}")
+        sys.exit(1)
+
+    try:
+        module_path = Path(module_path).resolve()
+        module_name = module_path.stem
+        spec = importlib.util.spec_from_file_location(module_name, str(module_path))
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        result = module.validate_config(config)
+    except Exception as e:
+        print(f"❌ Validation failed in {module_name}: {e}")
+        sys.exit(1)
+
+    try:
+        with open(output_path, "w") as f:
+            json.dump(result, f, indent=2)
+    except Exception as e:
+        print(f"❌ Failed to write output file: {e}")
+        sys.exit(1)
+
+    print("✅ Validation completed successfully.")
 
 def run_test(module_name, module_path, expected_path):
     temp_output = f"tests/test_models/{module_name}_cli_output.json"
@@ -26,12 +54,7 @@ def run_test(module_name, module_path, expected_path):
         print(f"❌ Fatal Error: Missing input or expected output for {module_name}")
         sys.exit(1)
 
-    subprocess.run([
-        "python3", runner_script,
-        "--input", input_file,
-        "--module", module_path,
-        "--output", temp_output
-    ], check=True)
+    integration_tests_runner(module_path, input_file, temp_output)
 
     subprocess.run([
         "python3", compare_script,
@@ -47,3 +70,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
