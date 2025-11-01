@@ -8,31 +8,38 @@ tests = [
     {
         "module": "config_validator",
         "path": "src/step1_input_data_parsing/config_validator.py",
-        "expected": "tests/test_models/config_validator_output.json"
+        "expected": "tests/test_models/config_validator_output.json",
+        "input": "tests/test_models/test_model_input.json"
     },
     {
         "module": "input_reader",
         "path": "src/step1_input_data_parsing/input_reader.py",
-        "expected": "tests/test_models/input_reader_output.json"
+        "expected": "tests/test_models/input_reader_output.json",
+        "input": "tests/test_models/test_model_input.json"
+    },
+    {
+        "module": "fluid_mask_initializer",
+        "path": "src/step1_geometry_mask/fluid_mask_initializer.py",
+        "expected": "tests/test_models/fluid_mask_initializer_output.json",
+        "input": "tests/test_models/test_step1_output.json"
     }
 ]
 
-input_file = "tests/test_models/test_model_input.json"
 compare_script = "tests/helpers/compare_json.py"
 
-def run_test(module_name, module_path, expected_path):
+def run_test(module_name, module_path, expected_path, input_path):
     temp_output = f"tests/test_models/{module_name}_cli_output.json"
 
     print(f"\n--- Running test: {module_name}.py ---")
 
-    if not Path(input_file).is_file() or not Path(expected_path).is_file():
+    if not Path(input_path).is_file() or not Path(expected_path).is_file():
         print(f"❌ Fatal Error: Missing input or expected output for {module_name}")
         sys.exit(1)
 
     try:
         subprocess.run([
             "python3", module_path,
-            "--input", input_file,
+            "--input", input_path,
             "--output", temp_output
         ], check=True)
     except subprocess.CalledProcessError as e:
@@ -53,7 +60,7 @@ def run_test(module_name, module_path, expected_path):
 
 def main():
     for test in tests:
-        run_test(test["module"], test["path"], test["expected"])
+        run_test(test["module"], test["path"], test["expected"], test["input"])
 
 if __name__ == "__main__":
     main()
