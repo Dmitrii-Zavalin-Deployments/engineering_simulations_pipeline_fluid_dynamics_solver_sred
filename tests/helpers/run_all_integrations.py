@@ -14,7 +14,7 @@ tests = [
 ]
 
 input_file = "tests/test_models/test_model_input.json"
-runner_script = "tests/helpers/integration_tests_runner.py"
+runner_script = "tests/helpers/run_all_integrations.py"
 compare_script = "tests/helpers/compare_json.py"
 
 def run_test(module_name, module_path, expected_path):
