@@ -5,6 +5,8 @@
 # It does NOT interact with fluid_mask or geometry masking logic directly.
 # It is NOT responsible for solver inclusion/exclusion decisions.
 
+import argparse
+import json
 from typing import Dict
 
 # ✅ Centralized debug flag for GitHub Actions logging
@@ -98,3 +100,23 @@ def validate_config(config: Dict) -> Dict:
         print("[CONFIG] Validation passed — config is structurally complete.")
 
     return {"status": "success", "message": "Config is structurally complete."}
+
+def main():
+    parser = argparse.ArgumentParser(description="Config Validator CLI for Navier-Stokes simulation input")
+    parser.add_argument("--input", required=True, help="Path to input JSON file")
+    parser.add_argument("--output", required=True, help="Path to output JSON file")
+    args = parser.parse_args()
+
+    with open(args.input, "r") as f:
+        config = json.load(f)
+
+    result = validate_config(config)
+
+    with open(args.output, "w") as f:
+        json.dump(result, f, indent=2)
+
+if __name__ == "__main__":
+    main()
+
+
+
