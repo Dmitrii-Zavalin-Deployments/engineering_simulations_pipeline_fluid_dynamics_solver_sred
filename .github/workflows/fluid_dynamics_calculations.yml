@@ -128,8 +128,7 @@ jobs:
       
     - name: 🚀 Run Main Solver
       env:
-        PYTHONPATH: ${{ github.workspace }}
-        REFLEX_CONFIG: ${{ env.REFLEX_CONFIG }}
+        PYTHONPATH: src
       run: |
         rm -rf "$OUTPUT_RESULTS_BASE_DIR"
         mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
