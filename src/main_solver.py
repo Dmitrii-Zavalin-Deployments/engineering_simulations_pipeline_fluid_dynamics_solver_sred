@@ -6,8 +6,8 @@ import os
 import sys
 import json
 
-from step1_input_data_parsing.input_reader import load_simulation_input
-from step1_input_data_parsing.config_validator import validate_config
+from step_0_input_data_parsing.input_reader import load_simulation_input
+from step_0_input_data_parsing.config_validator import validate_config
 
 from step2_creating_navier_stokes_equations.fluid_mask_initializer import build_grid
 from step2_creating_navier_stokes_equations.initial_field_assigner import assign_initial_fields

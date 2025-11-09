@@ -7,13 +7,13 @@ from pathlib import Path
 tests = [
     {
         "module": "config_validator",
-        "path": "src/step1_input_data_parsing/config_validator.py",
+        "path": "src/step_0_input_data_parsing/config_validator.py",
         "expected": "tests/test_models/config_validator_output.json",
         "input": "tests/test_models/test_model_input.json"
     },
     {
         "module": "input_reader",
-        "path": "src/step1_input_data_parsing/input_reader.py",
+        "path": "src/step_0_input_data_parsing/input_reader.py",
         "expected": "tests/test_models/input_reader_output.json",
         "input": "tests/test_models/test_model_input.json"
     },
