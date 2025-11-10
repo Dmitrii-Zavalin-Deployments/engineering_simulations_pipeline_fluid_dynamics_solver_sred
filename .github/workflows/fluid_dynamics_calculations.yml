@@ -113,7 +113,7 @@ jobs:
     - name: 🧪 Run Unit Tests
       run: |
         echo "🔍 Running all unit tests with pytest..."
-        pytest tests/ --verbose
+        PYTHONPATH=. pytest tests/ --verbose
 
     - name: 🚀 Run Main Solver
       run: |
