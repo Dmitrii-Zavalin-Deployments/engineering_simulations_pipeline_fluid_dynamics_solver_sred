@@ -110,7 +110,10 @@ jobs:
         python3 tests/helpers/run_all_integrations.py
         echo "✅ All integration tests completed successfully."
 
-    # The package structure inspection step is removed as the fix should resolve the issue.
+    - name: 🧪 Run Unit Tests
+      run: |
+        echo "🔍 Running all unit tests with pytest..."
+        pytest tests/ --verbose
 
     - name: 🚀 Run Main Solver
       run: |
