@@ -1,4 +1,4 @@
-# tests/step_1_solver_initialization/test_indexing_utils.py
+# tests/test_indexing_utils.py
 # ✅ Validation tests for x-major flattening logic in indexing_utils.py
 
 import pytest
