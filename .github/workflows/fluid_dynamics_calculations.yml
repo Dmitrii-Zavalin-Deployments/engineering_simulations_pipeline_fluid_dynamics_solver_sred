@@ -103,18 +103,18 @@ jobs:
       run: |
         rm -f tests/integration_tests_errors/*.txt || echo "⚠️ No previous error files to remove"
 
+    - name: 🧪 Run Unit Tests with Coverage
+      run: |
+        echo "🔍 Running all unit tests with pytest and coverage..."
+        PYTHONPATH=src pytest tests/ --verbose --cov=src --cov-report=term-missing
+        echo "✅ Unit tests and code coverage check completed."
+
     - name: 🏃 Run All Integration Tests
       id: integration_test_all_modules
       run: |
         echo "--- Running all integration tests via orchestrator ---"
         python3 tests/helpers/run_all_integrations.py
         echo "✅ All integration tests completed successfully."
-
-    - name: 🧪 Run Unit Tests with Coverage
-      run: |
-        echo "🔍 Running all unit tests with pytest and coverage..."
-        PYTHONPATH=src pytest tests/ --verbose --cov=src --cov-report=term-missing
-        echo "✅ Unit tests and code coverage check completed."
 
     - name: 🚀 Run Main Solver
       run: |
