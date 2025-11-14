@@ -1,9 +1,6 @@
 # tests/test_neighbor_mapper.py
 # ✅ Unit tests for src/step_1_solver_initialization/neighbor_mapper.py
 
-import pytest
-import io
-import sys
 
 from src.step_1_solver_initialization import neighbor_mapper
 from src.step_1_solver_initialization.indexing_utils import grid_to_flat
