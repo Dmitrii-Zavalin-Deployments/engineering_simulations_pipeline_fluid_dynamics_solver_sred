@@ -103,5 +103,30 @@ def build_cell_dict(config: dict) -> dict[int, dict]:
 
     return cell_dict
 
+if __name__ == "__main__":
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(description="Build per-cell dictionary from simulation input JSON.")
+    parser.add_argument("--input", required=True, help="Path to input JSON file (Step 0 output).")
+    parser.add_argument("--output", required=True, help="Path to write cell_dict JSON output.")
+    args = parser.parse_args()
+
+    try:
+        with open(args.input, "r") as f:
+            config = json.load(f)
+
+        cell_dict = build_cell_dict(config)
+
+        with open(args.output, "w") as f:
+            json.dump(cell_dict, f, indent=2)
+
+        if debug:
+            print(f"✅ Cell dictionary built and written to {args.output}")
+    except Exception as e:
+        print(f"❌ Error running cell_builder: {e}", file=sys.stderr)
+        sys.exit(1)
+
 
 
