@@ -56,7 +56,7 @@ def step_1_solver_initialization(config: dict) -> dict:
 
 
 def run_simulation(input_path: str, output_dir: str | None = None):
-    scenario_name = os.path.splitext(os.path.basename(input_path))[0]
+    os.path.splitext(os.path.basename(input_path))[0]
     output_dir = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
 
     config = step_0_input_data_parsing(input_path)
