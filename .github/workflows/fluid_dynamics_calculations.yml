@@ -115,20 +115,20 @@ jobs:
         echo "🔍 Running all unit tests with pytest..."
         PYTHONPATH=src pytest tests/ --verbose
 
-    # - name: 🚀 Run Main Solver
-    #   run: |
-    #     # Export CWD to PYTHONPATH and run by file path for maximum stability
-    #     export PYTHONPATH=$PYTHONPATH:.
-    #     echo "CWD: $(pwd)"
-    #     echo "Final PYTHONPATH: $PYTHONPATH"
+    - name: 🚀 Run Main Solver
+      run: |
+        # Export CWD to PYTHONPATH and run by file path for maximum stability
+        export PYTHONPATH=$PYTHONPATH:.
+        echo "CWD: $(pwd)"
+        echo "Final PYTHONPATH: $PYTHONPATH"
         
-    #     rm -rf "$OUTPUT_RESULTS_BASE_DIR"
-    #     mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
-    #     echo "📍 Current directory: $(pwd)"
+        rm -rf "$OUTPUT_RESULTS_BASE_DIR"
+        mkdir -p "$OUTPUT_RESULTS_BASE_DIR"
+        echo "📍 Current directory: $(pwd)"
         
-    #     # Changed execution to use direct file path for robustness
-    #     python src/main_solver.py "$ORIGINAL_INPUT_FILE" 
-    #     echo "✅ Main solver executed."
+        # Changed execution to use direct file path for robustness
+        python src/main_solver.py "$ORIGINAL_INPUT_FILE" 
+        echo "✅ Main solver executed."
 
     - name: 🗃️ Inspect Repository Structure
       run: |

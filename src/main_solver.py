@@ -22,7 +22,7 @@ from upload_to_dropbox import upload_to_dropbox
 debug = True
 
 
-def step_1_parse_and_validate(input_path: str) -> dict:
+def step_0_input_data_parsing(input_path: str) -> dict:
     config = load_simulation_input(input_path)
     validate_config(config)
     if debug:
@@ -31,7 +31,7 @@ def step_1_parse_and_validate(input_path: str) -> dict:
     return config
 
 
-def step_2_formulate_system(config: dict) -> dict:
+def step_1_solver_initialization(config: dict) -> dict:
     # 1. Initialize Grid & Mask
     grid = build_grid(config["domain_definition"], config["geometry_definition"])
 
@@ -61,36 +61,36 @@ def step_2_formulate_system(config: dict) -> dict:
     return navier_stokes_system
 
 
-def step_3_solve_system(navier_stokes_system: dict):
-    snapshots = generate_snapshots(sim_config=navier_stokes_system)
-    if debug:
-        print(f"✅ [Step 3] Generated {len(snapshots)} snapshots.")
-        print(f"📦 First snapshot preview:\n{json.dumps(snapshots[0][1], indent=2)[:1000]}")
-    return snapshots
+# def step_3_solve_system(navier_stokes_system: dict):
+#     snapshots = generate_snapshots(sim_config=navier_stokes_system)
+#     if debug:
+#         print(f"✅ [Step 3] Generated {len(snapshots)} snapshots.")
+#         print(f"📦 First snapshot preview:\n{json.dumps(snapshots[0][1], indent=2)[:1000]}")
+#     return snapshots
 
 
-def step_4_write_output(snapshots, scenario_name: str, output_dir: str):
-    os.makedirs(output_dir, exist_ok=True)
-    for step, snapshot in snapshots:
-        filename = f"{scenario_name}_step_{step:04d}.json"
-        path = os.path.join(output_dir, filename)
-        write_snapshot(snapshot, path)
-        if debug:
-            print(f"📝 [Step 4] Snapshot {step:04d} written → {filename}")
-    if os.getenv("UPLOAD_TO_DROPBOX", "false").lower() == "true":
-        upload_to_dropbox(output_dir)
-        if debug:
-            print("☁️ Output uploaded to Dropbox.")
+# def step_4_write_output(snapshots, scenario_name: str, output_dir: str):
+#     os.makedirs(output_dir, exist_ok=True)
+#     for step, snapshot in snapshots:
+#         filename = f"{scenario_name}_step_{step:04d}.json"
+#         path = os.path.join(output_dir, filename)
+#         write_snapshot(snapshot, path)
+#         if debug:
+#             print(f"📝 [Step 4] Snapshot {step:04d} written → {filename}")
+#     if os.getenv("UPLOAD_TO_DROPBOX", "false").lower() == "true":
+#         upload_to_dropbox(output_dir)
+#         if debug:
+#             print("☁️ Output uploaded to Dropbox.")
 
 
 def run_simulation(input_path: str, output_dir: str | None = None):
     scenario_name = os.path.splitext(os.path.basename(input_path))[0]
     output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
 
-    config = step_1_parse_and_validate(input_path)
-    navier_stokes_system = step_2_formulate_system(config)
-    snapshots = step_3_solve_system(navier_stokes_system)
-    step_4_write_output(snapshots, scenario_name, output_folder)
+    config = step_0_input_data_parsing(input_path)
+    navier_stokes_system = step_1_solver_initialization(config)
+    # snapshots = step_3_solve_system(navier_stokes_system)
+    # step_4_write_output(snapshots, scenario_name, output_folder)
 
     if debug:
         print("✅ Simulation complete.")
