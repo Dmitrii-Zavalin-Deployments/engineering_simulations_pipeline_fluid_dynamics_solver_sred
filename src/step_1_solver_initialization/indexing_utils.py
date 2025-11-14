@@ -1,9 +1,6 @@
 # tests/test_indexing_utils.py
 # ✅ Unit tests for src/step_1_solver_initialization/indexing_utils.py
 
-import pytest
-import io
-import sys
 
 from src.step_1_solver_initialization import indexing_utils
 
