@@ -130,13 +130,6 @@ jobs:
     #     python src/main_solver.py "$ORIGINAL_INPUT_FILE" 
     #     echo "✅ Main solver executed."
 
-    - name: 📊 Evaluate Reflex Scoring
-      env:
-        PYTHONPATH: ${{ github.workspace }}
-      run: |
-        python src/ci_score_report.py
-        echo "✅ Reflex scoring completed."
-
     - name: 🗃️ Inspect Repository Structure
       run: |
         echo "📦 Full repository structure:"
