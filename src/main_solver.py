@@ -8,6 +8,7 @@ import json
 
 from step_0_input_data_parsing.input_reader import load_simulation_input
 from step_0_input_data_parsing.config_validator import validate_config
+from step_1_solver_initialization.cell_builder import build_cell_dict
 
 # ✅ Centralized debug flag
 debug = True
@@ -23,17 +24,17 @@ def step_0_input_data_parsing(input_path: str) -> dict:
 
 
 def step_1_solver_initialization(config: dict) -> dict:
-    pass
+    cell_dict = build_cell_dict(config)
+    if debug:
+        print("✅ [Step 2] Domain initialized with per-cell dictionary.")
+        # Preview only first few cells for readability
+        preview = {k: cell_dict[k] for k in list(cell_dict.keys())[:3]}
+        print(json.dumps(preview, indent=2))
+    return cell_dict
 
-    # if debug:
-    #     print("✅ [Step 2] Navier-Stokes system formulated.")
-    #     print(json.dumps(navier_stokes_system, indent=2)[:1000])
 
-    # return navier_stokes_system
-
-
-# def step_3_solve_system(navier_stokes_system: dict):
-#     snapshots = generate_snapshots(sim_config=navier_stokes_system)
+# def step_3_solve_system(cell_dict: dict):
+#     snapshots = generate_snapshots(sim_config=cell_dict)
 #     if debug:
 #         print(f"✅ [Step 3] Generated {len(snapshots)} snapshots.")
 #         print(f"📦 First snapshot preview:\n{json.dumps(snapshots[0][1], indent=2)[:1000]}")
@@ -55,16 +56,17 @@ def step_1_solver_initialization(config: dict) -> dict:
 
 
 def run_simulation(input_path: str, output_dir: str | None = None):
-    os.path.splitext(os.path.basename(input_path))[0]
-    output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
+    scenario_name = os.path.splitext(os.path.basename(input_path))[0]
+    output_dir = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
 
     config = step_0_input_data_parsing(input_path)
-    step_1_solver_initialization(config)
-    # snapshots = step_3_solve_system(navier_stokes_system)
-    # step_4_write_output(snapshots, scenario_name, output_folder)
+    cell_dict = step_1_solver_initialization(config)
+    # snapshots = step_3_solve_system(cell_dict)
+    # step_4_write_output(snapshots, scenario_name, output_dir)
 
     if debug:
         print("✅ Simulation complete.")
+    return cell_dict
 
 
 if __name__ == "__main__":
@@ -76,3 +78,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     run_simulation(input_file, output_dir)
+
+
+

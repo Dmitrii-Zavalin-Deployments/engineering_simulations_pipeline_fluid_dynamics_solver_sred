@@ -16,13 +16,13 @@ tests = [
         "path": "src/step_0_input_data_parsing/input_reader.py",
         "expected": "tests/test_models/input_reader_output.json",
         "input": "tests/test_models/test_model_input.json"
-    }#,
-    # {
-    #     "module": "fluid_mask_initializer",
-    #     "path": "src/step2_creating_navier_stokes_equations/fluid_mask_initializer.py",
-    #     "expected": "tests/test_models/fluid_mask_initializer_output.json",
-    #     "input": "tests/test_models/test_step1_output.json"
-    # }
+    },
+    {
+        "module": "cell_builder",
+        "path": "src/step_1_solver_initialization/cell_builder.py",
+        "expected": "tests/test_models/cell_builder_output.json",
+        "input": "tests/test_models/test_step_0_output.json"
+    }
 ]
 
 compare_script = "tests/helpers/compare_json.py"
