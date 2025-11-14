@@ -23,13 +23,13 @@ def step_0_input_data_parsing(input_path: str) -> dict:
 
 
 def step_1_solver_initialization(config: dict) -> dict:
-    
+    pass
 
-    if debug:
-        print("✅ [Step 2] Navier-Stokes system formulated.")
-        print(json.dumps(navier_stokes_system, indent=2)[:1000])
+    # if debug:
+    #     print("✅ [Step 2] Navier-Stokes system formulated.")
+    #     print(json.dumps(navier_stokes_system, indent=2)[:1000])
 
-    return navier_stokes_system
+    # return navier_stokes_system
 
 
 # def step_3_solve_system(navier_stokes_system: dict):
