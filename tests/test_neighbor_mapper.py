@@ -1,10 +1,10 @@
 # tests/test_neighbor_mapper.py
-# ✅ Unit tests for src/step_1_solver_initialization/neighbor_mapper.py
+# ✅ Unit tests for step_1_solver_initialization/neighbor_mapper.py
 
 import pytest
 
-from src.step_1_solver_initialization.neighbor_mapper import get_stencil_neighbors
-from src.step_1_solver_initialization.indexing_utils import flat_to_grid, grid_to_flat
+from step_1_solver_initialization.neighbor_mapper import get_stencil_neighbors
+from step_1_solver_initialization.indexing_utils import flat_to_grid, grid_to_flat
 
 # 🧪 Core validation: interior cell neighbors
 def test_interior_neighbors():

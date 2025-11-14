@@ -6,7 +6,7 @@ from step_1_solver_initialization.indexing_utils import (
     grid_to_flat,
     flat_to_grid,
     is_valid_grid_index,
-    is_valid_flat_index
+    is_valid_flat_index,
 )
 
 def test_reference_example_flat_to_grid():
