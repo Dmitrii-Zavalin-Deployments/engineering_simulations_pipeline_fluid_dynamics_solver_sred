@@ -9,12 +9,6 @@ import json
 from step_0_input_data_parsing.input_reader import load_simulation_input
 from step_0_input_data_parsing.config_validator import validate_config
 
-from step_1_solver_initialization.fluid_mask_initializer import build_grid
-from step_1_solver_initialization.initial_field_assigner import assign_initial_fields
-from step_1_solver_initialization.ghost_cell_generator import tag_ghost_cells
-from step_1_solver_initialization.boundary_condition_solver import apply_boundary_conditions
-
-
 # ✅ Centralized debug flag
 debug = True
 
@@ -29,27 +23,7 @@ def step_0_input_data_parsing(input_path: str) -> dict:
 
 
 def step_1_solver_initialization(config: dict) -> dict:
-    # 1. Initialize Grid & Mask
-    grid = build_grid(config["domain_definition"], config["geometry_definition"])
-
-    # 2. Assign Initial Fields
-    grid = assign_initial_fields(grid, config["initial_conditions"])
-
-    # 3. Generate Ghost Cells
-    grid = tag_ghost_cells(grid, config["domain_definition"])
-
-    # 4. Apply Boundary Conditions
-    grid = apply_boundary_conditions(grid, config["boundary_conditions"])
-
-    navier_stokes_system = {
-        "domain": config["domain_definition"],
-        "fluid_properties": config["fluid_properties"],
-        "simulation_parameters": config["simulation_parameters"],
-        "geometry_definition": config["geometry_definition"],
-        "initial_conditions": config["initial_conditions"],
-        "boundary_conditions": config["boundary_conditions"],
-        "grid": grid
-    }
+    
 
     if debug:
         print("✅ [Step 2] Navier-Stokes system formulated.")
