@@ -110,10 +110,11 @@ jobs:
         python3 tests/helpers/run_all_integrations.py
         echo "✅ All integration tests completed successfully."
 
-    - name: 🧪 Run Unit Tests
+    - name: 🧪 Run Unit Tests with Coverage
       run: |
-        echo "🔍 Running all unit tests with pytest..."
-        PYTHONPATH=src pytest tests/ --verbose
+        echo "🔍 Running all unit tests with pytest and coverage..."
+        PYTHONPATH=src pytest tests/ --verbose --cov=src --cov-report=term-missing
+        echo "✅ Unit tests and code coverage check completed."
 
     - name: 🚀 Run Main Solver
       run: |
