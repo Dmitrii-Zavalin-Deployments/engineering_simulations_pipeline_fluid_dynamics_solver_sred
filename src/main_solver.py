@@ -14,9 +14,6 @@ from step2_creating_navier_stokes_equations.initial_field_assigner import assign
 from step2_creating_navier_stokes_equations.ghost_cell_generator import tag_ghost_cells
 from step2_creating_navier_stokes_equations.boundary_condition_solver import apply_boundary_conditions
 
-from snapshot_manager import generate_snapshots
-from output.snapshot_writer import write_snapshot
-from upload_to_dropbox import upload_to_dropbox
 
 # ✅ Centralized debug flag
 debug = True
@@ -84,11 +81,11 @@ def step_1_solver_initialization(config: dict) -> dict:
 
 
 def run_simulation(input_path: str, output_dir: str | None = None):
-    scenario_name = os.path.splitext(os.path.basename(input_path))[0]
-    output_folder = output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
+    os.path.splitext(os.path.basename(input_path))[0]
+    output_dir or os.path.join("data", "testing-input-output", "navier_stokes_output")
 
     config = step_0_input_data_parsing(input_path)
-    navier_stokes_system = step_1_solver_initialization(config)
+    step_1_solver_initialization(config)
     # snapshots = step_3_solve_system(navier_stokes_system)
     # step_4_write_output(snapshots, scenario_name, output_folder)
 
