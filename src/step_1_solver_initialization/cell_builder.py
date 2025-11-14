@@ -1,8 +1,8 @@
 # src/step_1_solver_initialization/cell_builder.py
 # 🧱 Step 1: Domain Initialization — Build the Per-Cell Dictionary
 
-from step_1_solver_initialization.indexing_utils import flat_to_grid
-from step_1_solver_initialization.neighbor_mapper import get_stencil_neighbors
+from src.step_1_solver_initialization.indexing_utils import flat_to_grid
+from src.step_1_solver_initialization.neighbor_mapper import get_stencil_neighbors
 
 debug = False
 
