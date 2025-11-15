@@ -20,7 +20,7 @@ tests = [
     {
         "module": "cell_builder",
         "path": "src/step_1_solver_initialization/cell_builder.py",
-        "expected": "tests/test_models/cell_builder_output.json",
+        "expected": "tests/test_models/test_step_1_output.json",
         "input": "tests/test_models/test_step_0_output.json"
     }
 ]
