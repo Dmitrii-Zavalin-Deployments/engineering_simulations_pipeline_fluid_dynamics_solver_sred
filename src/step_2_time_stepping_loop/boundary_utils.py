@@ -1,4 +1,9 @@
-# src/step_2_time_stepping/boundary_utils.py
+# src/step_2_time_stepping_loop/boundary_utils.py
+
+class BoundaryConditionError(Exception):
+    """Custom exception for boundary condition validation errors."""
+    pass
+
 
 def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
     """
@@ -21,22 +26,44 @@ def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
     -------
     dict
         Updated physics state with boundary overrides applied.
+
+    Raises
+    ------
+    BoundaryConditionError
+        If required fields are missing in state or boundary condition.
     """
+
+    # --- Validate state structure ---
+    if "pressure" not in state:
+        raise BoundaryConditionError("State validation failed: 'pressure' field is missing.")
+    if "velocity" not in state:
+        raise BoundaryConditionError("State validation failed: 'velocity' field is missing.")
+    for comp in ("vx", "vy", "vz"):
+        if comp not in state["velocity"]:
+            raise BoundaryConditionError(f"State validation failed: velocity component '{comp}' is missing.")
 
     role = cell.get("boundary_role")
     if role is None:
         # No boundary → return unchanged
         return state
 
+    # --- Validate boundary_conditions list ---
+    bc_list = config.get("boundary_conditions")
+    if not bc_list:
+        raise BoundaryConditionError("Configuration validation failed: 'boundary_conditions' list is missing or empty.")
+
     # Find matching boundary condition by role
-    bc_list = config.get("boundary_conditions", [])
     bc_match = next((bc for bc in bc_list if bc.get("role") == role), None)
-
     if not bc_match:
-        # No matching boundary condition → return unchanged
-        return state
+        raise BoundaryConditionError(f"No boundary condition found for role '{role}'.")
 
-    # Apply overrides based on "apply_to"
+    # --- Validate boundary condition fields ---
+    if "apply_to" not in bc_match:
+        raise BoundaryConditionError(f"Boundary condition for role '{role}' is missing 'apply_to' field.")
+    if not isinstance(bc_match["apply_to"], list):
+        raise BoundaryConditionError(f"Boundary condition for role '{role}' has invalid 'apply_to' type (must be list).")
+
+    # --- Apply overrides ---
     new_state = {
         "pressure": state["pressure"],
         "velocity": {
@@ -46,17 +73,19 @@ def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
         },
     }
 
-    if "velocity" in bc_match.get("apply_to", []):
+    if "velocity" in bc_match["apply_to"]:
         vel = bc_match.get("velocity")
-        if vel and len(vel) == 3:
-            new_state["velocity"]["vx"] = vel[0]
-            new_state["velocity"]["vy"] = vel[1]
-            new_state["velocity"]["vz"] = vel[2]
+        if vel is None:
+            raise BoundaryConditionError(f"Boundary condition for role '{role}' requires 'velocity' but it is missing.")
+        if len(vel) != 3:
+            raise BoundaryConditionError(f"Boundary condition for role '{role}' has invalid 'velocity' length (expected 3).")
+        new_state["velocity"]["vx"], new_state["velocity"]["vy"], new_state["velocity"]["vz"] = vel
 
-    if "pressure" in bc_match.get("apply_to", []):
+    if "pressure" in bc_match["apply_to"]:
         pres = bc_match.get("pressure")
-        if pres is not None:
-            new_state["pressure"] = pres
+        if pres is None:
+            raise BoundaryConditionError(f"Boundary condition for role '{role}' requires 'pressure' but it is missing.")
+        new_state["pressure"] = pres
 
     return new_state
 
