@@ -2,7 +2,6 @@
 
 class BoundaryConditionError(Exception):
     """Custom exception for boundary condition validation errors."""
-    pass
 
 
 def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
