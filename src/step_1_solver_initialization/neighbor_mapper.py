@@ -8,7 +8,7 @@ from src.step_1_solver_initialization.indexing_utils import (
 )
 
 # ✅ Centralized debug flag
-debug = true
+debug = True
 
 def get_stencil_neighbors(flat_index: int, shape: tuple[int, int, int]) -> dict:
     """
