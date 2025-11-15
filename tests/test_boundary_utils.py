@@ -1,7 +1,7 @@
 # tests/test_boundary_utils.py
 
 import pytest
-from src.step_2_time_stepping.boundary_utils import enforce_boundary
+from src.step_2_time_stepping_loop.boundary_utils import enforce_boundary
 
 # Shared config (the JSON you provided)
 CONFIG = {
