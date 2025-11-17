@@ -1,7 +1,7 @@
 # tests/test_boundary_utils.py
 
 import pytest
-from src.step_2_time_stepping_loop.boundary_utils import enforce_boundary
+from src.step_2_time_stepping_loop.boundary_utils import enforce_boundary, BoundaryConditionError
 
 # Shared config (the JSON you provided)
 CONFIG = {
@@ -79,12 +79,10 @@ def test_inlet_overrides_velocity_and_pressure():
     assert result["pressure"] == 133
     assert result["velocity"] == {"vx": 1.0, "vy": 0.0, "vz": 0.0}
 
-def test_outlet_overrides_pressure_only():
+def test_outlet_missing_pressure_raises_error():
     cell = {"boundary_role": "outlet"}
-    result = enforce_boundary(BASE_STATE, cell, CONFIG)
-    # Pressure overridden, velocity unchanged
-    assert result["pressure"] == CONFIG["boundary_conditions"][1].get("pressure", BASE_STATE["pressure"])
-    assert result["velocity"] == BASE_STATE["velocity"]
+    with pytest.raises(BoundaryConditionError, match="requires 'pressure' but it is missing"):
+        enforce_boundary(BASE_STATE, cell, CONFIG)
 
 def test_wall_overrides_velocity_only():
     cell = {"boundary_role": "wall"}
@@ -92,13 +90,12 @@ def test_wall_overrides_velocity_only():
     assert result["velocity"] == {"vx": 0.0, "vy": 0.0, "vz": 0.0}
     assert result["pressure"] == BASE_STATE["pressure"]
 
-def test_unknown_role_returns_unchanged():
+def test_unknown_role_raises_error():
     cell = {"boundary_role": "ghost"}
-    result = enforce_boundary(BASE_STATE, cell, CONFIG)
-    assert result == BASE_STATE
+    with pytest.raises(BoundaryConditionError, match="No boundary condition found for role 'ghost'"):
+        enforce_boundary(BASE_STATE, cell, CONFIG)
 
 def test_boundary_role_with_empty_apply_to_returns_unchanged():
-    # Add a fake boundary condition with empty apply_to
     CONFIG["boundary_conditions"].append({
         "role": "test_empty",
         "apply_to": []
@@ -109,63 +106,58 @@ def test_boundary_role_with_empty_apply_to_returns_unchanged():
 
 # --- Edge / corrupted cases ---
 
-def test_missing_boundary_conditions_key_in_config():
+def test_missing_boundary_conditions_key_in_config_raises_error():
     bad_config = CONFIG.copy()
     bad_config.pop("boundary_conditions", None)
     cell = {"boundary_role": "inlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should return unchanged because no boundary_conditions exist
-    assert result == BASE_STATE
+    with pytest.raises(BoundaryConditionError, match="missing or empty"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_missing_velocity_field():
+def test_boundary_condition_missing_velocity_field_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": [
-            {"role": "inlet", "apply_to": ["velocity"]}  # velocity missing
+            {"role": "inlet", "apply_to": ["velocity"]}
         ]
     }
     cell = {"boundary_role": "inlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, velocity unchanged
-    assert result["velocity"] == BASE_STATE["velocity"]
+    with pytest.raises(BoundaryConditionError, match="requires 'velocity' but it is missing"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_missing_pressure_field():
+def test_boundary_condition_missing_pressure_field_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": [
-            {"role": "outlet", "apply_to": ["pressure"]}  # pressure missing
+            {"role": "outlet", "apply_to": ["pressure"]}
         ]
     }
     cell = {"boundary_role": "outlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, pressure unchanged
-    assert result["pressure"] == BASE_STATE["pressure"]
+    with pytest.raises(BoundaryConditionError, match="requires 'pressure' but it is missing"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_velocity_wrong_length():
+def test_boundary_condition_velocity_wrong_length_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": [
-            {"role": "inlet", "apply_to": ["velocity"], "velocity": [1.0, 0.0]}  # only 2 components
+            {"role": "inlet", "apply_to": ["velocity"], "velocity": [1.0, 0.0]}
         ]
     }
     cell = {"boundary_role": "inlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, velocity unchanged
-    assert result["velocity"] == BASE_STATE["velocity"]
+    with pytest.raises(BoundaryConditionError, match="invalid 'velocity' length"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_apply_to_missing():
+def test_boundary_condition_apply_to_missing_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": [
-            {"role": "wall", "velocity": [0.0, 0.0, 0.0]}  # apply_to missing
+            {"role": "wall", "velocity": [0.0, 0.0, 0.0]}
         ]
     }
     cell = {"boundary_role": "wall"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, state unchanged
-    assert result == BASE_STATE
+    with pytest.raises(BoundaryConditionError, match="missing 'apply_to' field"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_null_values():
+def test_boundary_condition_null_values_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": [
@@ -173,33 +165,29 @@ def test_boundary_condition_null_values():
         ]
     }
     cell = {"boundary_role": "inlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, state unchanged
-    assert result == BASE_STATE
+    with pytest.raises(BoundaryConditionError, match="requires 'velocity'"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_boundary_condition_empty_list():
+def test_boundary_condition_empty_list_raises_error():
     bad_config = {
         **CONFIG,
         "boundary_conditions": []
     }
     cell = {"boundary_role": "inlet"}
-    result = enforce_boundary(BASE_STATE, cell, bad_config)
-    # Should not crash, state unchanged
-    assert result == BASE_STATE
+    with pytest.raises(BoundaryConditionError, match="missing or empty"):
+        enforce_boundary(BASE_STATE, cell, bad_config)
 
-def test_state_missing_velocity_key():
+def test_state_missing_velocity_key_raises_error():
     cell = {"boundary_role": "inlet"}
-    bad_state = {"pressure": 100.0}  # velocity missing
-    result = enforce_boundary(bad_state, cell, CONFIG)
-    # Should not crash, pressure overridden but velocity remains missing
-    assert "pressure" in result
+    bad_state = {"pressure": 100.0}
+    with pytest.raises(BoundaryConditionError, match="velocity' field is missing"):
+        enforce_boundary(bad_state, cell, CONFIG)
 
-def test_state_missing_pressure_key():
+def test_state_missing_pressure_key_raises_error():
     cell = {"boundary_role": "inlet"}
-    bad_state = {"velocity": {"vx": 0.1, "vy": 0.2, "vz": 0.3}}  # pressure missing
-    result = enforce_boundary(bad_state, cell, CONFIG)
-    # Should not crash, velocity overridden, pressure remains missing or unchanged
-    assert "velocity" in result
+    bad_state = {"velocity": {"vx": 0.1, "vy": 0.2, "vz": 0.3}}
+    with pytest.raises(BoundaryConditionError, match="'pressure' field is missing"):
+        enforce_boundary(bad_state, cell, CONFIG)
 
 
 
