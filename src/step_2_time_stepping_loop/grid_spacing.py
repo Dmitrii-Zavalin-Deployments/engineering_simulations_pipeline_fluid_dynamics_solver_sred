@@ -1,6 +1,9 @@
 # src/step_2_time_stepping_loop/grid_spacing.py
+# 🧱 Step 2: Grid Spacing — Compute per-axis deltas
 
 from typing import Tuple, Literal
+
+debug = False  # toggle to True for verbose GitHub Action logs
 
 
 def compute_grid_spacings(
@@ -54,6 +57,10 @@ def compute_grid_spacings(
     z_min = dd["z_min"]; z_max = dd["z_max"]
     nx = dd["nx"]; ny = dd["ny"]; nz = dd["nz"]
 
+    if debug:
+        print(f"🔍 Domain definition: x=({x_min},{x_max}), y=({y_min},{y_max}), z=({z_min},{z_max}), "
+              f"nx={nx}, ny={ny}, nz={nz}, mode={mode}")
+
     # Basic type/validity checks
     for name, v in (("nx", nx), ("ny", ny), ("nz", nz)):
         if not isinstance(v, int) or v <= 0:
@@ -77,10 +84,16 @@ def compute_grid_spacings(
     dy = (y_max - y_min) / float(denom_y)
     dz = (z_max - z_min) / float(denom_z)
 
+    if debug:
+        print(f"📐 Computed spacings: dx={dx}, dy={dy}, dz={dz}")
+
     # Final sanity checks
     for name, h in (("dx", dx), ("dy", dy), ("dz", dz)):
         if h <= 0.0 or not (h < float("inf")):
             raise ValueError(f"Configuration error: computed {name} must be > 0 and finite, got {h}.")
+
+    if debug:
+        print("✅ Grid spacing computation complete.")
 
     return dx, dy, dz
 

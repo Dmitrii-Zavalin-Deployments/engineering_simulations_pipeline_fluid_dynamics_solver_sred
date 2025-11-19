@@ -1,4 +1,8 @@
 # src/step_2_time_stepping_loop/boundary_utils.py
+# 🧱 Step 2: Boundary Utilities — Enforce Boundary Conditions
+
+debug = False  # toggle to True for verbose GitHub Action logs
+
 
 class BoundaryConditionError(Exception):
     """Custom exception for boundary condition validation errors."""
@@ -44,6 +48,8 @@ def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
     role = cell.get("boundary_role")
     if role is None:
         # No boundary → return unchanged
+        if debug:
+            print(f"Cell {cell['flat_index']} has no boundary role → state unchanged.")
         return state
 
     # --- Validate boundary_conditions list ---
@@ -55,6 +61,9 @@ def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
     bc_match = next((bc for bc in bc_list if bc.get("role") == role), None)
     if not bc_match:
         raise BoundaryConditionError(f"No boundary condition found for role '{role}'.")
+
+    if debug:
+        print(f"Cell {cell['flat_index']} ({cell['grid_index']}) → applying boundary role '{role}'")
 
     # --- Validate boundary condition fields ---
     if "apply_to" not in bc_match:
@@ -79,12 +88,19 @@ def enforce_boundary(state: dict, cell: dict, config: dict) -> dict:
         if len(vel) != 3:
             raise BoundaryConditionError(f"Boundary condition for role '{role}' has invalid 'velocity' length (expected 3).")
         new_state["velocity"]["vx"], new_state["velocity"]["vy"], new_state["velocity"]["vz"] = vel
+        if debug:
+            print(f"Cell {cell['flat_index']} → velocity overridden to {vel}")
 
     if "pressure" in bc_match["apply_to"]:
         pres = bc_match.get("pressure")
         if pres is None:
             raise BoundaryConditionError(f"Boundary condition for role '{role}' requires 'pressure' but it is missing.")
         new_state["pressure"] = pres
+        if debug:
+            print(f"Cell {cell['flat_index']} → pressure overridden to {pres}")
+
+    if debug:
+        print(f"✅ Final enforced state for cell {cell['flat_index']}: {new_state}")
 
     return new_state
 
