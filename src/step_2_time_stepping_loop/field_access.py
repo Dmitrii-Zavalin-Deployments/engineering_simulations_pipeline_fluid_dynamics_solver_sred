@@ -3,7 +3,7 @@
 
 from typing import Dict, Any
 
-debug = False  # toggle to True for verbose GitHub Action logs
+debug = True  # toggle to True for verbose GitHub Action logs
 
 ORDER_6 = ("xp", "xm", "yp", "ym", "zp", "zm")
 
