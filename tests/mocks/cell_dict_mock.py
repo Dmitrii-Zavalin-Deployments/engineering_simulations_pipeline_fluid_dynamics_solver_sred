@@ -1,5 +1,5 @@
 # tests/mocks/cell_dict_mock.py
-# Central + axis neighbors only, 3×3×3 grid, x-major flattening
+# Central + axis neighbors + one boundary cell, 3×3×3 grid, x-major flattening
 # Flat index formula: flat_index = x + nx * (y + ny * z), with nx=ny=nz=3
 
 cell_dict = {
@@ -96,6 +96,24 @@ cell_dict = {
         "time_history": {
             "0": {"pressure": 103.0, "velocity": {"vx": 1.0, "vy": 1.0, "vz": 1.5}},
             "1": {"pressure": 103.5, "velocity": {"vx": 1.1, "vy": 1.1, "vz": 1.6}},
+        },
+    },
+
+    # Boundary cell (isolated, no neighbors) -> flat_index = 0
+    "0": {
+        "flat_index": 0,
+        "grid_index": [0, 0, 0],
+        "cell_type": "fluid",
+        "boundary_role": "ghost",
+        "flat_index_i_plus_1": None,
+        "flat_index_i_minus_1": None,
+        "flat_index_j_plus_1": None,
+        "flat_index_j_minus_1": None,
+        "flat_index_k_plus_1": None,
+        "flat_index_k_minus_1": None,
+        "time_history": {
+            "0": {"pressure": 95.0, "velocity": {"vx": 0.0, "vy": 0.0, "vz": 0.0}},
+            "1": {"pressure": 95.5, "velocity": {"vx": 0.0, "vy": 0.0, "vz": 0.0}},
         },
     },
 }
