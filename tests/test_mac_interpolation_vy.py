@@ -6,6 +6,7 @@ from src.step_2_time_stepping_loop.mac_interpolation import (
     vy_j_plus_half,
     vy_j_minus_half,
     vy_j_plus_three_half,
+    vy_j_minus_three_half,   # <-- added correct import
 )
 from tests.mocks.cell_dict_mock import cell_dict
 
@@ -53,7 +54,7 @@ def test_vy_j_plus_three_half_latest():
 def test_vy_j_minus_three_half_t0():
     # Start from up neighbor (16) -> central (13) -> down (10)
     # Average vy from central (13) and down (10) at timestep=0
-    result = vy_j_minus_half(cell_dict, 16, timestep=0)
+    result = vy_j_minus_three_half(cell_dict, 16, timestep=0)
     expected = 0.5 * (1.0 + 0.5)  # vy(13) + vy(10)
     assert abs(result - expected) < 1e-6
 
@@ -61,7 +62,7 @@ def test_vy_j_minus_three_half_t0():
 def test_vy_j_minus_three_half_latest():
     # Start from up neighbor (16) -> central (13) -> down (10)
     # Average vy from central (13) and down (10) at latest timestep=1
-    result = vy_j_minus_half(cell_dict, 16)
+    result = vy_j_minus_three_half(cell_dict, 16)
     expected = 0.5 * (1.1 + 0.6)  # vy(13) + vy(10)
     assert abs(result - expected) < 1e-6
 

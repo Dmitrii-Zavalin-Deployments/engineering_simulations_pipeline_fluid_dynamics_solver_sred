@@ -6,6 +6,7 @@ from src.step_2_time_stepping_loop.mac_interpolation import (
     vz_k_plus_half,
     vz_k_minus_half,
     vz_k_plus_three_half,
+    vz_k_minus_three_half,   # <-- added correct import
 )
 from tests.mocks.cell_dict_mock import cell_dict
 
@@ -53,7 +54,7 @@ def test_vz_k_plus_three_half_latest():
 def test_vz_k_minus_three_half_t0():
     # Start from above neighbor (22) -> central (13) -> below (4)
     # Average vz from central (13) and below (4) at timestep=0
-    result = vz_k_minus_half(cell_dict, 22, timestep=0)
+    result = vz_k_minus_three_half(cell_dict, 22, timestep=0)
     expected = 0.5 * (1.0 + 0.5)  # vz(13) + vz(4)
     assert abs(result - expected) < 1e-6
 
@@ -61,7 +62,7 @@ def test_vz_k_minus_three_half_t0():
 def test_vz_k_minus_three_half_latest():
     # Start from above neighbor (22) -> central (13) -> below (4)
     # Average vz from central (13) and below (4) at latest timestep=1
-    result = vz_k_minus_half(cell_dict, 22)
+    result = vz_k_minus_three_half(cell_dict, 22)
     expected = 0.5 * (1.1 + 0.6)  # vz(13) + vz(4)
     assert abs(result - expected) < 1e-6
 
