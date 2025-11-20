@@ -1,5 +1,5 @@
 # tests/mocks/cell_dict_mock.py
-# Central + axis neighbors + one boundary cell, 3×3×3 grid, x-major flattening
+# Central + axis neighbors + one boundary cell + ±3/2 neighbors, 3×3×3 grid, x-major flattening
 # Flat index formula: flat_index = x + nx * (y + ny * z), with nx=ny=nz=3
 
 cell_dict = {
@@ -41,9 +41,23 @@ cell_dict = {
         "cell_type": "fluid",
         "boundary_role": None,
         "flat_index_i_minus_1": 13,
+        "flat_index_i_plus_1": 15,   # link to second neighbor
         "time_history": {
             "0": {"pressure": 101.0, "velocity": {"vx": 1.5, "vy": 1.0, "vz": 1.0}},
             "1": {"pressure": 101.5, "velocity": {"vx": 1.6, "vy": 1.1, "vz": 1.1}},
+        },
+    },
+
+    # X+ second neighbor (3,1,1) -> flat_index = 15
+    "15": {
+        "flat_index": 15,
+        "grid_index": [3, 1, 1],
+        "cell_type": "fluid",
+        "boundary_role": None,
+        "flat_index_i_minus_1": 14,
+        "time_history": {
+            "0": {"pressure": 101.5, "velocity": {"vx": 1.7, "vy": 1.0, "vz": 1.0}},
+            "1": {"pressure": 102.0, "velocity": {"vx": 1.8, "vy": 1.1, "vz": 1.1}},
         },
     },
 
@@ -67,9 +81,23 @@ cell_dict = {
         "cell_type": "fluid",
         "boundary_role": None,
         "flat_index_j_minus_1": 13,
+        "flat_index_j_plus_1": 17,   # link to second neighbor
         "time_history": {
             "0": {"pressure": 102.0, "velocity": {"vx": 1.0, "vy": 1.5, "vz": 1.0}},
             "1": {"pressure": 102.5, "velocity": {"vx": 1.1, "vy": 1.6, "vz": 1.1}},
+        },
+    },
+
+    # Y+ second neighbor (1,3,1) -> flat_index = 17
+    "17": {
+        "flat_index": 17,
+        "grid_index": [1, 3, 1],
+        "cell_type": "fluid",
+        "boundary_role": None,
+        "flat_index_j_minus_1": 16,
+        "time_history": {
+            "0": {"pressure": 102.5, "velocity": {"vx": 1.0, "vy": 1.7, "vz": 1.0}},
+            "1": {"pressure": 103.0, "velocity": {"vx": 1.1, "vy": 1.8, "vz": 1.1}},
         },
     },
 
@@ -93,9 +121,23 @@ cell_dict = {
         "cell_type": "fluid",
         "boundary_role": None,
         "flat_index_k_minus_1": 13,
+        "flat_index_k_plus_1": 23,   # link to second neighbor
         "time_history": {
             "0": {"pressure": 103.0, "velocity": {"vx": 1.0, "vy": 1.0, "vz": 1.5}},
             "1": {"pressure": 103.5, "velocity": {"vx": 1.1, "vy": 1.1, "vz": 1.6}},
+        },
+    },
+
+    # Z+ second neighbor (1,1,3) -> flat_index = 23
+    "23": {
+        "flat_index": 23,
+        "grid_index": [1, 1, 3],
+        "cell_type": "fluid",
+        "boundary_role": None,
+        "flat_index_k_minus_1": 22,
+        "time_history": {
+            "0": {"pressure": 103.5, "velocity": {"vx": 1.0, "vy": 1.0, "vz": 1.7}},
+            "1": {"pressure": 104.0, "velocity": {"vx": 1.1, "vy": 1.1, "vz": 1.8}},
         },
     },
 
@@ -117,6 +159,5 @@ cell_dict = {
         },
     },
 }
-
 
 
