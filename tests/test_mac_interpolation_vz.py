@@ -2,11 +2,12 @@
 # Unit tests for vz interpolation functions using the 3×3×3 mock cell_dict
 
 import pytest
+# ✅ Import from the package root, which now re-exports from vz.py
 from src.step_2_time_stepping_loop.mac_interpolation import (
     vz_k_plus_half,
     vz_k_minus_half,
     vz_k_plus_three_half,
-    vz_k_minus_three_half,   # <-- added correct import
+    vz_k_minus_three_half,
 )
 from tests.mocks.cell_dict_mock import cell_dict
 

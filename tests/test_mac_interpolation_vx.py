@@ -2,11 +2,12 @@
 # Unit tests for vx interpolation functions using the 3×3×3 mock cell_dict
 
 import pytest
+# ✅ Import from the package root, which now re-exports from vx.py
 from src.step_2_time_stepping_loop.mac_interpolation import (
     vx_i_plus_half,
     vx_i_minus_half,
     vx_i_plus_three_half,
-    vx_i_minus_three_half,   # <-- added correct import
+    vx_i_minus_three_half,
 )
 from tests.mocks.cell_dict_mock import cell_dict
 
