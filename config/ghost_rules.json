@@ -9,12 +9,7 @@
     "z_min": "wall",
     "z_max": "wall"
   },
-  "comment": "This configuration enables ghost cell creation at all six domain boundaries. Used for CI diagnostics and reflex overlays.",
-  "test_notes": {
-    "proximity_threshold": "Ghost cells should trigger when fluid cell lies within or exactly at 0.5 * dx, dy, dz from boundary.",
-    "validation_targets": ["x_min", "x_max", "y_max"],
-    "reflex_overlay_enabled": true
-  }
+  "comment": "This configuration enables ghost cell creation at all six domain boundaries. Used for CI diagnostics and reflex overlays."
 }
 
 
