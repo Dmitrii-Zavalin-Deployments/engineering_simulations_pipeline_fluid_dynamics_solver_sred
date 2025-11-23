@@ -33,7 +33,8 @@ def _neighbor_index(cell_dict: Dict[str, Any], center: int, key: str) -> Optiona
     d = cell_dict.get(str(center))
     if not d:
         return None
-    return d.get(key)
+    # Hardened: safe get to avoid KeyError when neighbor keys are absent in mocks/boundaries
+    return d.get(key, None)
 
 
 # ---------------- Gradient helpers ----------------
@@ -103,7 +104,7 @@ def _grad_vz_at_zface(cell_dict, center, dx, dy, dz, timestep=None):
 def adv_vx(cell_dict, center, dx, dy, dz, timestep=None):
     """Adv(v_x) at the x-face (i+1/2)."""
     u_face = vx_i_plus_half(cell_dict, center, timestep)
-    # collocate v and w by averaging neighbors
+    # collocate v and w by sampling at the same face location
     v_face = vy_j_plus_half(cell_dict, center, timestep)
     w_face = vz_k_plus_half(cell_dict, center, timestep)
 
