@@ -38,7 +38,7 @@ def update_velocity_x(cell_dict: Dict[str, Any], center: int,
     v_n = vx_i_plus_half(cell_dict, center, timestep)
     lap = laplacian_vx(cell_dict, center, dx, timestep)   # FIXED
     adv = adv_vx(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_x(cell_dict, center, dx, dy, dz, timestep)
+    gradp = grad_p_x(cell_dict, center, dx, timestep)     # FIXED
     forces = load_external_forces(config)
     F_face = forces["Fx"]
 
@@ -58,7 +58,7 @@ def update_velocity_y(cell_dict: Dict[str, Any], center: int,
     v_n = vy_j_plus_half(cell_dict, center, timestep)
     lap = laplacian_vy(cell_dict, center, dy, timestep)   # FIXED
     adv = adv_vy(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_y(cell_dict, center, dx, dy, dz, timestep)
+    gradp = grad_p_y(cell_dict, center, dy, timestep)     # FIXED
     forces = load_external_forces(config)
     F_face = forces["Fy"]
 
@@ -78,7 +78,7 @@ def update_velocity_z(cell_dict: Dict[str, Any], center: int,
     v_n = vz_k_plus_half(cell_dict, center, timestep)
     lap = laplacian_vz(cell_dict, center, dz, timestep)   # FIXED
     adv = adv_vz(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_z(cell_dict, center, dx, dy, dz, timestep)
+    gradp = grad_p_z(cell_dict, center, dz, timestep)     # FIXED
     forces = load_external_forces(config)
     F_face = forces["Fz"]
 
