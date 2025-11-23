@@ -19,7 +19,6 @@
 
 from typing import Dict, Any
 
-# Import solver components
 from src.step_2_time_stepping_loop.mac_diffusion import laplacian_vx, laplacian_vy, laplacian_vz
 from src.step_2_time_stepping_loop.mac_advection_ops import adv_vx, adv_vy, adv_vz
 from src.step_2_time_stepping_loop.mac_gradients import grad_p_x, grad_p_y, grad_p_z
@@ -37,7 +36,7 @@ def update_velocity_x(cell_dict: Dict[str, Any], center: int,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_x* at i+1/2 face."""
     v_n = vx_i_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vx(cell_dict, center, dx, dy, dz, timestep)
+    lap = laplacian_vx(cell_dict, center, dx, timestep)   # FIXED
     adv = adv_vx(cell_dict, center, dx, dy, dz, timestep)
     gradp = grad_p_x(cell_dict, center, dx, dy, dz, timestep)
     forces = load_external_forces(config)
@@ -57,7 +56,7 @@ def update_velocity_y(cell_dict: Dict[str, Any], center: int,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_y* at j+1/2 face."""
     v_n = vy_j_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vy(cell_dict, center, dx, dy, dz, timestep)
+    lap = laplacian_vy(cell_dict, center, dy, timestep)   # FIXED
     adv = adv_vy(cell_dict, center, dx, dy, dz, timestep)
     gradp = grad_p_y(cell_dict, center, dx, dy, dz, timestep)
     forces = load_external_forces(config)
@@ -77,7 +76,7 @@ def update_velocity_z(cell_dict: Dict[str, Any], center: int,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_z* at k+1/2 face."""
     v_n = vz_k_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vz(cell_dict, center, dx, dy, dz, timestep)
+    lap = laplacian_vz(cell_dict, center, dz, timestep)   # FIXED
     adv = adv_vz(cell_dict, center, dx, dy, dz, timestep)
     gradp = grad_p_z(cell_dict, center, dx, dy, dz, timestep)
     forces = load_external_forces(config)
