@@ -3,11 +3,13 @@
 
 import pytest
 
-from src.step_2_time_stepping_loop.mac_advection import (
+# Import advection operators from the new ops module
+from src.step_2_time_stepping_loop.mac_advection_ops import (
     adv_vx,
     adv_vy,
     adv_vz,
 )
+
 from tests.mocks.cell_dict_mock import cell_dict
 
 
@@ -19,19 +21,14 @@ from tests.mocks.cell_dict_mock import cell_dict
 
 def test_adv_vx_central_t0():
     dx = dy = dz = 1.0
-    # Compute Adv(vx) at central cell 13, timestep 0 (initial condition)
     result = adv_vx(cell_dict, 13, dx, dy, dz, timestep=0)
-    # Must return a float
     assert isinstance(result, float)
-    # Must not be NaN
     assert result == result
-    # Must be within a reasonable bound (sanity check)
     assert abs(result) < 1e3
 
 
 def test_adv_vy_central_t0():
     dx = dy = dz = 1.0
-    # Compute Adv(vy) at central cell 13, timestep 0
     result = adv_vy(cell_dict, 13, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
     assert result == result
@@ -40,7 +37,6 @@ def test_adv_vy_central_t0():
 
 def test_adv_vz_central_t0():
     dx = dy = dz = 1.0
-    # Compute Adv(vz) at central cell 13, timestep 0
     result = adv_vz(cell_dict, 13, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
     assert result == result
@@ -49,7 +45,6 @@ def test_adv_vz_central_t0():
 
 def test_adv_vx_central_latest():
     dx = dy = dz = 1.0
-    # Compute Adv(vx) at central cell 13, latest timestep (None → n)
     result = adv_vx(cell_dict, 13, dx, dy, dz)
     assert isinstance(result, float)
     assert result == result
@@ -58,7 +53,6 @@ def test_adv_vx_central_latest():
 
 def test_adv_vy_central_latest():
     dx = dy = dz = 1.0
-    # Compute Adv(vy) at central cell 13, latest timestep
     result = adv_vy(cell_dict, 13, dx, dy, dz)
     assert isinstance(result, float)
     assert result == result
@@ -67,7 +61,6 @@ def test_adv_vy_central_latest():
 
 def test_adv_vz_central_latest():
     dx = dy = dz = 1.0
-    # Compute Adv(vz) at central cell 13, latest timestep
     result = adv_vz(cell_dict, 13, dx, dy, dz)
     assert isinstance(result, float)
     assert result == result
@@ -81,16 +74,13 @@ def test_adv_vz_central_latest():
 
 def test_adv_vx_boundary():
     dx = dy = dz = 1.0
-    # Adv(vx) at boundary cell 0, timestep 0
     result = adv_vx(cell_dict, 0, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
-    # Must not be NaN even though neighbors are missing
     assert result == result
 
 
 def test_adv_vy_boundary():
     dx = dy = dz = 1.0
-    # Adv(vy) at boundary cell 0, timestep 0
     result = adv_vy(cell_dict, 0, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
     assert result == result
@@ -98,7 +88,6 @@ def test_adv_vy_boundary():
 
 def test_adv_vz_boundary():
     dx = dy = dz = 1.0
-    # Adv(vz) at boundary cell 0, timestep 0
     result = adv_vz(cell_dict, 0, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
     assert result == result
@@ -112,7 +101,6 @@ def test_adv_vz_boundary():
 @pytest.mark.parametrize("func", [adv_vx, adv_vy, adv_vz])
 def test_advection_returns_float(func):
     dx = dy = dz = 1.0
-    # All advection functions must return a float at central cell 13, timestep 0
     result = func(cell_dict, 13, dx, dy, dz, timestep=0)
     assert isinstance(result, float)
 
@@ -120,10 +108,9 @@ def test_advection_returns_float(func):
 @pytest.mark.parametrize("func", [adv_vx, adv_vy, adv_vz])
 def test_advection_finite_values(func):
     dx = dy = dz = 1.0
-    # All advection functions must return finite values (not NaN, not infinite)
     result = func(cell_dict, 13, dx, dy, dz, timestep=0)
     assert result == result  # not NaN
-    assert abs(result) < 1e6  # finite bound (looser than central tests)
+    assert abs(result) < 1e6  # finite bound
 
 
 

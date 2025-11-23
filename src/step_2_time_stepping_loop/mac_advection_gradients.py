@@ -1,6 +1,36 @@
-# src/step_2_time_stepping_loop/mac_advection.py
-# 🌀 MAC Advection — compute nonlinear convective terms Adv(v_x), Adv(v_y), Adv(v_z) at face centers
+# src/step_2_time_stepping_loop/mac_advection_gradients.py
+# 🌀 MAC Advection — gradient helpers for nonlinear convective terms
 # Adv(v) = u ∂v/∂x + v ∂v/∂y + w ∂v/∂z, evaluated at the corresponding MAC face
+#
+# Boundary Fallback Theory in CFD:
+# In finite-difference and finite-volume CFD solvers, advection terms are computed using neighboring cell values.
+# At boundaries, however, a neighbor cell may not exist (e.g., outside the domain). If the solver attempts to access
+# a missing neighbor, it risks a KeyError or undefined behavior.
+#
+# To prevent this, a common strategy is to reuse the central cell’s own velocity value when a neighbor is missing.
+# This ensures the computation remains finite and stable.
+#
+# Why Reusing the Central Cell Works:
+# Consider a central difference stencil for a velocity component v_x:
+#
+#   ∂v_x/∂y |_(i+1/2,j,k) ≈ ( v_x(i+1/2, j+1, k) - v_x(i+1/2, j-1, k) ) / (2 Δy)
+#
+# Normally, this requires both j+1 and j-1 neighbors.
+# At a boundary, one of these neighbors may not exist.
+# If we reuse the central cell’s value in place of the missing neighbor, the numerator collapses:
+#
+#   v_x(central) - v_x(central) = 0
+#
+# Thus, the derivative becomes zero.
+#
+# Link to Neumann Boundary Condition:
+# This fallback enforces a zero-gradient boundary condition, also known as a Neumann condition:
+#
+#   ∂v/∂n = 0   at the boundary
+#
+# Physical meaning: No flux across the boundary; the velocity does not change in the normal direction.
+# Numerical meaning: The solver avoids undefined values and maintains stability.
+# Default behavior: In many CFD codes, when ghost cells are not explicitly defined, the Neumann condition is the safe default.
 
 from typing import Dict, Any, Optional
 
@@ -25,7 +55,6 @@ from src.step_2_time_stepping_loop.mac_interpolation.vz import (
 
 debug = False  # toggle for verbose logging
 
-
 # ---------------- Utilities ----------------
 
 def _neighbor_index(cell_dict: Dict[str, Any], center: int, key: str) -> Optional[int]:
@@ -33,9 +62,7 @@ def _neighbor_index(cell_dict: Dict[str, Any], center: int, key: str) -> Optiona
     d = cell_dict.get(str(center))
     if not d:
         return None
-    # Hardened: safe get to avoid KeyError when neighbor keys are absent in mocks/boundaries
     return d.get(key, None)
-
 
 # ---------------- Gradient helpers ----------------
 
@@ -97,39 +124,6 @@ def _grad_vz_at_zface(cell_dict, center, dx, dy, dz, timestep=None):
     dvz_dy = (vz_j_plus - vz_j_minus) / (2.0 * dy)
 
     return {"dx": dvz_dx, "dy": dvz_dy, "dz": dvz_dz}
-
-
-# ---------------- Advection operators ----------------
-
-def adv_vx(cell_dict, center, dx, dy, dz, timestep=None):
-    """Adv(v_x) at the x-face (i+1/2)."""
-    u_face = vx_i_plus_half(cell_dict, center, timestep)
-    # collocate v and w by sampling at the same face location
-    v_face = vy_j_plus_half(cell_dict, center, timestep)
-    w_face = vz_k_plus_half(cell_dict, center, timestep)
-
-    grads = _grad_vx_at_xface(cell_dict, center, dx, dy, dz, timestep)
-    return u_face * grads["dx"] + v_face * grads["dy"] + w_face * grads["dz"]
-
-
-def adv_vy(cell_dict, center, dx, dy, dz, timestep=None):
-    """Adv(v_y) at the y-face (j+1/2)."""
-    v_face = vy_j_plus_half(cell_dict, center, timestep)
-    u_face = vx_i_plus_half(cell_dict, center, timestep)
-    w_face = vz_k_plus_half(cell_dict, center, timestep)
-
-    grads = _grad_vy_at_yface(cell_dict, center, dx, dy, dz, timestep)
-    return u_face * grads["dx"] + v_face * grads["dy"] + w_face * grads["dz"]
-
-
-def adv_vz(cell_dict, center, dx, dy, dz, timestep=None):
-    """Adv(v_z) at the z-face (k+1/2)."""
-    w_face = vz_k_plus_half(cell_dict, center, timestep)
-    u_face = vx_i_plus_half(cell_dict, center, timestep)
-    v_face = vy_j_plus_half(cell_dict, center, timestep)
-
-    grads = _grad_vz_at_zface(cell_dict, center, dx, dy, dz, timestep)
-    return u_face * grads["dx"] + v_face * grads["dy"] + w_face * grads["dz"]
 
 
 
