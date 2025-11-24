@@ -7,11 +7,7 @@
 # Inputs:
 #   - cell_dict: grid dictionary with time_history
 #   - center: flat index of central cell
-#   - dx, dy, dz: grid spacings
-#   - dt: timestep size
-#   - rho: fluid density
-#   - mu: fluid viscosity
-#   - config: full input configuration (for external forces)
+#   - config: full input configuration (JSON dict)
 #   - timestep: current timestep index
 #
 # Outputs:
@@ -22,70 +18,67 @@ from typing import Dict, Any
 from src.step_2_time_stepping_loop.mac_diffusion import laplacian_vx, laplacian_vy, laplacian_vz
 from src.step_2_time_stepping_loop.mac_advection_ops import adv_vx, adv_vy, adv_vz
 from src.step_2_time_stepping_loop.mac_gradients import grad_p_x, grad_p_y, grad_p_z
-from src.step_2_time_stepping_loop.force_utils import load_external_forces
 from src.step_2_time_stepping_loop.mac_interpolation.vx import vx_i_plus_half
 from src.step_2_time_stepping_loop.mac_interpolation.vy import vy_j_plus_half
 from src.step_2_time_stepping_loop.mac_interpolation.vz import vz_k_plus_half
+from src.step_2_time_stepping_loop.parameter_utils import load_solver_parameters
 
 debug = False  # toggle for verbose logging
 
 
 def update_velocity_x(cell_dict: Dict[str, Any], center: int,
-                      dx: float, dy: float, dz: float,
-                      dt: float, rho: float, mu: float,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_x* at i+1/2 face."""
+    params = load_solver_parameters(config)
     v_n = vx_i_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vx(cell_dict, center, dx, timestep)   # FIXED
-    adv = adv_vx(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_x(cell_dict, center, dx, timestep)     # FIXED
-    forces = load_external_forces(config)
-    F_face = forces["Fx"]
+    lap = laplacian_vx(cell_dict, center, params["dx"], timestep)
+    adv = adv_vx(cell_dict, center, params["dx"], params["dy"], params["dz"], timestep)
+    gradp = grad_p_x(cell_dict, center, params["dx"], timestep)
 
-    v_star = v_n + (dt / rho) * (mu * lap - rho * adv - gradp + F_face)
+    v_star = v_n + (params["dt"] / params["rho"]) * (
+        params["mu"] * lap - params["rho"] * adv - gradp + params["Fx"]
+    )
 
     if debug:
-        print(f"[Update vx] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, F={F_face} -> v*={v_star}")
+        print(f"[Update vx] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, Fx={params['Fx']} -> v*={v_star}")
 
     return v_star
 
 
 def update_velocity_y(cell_dict: Dict[str, Any], center: int,
-                      dx: float, dy: float, dz: float,
-                      dt: float, rho: float, mu: float,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_y* at j+1/2 face."""
+    params = load_solver_parameters(config)
     v_n = vy_j_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vy(cell_dict, center, dy, timestep)   # FIXED
-    adv = adv_vy(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_y(cell_dict, center, dy, timestep)     # FIXED
-    forces = load_external_forces(config)
-    F_face = forces["Fy"]
+    lap = laplacian_vy(cell_dict, center, params["dy"], timestep)
+    adv = adv_vy(cell_dict, center, params["dx"], params["dy"], params["dz"], timestep)
+    gradp = grad_p_y(cell_dict, center, params["dy"], timestep)
 
-    v_star = v_n + (dt / rho) * (mu * lap - rho * adv - gradp + F_face)
+    v_star = v_n + (params["dt"] / params["rho"]) * (
+        params["mu"] * lap - params["rho"] * adv - gradp + params["Fy"]
+    )
 
     if debug:
-        print(f"[Update vy] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, F={F_face} -> v*={v_star}")
+        print(f"[Update vy] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, Fy={params['Fy']} -> v*={v_star}")
 
     return v_star
 
 
 def update_velocity_z(cell_dict: Dict[str, Any], center: int,
-                      dx: float, dy: float, dz: float,
-                      dt: float, rho: float, mu: float,
                       config: Dict[str, Any], timestep: int | None = None) -> float:
     """Predict intermediate v_z* at k+1/2 face."""
+    params = load_solver_parameters(config)
     v_n = vz_k_plus_half(cell_dict, center, timestep)
-    lap = laplacian_vz(cell_dict, center, dz, timestep)   # FIXED
-    adv = adv_vz(cell_dict, center, dx, dy, dz, timestep)
-    gradp = grad_p_z(cell_dict, center, dz, timestep)     # FIXED
-    forces = load_external_forces(config)
-    F_face = forces["Fz"]
+    lap = laplacian_vz(cell_dict, center, params["dz"], timestep)
+    adv = adv_vz(cell_dict, center, params["dx"], params["dy"], params["dz"], timestep)
+    gradp = grad_p_z(cell_dict, center, params["dz"], timestep)
 
-    v_star = v_n + (dt / rho) * (mu * lap - rho * adv - gradp + F_face)
+    v_star = v_n + (params["dt"] / params["rho"]) * (
+        params["mu"] * lap - params["rho"] * adv - gradp + params["Fz"]
+    )
 
     if debug:
-        print(f"[Update vz] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, F={F_face} -> v*={v_star}")
+        print(f"[Update vz] center={center}, v_n={v_n}, lap={lap}, adv={adv}, gradp={gradp}, Fz={params['Fz']} -> v*={v_star}")
 
     return v_star
 
