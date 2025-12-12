@@ -1,0 +1,39 @@
+# src/step_2_time_stepping_loop/mac_diffusion_x.py
+from typing import Dict, Any
+from src.step_2_time_stepping_loop.mac_interpolation import (
+    vx_i_plus_half, vx_i_minus_half, vx_i_plus_three_half,
+    # TODO: vx_j±1, vx_k±1
+)
+
+debug = False
+
+def laplacian_vx(cell_dict: Dict[str, Any], center: int,
+                 dx: float, dy: float, dz: float,
+                 timestep: int | None = None) -> float:
+    """
+    Compute full ∇²vx at a cell using MAC face velocities.
+    Includes contributions from x-, y-, and z-directions:
+
+        ∇²vx = ∂²vx/∂x² + ∂²vx/∂y² + ∂²vx/∂z²
+
+    Stencils:
+      - ∂²vx/∂x²: (vx(i+3/2) - 2*vx(i+1/2) + vx(i-1/2)) / dx^2
+      - ∂²vx/∂y²: (vx(j+1) - 2*vx(j) + vx(j-1)) / dy^2   [TODO]
+      - ∂²vx/∂z²: (vx(k+1) - 2*vx(k) + vx(k-1)) / dz^2   [TODO]
+    """
+    v_ip3half = vx_i_plus_three_half(cell_dict, center, timestep)
+    v_iphalf = vx_i_plus_half(cell_dict, center, timestep)
+    v_iminushalf = vx_i_minus_half(cell_dict, center, timestep)
+    d2vx_dx2 = (v_ip3half - 2.0 * v_iphalf + v_iminushalf) / (dx * dx)
+
+    # placeholders for cross terms
+    d2vx_dy2 = 0.0
+    d2vx_dz2 = 0.0
+
+    out = d2vx_dx2 + d2vx_dy2 + d2vx_dz2
+    if debug:
+        print(f"∇²vx at cell {center}: dx2={d2vx_dx2}, dy2={d2vx_dy2}, dz2={d2vx_dz2}, result={out}")
+    return out
+
+
+
