@@ -79,5 +79,64 @@ def vy_j_minus_three_half(cell_dict: Dict[str, Any], j_cell: int, timestep: int 
         print(f"vy_j-3/2 between {jm1} and {jm2} -> {out}")
     return out
 
+def vy_i_plus_one(cell_dict: Dict[str, Any], j_cell: int, timestep: int | None = None) -> float:
+    """
+    Interpolate vy at (i+1, j+1/2, k).
+    """
+    v_j = _get_velocity(cell_dict, j_cell, timestep, "vy")
+    ip1 = cell_dict[str(j_cell)].get("flat_index_i_plus_1")
+    if ip1 is None:
+        return v_j  # Neumann fallback
+    v_ip1 = _get_velocity(cell_dict, ip1, timestep, "vy")
+    out = 0.5 * (v_j + v_ip1)
+    if debug:
+        print(f"vy_i+1 between {j_cell} and {ip1} -> {out}")
+    return out
+
+
+def vy_i_minus_one(cell_dict: Dict[str, Any], j_cell: int, timestep: int | None = None) -> float:
+    """
+    Interpolate vy at (i-1, j+1/2, k).
+    """
+    v_j = _get_velocity(cell_dict, j_cell, timestep, "vy")
+    im1 = cell_dict[str(j_cell)].get("flat_index_i_minus_1")
+    if im1 is None:
+        return v_j  # Neumann fallback
+    v_im1 = _get_velocity(cell_dict, im1, timestep, "vy")
+    out = 0.5 * (v_j + v_im1)
+    if debug:
+        print(f"vy_i-1 between {im1} and {j_cell} -> {out}")
+    return out
+
+
+def vy_k_plus_one(cell_dict: Dict[str, Any], j_cell: int, timestep: int | None = None) -> float:
+    """
+    Interpolate vy at (i, j+1/2, k+1).
+    """
+    v_j = _get_velocity(cell_dict, j_cell, timestep, "vy")
+    kp1 = cell_dict[str(j_cell)].get("flat_index_k_plus_1")
+    if kp1 is None:
+        return v_j  # Neumann fallback
+    v_kp1 = _get_velocity(cell_dict, kp1, timestep, "vy")
+    out = 0.5 * (v_j + v_kp1)
+    if debug:
+        print(f"vy_k+1 between {j_cell} and {kp1} -> {out}")
+    return out
+
+
+def vy_k_minus_one(cell_dict: Dict[str, Any], j_cell: int, timestep: int | None = None) -> float:
+    """
+    Interpolate vy at (i, j+1/2, k-1).
+    """
+    v_j = _get_velocity(cell_dict, j_cell, timestep, "vy")
+    km1 = cell_dict[str(j_cell)].get("flat_index_k_minus_1")
+    if km1 is None:
+        return v_j  # Neumann fallback
+    v_km1 = _get_velocity(cell_dict, km1, timestep, "vy")
+    out = 0.5 * (v_j + v_km1)
+    if debug:
+        print(f"vy_k-1 between {km1} and {j_cell} -> {out}")
+    return out
+
 
 
