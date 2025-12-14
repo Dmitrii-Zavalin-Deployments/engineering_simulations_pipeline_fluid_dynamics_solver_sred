@@ -17,88 +17,116 @@ from tests.mocks.cell_dict_mock import cell_dict
 
 
 def test_vz_k_plus_half_t0():
-    # Between central (13, vz=1.0) and above neighbor (22, vz=1.5)
     result = vz_k_plus_half(cell_dict, 13, timestep=0)
-    assert abs(result - 0.5 * (1.0 + 1.5)) < 1e-6
+    central = cell_dict[str(13)]["vz"][0]
+    neighbor_index = cell_dict[str(13)]["flat_index_k_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
+    assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_plus_half_latest():
-    # Defaults to timestep=1 (central vz=1.1, above vz=1.6)
     result = vz_k_plus_half(cell_dict, 13)
-    assert abs(result - 0.5 * (1.1 + 1.6)) < 1e-6
+    central = cell_dict[str(13)]["vz"][1]
+    neighbor_index = cell_dict[str(13)]["flat_index_k_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
+    assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_minus_half_t0():
-    # Between central (13, vz=1.0) and below neighbor (4, vz=0.5)
     result = vz_k_minus_half(cell_dict, 13, timestep=0)
-    assert abs(result - 0.5 * (1.0 + 0.5)) < 1e-6
+    central = cell_dict[str(13)]["vz"][0]
+    neighbor_index = cell_dict[str(13)]["flat_index_k_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
+    assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_minus_half_latest():
-    # Defaults to timestep=1 (central vz=1.1, below vz=0.6)
     result = vz_k_minus_half(cell_dict, 13)
-    assert abs(result - 0.5 * (1.1 + 0.6)) < 1e-6
+    central = cell_dict[str(13)]["vz"][1]
+    neighbor_index = cell_dict[str(13)]["flat_index_k_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
+    assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_plus_three_half_t0():
-    # Start from below neighbor (4) -> central (13) -> above (22)
-    # Average vz from central (13) and above (22) at timestep=0
     result = vz_k_plus_three_half(cell_dict, 4, timestep=0)
-    expected = 0.5 * (1.0 + 1.5)  # vz(13) + vz(22)
+    central_index = cell_dict[str(4)]["flat_index_k_plus_1"]
+    central = cell_dict[str(central_index)]["vz"][0]
+    neighbor_index = cell_dict[str(central_index)]["flat_index_k_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_plus_three_half_latest():
-    # Start from below neighbor (4) -> central (13) -> above (22)
-    # Average vz from central (13) and above (22) at latest timestep=1
     result = vz_k_plus_three_half(cell_dict, 4)
-    expected = 0.5 * (1.1 + 1.6)  # vz(13) + vz(22)
+    central_index = cell_dict[str(4)]["flat_index_k_plus_1"]
+    central = cell_dict[str(central_index)]["vz"][1]
+    neighbor_index = cell_dict[str(central_index)]["flat_index_k_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_minus_three_half_t0():
-    # Start from above neighbor (22) -> central (13) -> below (4)
-    # Average vz from central (13) and below (4) at timestep=0
     result = vz_k_minus_three_half(cell_dict, 22, timestep=0)
-    expected = 0.5 * (1.0 + 0.5)  # vz(13) + vz(4)
+    central_index = cell_dict[str(22)]["flat_index_k_minus_1"]
+    central = cell_dict[str(central_index)]["vz"][0]
+    neighbor_index = cell_dict[str(central_index)]["flat_index_k_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_k_minus_three_half_latest():
-    # Start from above neighbor (22) -> central (13) -> below (4)
-    # Average vz from central (13) and below (4) at latest timestep=1
     result = vz_k_minus_three_half(cell_dict, 22)
-    expected = 0.5 * (1.1 + 0.6)  # vz(13) + vz(4)
+    central_index = cell_dict[str(22)]["flat_index_k_minus_1"]
+    central = cell_dict[str(central_index)]["vz"][1]
+    neighbor_index = cell_dict[str(central_index)]["flat_index_k_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
-# ---------------- New tests for cross-direction vz interpolations ----------------
+# ---------------- Refactored cross-direction vz interpolations ----------------
 
 def test_vz_i_plus_one_t0():
-    # Between central (13, vz=1.0) and i+1 neighbor (mocked as vz=1.3)
     result = vz_i_plus_one(cell_dict, 13, timestep=0)
-    expected = 0.5 * (1.0 + 1.3)
+    central = cell_dict[str(13)]["vz"][0]
+    neighbor_index = cell_dict[str(13)]["flat_index_i_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_i_minus_one_latest():
-    # Between central (13, vz=1.1) and i-1 neighbor (mocked as vz=0.7)
     result = vz_i_minus_one(cell_dict, 13)
-    expected = 0.5 * (1.1 + 0.7)
+    central = cell_dict[str(13)]["vz"][1]
+    neighbor_index = cell_dict[str(13)]["flat_index_i_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_j_plus_one_t0():
-    # Between central (13, vz=1.0) and j+1 neighbor (mocked as vz=1.2)
     result = vz_j_plus_one(cell_dict, 13, timestep=0)
-    expected = 0.5 * (1.0 + 1.2)
+    central = cell_dict[str(13)]["vz"][0]
+    neighbor_index = cell_dict[str(13)]["flat_index_j_plus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][0]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 
 def test_vz_j_minus_one_latest():
-    # Between central (13, vz=1.1) and j-1 neighbor (mocked as vz=0.9)
     result = vz_j_minus_one(cell_dict, 13)
-    expected = 0.5 * (1.1 + 0.9)
+    central = cell_dict[str(13)]["vz"][1]
+    neighbor_index = cell_dict[str(13)]["flat_index_j_minus_1"]
+    neighbor = cell_dict[str(neighbor_index)]["vz"][1]
+    expected = 0.5 * (central + neighbor)
     assert abs(result - expected) < 1e-6
 
 

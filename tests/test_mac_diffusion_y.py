@@ -59,3 +59,4 @@ def test_laplacian_vy_symmetry_check():
     assert abs(result) < 5.0  # loose bound, depends on mock values
 
 
+
