@@ -8,6 +8,10 @@ from src.step_2_time_stepping_loop.mac_interpolation import (
     vy_j_minus_half,
     vy_j_plus_three_half,
     vy_j_minus_three_half,
+    vy_i_plus_one,
+    vy_i_minus_one,
+    vy_k_plus_one,
+    vy_k_minus_one,
 )
 from tests.mocks.cell_dict_mock import cell_dict
 
@@ -65,6 +69,36 @@ def test_vy_j_minus_three_half_latest():
     # Average vy from central (13) and down (10) at latest timestep=1
     result = vy_j_minus_three_half(cell_dict, 16)
     expected = 0.5 * (1.1 + 0.6)  # vy(13) + vy(10)
+    assert abs(result - expected) < 1e-6
+
+
+# ---------------- New tests for cross-direction vy interpolations ----------------
+
+def test_vy_i_plus_one_t0():
+    # Between central (13, vy=1.0) and i+1 neighbor (mocked as vy=1.3)
+    result = vy_i_plus_one(cell_dict, 13, timestep=0)
+    expected = 0.5 * (1.0 + 1.3)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vy_i_minus_one_latest():
+    # Between central (13, vy=1.1) and i-1 neighbor (mocked as vy=0.7)
+    result = vy_i_minus_one(cell_dict, 13)
+    expected = 0.5 * (1.1 + 0.7)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vy_k_plus_one_t0():
+    # Between central (13, vy=1.0) and k+1 neighbor (mocked as vy=1.4)
+    result = vy_k_plus_one(cell_dict, 13, timestep=0)
+    expected = 0.5 * (1.0 + 1.4)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vy_k_minus_one_latest():
+    # Between central (13, vy=1.1) and k-1 neighbor (mocked as vy=0.8)
+    result = vy_k_minus_one(cell_dict, 13)
+    expected = 0.5 * (1.1 + 0.8)
     assert abs(result - expected) < 1e-6
 
 

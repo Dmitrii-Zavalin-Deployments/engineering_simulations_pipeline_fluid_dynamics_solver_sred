@@ -8,6 +8,10 @@ from src.step_2_time_stepping_loop.mac_interpolation import (
     vx_i_minus_half,
     vx_i_plus_three_half,
     vx_i_minus_three_half,
+    vx_j_plus_one,
+    vx_j_minus_one,
+    vx_k_plus_one,
+    vx_k_minus_one,
 )
 from tests.mocks.cell_dict_mock import cell_dict
 
@@ -65,6 +69,36 @@ def test_vx_i_minus_three_half_latest():
     # Average vx from central (13) and left (12) at latest timestep=1
     result = vx_i_minus_three_half(cell_dict, 14)
     expected = 0.5 * (1.1 + 0.6)  # vx(13) + vx(12)
+    assert abs(result - expected) < 1e-6
+
+
+# ---------------- New tests for cross-direction vx interpolations ----------------
+
+def test_vx_j_plus_one_t0():
+    # Between central (13, vx=1.0) and j+1 neighbor (mocked as vx=1.2)
+    result = vx_j_plus_one(cell_dict, 13, timestep=0)
+    expected = 0.5 * (1.0 + 1.2)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vx_j_minus_one_latest():
+    # Between central (13, vx=1.1) and j-1 neighbor (mocked as vx=0.9)
+    result = vx_j_minus_one(cell_dict, 13)
+    expected = 0.5 * (1.1 + 0.9)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vx_k_plus_one_t0():
+    # Between central (13, vx=1.0) and k+1 neighbor (mocked as vx=1.4)
+    result = vx_k_plus_one(cell_dict, 13, timestep=0)
+    expected = 0.5 * (1.0 + 1.4)
+    assert abs(result - expected) < 1e-6
+
+
+def test_vx_k_minus_one_latest():
+    # Between central (13, vx=1.1) and k-1 neighbor (mocked as vx=0.7)
+    result = vx_k_minus_one(cell_dict, 13)
+    expected = 0.5 * (1.1 + 0.7)
     assert abs(result - expected) < 1e-6
 
 
