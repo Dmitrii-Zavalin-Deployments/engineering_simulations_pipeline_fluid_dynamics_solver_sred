@@ -50,7 +50,7 @@ def test_vy_j_minus_three_half_t0(monkeypatch):
     # Force missing deeper neighbor to simulate boundary
     monkeypatch.setitem(cell_dict["10"], "flat_index_j_minus_1", None)
     result = vy.vy_j_minus_three_half(cell_dict, 16, timestep=0)
-    # Should fallback to velocity at j-1 (central cell)
+    # Fallback: should return velocity at j-1 (central cell)
     expected = cell_dict["13"]["time_history"]["0"]["velocity"]["vy"]
     assert result == pytest.approx(expected)
 
