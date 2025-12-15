@@ -42,13 +42,12 @@ def test_vx_i_plus_three_half_t0():
     assert result == pytest.approx(expected)
 
 
-def test_vx_i_minus_three_half_t0():
+def test_vx_i_minus_three_half_t0(monkeypatch):
+    # Force missing left neighbor to simulate boundary
+    monkeypatch.setitem(cell_dict["12"], "flat_index_i_minus_1", None)
     result = vx.vx_i_minus_three_half(cell_dict, 13, timestep=0)
-    im1 = cell_dict["13"]["flat_index_i_minus_1"]
-    im2 = cell_dict[str(im1)]["flat_index_i_minus_1"]
-    v_im1 = cell_dict[str(im1)]["time_history"]["0"]["velocity"]["vx"]
-    v_im2 = cell_dict[str(im2)]["time_history"]["0"]["velocity"]["vx"]
-    expected = 0.5 * (v_im1 + v_im2)
+    # Should fallback to velocity at i-1
+    expected = cell_dict["12"]["time_history"]["0"]["velocity"]["vx"]
     assert result == pytest.approx(expected)
 
 
@@ -113,8 +112,8 @@ def test_vx_debug_logging(capsys):
 
 # --- Robustness against malformed input --------------------------------------
 
-def test_vx_invalid_timestep_raises_keyerror():
-    with pytest.raises(KeyError):
+def test_vx_invalid_timestep_raises_valueerror():
+    with pytest.raises(ValueError):
         vx.vx_i_plus_half(cell_dict, 13, timestep=99)
 
 
@@ -134,5 +133,6 @@ def test_vx_symmetry_equal_neighbors(monkeypatch):
     monkeypatch.setitem(cell_dict[str(neighbor_index)]["time_history"]["0"]["velocity"], "vx", 1.0)
     result = vx.vx_i_plus_half(cell_dict, 13, timestep=0)
     assert result == pytest.approx(1.0)
+
 
 
