@@ -35,18 +35,22 @@ def test_vy_j_minus_half_t0():
 def test_vy_j_plus_three_half_t0():
     result = vy.vy_j_plus_three_half(cell_dict, 10, timestep=0)
     jp1 = cell_dict["10"]["flat_index_j_plus_1"]
-    jp2 = cell_dict[str(jp1)]["flat_index_j_plus_1"]
-    v_jp1 = cell_dict[str(jp1)]["time_history"]["0"]["velocity"]["vy"]
-    v_jp2 = cell_dict[str(jp2)]["time_history"]["0"]["velocity"]["vy"]
-    expected = 0.5 * (v_jp1 + v_jp2)
+    jp2 = cell_dict[str(jp1)].get("flat_index_j_plus_1")
+    if jp2 is None:
+        # Fallback: only j+1 available
+        expected = cell_dict[str(jp1)]["time_history"]["0"]["velocity"]["vy"]
+    else:
+        v_jp1 = cell_dict[str(jp1)]["time_history"]["0"]["velocity"]["vy"]
+        v_jp2 = cell_dict[str(jp2)]["time_history"]["0"]["velocity"]["vy"]
+        expected = 0.5 * (v_jp1 + v_jp2)
     assert result == pytest.approx(expected)
 
 
 def test_vy_j_minus_three_half_t0(monkeypatch):
-    # Force missing down neighbor to simulate boundary
+    # Force missing deeper neighbor to simulate boundary
     monkeypatch.setitem(cell_dict["10"], "flat_index_j_minus_1", None)
     result = vy.vy_j_minus_three_half(cell_dict, 16, timestep=0)
-    # Should fallback to velocity at j-1
+    # Should fallback to velocity at j-1 (central cell)
     expected = cell_dict["13"]["time_history"]["0"]["velocity"]["vy"]
     assert result == pytest.approx(expected)
 
@@ -82,6 +86,7 @@ def test_vy_j_plus_three_half_missing_second(monkeypatch):
     jp1 = cell_dict["13"]["flat_index_j_plus_1"]
     monkeypatch.setitem(cell_dict[str(jp1)], "flat_index_j_plus_1", None)
     result = vy.vy_j_plus_three_half(cell_dict, 10, timestep=0)
+    # Fallback: only j+1 available
     expected = cell_dict[str(jp1)]["time_history"]["0"]["velocity"]["vy"]
     assert result == pytest.approx(expected)
 
